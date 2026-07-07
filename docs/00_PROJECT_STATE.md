@@ -2,12 +2,12 @@
 
 Version:
 
-v0.1.0
+v0.2.0
 
 Phase:
 
-M0 Completed
+M1 Completed
 
 Status:
 
-Engineering foundation implemented
+Scientific Spaces source pipeline implemented

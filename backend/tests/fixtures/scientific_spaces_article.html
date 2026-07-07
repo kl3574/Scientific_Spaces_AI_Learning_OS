@@ -1,0 +1,39 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Attention机制的一个直观解释 - 科学空间</title>
+  </head>
+  <body>
+    <article class="post">
+      <nav class="crumbs">
+        <a href="/">首页</a>
+        <a href="/category/big-data/">信息时代</a>
+      </nav>
+      <h1><a href="https://spaces.ac.cn/archives/1234">Attention机制的一个直观解释</a></h1>
+      <p class="meta">By 苏剑林 | 2024-01-02 | 100位读者</p>
+      <div class="entry-content">
+        <h2>动机</h2>
+        <p>Attention可以写成公式 $QK^T / \sqrt{d}$，并进一步得到权重。</p>
+        <p>
+          这段正文用于模拟科学空间文章中的连续论述。它保留原始段落结构，并包含足够长度来验证正文完整性检查。
+          在真实同步过程中，管线不会改写原文含义，只会将 HTML 结构转换为 Markdown 表示，并把来源 URL、图片、
+          参考文献和分类信息放入 metadata。这里继续补充一些解释性文字，使样例文章超过质量验证的最小长度阈值。
+        </p>
+        <p>
+          从工程角度看，M1 只负责来源数据进入系统前的整理和保存，不提供阅读页面、搜索入口或 AI 问答能力。
+          后续里程碑可以基于 Article 边界扩展功能，但当前 fixture 只用于验证 crawler、parser、converter、storage
+          和 validation 的最小闭环。
+        </p>
+        <p><img src="/usr/uploads/attention.png" alt="attention diagram"></p>
+        <h3>代码</h3>
+        <pre><code>score = q @ k.T</code></pre>
+        <h2>参考文献</h2>
+        <ol>
+          <li><a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a></li>
+        </ol>
+      </div>
+      <p>分类：<a href="/category/big-data/">信息时代</a></p>
+      <p>转载到请包括本文地址：<a href="https://spaces.ac.cn/archives/1234">https://spaces.ac.cn/archives/1234</a></p>
+    </article>
+  </body>
+</html>

@@ -6,6 +6,8 @@
 # Python
 __pycache__/
 *.py[cod]
+.cache/
+.local_data/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
@@ -14,6 +16,9 @@ htmlcov/
 .venv/
 venv/
 backend/.venv/
+backend/.cache/
+backend/.local_data/
+backend/data/
 
 # Node / Next.js
 node_modules/

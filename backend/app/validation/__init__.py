@@ -1,0 +1,1 @@
+"""Article quality validation."""

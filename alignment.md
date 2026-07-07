@@ -1,186 +1,174 @@
-# Task Alignment - Milestone 0 Engineering Foundation
+# Task Alignment - Milestone 1 Scientific Spaces Source Pipeline
 
 ## 1. 背景
 
-当前任务是执行 `kl3574/Scientific_Spaces_AI_Learning_OS` 的 `Milestone 0 - Engineering Foundation`。
+当前任务是执行 `kl3574/Scientific_Spaces_AI_Learning_OS` 的 `Milestone 1 - Scientific Spaces Source Pipeline`。
 
-仓库已有 Bootstrap 文档和空工程目录，当前只允许建立工程骨架，不允许实现 M1-M7 的业务功能。
-
-用户补充的工程约束：
-
-- 不直接修改已有设计文档和 Milestone 文档内容。
-- 如发现设计问题或规范缺口，创建 ADR，不直接改变规范。
-- Backend 必须使用 `pyproject.toml` 管理依赖。
-- Frontend 必须提交 `package.json` 和 `package-lock.json`。
-- Git commit 前必须检查 `git status` 和 `git diff --stat`。
-- 禁止提交 `.env`、`node_modules`、缓存文件、大规模生成文件。
-- 保持未来 M1-M7 扩展兼容。
+M0 工程基础已完成，M1 目标是建立 Scientific Spaces 数据来源管线。当前只允许实现 M1 crawler/parser/markdown converter/storage/validation，不允许实现 M2-M7 功能。
 
 ## 2. 需求
 
-1. 读取指定文档：
+1. 执行前读取指定文档：
    - `docs/00_PROJECT_STATE.md`
    - `docs/02_TDD.md`
    - `docs/03_SOP.md`
-   - `milestones/M0_FOUNDATION.md`
+   - `milestones/M1_SOURCE_PIPELINE.md`
+   - `docs/08_KNOWLEDGE_PIPELINE.md`
+   - `docs/11_SOURCE_POLICY.md`
    - `docs/15_ACCEPTANCE.md`
    - `docs/31_MVP_BOUNDARY.md`
-2. 输出 `Environment Report`，检查：
-   - `git`
-   - `gh auth`
-   - `python`
-   - `node`
-   - `docker`
-3. 保持已有文件，建立并完善：
-   - `backend/`
-   - `frontend/`
-   - `tests/`
-   - `docs/`
-4. Backend 技术冻结：
-   - Python 3.11
-   - FastAPI
-   - `backend/pyproject.toml` 管理依赖
-5. Backend 结构：
-   - `backend/app/main.py`
-   - `backend/app/api/`
-   - `backend/app/core/`
-   - `backend/app/models/`
-   - `backend/app/services/`
-   - `backend/tests/`
-6. Backend 实现：
-   - `GET /health`
-   - 返回 `{"status":"ok"}`
-   - 增加 pytest 测试
-7. Frontend 技术冻结：
-   - Next.js 15
-   - TypeScript
-   - App Router
-   - TailwindCSS
-8. Frontend 首页显示：
-   - `Scientific Spaces AI Learning OS`
-9. Frontend 必须提交：
-   - `frontend/package.json`
-   - `frontend/package-lock.json`
-10. Docker Compose 启动：
-    - backend
-    - frontend
-11. Docker 验证：
-    - `localhost:8000/health`
-    - `localhost:3000`
-12. CI：
-    - `.github/workflows/`
-    - PR 触发
-    - backend pytest
-    - frontend build
-13. Validation：
-    - `pytest`
-    - `npm run build`
-    - `docker compose up`
-14. 更新 `docs/00_PROJECT_STATE.md`：
-    - Version: `v0.1.0`
-    - Phase: `M0 Completed`
-    - Status: `Engineering foundation implemented`
-15. Commit:
-    - `feat: implement M0 engineering foundation`
-16. Push:
-    - `origin/main`
+2. 检查环境并输出 `Environment Report`：
+   - `git status`
+   - `git branch`
+   - `git remote -v`
+   - `python --version`
+   - `docker --version`
+3. 实现 M1 Source Pipeline：
+   - crawler
+   - parser
+   - markdown converter
+   - storage
+   - validation
+4. 创建统一同步入口，例如 `python -m app.sync`。
+5. 添加 pytest 测试：
+   - Crawler Test
+   - Parser Test
+   - Storage Test
+   - Validation Test
+6. 更新 `docs/00_PROJECT_STATE.md`：
+   - Version: `v0.2.0`
+   - Phase: `M1 Completed`
+   - Status: `Scientific Spaces source pipeline implemented`
+7. 提交前执行：
+   - `git status`
+   - `git diff --stat`
+8. 提交并推送：
+   - commit: `feat: implement M1 scientific spaces source pipeline`
+   - push: `origin/main`
+9. 禁止修改 PRD/TDD/SOP/Milestone 文档。
+10. 禁止实现 M2 Reader/Search、M3 RAG/Embedding/FAISS/LLM、M4-M7 全部功能。
+11. 不提交 `.env`、cache、临时文件或下载的大量原始数据。
 
 ## 3. 目的
 
-完成 M0 工程基础，使新机器 clone 后可以通过 Docker 启动基础 backend/frontend，并通过 CI 验证测试和构建，同时保持后续 M1-M7 扩展空间。
+建立可靠、可重复执行、可测试的 Scientific Spaces 文章来源管线：发现文章 URL，下载 HTML，解析文章结构，转换 Markdown，保存 Article 数据，并生成数据质量验证报告，为后续 M2 Reader 和 M3 RAG 提供干净输入，但不提前实现这些后续功能。
 
 ## 4. 计划执行方案
 
-1. 写入本次完整对齐内容到 `alignment.md`。
-2. 按要求读取项目状态、TDD、SOP、M0、验收与 MVP 边界文件；若缺少 `docs/15_ACCEPTANCE.md` 或 `docs/31_MVP_BOUNDARY.md`，不直接补写规范正文，改为创建 ADR 记录缺口与 M0 执行假设。
-3. 检查 `git`、`gh auth`、Python、Node、Docker 环境和仓库状态。
-4. 补齐 M0 工程目录和基础配置，保留已有文件。
-5. 创建 FastAPI backend skeleton：
-   - `backend/pyproject.toml`
-   - `backend/app/main.py`
-   - `backend/app/api/`
-   - `backend/app/core/`
-   - `backend/app/models/`
-   - `backend/app/services/`
-   - `backend/tests/`
-6. 为 `/health` 编写 pytest 测试。
-7. 创建 Next.js 15 frontend skeleton：
-   - TypeScript
-   - App Router
-   - TailwindCSS
-   - 首页标题
-   - `package.json`
-   - `package-lock.json`
-8. 创建 backend/frontend Dockerfile 与根目录 `docker-compose.yml`。
-9. 创建 `.github/workflows/ci.yml`，PR 触发 backend pytest 和 frontend build。
-10. 配置 `.gitignore`，排除 `.env`、`node_modules`、缓存和构建产物。
-11. 运行本地验证：
-    - `pytest`
-    - `npm run build`
-    - `docker compose up`
-    - 检查 `localhost:8000/health`
-    - 检查 `localhost:3000`
-12. 仅更新允许更新的 `docs/00_PROJECT_STATE.md`，不改其他已有设计或 milestone 文档。
-13. 提交前执行 `git status` 与 `git diff --stat`，确认无禁止提交内容。
-14. 提交并推送到 `origin/main`。
-15. 输出最终报告。
+1. 将本次完整对齐内容覆盖写入 `alignment.md`。
+2. 执行项目启动检查：
+   - 读取 `alignment.md`
+   - 检查 `REWORK.md`
+   - 读取 `roadmap.md`
+3. 读取用户指定的 M1 文档；若 `docs/15_ACCEPTANCE.md` 或 `docs/31_MVP_BOUNDARY.md` 缺失，不直接创建或修改规范文档，改为创建 ADR 记录规范缺口与 M1 执行假设。
+4. 执行环境检查并整理 `Environment Report`。
+5. 以 TDD 顺序先补测试，再实现代码。
+6. 在 `backend/app/crawler/` 实现模块化 crawler：
+   - `discovery.py`：文章列表发现、分页支持、URL 提取。
+   - `downloader.py`：请求异常处理、重试机制。
+   - `cache.py`：基础缓存，避免重复下载。
+7. 在 `backend/app/parser/` 实现 parser：
+   - 提取 `title`、`url`、`date`、`category`、`content`、`images`、`references`。
+   - 保留数学公式、图片链接、引用信息，不修改原文含义。
+8. 在 `backend/app/converter/` 实现 HTML to Markdown：
+   - 保持标题层级、LaTeX 公式、图片引用、代码块。
+   - 禁止简单纯文本转换。
+9. 在 `backend/app/storage/` 实现 Article 保存：
+   - 至少包含 `id`、`title`、`url`、`content`、`metadata`。
+   - metadata 包含 `date`、`category`、`references`、`images`。
+   - 不引入 Knowledge Graph、Paper Entity、Embedding。
+10. 在 `backend/app/validation/` 实现数据质量检查：
+    - Title 100% 存在。
+    - Content 95% 以上正文完整。
+    - Images 路径有效。
+    - Formula 未明显损坏。
+    - 生成验证报告，但不提交大规模下载数据。
+11. 创建同步入口 `backend/app/sync.py`，支持 `python -m app.sync`，按 crawler -> parser -> converter -> storage -> validation 执行，重复运行不产生大量重复数据。
+12. 运行 `pytest`，必要时运行 Docker/CI 相关检查。
+13. 只更新允许修改的 `docs/00_PROJECT_STATE.md`。
+14. 提交前检查 `git status`、`git diff --stat`、禁止提交项。
+15. commit 并 push 到 `origin/main`。
+16. 输出最终报告。
 
 ## 5. 方案选型理由
 
-该方案严格限定在 M0 工程骨架范围内，建立运行、测试、构建、容器和 CI 基础；依赖管理、锁文件、Docker 与 CI 都可复现；通过 ADR 处理规范缺口，避免擅自修改已有设计文档或 milestone 规范。
+M1 是数据来源管线，不是 reader、search 或 RAG。因此实现应集中在 backend 内部的可测试模块和 CLI 同步入口，避免任何 frontend 页面、Article API、搜索 UI、embedding、FAISS 或 LLM 依赖。使用本地结构化存储和小规模 fixture 测试可以保证可重复验证，同时避免提交大量抓取数据。
 
 ## 6. 优缺点对比
 
-仅一个可行方案：按 M0 要求直接实现工程骨架，并加入补充工程约束。
+方案 A：实现模块化 backend pipeline，并用 fixture/小规模测试验证。
 
 优点：
 
-- 范围清晰、可验证。
-- 符合 M0 milestone 边界。
-- 对未来 M1-M7 保持兼容。
-- 避免擅自改动既有设计文档和 milestone 规范。
+- 边界清晰、可测试、可重复执行。
+- 对 M2-M7 兼容。
+- 不提交大规模原始抓取数据。
 
 缺点：
 
-- 不会提前提供任何业务能力。
-- 若现有规范文件缺失，只能通过 ADR 记录假设，不能直接完善原规范文档。
+- 不会提供用户可见 reader/search 功能。
+
+方案 B：直接抓取并提交一批真实文章数据。
+
+优点：
+
+- 短期看起来更接近完整数据集。
+
+缺点：
+
+- 容易提交大量原始数据和缓存。
+- 复现性差。
+- 不利于 source policy 控制。
+
+不推荐方案 B。
+
+方案 C：提前实现 Article API 或前端 Reader 验证数据。
+
+优点：
+
+- 可视化验证更直观。
+
+缺点：
+
+- 违反 M2 禁止范围。
+
+不采用方案 C。
+
+推荐采用方案 A。
 
 ## 7. 交付件
 
 1. `alignment.md`
-2. `backend/pyproject.toml`
-3. `backend/app/main.py`
-4. `backend/app/api/`
-5. `backend/app/core/`
-6. `backend/app/models/`
-7. `backend/app/services/`
-8. `backend/tests/`
-9. `frontend/package.json`
-10. `frontend/package-lock.json`
-11. `frontend/` Next.js 15 TypeScript App Router TailwindCSS 工程
-12. `docker-compose.yml`
-13. `backend/Dockerfile`
-14. `frontend/Dockerfile`
-15. `.github/workflows/ci.yml`
-16. `.gitignore`
-17. `docs/00_PROJECT_STATE.md` 更新
-18. 如发现规范缺口：`ADR/` 下新增 ADR 文件
-19. Git commit 和 push 到 `origin/main`
+2. 如发现规范缺口：`ADR/` 下新增 ADR
+3. `backend/app/crawler/discovery.py`
+4. `backend/app/crawler/downloader.py`
+5. `backend/app/crawler/cache.py`
+6. `backend/app/parser/`
+7. `backend/app/converter/`
+8. `backend/app/storage/`
+9. `backend/app/validation/`
+10. `backend/app/sync.py`
+11. backend 测试文件：crawler/parser/storage/validation/sync 相关 pytest
+12. 必要的 fixture 测试数据
+13. 轻量验证报告输出路径或生成逻辑
+14. `docs/00_PROJECT_STATE.md` 更新
+15. Git commit 和 push 到 `origin/main`
 
 ## 8. 交付件验收指标
 
-1. `GET /health` 返回 `{"status":"ok"}`。
-2. `backend/pyproject.toml` 管理 backend 依赖。
-3. `pytest` 成功通过。
-4. `frontend/package.json` 和 `frontend/package-lock.json` 已提交。
-5. `npm run build` 成功通过。
-6. `docker compose up` 能启动 backend 和 frontend。
-7. `localhost:8000/health` 可访问。
-8. `localhost:3000` 可访问并显示 `Scientific Spaces AI Learning OS`。
-9. CI 在 PR 触发时运行 backend pytest 和 frontend build。
-10. `docs/00_PROJECT_STATE.md` 更新为 `v0.1.0 / M0 Completed / Engineering foundation implemented`。
-11. 提交前已检查 `git status` 和 `git diff --stat`。
-12. 提交内容不包含 `.env`、`node_modules`、缓存文件或大规模生成文件。
-13. 提交信息为 `feat: implement M0 engineering foundation`，并推送到 `origin/main`。
-14. 不修改已有设计文档和 Milestone 文档内容，除允许更新的 `docs/00_PROJECT_STATE.md`。
-15. 不包含 M1 crawler/parser/storage、M2 reader/search、M3 RAG/embedding/FAISS/LLM 或任何业务代码。
+1. `python -m app.sync` 可执行完整 M1 管线。
+2. Crawler 能输出文章 URL 列表，支持分页、异常处理、重试、基础缓存。
+3. Parser 能提取 `title`、`url`、`date`、`category`、`content`、`images`、`references`。
+4. Markdown converter 保留标题层级、LaTeX 公式、图片引用、代码块。
+5. Storage 保存 Article：`id`、`title`、`url`、`content`、`metadata`。
+6. 重复执行 sync 不产生大量重复 Article 数据。
+7. Validation 能对样本文章生成质量报告。
+8. `pytest` 通过。
+9. `docs/00_PROJECT_STATE.md` 更新为 `v0.2.0 / M1 Completed / Scientific Spaces source pipeline implemented`。
+10. 提交前已执行 `git status` 和 `git diff --stat`。
+11. 提交内容不包含 `.env`、cache、临时文件、下载的大量原始数据。
+12. 不修改 PRD/TDD/SOP/Milestone 文档，除允许更新 `docs/00_PROJECT_STATE.md`。
+13. 不包含 M2 Article API、Frontend Reader、Search UI。
+14. 不包含 M3 RAG、Embedding、FAISS、LLM。
+15. 不包含 M4-M7 功能。
+16. commit 信息为 `feat: implement M1 scientific spaces source pipeline`，并推送到 `origin/main`。
