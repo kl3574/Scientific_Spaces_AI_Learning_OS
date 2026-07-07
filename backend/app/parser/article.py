@@ -21,7 +21,7 @@ class ParsedArticle:
 
 
 def _article_root(soup: BeautifulSoup) -> Tag:
-    for selector in ("article", ".post", ".entry", "#article", ".content"):
+    for selector in ("#content > .Post", "#content .Post", ".Post", "article", ".post", ".entry", "#article"):
         found = soup.select_one(selector)
         if isinstance(found, Tag):
             return found
@@ -52,7 +52,19 @@ def _extract_date(text: str) -> str | None:
     return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
 
 
-def _extract_category(root: Tag) -> str | None:
+def _extract_category(root: Tag, fallback_root: Tag | None = None) -> str | None:
+    search_roots = [root]
+    if fallback_root is not None and fallback_root is not root:
+        search_roots.append(fallback_root)
+
+    for search_root in search_roots:
+        category = _extract_category_from_root(search_root)
+        if category:
+            return category
+    return None
+
+
+def _extract_category_from_root(root: Tag) -> str | None:
     for text_node in root.find_all(string=re.compile("分类")):
         parent = text_node.parent
         if isinstance(parent, Tag):
@@ -102,11 +114,12 @@ def parse_article_html(html: str, *, url: str) -> ParsedArticle:
     soup = BeautifulSoup(html, "html.parser")
     root = _article_root(soup)
     content_root = _content_root(root)
+    fallback_root = root.parent if isinstance(root.parent, Tag) else soup
     return ParsedArticle(
         title=_extract_title(root, soup),
         url=url,
         date=_extract_date(root.get_text(" ", strip=True)),
-        category=_extract_category(root),
+        category=_extract_category(root, fallback_root),
         content=html_to_markdown(str(content_root), base_url=url),
         images=_extract_images(root, url),
         references=_extract_references(root),

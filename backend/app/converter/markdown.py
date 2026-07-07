@@ -20,6 +20,7 @@ def _replace_math_scripts(soup: BeautifulSoup) -> None:
     for script in soup.find_all("script"):
         script_type = (script.get("type") or "").lower()
         if "math/tex" not in script_type:
+            script.decompose()
             continue
         formula = script.get_text(strip=True)
         if not formula:
@@ -29,6 +30,11 @@ def _replace_math_scripts(soup: BeautifulSoup) -> None:
             script.replace_with(f"\n\n$${formula}$$\n\n")
         else:
             script.replace_with(f"${formula}$")
+
+
+def _remove_non_content_nodes(soup: BeautifulSoup) -> None:
+    for node in soup.find_all("style"):
+        node.decompose()
 
 
 def _unwrap_heading_links(soup: BeautifulSoup) -> None:
@@ -47,6 +53,7 @@ def _clean_markdown(markdown: str) -> str:
 def html_to_markdown(html: str, base_url: str | None = None) -> str:
     soup = BeautifulSoup(html, "html.parser")
     _replace_math_scripts(soup)
+    _remove_non_content_nodes(soup)
     _unwrap_heading_links(soup)
     _normalize_image_sources(soup, base_url)
     markdown = md(

@@ -5,6 +5,7 @@ from app.parser.article import parse_article_html
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "scientific_spaces_article.html"
+LIVE_STRUCTURE_FIXTURE = Path(__file__).parent / "fixtures" / "scientific_spaces_live_post_article.html"
 
 
 def test_parse_article_html_extracts_required_article_fields() -> None:
@@ -37,3 +38,27 @@ def test_html_to_markdown_preserves_structure_math_images_and_code() -> None:
     assert "![attention diagram](https://spaces.ac.cn/usr/uploads/attention.png)" in markdown
     assert "```" in markdown
     assert "score = q @ k.T" in markdown
+
+
+def test_parse_scientific_spaces_live_post_structure_uses_article_body_not_sidebar() -> None:
+    html = LIVE_STRUCTURE_FIXTURE.read_text(encoding="utf-8")
+
+    article = parse_article_html(html, url="https://spaces.ac.cn/archives/11777")
+
+    assert article.title == "流形上的最速下降：6. Muon + 双旋转"
+    assert article.category == "数学研究"
+    assert "我们知道，用Adam、Muon等优化器更新矩阵参数时" in article.content
+    assert "这段正文模拟科学空间真实文章主体" in article.content
+    assert "recent comment with stray dollar" not in article.content
+    assert "comment area must not be parsed" not in article.content
+    assert "一键分享" not in article.content
+    assert "shareTo" not in article.content
+    assert "$X=U\\\\Sigma V^T$" in article.content
+    assert "$$G=UV^T$$" in article.content
+    assert article.images == ["https://spaces.ac.cn/usr/uploads/muon.png"]
+    assert article.references == [
+        {
+            "title": "Muon optimizer paper",
+            "url": "https://arxiv.org/abs/2502.16982",
+        }
+    ]
