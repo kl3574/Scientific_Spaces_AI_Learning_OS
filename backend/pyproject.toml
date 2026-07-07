@@ -7,6 +7,7 @@ dependencies = [
     "beautifulsoup4>=4.12,<5.0",
     "fastapi>=0.115,<1.0",
     "markdownify>=0.13,<1.0",
+    "playwright>=1.49,<2.0",
     "uvicorn[standard]>=0.30,<1.0",
 ]
 
@@ -29,4 +30,5 @@ testpaths = ["tests"]
 pythonpath = ["."]
 markers = [
     "live: checks that contact the live Scientific Spaces source; skipped unless RUN_LIVE_TESTS=1 is set.",
+    "browser_live: checks browser-based live Scientific Spaces access; skipped unless RUN_LIVE_TESTS=1 is set.",
 ]

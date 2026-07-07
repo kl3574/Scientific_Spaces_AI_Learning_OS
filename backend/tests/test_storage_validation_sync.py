@@ -4,6 +4,7 @@ from app.parser.article import ParsedArticle
 from app.storage.article_store import ArticleStore
 from app.sync import SyncRunner
 from app.validation.quality import ArticleQualityValidator
+from app.crawler.browser import BrowserFetchResult
 
 
 FIXTURE = Path(__file__).parent / "fixtures" / "scientific_spaces_article.html"
@@ -63,4 +64,52 @@ def test_sync_runner_imports_articles_and_is_idempotent(tmp_path: Path) -> None:
     assert first.imported_count == 1
     assert second.imported_count == 1
     assert store.count() == 1
+    assert (tmp_path / "validation_report.json").exists()
+
+
+def test_sync_runner_imports_rss_browser_articles_and_is_idempotent(tmp_path: Path) -> None:
+    html = FIXTURE.read_text(encoding="utf-8")
+    store = ArticleStore(tmp_path / "articles.json")
+
+    feed_xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0">
+      <channel>
+        <item><link>https://spaces.ac.cn/archives/100</link></item>
+        <item><link>https://spaces.ac.cn/archives/101</link></item>
+      </channel>
+    </rss>
+    """
+
+    class FakeBrowserFetcher:
+        failures: list[dict[str, str]] = []
+
+        def fetch_many(self, urls: list[str]) -> list[BrowserFetchResult]:
+            return [
+                BrowserFetchResult(
+                    url=url,
+                    html=html,
+                    title="Attention机制的一个直观解释",
+                    status=200,
+                    mathjax_available=True,
+                )
+                for url in urls
+            ]
+
+    runner = SyncRunner(
+        source_strategy="rss-browser",
+        max_articles=2,
+        store=store,
+        rss_fetch_xml=lambda _url: feed_xml,
+        browser_fetcher=FakeBrowserFetcher(),
+        report_path=tmp_path / "validation_report.json",
+    )
+
+    first = runner.run()
+    second = runner.run()
+
+    assert first.discovered_count == 2
+    assert first.imported_count == 2
+    assert first.failed_count == 0
+    assert second.imported_count == 2
+    assert store.count() == 2
     assert (tmp_path / "validation_report.json").exists()

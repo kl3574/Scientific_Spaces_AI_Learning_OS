@@ -14,8 +14,8 @@ Scientific Spaces source pipeline implemented
 
 Verification:
 
-M1 Verification Blocked
+M1 Verification Passed
 
 Blocking Reason:
 
-Default live Scientific Spaces sync fails with HTTP 403 from https://spaces.ac.cn/.
+Resolved by RSS discovery plus Playwright browser article access strategy.

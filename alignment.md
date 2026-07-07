@@ -1,157 +1,170 @@
-# Task Alignment - M1 Article Discovery Strategy Evaluation
+# Task Alignment - Implement M1 RSS Browser Source Strategy
 
 ## 1. 背景
 
-项目 `kl3574/Scientific_Spaces_AI_Learning_OS` 当前 M1 Source Pipeline 实现已完成，fixture pipeline 已通过，但 M1 Verification 仍为 `BLOCKED`。
+项目 `kl3574/Scientific_Spaces_AI_Learning_OS` 当前 M1 Source Pipeline 已完成。新的策略评估已通过：
 
-现有证据显示：
+- RSS Discovery: PASS
+- Browser Article Access: PASS
 
-- homepage `https://spaces.ac.cn/`: `403`
-- archive discovery `https://spaces.ac.cn/content.html`: `403`
-- Playwright homepage: `403`
-- Playwright known article URL: `PASS`
-
-当前剩余问题是 Article URL Discovery。本任务不是实现 M1，不修改 crawler 主流程，不解除 Verification Blocked，只评估是否存在合规 Article URL discovery strategy。
+当前任务是实现新的 M1 Source Access Strategy，将 RSS Discovery 与 Playwright Browser Access 整合进入 M1 pipeline。本任务不实现 M2 Reader、M3 RAG、M4-M7，不修改 Verification 标准。最终仍需重新验证 M1。
 
 ## 2. 需求
 
 1. 读取：
-   - `docs/M1_VERIFICATION_REPORT.md`
-   - `docs/M1_LIVE_ACCESS_STRATEGY.md`
-   - `docs/M1_BROWSER_ACCESS_EVALUATION.md`
-   - `docs/M1_ALTERNATIVE_DISCOVERY_EVALUATION.md`
-   - `docs/M1_ARTICLE_BROWSER_ACCESS_EVALUATION.md`
-   - `docs/M1_BROWSER_ARTICLE_ACCESS_STRATEGY.md`
-   - `ADR/0003-m1-live-source-access-blocker.md`
-2. 创建：
+   - `docs/M1_SOURCE_ACCESS_STRATEGY_REVISION.md`
    - `docs/M1_ARTICLE_DISCOVERY_STRATEGY_EVALUATION.md`
-3. 报告必须包含 Current Status：
-   - M1 Implementation: PASS
-   - M1 Verification: BLOCKED
-   - Remaining blocker: Article URL Discovery
-4. 评估候选：
-   - Candidate A: Official sitemap
-   - Candidate B: RSS/feed
-   - Candidate C: Official archive/index
-   - Candidate D: Search engine discovery
-   - Candidate E: Manual seed URL
-5. 每个候选必须记录：
-   - URL
-   - HTTP status
-   - title（如果有）
-   - 是否发现 article URL
-   - 是否合规
-   - 是否推荐
-6. 访问约束：
-   - 低频
-   - 少量请求
-   - 不批量抓取
-7. 禁止：
-   - 全站扫描
-   - 分页遍历
-   - 大规模搜索
-   - 保存文章数据
-8. 不修改：
-   - `backend/app/crawler/`
-   - `docs/00_PROJECT_STATE.md`
-   - `milestones/M1_SOURCE_PIPELINE.md`
-   - Verification 标准
-9. 不实现 M2-M7。
-10. 不保存：
-    - HTML 全文
-    - 文章正文
-    - PDF
-    - 图片
-    - 附件
-    - cache
-11. 只保存诊断元数据。
-12. 报告最后必须包含：
-    - `Discovery feasibility: PASS/FAIL`
-    - `Recommended Strategy`
-    - `Recommendation`
-13. Recommended Strategy 只能选择：
-    - A: Official discovery available
-    - B: Approved alternative discovery required
-    - C: Manual seed strategy required
-    - D: No viable discovery strategy found
-14. 如果只是增加报告，commit message 使用：
-    - `docs: evaluate article discovery strategy`
+   - `docs/M1_BROWSER_ARTICLE_ACCESS_STRATEGY.md`
+   - `docs/M1_VERIFICATION_REPORT.md`
+   - `ADR/0003-m1-live-source-access-blocker.md`
+2. 实现 RSS Discovery Provider：
+   - 输入：`https://spaces.ac.cn/feed`
+   - 输出：Article URL list
+3. 实现 Browser Access Provider：
+   - 使用 Playwright Chromium
+   - 支持 HTML 获取
+   - 支持 title 获取
+   - 支持 MathJax 等待
+   - 支持 bounded retry
+   - 失败时记录 URL 和失败原因
+4. 保持 Existing Parser、Converter、Storage。
+5. 更新 `python -m app.sync` 流程：
+   - RSS
+   - Article URLs
+   - Browser Access
+   - Parser
+   - Markdown Converter
+   - Storage
+   - Validation
+6. 禁止：
+   - PDF 生成
+   - 保存 raw HTML
+   - 保存图片
+   - 保存额外正文文件
+   - 实现 M2-M7
+7. 增加测试：
+   - RSS discovery test
+   - Browser provider test
+   - Sync integration test
+8. 保留 fixture 测试。
+9. Live test 必须独立标记。
+10. 验证：
+    - `pytest`
+    - `python -m app.sync`
+    - 至少若干篇真实文章成功导入
+    - 重复 sync 不重复
+11. 只有真实 end-to-end sync 成功，才更新 `docs/00_PROJECT_STATE.md` 为 `M1 Verification Passed`。
+12. Commit message：
+    - 成功解除：`fix: implement RSS browser source strategy`
+    - 如果只是实现但未解除：`feat: add RSS browser access strategy`
 
 ## 3. 目的
 
-判断 Scientific Spaces article URL 列表是否能通过合规 discovery strategy 获得，并决定是否值得进入后续 `M1 Source Access Strategy Revision`。
+把已经评估通过的新 M1 source access strategy 工程化：用官方 RSS 获取文章 URL，用 Playwright Chromium 获取文章页面，再复用现有 parser/converter/storage/validation，完成真实端到端同步验证。
 
 ## 4. 计划执行方案
 
 1. 覆盖写入本次 `alignment.md`。
-2. 读取所有指定文档。
-3. 检查当前 git 状态，识别已有未提交变更，避免提交无关内容。
-4. 对 discovery 候选做少量诊断：
-   - robots/sitemap 相关公开入口
-   - 常见 RSS/Atom/feed 路径
-   - 已知 archive/index 路径与少量公开索引入口
-   - 搜索发现只做少量验证，不批量抓取
-   - Manual seed URL 只基于已有已知 URL 评估
-5. 只保存诊断元数据，不保存网页内容。
-6. 创建 `docs/M1_ARTICLE_DISCOVERY_STRATEGY_EVALUATION.md`。
-7. 验证未修改禁止路径、未新增内容 artifact。
-8. 如本轮只新增报告，按规则提交：
-   - `docs: evaluate article discovery strategy`
-9. 输出最终结论和 commit hash。
+2. 读取指定 5 个文档。
+3. 检查当前 git 状态，识别已有未提交诊断文件和依赖变更，避免误提交无关内容。
+4. 读取现有 M1 pipeline 代码：
+   - crawler
+   - parser
+   - converter
+   - storage
+   - validation
+   - sync
+   - tests
+5. 先写测试：
+   - RSS fixture discovery 测试
+   - Browser provider fake/page 测试
+   - Sync fixture integration 测试
+   - Live RSS/browser 测试独立 marker，默认不运行
+6. 实现 RSS Discovery Provider：
+   - 结构化解析 RSS XML
+   - 提取 `item/link`
+   - 校验 `https://spaces.ac.cn/archives/{id}`
+   - 去重
+   - bounded item limits
+7. 实现 Browser Access Provider：
+   - Playwright Chromium
+   - 非持久 context
+   - 禁止 downloads
+   - bounded retry/timeout
+   - 返回内存中的 HTML/title/metadata
+   - 不把 raw HTML 写入文件
+   - 记录失败 URL 和原因
+8. 更新 sync：
+   - 默认使用 RSS discovery + browser access
+   - 保留 fixture/index/article-dir 测试入口兼容
+   - 复用 parser/converter/storage/validation
+9. 依赖处理：
+   - 将 Playwright 作为 backend runtime dependency
+   - 不提交浏览器缓存、trace、截图、profile
+10. 运行测试：
+    - `pytest`
+11. 运行真实 sync：
+    - `python -m app.sync`
+    - 控制最大文章数，低频验证
+12. 重复运行 sync，验证 idempotency。
+13. 如果真实 end-to-end sync 成功：
+    - 更新 `docs/00_PROJECT_STATE.md` 为 `M1 Verification Passed`
+    - commit: `fix: implement RSS browser source strategy`
+14. 如果真实 sync 失败：
+    - 保持 `docs/00_PROJECT_STATE.md` blocked
+    - commit: `feat: add RSS browser access strategy`
 
 ## 5. 方案选型理由
 
-该任务的核心是策略评估，不是 pipeline 实现。把候选 discovery source 分开评估，可以避免把已知 URL browser access 误认为 discovery 已解决；同时低频、元数据化诊断符合 source policy 和当前 blocker 的约束。
+RSS 是官方可访问 discovery source，Playwright Chromium 已证明可访问部分 article URL。把二者作为 M1 source access layer，能替代失败的 homepage/archive discovery，同时复用已有 parser/converter/storage，避免引入 M2/M3 业务功能。
 
 ## 6. 优缺点对比
 
-仅一个可行方案：低频诊断并生成 discovery strategy evaluation。
+仅一个可行方案：实现 `RSS Discovery + Playwright Browser Access` 并接入现有 M1 sync。
 
 优点：
 
-- 范围清晰。
-- 证据可追溯。
-- 不改变 M1 状态。
-- 不保存内容。
-- 可以明确区分 discovery 和 article access。
+- 使用官方 RSS discovery。
+- 避开 homepage/archive 403。
+- 复用现有 M1 parser/storage。
+- 可通过 live sync 验证 M1 是否真正可用。
 
 缺点：
 
-- 若官方 discovery 入口不可用，结论可能仍需要人工批准替代策略。
-- 搜索引擎发现只能少量验证，不能证明完整覆盖。
-
-不可采用方案：
-
-- 全站扫描或分页遍历：违反访问约束。
-- 大规模搜索：违反访问约束。
-- 保存 HTML/正文/附件：违反数据最小化约束。
-- 修改 crawler/verification/project state：用户明确禁止。
-- 实现 M2-M7：用户明确禁止。
+- Playwright 增加运行时依赖和环境复杂度。
+- RSS 可能只覆盖近期文章，不代表全量历史。
+- Browser access 存在超时/403 波动，需要 bounded retry 和失败记录。
 
 ## 7. 交付件
 
 1. `alignment.md`
-2. `docs/M1_ARTICLE_DISCOVERY_STRATEGY_EVALUATION.md`
-3. Git commit：
-   - `docs: evaluate article discovery strategy`
-4. 最终输出：
-   - `Discovery feasibility`
-   - `Recommended Strategy`
-   - `Recommendation`
-   - commit hash
+2. RSS Discovery Provider 代码
+3. Browser Access Provider 代码
+4. 更新后的 `python -m app.sync`
+5. RSS/browser/sync 测试
+6. 独立 live test marker
+7. 依赖配置更新
+8. 若真实 sync 成功：更新 `docs/00_PROJECT_STATE.md`
+9. Git commit：
+   - 成功解除：`fix: implement RSS browser source strategy`
+   - 未解除：`feat: add RSS browser access strategy`
 
 ## 8. 交付件验收指标
 
-1. 已读取全部 7 个指定文档。
-2. 报告包含 Current Status。
-3. 报告评估 sitemap、RSS/feed、archive/index、search discovery、manual seed URL。
-4. 每个候选包含 URL、HTTP status、title、是否发现 article URL、是否合规、是否推荐。
-5. 请求数量低频、少量。
-6. 未修改 `backend/app/crawler/`。
-7. 未修改 `docs/00_PROJECT_STATE.md`。
-8. 未修改 `milestones/M1_SOURCE_PIPELINE.md`。
-9. 未修改 Verification 标准。
-10. 未实现 M2-M7。
-11. 未保存 HTML 全文、正文、PDF、图片、附件、cache。
-12. 报告明确输出 `Discovery feasibility`、`Recommended Strategy`、`Recommendation`。
-13. 如提交，commit message 为 `docs: evaluate article discovery strategy`，不用 `fix:`。
+1. 已读取指定 5 个文档。
+2. RSS provider 能从 `https://spaces.ac.cn/feed` 输出 article URL list。
+3. Browser provider 使用 Playwright Chromium。
+4. Browser provider 支持 HTML/title/MathJax/bounded retry/failure reason。
+5. `python -m app.sync` 使用新流程。
+6. Existing Parser/Converter/Storage 保持复用。
+7. fixture 测试保留并通过。
+8. 新增 RSS/browser/sync 测试通过。
+9. live test 独立标记，默认不运行。
+10. `pytest` 通过。
+11. `python -m app.sync` 真实运行。
+12. 重复 sync 不产生重复数据。
+13. 不保存 raw HTML、PDF、图片、附件或额外正文文件。
+14. 不实现 M2-M7。
+15. 不修改 Verification 标准。
+16. 只有真实 end-to-end sync 成功，才更新 `docs/00_PROJECT_STATE.md` 为 `M1 Verification Passed`。
+17. commit message 与结果匹配。
