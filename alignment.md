@@ -1,117 +1,145 @@
-# Task Alignment - M1 PDF Export Capability Evaluation
+# Task Alignment - M1 Final Freeze & Handoff Gate
 
 ## 1. 背景
 
-项目 `kl3574/Scientific_Spaces_AI_Learning_OS` 已完成 M0/M1。RSS Discovery、Browser Article Access、Article Sync 均已验证通过。
+项目 `kl3574/Scientific_Spaces_AI_Learning_OS` 当前已完成：
 
-本任务属于 M1 Export Capability Evaluation，只评估 Scientific Spaces Article PDF Export 工程可行性，不属于 M2 Reader、M3 RAG、AI Tutor 或 M4-M7。
+- M0 Engineering Foundation: PASS
+- M1 Source Pipeline: PASS
+- M1 Verification: PASS
+- M1 PDF Export Capability: PASS
+
+当前任务是执行 M1 Final Freeze & Handoff Gate。该任务是验收冻结任务，不实现新功能，不进入 M2。
+
+Freeze 完成后，任何 M1 实现变更必须新建 `M1.x revision task`，不得直接修改冻结代码。
 
 ## 2. 需求
 
 1. 读取：
    - `docs/00_PROJECT_STATE.md`
-   - `docs/M1_SOURCE_ACCESS_STRATEGY_REVISION.md`
-   - `docs/M1_BROWSER_ARTICLE_ACCESS_STRATEGY.md`
+   - `milestones/M1_SOURCE_PIPELINE.md`
    - `docs/M1_VERIFICATION_REPORT.md`
-2. 检查 `kexue_downloader.py` 作为设计参考。
-3. 创建 `docs/M1_PDF_EXPORT_EVALUATION.md`。
-4. 新建独立 PDF Export 模块：`backend/app/export/pdf.py`。
-5. PDF Export 必须支持：
-   - Playwright Chromium
-   - 等待 MathJax v2/v3
-   - A4 页面打印
-   - 中文
-   - 数学公式
-   - bounded retry
-   - failure logging
-6. 增加 fixture PDF export test。
-7. 增加独立 marker 的 live PDF test，例如 `pdf_live`，默认不运行。
-8. Live PDF test 必须使用临时目录。
-9. 生成 PDF 后必须验证：
-   - 文件存在
-   - 文件大小大于 0
-   - PDF 格式有效
-10. 测试结束必须删除所有 PDF artifact。
-11. 真实测试最多 5 篇文章，例如 `/archives/6508` 以及 RSS 获取的少量 URL。
-12. 运行普通 `pytest`。
-13. 禁止提交 PDF、HTML、图片、正文、缓存、browser profile、trace、截图。
-14. 不修改：
-   - `backend/app/crawler/`
-   - RSS discovery
-   - sync 主流程
-   - Verification 标准
-   - Project State
-15. 不实现 M2 Reader、M3 RAG、M4-M7。
-16. Commit message：`feat: add article pdf export capability`。
+   - `docs/M1_SOURCE_ACCESS_STRATEGY_REVISION.md`
+   - `docs/M1_PDF_EXPORT_EVALUATION.md`
+   - `docs/04_DATA_MODEL.md`
+   - `docs/08_KNOWLEDGE_PIPELINE.md`
+   - `ADR/`
+2. 检查当前 `git status`。
+3. 创建 `docs/M1_FINAL_FREEZE_REPORT.md`。
+4. 审计并冻结：
+   - Source Discovery
+   - Browser Access
+   - Parser
+   - Converter
+   - Storage
+   - Validation
+   - PDF Export
+5. 确认 Article 数据契约：
+   - `id`
+   - `title`
+   - `url`
+   - `content`
+   - `metadata`
+   - `metadata.date`
+   - `metadata.category`
+   - `metadata.references`
+   - `metadata.images`
+6. 记录接口冻结：
+   - Discovery Interface
+   - Browser Access Interface
+   - Parser Interface
+   - Storage Interface
+   - Export Interface
+7. 记录测试证据：
+   - pytest 结果
+   - M1 live sync 结果
+   - PDF export 结果
+   - article count
+   - duplicate count
+   - validation result
+   - PDF success rate
+8. 判断 `backend/tests/test_browser_access.py`：
+   - 若是长期 regression probe，则保留并提交
+   - 若只是临时诊断文件，则删除
+   - 在报告中记录决定
+9. 执行 `git status`、`git diff --stat`。
+10. 确认无 PDF、HTML、图片、trace、profile、cache、临时 artifact 被提交。
+11. 如果 M1 Freeze 通过，更新 `docs/00_PROJECT_STATE.md`，增加 `M1 Freeze Passed`。
+12. 在 freeze 报告和项目状态中记录冻结规则：
+   - Freeze 完成后，任何 M1 实现变更必须新建 `M1.x revision task`
+   - 不得直接修改冻结代码
+13. 提交：`docs: freeze M1 source pipeline handoff`。
 
 ## 3. 目的
 
-验证 Scientific Spaces Article -> PDF Export 是否具备工程可行性，并沉淀一个独立、可测试、可扩展但不接入主同步流程的 export capability。
+冻结 M1 当前最终状态，明确 M1 输出是否稳定、接口是否清晰、数据契约是否可靠，并判断是否可以作为 M2 Scientific Reader 的输入。冻结后建立 M1 变更治理规则，防止后续任务直接修改已冻结的 M1 实现。
 
 ## 4. 计划执行方案
 
 1. 覆盖写入本次 `alignment.md`。
-2. 读取指定 M1 文档和 `kexue_downloader.py`。
-3. 检查当前 git 状态，避免误提交已有无关文件。
-4. 先写 PDF export 测试：
-   - fixture/fake exporter 测试 retry、failure logging、PDF 输出验证
-   - live PDF test 使用 `@pytest.mark.pdf_live`，默认跳过
-5. 运行新增测试，确认缺失实现导致失败。
-6. 创建 `backend/app/export/pdf.py`，实现独立 Article PDF Export 能力。
-7. 运行 targeted tests 使其通过。
-8. 运行普通 `pytest`。
-9. 使用最多 5 篇真实文章运行 live PDF export 验证，记录每篇：
-   - URL
-   - PDF status
-   - 生成时间
-   - 文件大小
-   - MathJax status
-   - 失败原因
-10. 测试结束清理所有 PDF artifact。
-11. 创建 `docs/M1_PDF_EXPORT_EVALUATION.md`，记录环境、设计、测试结果、成功率、Recommendation 和 Conclusion。
-12. 检查 `git status` 和 `git diff --stat`，确认未提交禁止 artifact，未修改禁止文件。
-13. 提交：`feat: add article pdf export capability`。
+2. 读取所有指定文档和 ADR。
+3. 检查 git 状态、当前未跟踪文件和潜在 artifact。
+4. 检查 M1 实现代码的结构和接口签名，但不修改实现代码。
+5. 运行普通 `pytest` 获取 fresh test evidence。
+6. 复用已有 live sync / PDF export 报告证据；如证据不足，再执行低频验证命令，但不生成可提交 artifact。
+7. 判断 `backend/tests/test_browser_access.py` 的性质：
+   - 如果仍测试已知 403 homepage 路径且与当前 RSS/browser article strategy 不匹配，则视为临时诊断文件并删除。
+   - 如果能作为长期 regression probe 且默认跳过，不破坏测试体系，则保留并纳入报告。
+8. 创建 `docs/M1_FINAL_FREEZE_REPORT.md`，包含冻结规则。
+9. 若审计通过，更新 `docs/00_PROJECT_STATE.md` 添加 `M1 Freeze Passed` 和 M1 freeze 变更规则。
+10. 再次检查 `git status`、`git diff --stat`、artifact 扫描。
+11. 提交 `docs: freeze M1 source pipeline handoff`。
+12. 输出最终摘要、冻结接口、数据契约、测试证据、M2 readiness 和 commit hash。
 
 ## 5. 方案选型理由
 
-独立 export 模块可以验证 PDF 能力，同时不污染 M1 sync 主流程，也不提前进入 M2/M3。Playwright 是现有 Browser Article Access 已验证的技术路径，适合复用浏览器渲染、MathJax 等待和 `page.pdf()` 能力。临时目录和 PDF 格式校验能保证验证可信且不污染仓库。
+这是冻结/移交 gate，不应修改 M1 实现或引入新能力。以文档、测试和当前代码证据为基础做审计，只有状态文档和 freeze report 可以更新；任何实现问题只记录为风险，不在本任务中修复。新增 `M1.x revision task` 规则可以保护冻结后的 M1 基线，避免 M2 或后续任务隐式改动 M1。
 
 ## 6. 优缺点对比
 
-仅一个可行方案：独立 PDF Export 模块 + 独立测试 + 独立报告。
+仅一个可行方案：审计当前 M1 状态并生成冻结报告。
 
 优点：
 
-- 边界清晰，不改变 crawler/sync/verification。
-- 可验证真实 PDF 生成。
-- 生成物受临时目录隔离。
-- 后续可扩展为 batch export。
+- 边界清晰，不改变已通过的 M1 实现。
+- 能给 M2 提供明确输入契约。
+- 降低后续 Reader 系统误用 M1 数据/接口的风险。
+- 冻结后变更治理清晰。
 
 缺点：
 
-- Playwright runtime 成本较高。
-- live PDF 测试依赖网络和站点可访问性。
-- PDF 质量可能需要后续排版优化。
+- 如果发现 M1 残留风险，本任务只记录，不修复。
+- M2 是否开始仍依赖 freeze 结论。
+- 未来若需改 M1，必须通过额外 revision task。
 
 ## 7. 交付件
 
 1. `alignment.md`
-2. `docs/M1_PDF_EXPORT_EVALUATION.md`
-3. `backend/app/export/pdf.py`
-4. PDF export fixture 测试文件
-5. live PDF test，独立 marker `pdf_live`
-6. Git commit：`feat: add article pdf export capability`
+2. `docs/M1_FINAL_FREEZE_REPORT.md`
+3. 如 freeze 通过，更新 `docs/00_PROJECT_STATE.md`
+4. 对 `backend/tests/test_browser_access.py` 的保留或删除决定
+5. Freeze 后 M1 变更规则记录
+6. Git commit：`docs: freeze M1 source pipeline handoff`
 
 ## 8. 交付件验收指标
 
-1. 报告存在，并包含 Current Status、Export Strategy、Test Results、PDF success rate、Recommendation、Conclusion。
-2. `backend/app/export/pdf.py` 存在，并支持 Playwright Chromium、MathJax wait、A4 PDF、retry、failure logging。
-3. 普通 `pytest` 通过。
-4. live PDF test 默认跳过，可通过显式 marker/env 运行。
-5. 至少 5 篇真实文章 PDF 生成结果被记录到报告中。
-6. live PDF test 使用临时目录。
-7. 每个 PDF artifact 验证：文件存在、文件大小大于 0、PDF 格式有效。
-8. 测试结束后删除所有 PDF artifact。
-9. 仓库内无 PDF、HTML、图片、正文、browser profile、trace、截图 artifact。
-10. 未修改 `backend/app/crawler/`、RSS discovery、sync 主流程、M1 Verification 标准、Project State。
-11. commit message 为 `feat: add article pdf export capability`。
+1. `docs/M1_FINAL_FREEZE_REPORT.md` 存在。
+2. 报告包含：
+   - Current Status
+   - Architecture Freeze
+   - Data Contract Freeze
+   - Interface Freeze
+   - Test Evidence
+   - Known Risks
+   - M2 Readiness
+   - Post-freeze Change Rule
+3. 报告明确记录 M1 Source Pipeline、M1 Verification、M1 PDF Export 均为 PASS。
+4. 报告明确冻结 RSS Discovery、Playwright Browser Access、Parser、Converter、Storage、Validation、PDF Export。
+5. 报告明确 Article schema 和 metadata 字段。
+6. 报告明确 M2 readiness，只能为 A/B/C 之一。
+7. 报告和项目状态明确记录：Freeze 后任何 M1 实现变更必须新建 `M1.x revision task`，不得直接修改冻结代码。
+8. 未修改 `backend/app/crawler/`、M1 implementation、Verification 标准。
+9. 未实现 M2 Reader、Search、RAG 或 Learning System。
+10. `docs/00_PROJECT_STATE.md` 仅在 freeze 通过时增加 `M1 Freeze Passed` 和 freeze 变更规则。
+11. 提交前确认无 PDF、HTML、图片、trace、profile、cache、临时 artifact。
+12. commit message 为 `docs: freeze M1 source pipeline handoff`。
