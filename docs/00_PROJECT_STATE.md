@@ -2,12 +2,12 @@
 
 Version:
 
-v0.0.1
+v0.1.0
 
 Phase:
 
-Bootstrap
+M0 Completed
 
 Status:
 
-Documentation initialized
+Engineering foundation implemented

@@ -1,136 +1,186 @@
-# Task Alignment - Bootstrap Project Specification
+# Task Alignment - Milestone 0 Engineering Foundation
 
 ## 1. 背景
 
-当前项目是 `Scientific_Spaces_AI_Learning_OS`，远端仓库为 `kl3574/Scientific_Spaces_AI_Learning_OS`。GitHub 仓库已创建并可访问，当前本地 `main` 跟踪 `origin/main`。
+当前任务是执行 `kl3574/Scientific_Spaces_AI_Learning_OS` 的 `Milestone 0 - Engineering Foundation`。
 
-用户要求初始化 Scientific Spaces AI Learning OS 项目，只完成 Bootstrap，不实现任何业务代码。
+仓库已有 Bootstrap 文档和空工程目录，当前只允许建立工程骨架，不允许实现 M1-M7 的业务功能。
 
-已确认约束：
+用户补充的工程约束：
 
-- 只建立目录和工程文档。
-- 不实现 backend。
-- 不实现 frontend。
-- 不实现 crawler。
-- 不实现 RAG。
-- 不添加业务逻辑。
+- 不直接修改已有设计文档和 Milestone 文档内容。
+- 如发现设计问题或规范缺口，创建 ADR，不直接改变规范。
+- Backend 必须使用 `pyproject.toml` 管理依赖。
+- Frontend 必须提交 `package.json` 和 `package-lock.json`。
+- Git commit 前必须检查 `git status` 和 `git diff --stat`。
+- 禁止提交 `.env`、`node_modules`、缓存文件、大规模生成文件。
+- 保持未来 M1-M7 扩展兼容。
 
 ## 2. 需求
 
-1. 检查环境：
+1. 读取指定文档：
+   - `docs/00_PROJECT_STATE.md`
+   - `docs/02_TDD.md`
+   - `docs/03_SOP.md`
+   - `milestones/M0_FOUNDATION.md`
+   - `docs/15_ACCEPTANCE.md`
+   - `docs/31_MVP_BOUNDARY.md`
+2. 输出 `Environment Report`，检查：
    - `git`
-   - GitHub authentication
-   - 当前 repository 状态
-2. 输出 Environment Report。
-3. 创建目录：
-   - `docs/`
-   - `milestones/`
-   - `ADR/`
-   - `codex/`
+   - `gh auth`
+   - `python`
+   - `node`
+   - `docker`
+3. 保持已有文件，建立并完善：
    - `backend/`
    - `frontend/`
    - `tests/`
-4. 创建 `README.md`。
-5. 创建基础工程文档：
-   - `docs/01_PRD.md`
-   - `docs/02_TDD.md`
-   - `docs/03_SOP.md`
-   - `docs/04_DATA_MODEL.md`
-   - `docs/05_AI_AGENT_SPEC.md`
-   - `docs/06_TEST_PLAN.md`
-   - `docs/07_ROADMAP.md`
-   - `docs/08_KNOWLEDGE_PIPELINE.md`
-   - `docs/09_LEARNING_MODEL.md`
-   - `docs/10_UI_SPEC.md`
-   - `docs/11_SOURCE_POLICY.md`
-   - `docs/12_AGENT_WORKFLOW.md`
-6. 创建 Milestone 文档：
-   - `milestones/M0_FOUNDATION.md`
-   - `milestones/M1_SOURCE_PIPELINE.md`
-   - `milestones/M2_READER_SYSTEM.md`
-   - `milestones/M3_RAG_SYSTEM.md`
-   - `milestones/M4_LEARNING_SYSTEM.md`
-   - `milestones/M5_ZOTERO.md`
-   - `milestones/M6_KNOWLEDGE_GRAPH.md`
-   - `milestones/M7_AI_TUTOR.md`
-7. 创建 `docs/00_PROJECT_STATE.md`，内容包含：
-   - Version: `v0.0.1`
-   - Phase: `Bootstrap`
-   - Status: `Documentation initialized`
-8. 提交信息：`docs: initialize project specification`。
-9. Push 到 `origin/main`。
-10. 最终输出：
-    - GitHub 状态
-    - 创建文件列表
-    - commit hash
-    - 下一步建议
+   - `docs/`
+4. Backend 技术冻结：
+   - Python 3.11
+   - FastAPI
+   - `backend/pyproject.toml` 管理依赖
+5. Backend 结构：
+   - `backend/app/main.py`
+   - `backend/app/api/`
+   - `backend/app/core/`
+   - `backend/app/models/`
+   - `backend/app/services/`
+   - `backend/tests/`
+6. Backend 实现：
+   - `GET /health`
+   - 返回 `{"status":"ok"}`
+   - 增加 pytest 测试
+7. Frontend 技术冻结：
+   - Next.js 15
+   - TypeScript
+   - App Router
+   - TailwindCSS
+8. Frontend 首页显示：
+   - `Scientific Spaces AI Learning OS`
+9. Frontend 必须提交：
+   - `frontend/package.json`
+   - `frontend/package-lock.json`
+10. Docker Compose 启动：
+    - backend
+    - frontend
+11. Docker 验证：
+    - `localhost:8000/health`
+    - `localhost:3000`
+12. CI：
+    - `.github/workflows/`
+    - PR 触发
+    - backend pytest
+    - frontend build
+13. Validation：
+    - `pytest`
+    - `npm run build`
+    - `docker compose up`
+14. 更新 `docs/00_PROJECT_STATE.md`：
+    - Version: `v0.1.0`
+    - Phase: `M0 Completed`
+    - Status: `Engineering foundation implemented`
+15. Commit:
+    - `feat: implement M0 engineering foundation`
+16. Push:
+    - `origin/main`
 
 ## 3. 目的
 
-完成项目 Bootstrap，让仓库具备基础目录结构、工程规格文档、Milestone 路线文档和项目状态记录，作为后续实现工作的起点。
+完成 M0 工程基础，使新机器 clone 后可以通过 Docker 启动基础 backend/frontend，并通过 CI 验证测试和构建，同时保持后续 M1-M7 扩展空间。
 
 ## 4. 计划执行方案
 
-1. 读取当前 `alignment.md`、检查 `REWORK.md`、读取 `roadmap.md`，确认无返工阻塞。
-2. 检查 `git`、`gh auth status`、当前分支、远端、工作区状态和 GitHub 仓库状态。
-3. 将本次完整对齐内容覆盖写入 `alignment.md`。
-4. 创建缺失目录；空目录使用 `.gitkeep` 保留。
-5. 创建或补齐指定 README、docs、milestones、project state 文档。
-6. 若文件已存在，保留有效内容，只做 Bootstrap 文档层面的补齐。
-7. 验证所有目录和文件存在。
-8. 验证没有新增业务实现文件。
-9. 提交：`docs: initialize project specification`。
-10. Push 到 `origin/main`。
-11. 验证本地 `main` 与 `origin/main` 同步，并读取 GitHub 远端状态。
+1. 写入本次完整对齐内容到 `alignment.md`。
+2. 按要求读取项目状态、TDD、SOP、M0、验收与 MVP 边界文件；若缺少 `docs/15_ACCEPTANCE.md` 或 `docs/31_MVP_BOUNDARY.md`，不直接补写规范正文，改为创建 ADR 记录缺口与 M0 执行假设。
+3. 检查 `git`、`gh auth`、Python、Node、Docker 环境和仓库状态。
+4. 补齐 M0 工程目录和基础配置，保留已有文件。
+5. 创建 FastAPI backend skeleton：
+   - `backend/pyproject.toml`
+   - `backend/app/main.py`
+   - `backend/app/api/`
+   - `backend/app/core/`
+   - `backend/app/models/`
+   - `backend/app/services/`
+   - `backend/tests/`
+6. 为 `/health` 编写 pytest 测试。
+7. 创建 Next.js 15 frontend skeleton：
+   - TypeScript
+   - App Router
+   - TailwindCSS
+   - 首页标题
+   - `package.json`
+   - `package-lock.json`
+8. 创建 backend/frontend Dockerfile 与根目录 `docker-compose.yml`。
+9. 创建 `.github/workflows/ci.yml`，PR 触发 backend pytest 和 frontend build。
+10. 配置 `.gitignore`，排除 `.env`、`node_modules`、缓存和构建产物。
+11. 运行本地验证：
+    - `pytest`
+    - `npm run build`
+    - `docker compose up`
+    - 检查 `localhost:8000/health`
+    - 检查 `localhost:3000`
+12. 仅更新允许更新的 `docs/00_PROJECT_STATE.md`，不改其他已有设计或 milestone 文档。
+13. 提交前执行 `git status` 与 `git diff --stat`，确认无禁止提交内容。
+14. 提交并推送到 `origin/main`。
+15. 输出最终报告。
 
 ## 5. 方案选型理由
 
-Bootstrap 应该只建立项目骨架和规格文档。先检查环境和仓库现状，再补齐缺失文档，可以避免覆盖已有有效内容，也能确保最终提交范围只包含工程文档和空目录占位。
+该方案严格限定在 M0 工程骨架范围内，建立运行、测试、构建、容器和 CI 基础；依赖管理、锁文件、Docker 与 CI 都可复现；通过 ADR 处理规范缺口，避免擅自修改已有设计文档或 milestone 规范。
 
 ## 6. 优缺点对比
 
-方案 A：检查现状后补齐 Bootstrap 文档和目录。
+仅一个可行方案：按 M0 要求直接实现工程骨架，并加入补充工程约束。
 
 优点：
 
-- 安全、可验证。
-- 不会误删已有文件。
-- 符合不实现业务代码的约束。
+- 范围清晰、可验证。
+- 符合 M0 milestone 边界。
+- 对未来 M1-M7 保持兼容。
+- 避免擅自改动既有设计文档和 milestone 规范。
 
 缺点：
 
-- 已有文件内容与新规范不一致时，需要逐项判断是否补齐。
-
-推荐采用方案 A。
-
-方案 B：强制重建全部文件。
-
-优点：
-
-- 输出统一。
-
-缺点：
-
-- 可能覆盖已有 Milestone 文档或历史内容。
-
-不推荐方案 B。
+- 不会提前提供任何业务能力。
+- 若现有规范文件缺失，只能通过 ADR 记录假设，不能直接完善原规范文档。
 
 ## 7. 交付件
 
-1. Environment Report。
-2. `README.md`。
-3. `docs/00_PROJECT_STATE.md` 到 `docs/12_AGENT_WORKFLOW.md`。
-4. `milestones/M0_FOUNDATION.md` 到 `milestones/M7_AI_TUTOR.md`。
-5. `ADR/`、`codex/`、`backend/`、`frontend/`、`tests/` 目录。
-6. Git commit：`docs: initialize project specification`。
-7. Push 到 `origin/main` 的同步结果。
+1. `alignment.md`
+2. `backend/pyproject.toml`
+3. `backend/app/main.py`
+4. `backend/app/api/`
+5. `backend/app/core/`
+6. `backend/app/models/`
+7. `backend/app/services/`
+8. `backend/tests/`
+9. `frontend/package.json`
+10. `frontend/package-lock.json`
+11. `frontend/` Next.js 15 TypeScript App Router TailwindCSS 工程
+12. `docker-compose.yml`
+13. `backend/Dockerfile`
+14. `frontend/Dockerfile`
+15. `.github/workflows/ci.yml`
+16. `.gitignore`
+17. `docs/00_PROJECT_STATE.md` 更新
+18. 如发现规范缺口：`ADR/` 下新增 ADR 文件
+19. Git commit 和 push 到 `origin/main`
 
 ## 8. 交付件验收指标
 
-1. 所有指定目录存在。
-2. 所有指定文档存在。
-3. `docs/00_PROJECT_STATE.md` 精确包含 `v0.0.1`、`Bootstrap`、`Documentation initialized`。
-4. 未实现 backend、frontend、crawler、RAG 或业务逻辑。
-5. `git status` 最终干净。
-6. 本地 `main` 与 `origin/main` 同步。
-7. 最终输出包含 GitHub 状态、创建文件列表、commit hash、下一步建议。
+1. `GET /health` 返回 `{"status":"ok"}`。
+2. `backend/pyproject.toml` 管理 backend 依赖。
+3. `pytest` 成功通过。
+4. `frontend/package.json` 和 `frontend/package-lock.json` 已提交。
+5. `npm run build` 成功通过。
+6. `docker compose up` 能启动 backend 和 frontend。
+7. `localhost:8000/health` 可访问。
+8. `localhost:3000` 可访问并显示 `Scientific Spaces AI Learning OS`。
+9. CI 在 PR 触发时运行 backend pytest 和 frontend build。
+10. `docs/00_PROJECT_STATE.md` 更新为 `v0.1.0 / M0 Completed / Engineering foundation implemented`。
+11. 提交前已检查 `git status` 和 `git diff --stat`。
+12. 提交内容不包含 `.env`、`node_modules`、缓存文件或大规模生成文件。
+13. 提交信息为 `feat: implement M0 engineering foundation`，并推送到 `origin/main`。
+14. 不修改已有设计文档和 Milestone 文档内容，除允许更新的 `docs/00_PROJECT_STATE.md`。
+15. 不包含 M1 crawler/parser/storage、M2 reader/search、M3 RAG/embedding/FAISS/LLM 或任何业务代码。
