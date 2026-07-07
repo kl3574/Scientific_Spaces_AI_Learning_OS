@@ -1,170 +1,117 @@
-# Task Alignment - Implement M1 RSS Browser Source Strategy
+# Task Alignment - M1 PDF Export Capability Evaluation
 
 ## 1. 背景
 
-项目 `kl3574/Scientific_Spaces_AI_Learning_OS` 当前 M1 Source Pipeline 已完成。新的策略评估已通过：
+项目 `kl3574/Scientific_Spaces_AI_Learning_OS` 已完成 M0/M1。RSS Discovery、Browser Article Access、Article Sync 均已验证通过。
 
-- RSS Discovery: PASS
-- Browser Article Access: PASS
-
-当前任务是实现新的 M1 Source Access Strategy，将 RSS Discovery 与 Playwright Browser Access 整合进入 M1 pipeline。本任务不实现 M2 Reader、M3 RAG、M4-M7，不修改 Verification 标准。最终仍需重新验证 M1。
+本任务属于 M1 Export Capability Evaluation，只评估 Scientific Spaces Article PDF Export 工程可行性，不属于 M2 Reader、M3 RAG、AI Tutor 或 M4-M7。
 
 ## 2. 需求
 
 1. 读取：
+   - `docs/00_PROJECT_STATE.md`
    - `docs/M1_SOURCE_ACCESS_STRATEGY_REVISION.md`
-   - `docs/M1_ARTICLE_DISCOVERY_STRATEGY_EVALUATION.md`
    - `docs/M1_BROWSER_ARTICLE_ACCESS_STRATEGY.md`
    - `docs/M1_VERIFICATION_REPORT.md`
-   - `ADR/0003-m1-live-source-access-blocker.md`
-2. 实现 RSS Discovery Provider：
-   - 输入：`https://spaces.ac.cn/feed`
-   - 输出：Article URL list
-3. 实现 Browser Access Provider：
-   - 使用 Playwright Chromium
-   - 支持 HTML 获取
-   - 支持 title 获取
-   - 支持 MathJax 等待
-   - 支持 bounded retry
-   - 失败时记录 URL 和失败原因
-4. 保持 Existing Parser、Converter、Storage。
-5. 更新 `python -m app.sync` 流程：
-   - RSS
-   - Article URLs
-   - Browser Access
-   - Parser
-   - Markdown Converter
-   - Storage
-   - Validation
-6. 禁止：
-   - PDF 生成
-   - 保存 raw HTML
-   - 保存图片
-   - 保存额外正文文件
-   - 实现 M2-M7
-7. 增加测试：
-   - RSS discovery test
-   - Browser provider test
-   - Sync integration test
-8. 保留 fixture 测试。
-9. Live test 必须独立标记。
-10. 验证：
-    - `pytest`
-    - `python -m app.sync`
-    - 至少若干篇真实文章成功导入
-    - 重复 sync 不重复
-11. 只有真实 end-to-end sync 成功，才更新 `docs/00_PROJECT_STATE.md` 为 `M1 Verification Passed`。
-12. Commit message：
-    - 成功解除：`fix: implement RSS browser source strategy`
-    - 如果只是实现但未解除：`feat: add RSS browser access strategy`
+2. 检查 `kexue_downloader.py` 作为设计参考。
+3. 创建 `docs/M1_PDF_EXPORT_EVALUATION.md`。
+4. 新建独立 PDF Export 模块：`backend/app/export/pdf.py`。
+5. PDF Export 必须支持：
+   - Playwright Chromium
+   - 等待 MathJax v2/v3
+   - A4 页面打印
+   - 中文
+   - 数学公式
+   - bounded retry
+   - failure logging
+6. 增加 fixture PDF export test。
+7. 增加独立 marker 的 live PDF test，例如 `pdf_live`，默认不运行。
+8. Live PDF test 必须使用临时目录。
+9. 生成 PDF 后必须验证：
+   - 文件存在
+   - 文件大小大于 0
+   - PDF 格式有效
+10. 测试结束必须删除所有 PDF artifact。
+11. 真实测试最多 5 篇文章，例如 `/archives/6508` 以及 RSS 获取的少量 URL。
+12. 运行普通 `pytest`。
+13. 禁止提交 PDF、HTML、图片、正文、缓存、browser profile、trace、截图。
+14. 不修改：
+   - `backend/app/crawler/`
+   - RSS discovery
+   - sync 主流程
+   - Verification 标准
+   - Project State
+15. 不实现 M2 Reader、M3 RAG、M4-M7。
+16. Commit message：`feat: add article pdf export capability`。
 
 ## 3. 目的
 
-把已经评估通过的新 M1 source access strategy 工程化：用官方 RSS 获取文章 URL，用 Playwright Chromium 获取文章页面，再复用现有 parser/converter/storage/validation，完成真实端到端同步验证。
+验证 Scientific Spaces Article -> PDF Export 是否具备工程可行性，并沉淀一个独立、可测试、可扩展但不接入主同步流程的 export capability。
 
 ## 4. 计划执行方案
 
 1. 覆盖写入本次 `alignment.md`。
-2. 读取指定 5 个文档。
-3. 检查当前 git 状态，识别已有未提交诊断文件和依赖变更，避免误提交无关内容。
-4. 读取现有 M1 pipeline 代码：
-   - crawler
-   - parser
-   - converter
-   - storage
-   - validation
-   - sync
-   - tests
-5. 先写测试：
-   - RSS fixture discovery 测试
-   - Browser provider fake/page 测试
-   - Sync fixture integration 测试
-   - Live RSS/browser 测试独立 marker，默认不运行
-6. 实现 RSS Discovery Provider：
-   - 结构化解析 RSS XML
-   - 提取 `item/link`
-   - 校验 `https://spaces.ac.cn/archives/{id}`
-   - 去重
-   - bounded item limits
-7. 实现 Browser Access Provider：
-   - Playwright Chromium
-   - 非持久 context
-   - 禁止 downloads
-   - bounded retry/timeout
-   - 返回内存中的 HTML/title/metadata
-   - 不把 raw HTML 写入文件
-   - 记录失败 URL 和原因
-8. 更新 sync：
-   - 默认使用 RSS discovery + browser access
-   - 保留 fixture/index/article-dir 测试入口兼容
-   - 复用 parser/converter/storage/validation
-9. 依赖处理：
-   - 将 Playwright 作为 backend runtime dependency
-   - 不提交浏览器缓存、trace、截图、profile
-10. 运行测试：
-    - `pytest`
-11. 运行真实 sync：
-    - `python -m app.sync`
-    - 控制最大文章数，低频验证
-12. 重复运行 sync，验证 idempotency。
-13. 如果真实 end-to-end sync 成功：
-    - 更新 `docs/00_PROJECT_STATE.md` 为 `M1 Verification Passed`
-    - commit: `fix: implement RSS browser source strategy`
-14. 如果真实 sync 失败：
-    - 保持 `docs/00_PROJECT_STATE.md` blocked
-    - commit: `feat: add RSS browser access strategy`
+2. 读取指定 M1 文档和 `kexue_downloader.py`。
+3. 检查当前 git 状态，避免误提交已有无关文件。
+4. 先写 PDF export 测试：
+   - fixture/fake exporter 测试 retry、failure logging、PDF 输出验证
+   - live PDF test 使用 `@pytest.mark.pdf_live`，默认跳过
+5. 运行新增测试，确认缺失实现导致失败。
+6. 创建 `backend/app/export/pdf.py`，实现独立 Article PDF Export 能力。
+7. 运行 targeted tests 使其通过。
+8. 运行普通 `pytest`。
+9. 使用最多 5 篇真实文章运行 live PDF export 验证，记录每篇：
+   - URL
+   - PDF status
+   - 生成时间
+   - 文件大小
+   - MathJax status
+   - 失败原因
+10. 测试结束清理所有 PDF artifact。
+11. 创建 `docs/M1_PDF_EXPORT_EVALUATION.md`，记录环境、设计、测试结果、成功率、Recommendation 和 Conclusion。
+12. 检查 `git status` 和 `git diff --stat`，确认未提交禁止 artifact，未修改禁止文件。
+13. 提交：`feat: add article pdf export capability`。
 
 ## 5. 方案选型理由
 
-RSS 是官方可访问 discovery source，Playwright Chromium 已证明可访问部分 article URL。把二者作为 M1 source access layer，能替代失败的 homepage/archive discovery，同时复用已有 parser/converter/storage，避免引入 M2/M3 业务功能。
+独立 export 模块可以验证 PDF 能力，同时不污染 M1 sync 主流程，也不提前进入 M2/M3。Playwright 是现有 Browser Article Access 已验证的技术路径，适合复用浏览器渲染、MathJax 等待和 `page.pdf()` 能力。临时目录和 PDF 格式校验能保证验证可信且不污染仓库。
 
 ## 6. 优缺点对比
 
-仅一个可行方案：实现 `RSS Discovery + Playwright Browser Access` 并接入现有 M1 sync。
+仅一个可行方案：独立 PDF Export 模块 + 独立测试 + 独立报告。
 
 优点：
 
-- 使用官方 RSS discovery。
-- 避开 homepage/archive 403。
-- 复用现有 M1 parser/storage。
-- 可通过 live sync 验证 M1 是否真正可用。
+- 边界清晰，不改变 crawler/sync/verification。
+- 可验证真实 PDF 生成。
+- 生成物受临时目录隔离。
+- 后续可扩展为 batch export。
 
 缺点：
 
-- Playwright 增加运行时依赖和环境复杂度。
-- RSS 可能只覆盖近期文章，不代表全量历史。
-- Browser access 存在超时/403 波动，需要 bounded retry 和失败记录。
+- Playwright runtime 成本较高。
+- live PDF 测试依赖网络和站点可访问性。
+- PDF 质量可能需要后续排版优化。
 
 ## 7. 交付件
 
 1. `alignment.md`
-2. RSS Discovery Provider 代码
-3. Browser Access Provider 代码
-4. 更新后的 `python -m app.sync`
-5. RSS/browser/sync 测试
-6. 独立 live test marker
-7. 依赖配置更新
-8. 若真实 sync 成功：更新 `docs/00_PROJECT_STATE.md`
-9. Git commit：
-   - 成功解除：`fix: implement RSS browser source strategy`
-   - 未解除：`feat: add RSS browser access strategy`
+2. `docs/M1_PDF_EXPORT_EVALUATION.md`
+3. `backend/app/export/pdf.py`
+4. PDF export fixture 测试文件
+5. live PDF test，独立 marker `pdf_live`
+6. Git commit：`feat: add article pdf export capability`
 
 ## 8. 交付件验收指标
 
-1. 已读取指定 5 个文档。
-2. RSS provider 能从 `https://spaces.ac.cn/feed` 输出 article URL list。
-3. Browser provider 使用 Playwright Chromium。
-4. Browser provider 支持 HTML/title/MathJax/bounded retry/failure reason。
-5. `python -m app.sync` 使用新流程。
-6. Existing Parser/Converter/Storage 保持复用。
-7. fixture 测试保留并通过。
-8. 新增 RSS/browser/sync 测试通过。
-9. live test 独立标记，默认不运行。
-10. `pytest` 通过。
-11. `python -m app.sync` 真实运行。
-12. 重复 sync 不产生重复数据。
-13. 不保存 raw HTML、PDF、图片、附件或额外正文文件。
-14. 不实现 M2-M7。
-15. 不修改 Verification 标准。
-16. 只有真实 end-to-end sync 成功，才更新 `docs/00_PROJECT_STATE.md` 为 `M1 Verification Passed`。
-17. commit message 与结果匹配。
+1. 报告存在，并包含 Current Status、Export Strategy、Test Results、PDF success rate、Recommendation、Conclusion。
+2. `backend/app/export/pdf.py` 存在，并支持 Playwright Chromium、MathJax wait、A4 PDF、retry、failure logging。
+3. 普通 `pytest` 通过。
+4. live PDF test 默认跳过，可通过显式 marker/env 运行。
+5. 至少 5 篇真实文章 PDF 生成结果被记录到报告中。
+6. live PDF test 使用临时目录。
+7. 每个 PDF artifact 验证：文件存在、文件大小大于 0、PDF 格式有效。
+8. 测试结束后删除所有 PDF artifact。
+9. 仓库内无 PDF、HTML、图片、正文、browser profile、trace、截图 artifact。
+10. 未修改 `backend/app/crawler/`、RSS discovery、sync 主流程、M1 Verification 标准、Project State。
+11. commit message 为 `feat: add article pdf export capability`。
