@@ -1,174 +1,167 @@
-# Task Alignment - Milestone 1 Scientific Spaces Source Pipeline
+# Task Alignment - Resolve or Confirm M1 Live Source Access Blocker
 
 ## 1. 背景
 
-当前任务是执行 `kl3574/Scientific_Spaces_AI_Learning_OS` 的 `Milestone 1 - Scientific Spaces Source Pipeline`。
+当前任务是解除或确认延续 `M1 Verification Blocked` 状态。当前阻塞来自 M1 Verification Gate：默认线上 `python -m app.sync` 访问 `https://spaces.ac.cn/` 时返回 HTTP 403。
 
-M0 工程基础已完成，M1 目标是建立 Scientific Spaces 数据来源管线。当前只允许实现 M1 crawler/parser/markdown converter/storage/validation，不允许实现 M2-M7 功能。
+本任务首先诊断 403，不保证一定能通过代码修复。如果真实 source 仍不可访问，则保持 blocked，不修改 verification 标准，不用 fixture 替代 live 验证。若 `ADR/0003` 已覆盖当前 403 问题，则不重复创建 ADR，优先更新已有阻塞记录。真实站点诊断必须低频、最小请求量、合理 User-Agent，且不得尝试绕过访问控制。如果 live integration check 已确认同一 URL、同一访问路径稳定返回 403，则不重复高频尝试，只记录证据并保持 blocked。
 
 ## 2. 需求
 
-1. 执行前读取指定文档：
+1. 读取：
+   - `docs/M1_VERIFICATION_REPORT.md`
+   - `ADR/0003-m1-live-source-access-blocker.md`
    - `docs/00_PROJECT_STATE.md`
-   - `docs/02_TDD.md`
-   - `docs/03_SOP.md`
-   - `milestones/M1_SOURCE_PIPELINE.md`
-   - `docs/08_KNOWLEDGE_PIPELINE.md`
-   - `docs/11_SOURCE_POLICY.md`
-   - `docs/15_ACCEPTANCE.md`
-   - `docs/31_MVP_BOUNDARY.md`
-2. 检查环境并输出 `Environment Report`：
-   - `git status`
-   - `git branch`
-   - `git remote -v`
-   - `python --version`
-   - `docker --version`
-3. 实现 M1 Source Pipeline：
-   - crawler
-   - parser
-   - markdown converter
-   - storage
-   - validation
-4. 创建统一同步入口，例如 `python -m app.sync`。
-5. 添加 pytest 测试：
-   - Crawler Test
-   - Parser Test
-   - Storage Test
-   - Validation Test
-6. 更新 `docs/00_PROJECT_STATE.md`：
-   - Version: `v0.2.0`
-   - Phase: `M1 Completed`
-   - Status: `Scientific Spaces source pipeline implemented`
-7. 提交前执行：
-   - `git status`
-   - `git diff --stat`
-8. 提交并推送：
-   - commit: `feat: implement M1 scientific spaces source pipeline`
-   - push: `origin/main`
-9. 禁止修改 PRD/TDD/SOP/Milestone 文档。
-10. 禁止实现 M2 Reader/Search、M3 RAG/Embedding/FAISS/LLM、M4-M7 全部功能。
-11. 不提交 `.env`、cache、临时文件或下载的大量原始数据。
+2. 分析 HTTP 403 原因：
+   - User-Agent
+   - headers
+   - robots
+   - timeout
+   - retry
+3. 创建访问策略报告：`docs/M1_LIVE_ACCESS_STRATEGY.md`。
+4. 报告必须记录：
+   - OS
+   - Python version
+   - requests version
+   - network environment summary
+5. 如需修改 crawler，只允许修改 `backend/app/crawler/`。
+6. 保持 fixture 测试。
+7. 增加 live access integration check，且必须独立标记，不影响普通 pytest。
+8. 运行 `pytest`。
+9. 运行默认真实 `python -m app.sync`，但如果 live integration check 已确认同一 URL、同一路径稳定 403，则不重复高频尝试，只记录已有证据。
+10. 仅当真实 source sync 成功时，将 `docs/00_PROJECT_STATE.md` 从 `M1 Verification Blocked` 更新为 `M1 Verification Passed`。
+11. 如果真实 source 仍不可访问：
+    - 保持 `M1 Verification Blocked`
+    - 更新 `docs/M1_LIVE_ACCESS_STRATEGY.md`
+    - 优先更新已有 `ADR/0003-m1-live-source-access-blocker.md`
+    - 不重复创建 ADR，除非发现新的架构决策或不同根因
+    - 不修改 Verification 标准
+12. 诊断真实站点时：
+    - 不进行高频批量抓取
+    - 使用合理 User-Agent 和访问频率
+    - 诊断请求数量保持最小化
+    - 不尝试绕过访问控制
+13. 禁止：
+    - 使用 fixture 替代 live 验证
+    - 提交人工下载数据
+    - 绕过站点访问策略
+    - 实现 M2-M7
+14. Commit rule：
+    - 如果真实 sync 成功并解除 Blocked，commit message 使用 `fix: resolve M1 live source access`
+    - 如果真实 sync 失败并保持 Blocked，commit message 使用 `docs: update M1 live source access blocker`
 
 ## 3. 目的
 
-建立可靠、可重复执行、可测试的 Scientific Spaces 文章来源管线：发现文章 URL，下载 HTML，解析文章结构，转换 Markdown，保存 Article 数据，并生成数据质量验证报告，为后续 M2 Reader 和 M3 RAG 提供干净输入，但不提前实现这些后续功能。
+通过合规、低频、证据化诊断确认 403 的根因和可行访问策略；只有在真实 Scientific Spaces source sync 成功时，才解除 M1 Verification Blocked。若无法合规访问，则把阻塞状态、环境信息和后续建议更新到现有阻塞记录中，避免伪造 M2 readiness、重复请求站点或制造重复 ADR。
 
 ## 4. 计划执行方案
 
-1. 将本次完整对齐内容覆盖写入 `alignment.md`。
-2. 执行项目启动检查：
-   - 读取 `alignment.md`
-   - 检查 `REWORK.md`
-   - 读取 `roadmap.md`
-3. 读取用户指定的 M1 文档；若 `docs/15_ACCEPTANCE.md` 或 `docs/31_MVP_BOUNDARY.md` 缺失，不直接创建或修改规范文档，改为创建 ADR 记录规范缺口与 M1 执行假设。
-4. 执行环境检查并整理 `Environment Report`。
-5. 以 TDD 顺序先补测试，再实现代码。
-6. 在 `backend/app/crawler/` 实现模块化 crawler：
-   - `discovery.py`：文章列表发现、分页支持、URL 提取。
-   - `downloader.py`：请求异常处理、重试机制。
-   - `cache.py`：基础缓存，避免重复下载。
-7. 在 `backend/app/parser/` 实现 parser：
-   - 提取 `title`、`url`、`date`、`category`、`content`、`images`、`references`。
-   - 保留数学公式、图片链接、引用信息，不修改原文含义。
-8. 在 `backend/app/converter/` 实现 HTML to Markdown：
-   - 保持标题层级、LaTeX 公式、图片引用、代码块。
-   - 禁止简单纯文本转换。
-9. 在 `backend/app/storage/` 实现 Article 保存：
-   - 至少包含 `id`、`title`、`url`、`content`、`metadata`。
-   - metadata 包含 `date`、`category`、`references`、`images`。
-   - 不引入 Knowledge Graph、Paper Entity、Embedding。
-10. 在 `backend/app/validation/` 实现数据质量检查：
-    - Title 100% 存在。
-    - Content 95% 以上正文完整。
-    - Images 路径有效。
-    - Formula 未明显损坏。
-    - 生成验证报告，但不提交大规模下载数据。
-11. 创建同步入口 `backend/app/sync.py`，支持 `python -m app.sync`，按 crawler -> parser -> converter -> storage -> validation 执行，重复运行不产生大量重复数据。
-12. 运行 `pytest`，必要时运行 Docker/CI 相关检查。
-13. 只更新允许修改的 `docs/00_PROJECT_STATE.md`。
-14. 提交前检查 `git status`、`git diff --stat`、禁止提交项。
-15. commit 并 push 到 `origin/main`。
-16. 输出最终报告。
+1. 将本次完整对齐内容写入 `alignment.md`。
+2. 读取指定报告、ADR 和项目状态。
+3. 检查当前已有 live 403 证据，避免无意义重复请求。
+4. 采集环境信息：
+   - OS
+   - Python version
+   - requests version
+   - network environment summary
+5. 以最小请求量复现或确认当前 live sync 403。
+6. 分析访问策略：
+   - 当前 downloader 的 User-Agent。
+   - 少量合理 headers 组合。
+   - robots.txt 可访问性和规则。
+   - timeout 设置。
+   - retry 行为。
+   - 官方域名/备用域名响应情况。
+   - 是否为当前网络环境被站点策略拒绝。
+7. 创建或更新 `docs/M1_LIVE_ACCESS_STRATEGY.md`，记录诊断命令、请求数量、结果、环境信息、结论和建议。
+8. 若有明确、合规、最小的 crawler 修复，只修改 `backend/app/crawler/`。
+9. 增加独立标记的 live integration check，默认普通 `pytest` 不运行 live check。
+10. 运行普通 `pytest`，确认 fixture 测试仍通过。
+11. 以最小请求量运行 live integration check。
+12. 对默认真实 `python -m app.sync`：
+    - 若 live integration check 已确认同一 URL、同一访问路径一致 403，则不重复高频尝试，只在报告中记录该证据。
+    - 若未确认，则运行一次默认真实 sync 并记录结果。
+13. 如果真实 sync 成功：更新 `docs/00_PROJECT_STATE.md` 为 `M1 Verification Passed`，commit 使用 `fix: resolve M1 live source access`。
+14. 如果真实 sync 仍失败：保持 `M1 Verification Blocked`，更新访问策略报告和现有 ADR/0003 阻塞记录，commit 使用 `docs: update M1 live source access blocker`。
+15. 提交前检查 diff，确认没有人工下载数据、没有 fixture 替代 live 验证、没有 M2-M7。
+16. commit 并 push 到 `origin/main`。
+17. 输出最终报告。
 
 ## 5. 方案选型理由
 
-M1 是数据来源管线，不是 reader、search 或 RAG。因此实现应集中在 backend 内部的可测试模块和 CLI 同步入口，避免任何 frontend 页面、Article API、搜索 UI、embedding、FAISS 或 LLM 依赖。使用本地结构化存储和小规模 fixture 测试可以保证可重复验证，同时避免提交大量抓取数据。
+该任务的核心是 live source access 诊断。站点 403 可能来自请求头、robots、反爬策略、网络环境或访问策略；不能用 fixture、人工下载数据或绕过站点策略来伪造通过。独立 live integration check 可以保留普通测试稳定性，同时让 live source readiness 有明确证据。若根因仍是现有 403 阻塞，则更新 ADR/0003 比新增重复 ADR 更清晰。低频最小请求量符合 source access 约束。记录 OS/Python/requests/network summary 有助于判断问题是否与运行环境相关。
 
 ## 6. 优缺点对比
 
-方案 A：实现模块化 backend pipeline，并用 fixture/小规模测试验证。
+方案 A：低频诊断并尝试合规 crawler 请求层修复；真实 sync 成功才解除 blocked。
 
 优点：
 
-- 边界清晰、可测试、可重复执行。
-- 对 M2-M7 兼容。
-- 不提交大规模原始抓取数据。
+- 满足真实 source 验证要求。
+- 边界清晰。
+- 尊重站点访问策略。
+- 环境证据完整。
 
 缺点：
 
-- 不会提供用户可见 reader/search 功能。
+- 如果站点策略拒绝当前环境，可能无法在代码层解除 blocked。
 
-方案 B：直接抓取并提交一批真实文章数据。
+方案 B：用 fixture 或本地数据替代 live 验证。
 
-优点：
+优点：稳定。
 
-- 短期看起来更接近完整数据集。
+缺点：明确违反约束。不采用。
 
-缺点：
+方案 C：人工下载数据并提交。
 
-- 容易提交大量原始数据和缓存。
-- 复现性差。
-- 不利于 source policy 控制。
+优点：短期有数据。
 
-不推荐方案 B。
+缺点：违反约束，也不可复现。不采用。
 
-方案 C：提前实现 Article API 或前端 Reader 验证数据。
+方案 D：绕过站点访问策略。
 
-优点：
+优点：可能临时成功。
 
-- 可视化验证更直观。
+缺点：违反约束和 source policy。不采用。
 
-缺点：
+方案 E：重复创建新的 403 ADR。
 
-- 违反 M2 禁止范围。
+优点：简单。
 
-不采用方案 C。
-
-推荐采用方案 A。
+缺点：违反用户新增约束，造成重复记录。不采用，除非发现新的架构决策或不同根因。
 
 ## 7. 交付件
 
 1. `alignment.md`
-2. 如发现规范缺口：`ADR/` 下新增 ADR
-3. `backend/app/crawler/discovery.py`
-4. `backend/app/crawler/downloader.py`
-5. `backend/app/crawler/cache.py`
-6. `backend/app/parser/`
-7. `backend/app/converter/`
-8. `backend/app/storage/`
-9. `backend/app/validation/`
-10. `backend/app/sync.py`
-11. backend 测试文件：crawler/parser/storage/validation/sync 相关 pytest
-12. 必要的 fixture 测试数据
-13. 轻量验证报告输出路径或生成逻辑
-14. `docs/00_PROJECT_STATE.md` 更新
-15. Git commit 和 push 到 `origin/main`
+2. `docs/M1_LIVE_ACCESS_STRATEGY.md`
+3. 独立标记的 live access integration check
+4. 如需且合规：`backend/app/crawler/` 内最小修复
+5. 如果仍失败：更新 `ADR/0003-m1-live-source-access-blocker.md`，不重复创建 ADR
+6. 如果真实 sync 成功：`docs/00_PROJECT_STATE.md` 更新为 `M1 Verification Passed`
+7. Git commit：
+   - 成功解除 blocked：`fix: resolve M1 live source access`
+   - 仍 blocked：`docs: update M1 live source access blocker`
 
 ## 8. 交付件验收指标
 
-1. `python -m app.sync` 可执行完整 M1 管线。
-2. Crawler 能输出文章 URL 列表，支持分页、异常处理、重试、基础缓存。
-3. Parser 能提取 `title`、`url`、`date`、`category`、`content`、`images`、`references`。
-4. Markdown converter 保留标题层级、LaTeX 公式、图片引用、代码块。
-5. Storage 保存 Article：`id`、`title`、`url`、`content`、`metadata`。
-6. 重复执行 sync 不产生大量重复 Article 数据。
-7. Validation 能对样本文章生成质量报告。
-8. `pytest` 通过。
-9. `docs/00_PROJECT_STATE.md` 更新为 `v0.2.0 / M1 Completed / Scientific Spaces source pipeline implemented`。
-10. 提交前已执行 `git status` 和 `git diff --stat`。
-11. 提交内容不包含 `.env`、cache、临时文件、下载的大量原始数据。
-12. 不修改 PRD/TDD/SOP/Milestone 文档，除允许更新 `docs/00_PROJECT_STATE.md`。
-13. 不包含 M2 Article API、Frontend Reader、Search UI。
-14. 不包含 M3 RAG、Embedding、FAISS、LLM。
-15. 不包含 M4-M7 功能。
-16. commit 信息为 `feat: implement M1 scientific spaces source pipeline`，并推送到 `origin/main`。
+1. 已读取指定 3 个文件。
+2. 策略报告包含 User-Agent、headers、robots、timeout、retry 分析。
+3. 策略报告记录 OS、Python version、requests version、network environment summary。
+4. 策略报告记录诊断请求数量和频率控制。
+5. live integration test 独立标记，普通 `pytest` 不依赖真实网络。
+6. fixture 测试仍保留并通过。
+7. 没有使用 fixture 替代 live 验证。
+8. 没有提交人工下载数据。
+9. 没有绕过站点访问策略。
+10. 未进行高频批量抓取。
+11. 若有代码变更，只发生在 `backend/app/crawler/`。
+12. `pytest` 通过。
+13. 默认真实 `python -m app.sync` 已执行并记录结果，或在 live integration check 已确认同一 URL、同一访问路径一致 403 时记录该证据并避免重复高频尝试。
+14. 只有真实 source sync 成功时，`docs/00_PROJECT_STATE.md` 才改为 `M1 Verification Passed`。
+15. 如果真实 source 仍不可访问，`docs/00_PROJECT_STATE.md` 保持 `M1 Verification Blocked`，并更新现有 `ADR/0003-m1-live-source-access-blocker.md`。
+16. 不重复创建 ADR，除非发现新的架构决策或不同根因。
+17. 未修改 M1 Verification 标准。
+18. 未实现 M2-M7。
+19. commit message 与结果匹配：
+    - 成功解除 blocked：`fix: resolve M1 live source access`
+    - 仍 blocked：`docs: update M1 live source access blocker`

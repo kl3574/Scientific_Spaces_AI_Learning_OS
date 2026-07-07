@@ -27,3 +27,6 @@ packages = ["app"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "live: checks that contact the live Scientific Spaces source; skipped unless RUN_LIVE_TESTS=1 is set.",
+]
