@@ -1,85 +1,136 @@
-# Task Alignment - Sync M0 Foundation File
+# Task Alignment - Bootstrap Project Specification
 
 ## 1. 背景
 
-当前项目是 `Scientific_Spaces_AI_Learning_OS`，已同步到公开 GitHub 仓库 `kl3574/Scientific_Spaces_AI_Learning_OS`。项目已有 `milestones/M0_FOUNDATION.md` 以及后续 M1-M7 里程碑文档。
+当前项目是 `Scientific_Spaces_AI_Learning_OS`，远端仓库为 `kl3574/Scientific_Spaces_AI_Learning_OS`。GitHub 仓库已创建并可访问，当前本地 `main` 跟踪 `origin/main`。
 
-用户要求同步 M0 文件。本任务理解为：检查本地 `milestones/M0_FOUNDATION.md` 与远端 GitHub `main` 分支状态，确保 M0 文件已提交并同步到远端；如果本地 M0 文件有未同步变更，则只同步相关变更。
+用户要求初始化 Scientific Spaces AI Learning OS 项目，只完成 Bootstrap，不实现任何业务代码。
 
 已确认约束：
 
-- 检查并同步 `milestones/M0_FOUNDATION.md`。
-- 不修改 M0 文件内容，除非发现文件缺失或明显不同步且需要恢复。
-- 不新增业务功能代码。
+- 只建立目录和工程文档。
+- 不实现 backend。
+- 不实现 frontend。
+- 不实现 crawler。
+- 不实现 RAG。
+- 不添加业务逻辑。
 
 ## 2. 需求
 
-1. 检查 `milestones/M0_FOUNDATION.md` 是否存在。
-2. 检查该文件当前是否有未提交或未推送变更。
-3. 如有 M0 文件变更，提交并 push 到 GitHub。
-4. 如 M0 文件已同步，则验证远端可读取该文件。
-5. 不修改 M0 文件内容，除非发现文件缺失或明显不同步且需要恢复。
-6. 不新增业务功能代码。
+1. 检查环境：
+   - `git`
+   - GitHub authentication
+   - 当前 repository 状态
+2. 输出 Environment Report。
+3. 创建目录：
+   - `docs/`
+   - `milestones/`
+   - `ADR/`
+   - `codex/`
+   - `backend/`
+   - `frontend/`
+   - `tests/`
+4. 创建 `README.md`。
+5. 创建基础工程文档：
+   - `docs/01_PRD.md`
+   - `docs/02_TDD.md`
+   - `docs/03_SOP.md`
+   - `docs/04_DATA_MODEL.md`
+   - `docs/05_AI_AGENT_SPEC.md`
+   - `docs/06_TEST_PLAN.md`
+   - `docs/07_ROADMAP.md`
+   - `docs/08_KNOWLEDGE_PIPELINE.md`
+   - `docs/09_LEARNING_MODEL.md`
+   - `docs/10_UI_SPEC.md`
+   - `docs/11_SOURCE_POLICY.md`
+   - `docs/12_AGENT_WORKFLOW.md`
+6. 创建 Milestone 文档：
+   - `milestones/M0_FOUNDATION.md`
+   - `milestones/M1_SOURCE_PIPELINE.md`
+   - `milestones/M2_READER_SYSTEM.md`
+   - `milestones/M3_RAG_SYSTEM.md`
+   - `milestones/M4_LEARNING_SYSTEM.md`
+   - `milestones/M5_ZOTERO.md`
+   - `milestones/M6_KNOWLEDGE_GRAPH.md`
+   - `milestones/M7_AI_TUTOR.md`
+7. 创建 `docs/00_PROJECT_STATE.md`，内容包含：
+   - Version: `v0.0.1`
+   - Phase: `Bootstrap`
+   - Status: `Documentation initialized`
+8. 提交信息：`docs: initialize project specification`。
+9. Push 到 `origin/main`。
+10. 最终输出：
+    - GitHub 状态
+    - 创建文件列表
+    - commit hash
+    - 下一步建议
 
 ## 3. 目的
 
-确保 M0 工程基础里程碑文件在本地和 GitHub 远端保持同步，后续可作为工程基础任务的稳定来源。
+完成项目 Bootstrap，让仓库具备基础目录结构、工程规格文档、Milestone 路线文档和项目状态记录，作为后续实现工作的起点。
 
 ## 4. 计划执行方案
 
-1. 读取 `alignment.md`、检查 `REWORK.md`、读取 `roadmap.md`。
-2. 将本次完整对齐内容覆盖写入 `alignment.md`。
-3. 检查 `milestones/M0_FOUNDATION.md`。
-4. 检查 `git status`、当前分支和远端 `origin/main`。
-5. 如 M0 文件有未提交变更，只暂存并提交相关文件。
-6. push 到 GitHub。
-7. 通过 GitHub API 或 `gh` 验证远端存在 `milestones/M0_FOUNDATION.md`。
-8. 最终确认本地 `main` 与 `origin/main` 同步。
+1. 读取当前 `alignment.md`、检查 `REWORK.md`、读取 `roadmap.md`，确认无返工阻塞。
+2. 检查 `git`、`gh auth status`、当前分支、远端、工作区状态和 GitHub 仓库状态。
+3. 将本次完整对齐内容覆盖写入 `alignment.md`。
+4. 创建缺失目录；空目录使用 `.gitkeep` 保留。
+5. 创建或补齐指定 README、docs、milestones、project state 文档。
+6. 若文件已存在，保留有效内容，只做 Bootstrap 文档层面的补齐。
+7. 验证所有目录和文件存在。
+8. 验证没有新增业务实现文件。
+9. 提交：`docs: initialize project specification`。
+10. Push 到 `origin/main`。
+11. 验证本地 `main` 与 `origin/main` 同步，并读取 GitHub 远端状态。
 
 ## 5. 方案选型理由
 
-这是一个同步任务，最安全的方式是先检查文件和 Git 状态，再只同步 M0 相关内容，避免误提交其他文件。
+Bootstrap 应该只建立项目骨架和规格文档。先检查环境和仓库现状，再补齐缺失文档，可以避免覆盖已有有效内容，也能确保最终提交范围只包含工程文档和空目录占位。
 
 ## 6. 优缺点对比
 
-方案 A：检查并同步 M0 文件。
+方案 A：检查现状后补齐 Bootstrap 文档和目录。
 
 优点：
 
-- 范围最小。
-- 符合同步 M0 文件的请求。
-- 避免无关变更。
+- 安全、可验证。
+- 不会误删已有文件。
+- 符合不实现业务代码的约束。
 
 缺点：
 
-- `alignment.md` 会因项目规则被覆盖为本轮对齐记录。
+- 已有文件内容与新规范不一致时，需要逐项判断是否补齐。
 
 推荐采用方案 A。
 
-方案 B：强制重新提交全部文件。
+方案 B：强制重建全部文件。
 
 优点：
 
-- 操作简单。
+- 输出统一。
 
 缺点：
 
-- 容易把无关变更混入同步。
+- 可能覆盖已有 Milestone 文档或历史内容。
 
 不推荐方案 B。
 
 ## 7. 交付件
 
-1. `alignment.md`：本轮同步任务的完整对齐文档。
-2. `milestones/M0_FOUNDATION.md`：已确认同步到 GitHub 的 M0 文件。
-3. 如有变更：包含同步结果的 Git 提交与 push。
-4. 如无 M0 内容变更：远端文件存在且本地/远端同步的验证结果。
+1. Environment Report。
+2. `README.md`。
+3. `docs/00_PROJECT_STATE.md` 到 `docs/12_AGENT_WORKFLOW.md`。
+4. `milestones/M0_FOUNDATION.md` 到 `milestones/M7_AI_TUTOR.md`。
+5. `ADR/`、`codex/`、`backend/`、`frontend/`、`tests/` 目录。
+6. Git commit：`docs: initialize project specification`。
+7. Push 到 `origin/main` 的同步结果。
 
 ## 8. 交付件验收指标
 
-1. `milestones/M0_FOUNDATION.md` 本地存在。
-2. GitHub 远端可读取 `milestones/M0_FOUNDATION.md`。
-3. 如本地 M0 有变更，已提交并 push。
-4. `git status` 最终干净。
-5. 本地 `main` 与 `origin/main` 同步。
-6. 未新增业务功能代码。
+1. 所有指定目录存在。
+2. 所有指定文档存在。
+3. `docs/00_PROJECT_STATE.md` 精确包含 `v0.0.1`、`Bootstrap`、`Documentation initialized`。
+4. 未实现 backend、frontend、crawler、RAG 或业务逻辑。
+5. `git status` 最终干净。
+6. 本地 `main` 与 `origin/main` 同步。
+7. 最终输出包含 GitHub 状态、创建文件列表、commit hash、下一步建议。
