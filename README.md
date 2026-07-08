@@ -125,6 +125,8 @@ cp .env.example .env
 Important variables:
 
 - `SCIENTIFIC_SPACES_DATA_DIR`: local runtime data directory. Defaults to `.local_data/scientific_spaces`.
+- `SCIENTIFIC_SPACES_DB_FILE`: optional SQLite database path. Defaults to `.local_data/scientific_spaces/scientific_spaces.db`.
+- `SCIENTIFIC_SPACES_LEARNING_BACKEND`: `json` by default; set `sqlite` to opt into the v1.1 Learning SQLite persistence slice.
 - `SCIENTIFIC_SPACES_ARTICLES_FILE`: override Article storage file.
 - `SCIENTIFIC_SPACES_LEARNING_FILE`: override learning-state storage file.
 - `SCIENTIFIC_SPACES_ZOTERO_FILE`: override Zotero link storage file.
@@ -140,6 +142,34 @@ Important variables:
 - `NEXT_PUBLIC_API_BASE_URL`: frontend API base URL, default `http://localhost:8000`.
 
 Do not commit real `.env` files, API keys, Zotero library exports, or local runtime data.
+
+## Persistence
+
+The v1.0.0 MVP uses local JSON stores by default. Post-MVP persistence hardening introduces an opt-in SQLite slice for M4 Learning data while preserving the existing API contracts and JSON compatibility path.
+
+Default compatibility mode:
+
+```text
+SCIENTIFIC_SPACES_LEARNING_BACKEND=json
+```
+
+Opt-in SQLite Learning persistence:
+
+```text
+SCIENTIFIC_SPACES_LEARNING_BACKEND=sqlite
+SCIENTIFIC_SPACES_DB_FILE=.local_data/scientific_spaces/scientific_spaces.db
+```
+
+Current persistence boundaries:
+
+- Article storage remains JSON.
+- Learning state, bookmarks, notes, and sessions can use JSON or opt-in SQLite.
+- Zotero links remain JSON.
+- Knowledge Graph output remains JSON.
+- Tutor sessions remain JSON.
+- FAISS/vector indexes remain rebuildable and ephemeral.
+
+SQLite database files are local runtime artifacts and must not be committed.
 
 ## Provider Boundaries
 

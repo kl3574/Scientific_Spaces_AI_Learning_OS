@@ -113,3 +113,7 @@ Any M1 implementation change must be handled through a new M1.x revision task.
 Post-MVP Sprint 0:
 
 CI and Release Automation Hardening implemented
+
+P0-002:
+
+Persistence Upgrade Decision and First Migration implemented

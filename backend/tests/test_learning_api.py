@@ -36,6 +36,7 @@ def configure_files(tmp_path: Path, monkeypatch) -> None:
     write_articles(article_file)
     monkeypatch.setenv("SCIENTIFIC_SPACES_ARTICLES_FILE", str(article_file))
     monkeypatch.setenv("SCIENTIFIC_SPACES_LEARNING_FILE", str(learning_file))
+    monkeypatch.delenv("SCIENTIFIC_SPACES_LEARNING_BACKEND", raising=False)
 
 
 def test_learning_state_default_read_update_and_list(tmp_path: Path, monkeypatch) -> None:
@@ -187,3 +188,31 @@ def test_m2_articles_and_m3_rag_contracts_remain_available(tmp_path: Path, monke
     assert index_response.json()["article_count"] == 1
     assert query_response.status_code == 200
     assert query_response.json()["sources"]
+
+
+def test_learning_api_uses_sqlite_backend_when_configured(tmp_path: Path, monkeypatch) -> None:
+    article_file = tmp_path / "articles.json"
+    db_file = tmp_path / "scientific_spaces.db"
+    write_articles(article_file)
+    monkeypatch.setenv("SCIENTIFIC_SPACES_ARTICLES_FILE", str(article_file))
+    monkeypatch.setenv("SCIENTIFIC_SPACES_DB_FILE", str(db_file))
+    monkeypatch.setenv("SCIENTIFIC_SPACES_LEARNING_BACKEND", "sqlite")
+    client = TestClient(app)
+
+    state_response = client.put("/learning/state/attention-001", json={"status": "completed"})
+    bookmark_response = client.post("/learning/bookmarks/attention-001")
+    note_response = client.post("/learning/notes/attention-001", json={"content": "sqlite note"})
+    session_response = client.post("/learning/sessions", json={"article_id": "attention-001", "source": "reader"})
+    end_response = client.put(f"/learning/sessions/{session_response.json()['session_id']}/end")
+    stats_response = client.get("/learning/stats")
+
+    assert state_response.status_code == 200
+    assert state_response.json()["status"] == "completed"
+    assert bookmark_response.status_code == 200
+    assert note_response.status_code == 200
+    assert end_response.status_code == 200
+    assert stats_response.status_code == 200
+    assert stats_response.json()["completed_count"] == 1
+    assert stats_response.json()["bookmark_count"] == 1
+    assert stats_response.json()["note_count"] == 1
+    assert db_file.exists()

@@ -6,6 +6,9 @@
 # Python
 __pycache__/
 *.py[cod]
+*.db
+*.sqlite
+*.sqlite3
 .cache/
 .local_data/
 .pytest_cache/

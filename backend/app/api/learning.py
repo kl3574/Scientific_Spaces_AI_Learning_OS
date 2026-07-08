@@ -6,7 +6,9 @@ from fastapi import APIRouter, HTTPException, Response
 from pydantic import BaseModel, Field
 
 from app.learning.models import LearningStatus, SessionSource
+from app.learning.sqlite_store import LearningSQLiteStore
 from app.learning.store import LearningStore, learning_store_path
+from app.persistence.config import database_path, learning_backend
 from app.services.article_reader import get_article, list_articles
 
 router = APIRouter(prefix="/learning")
@@ -25,7 +27,9 @@ class SessionCreate(BaseModel):
     source: SessionSource = "reader"
 
 
-def get_learning_store() -> LearningStore:
+def get_learning_store() -> LearningStore | LearningSQLiteStore:
+    if learning_backend() == "sqlite":
+        return LearningSQLiteStore(database_path())
     return LearningStore(learning_store_path())
 
 
