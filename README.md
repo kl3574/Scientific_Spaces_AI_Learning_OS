@@ -202,13 +202,21 @@ GitHub Actions workflow:
 Triggers:
 
 - Pull requests
+- Pushes to `main`
+- Pushes to `v*` tags
 - Manual `workflow_dispatch`
 
 Jobs:
 
-- Backend pytest
-- Frontend build
-- Docker compose smoke
+- Backend pytest: `uv run --project backend --extra dev pytest -q`
+- Frontend build: `npm ci` then `npm run build`
+- Docker compose smoke: runs for manual workflow dispatch and `v*` tag pushes, so PR/main push test-build feedback is not blocked by Docker-only failures
+
+Release evidence process:
+
+- For release evidence on an exact tag, run the CI workflow manually with `workflow_dispatch` against that tag or inspect the CI run created by a `v*` tag push.
+- Record the workflow run URL, ref/tag, conclusion, and covered checks in a release evidence document.
+- Release publishing remains manual; CI does not move tags or create GitHub Releases.
 
 ## Local Data and Artifact Policy
 
