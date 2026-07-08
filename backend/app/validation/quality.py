@@ -65,10 +65,11 @@ class ArticleQualityValidator:
             else:
                 issues.append(f"{article.url}: missing title")
 
-            if len(article.content.strip()) >= self.min_content_chars:
+            content_issue = _content_quality_issue(article, self.min_content_chars)
+            if content_issue is None:
                 content_ok += 1
             else:
-                issues.append(f"{article.url}: content shorter than {self.min_content_chars} characters")
+                issues.append(f"{article.url}: {content_issue}")
 
             for image in _article_images(article):
                 parsed = urlparse(str(image))
@@ -96,6 +97,68 @@ def _formula_delimiters_are_balanced(content: str) -> bool:
     display_count = content.count("$$")
     inline_count = len(re.findall(r"(?<!\\)\$(?!\$)", content))
     return display_count % 2 == 0 and inline_count % 2 == 0
+
+
+def _content_quality_issue(article: StoredArticle | ParsedArticle, min_content_chars: int) -> str | None:
+    content = article.content.strip()
+    if len(content) >= min_content_chars:
+        if _looks_like_extraction_failure(article, content):
+            return "content extraction failed: article body not detected"
+        return None
+    if _looks_like_extraction_failure(article, content):
+        return "content extraction failed: article body not detected"
+    if _looks_like_complete_short_content(content):
+        return None
+    return f"content shorter than {min_content_chars} characters"
+
+
+def _looks_like_extraction_failure(article: StoredArticle | ParsedArticle, content: str) -> bool:
+    normalized_content = _normalize_for_comparison(content)
+    if not normalized_content:
+        return True
+
+    title = _normalize_for_comparison(article.title)
+    site_title_markers = ("科学空间|scientificspaces", "scientificspaces")
+    if any(marker in normalized_content for marker in site_title_markers):
+        return True
+
+    if title:
+        if normalized_content == title:
+            return True
+        extra_length = len(normalized_content) - len(title)
+        if normalized_content.startswith(title) and extra_length <= 40 and not _has_article_body_signal(content):
+            return True
+
+    page_chrome_terms = (
+        "上一篇",
+        "下一篇",
+        "相关文章",
+        "发表评论",
+        "登录后评论",
+        "分享到",
+        "shareto",
+        "navigation",
+        "sidebar",
+    )
+    if len(normalized_content) < 120 and any(term in normalized_content for term in page_chrome_terms):
+        return True
+
+    return False
+
+
+def _looks_like_complete_short_content(content: str) -> bool:
+    meaningful_chars = re.findall(r"[\w\u4e00-\u9fff]", content)
+    sentence_markers = re.findall(r"[。！？.!?；;：:]", content)
+    return len(meaningful_chars) >= 20 and bool(sentence_markers)
+
+
+def _has_article_body_signal(content: str) -> bool:
+    return bool(re.search(r"[。！？.!?；;：:]", content)) or "$" in content or "![" in content
+
+
+def _normalize_for_comparison(text: str) -> str:
+    text = re.sub(r"\s+", "", text).lower()
+    return re.sub(r"[-_—–]+", "", text)
 
 
 def _article_images(article: StoredArticle | ParsedArticle) -> list[str]:

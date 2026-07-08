@@ -46,6 +46,36 @@ def test_quality_validator_reports_title_content_image_and_formula_status() -> N
     assert report.formulas_valid is True
 
 
+def test_quality_validator_distinguishes_short_note_from_extraction_failure() -> None:
+    short_note = make_article()
+    short_note = ParsedArticle(
+        title=short_note.title,
+        url=short_note.url,
+        date=short_note.date,
+        category=short_note.category,
+        content="短文说明：这是作者发布的真实短文。它包含完整语义，不是页面标题或导航残片。",
+        images=[],
+        references=[],
+    )
+    extraction_failure = ParsedArticle(
+        title="矩阵函数近似中的暴力美学",
+        url="https://spaces.ac.cn/archives/11787",
+        date="2026-06-25",
+        category="数学研究",
+        content="矩阵函数近似中的暴力美学 - 科学空间|Scientific Spaces",
+        images=[],
+        references=[],
+    )
+
+    report = ArticleQualityValidator(sample_size=10, min_content_chars=300).validate(
+        [short_note, extraction_failure]
+    )
+
+    assert report.content_completeness_rate == 0.5
+    assert any("content extraction failed" in issue for issue in report.issues)
+    assert not any(short_note.url in issue for issue in report.issues)
+
+
 def test_sync_runner_imports_articles_and_is_idempotent(tmp_path: Path) -> None:
     html = FIXTURE.read_text(encoding="utf-8")
     store = ArticleStore(tmp_path / "articles.json")

@@ -6,6 +6,7 @@ from app.parser.article import parse_article_html
 
 FIXTURE = Path(__file__).parent / "fixtures" / "scientific_spaces_article.html"
 LIVE_STRUCTURE_FIXTURE = Path(__file__).parent / "fixtures" / "scientific_spaces_live_post_article.html"
+ARTICLE_11787_FIXTURE = Path(__file__).parent / "fixtures" / "scientific_spaces_11787_article.html"
 
 
 def test_parse_article_html_extracts_required_article_fields() -> None:
@@ -60,5 +61,29 @@ def test_parse_scientific_spaces_live_post_structure_uses_article_body_not_sideb
         {
             "title": "Muon optimizer paper",
             "url": "https://arxiv.org/abs/2502.16982",
+        }
+    ]
+
+
+def test_parse_scientific_spaces_11787_edge_structure_preserves_article_body() -> None:
+    html = ARTICLE_11787_FIXTURE.read_text(encoding="utf-8")
+
+    article = parse_article_html(html, url="https://spaces.ac.cn/archives/11787")
+
+    assert article.title == "矩阵函数近似中的暴力美学"
+    assert article.category == "数学研究"
+    assert "此前，我们在《矩阵平方根和逆平方根的高效计算》" in article.content
+    assert "本文继续讨论矩阵函数近似的构造方式" in article.content
+    assert "sidebar comment should never become article content" not in article.content
+    assert "comment area should not be parsed" not in article.content
+    assert "navigation should not become content" not in article.content
+    assert "shareTo" not in article.content
+    assert "$\\\\newcommand{\\\\msign}{\\\\mathop{\\\\text{msign}}}\\\\msign$" in article.content
+    assert "$$X_{k+1}=\\\\frac{1}{2}X_k(3I-X_k^2)$$" in article.content
+    assert article.images == ["https://spaces.ac.cn/usr/uploads/matrix-function.png"]
+    assert article.references == [
+        {
+            "title": "Matrix function approximation",
+            "url": "https://arxiv.org/abs/2506.10935",
         }
     ]

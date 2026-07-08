@@ -1,0 +1,54 @@
+<!doctype html>
+<html>
+  <head>
+    <title>矩阵函数近似中的暴力美学 - 科学空间|Scientific Spaces</title>
+    <meta name="description" content="矩阵函数近似文章摘要。">
+  </head>
+  <body>
+    <aside>
+      <div class="content">
+        <ul>
+          <li>sidebar comment should never become article content</li>
+        </ul>
+      </div>
+    </aside>
+    <div id="content">
+      <div id="breadcrumb">
+        <a href="/">首页</a>
+        <a href="/category/maths/">数学研究</a>
+      </div>
+      <div class="Post">
+        <div class="title-wrap">
+          <span class="date"><span class="day">25</span> Jun</span>
+          <h1>矩阵函数近似中的暴力美学</h1>
+          <span class="submitted">By 苏剑林 | 2026-06-25 | 2587位读者 | :</span>
+        </div>
+        <script>
+          //一键分享 function shareTo(stype){ var share_title = document.title; }
+        </script>
+        <p>
+          此前，我们在《矩阵平方根和逆平方根的高效计算》和《矩阵r次方根和逆r次方根的高效计算》
+          探讨过矩阵幂的高效计算，它们将原本用于计算
+          <script type="math/tex">\\newcommand{\\msign}{\\mathop{\\text{msign}}}\\msign</script>
+          的Newton-Schulz迭代推广到了矩阵幂中。
+        </p>
+        <p>
+          本文继续讨论矩阵函数近似的构造方式，重点是如何在保持数值稳定性的同时，保留公式结构和推导上下文。
+        </p>
+        <p>
+          一个块级公式示例为
+          <script type="math/tex; mode=display">X_{k+1}=\\frac{1}{2}X_k(3I-X_k^2)</script>
+          它应当以 Markdown 公式形式保留。
+        </p>
+        <p><img src="/usr/uploads/matrix-function.png" alt="matrix function"></p>
+        <h2>参考文献</h2>
+        <ol>
+          <li><a href="https://arxiv.org/abs/2506.10935">Matrix function approximation</a></li>
+        </ol>
+      </div>
+      <div id="tools">分类：<a href="/category/maths/">数学研究</a></div>
+      <div id="similar">你也许还对下面的内容感兴趣 navigation should not become content</div>
+      <div id="comments">comment area should not be parsed</div>
+    </div>
+  </body>
+</html>

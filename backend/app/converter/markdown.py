@@ -16,8 +16,9 @@ def _normalize_image_sources(soup: BeautifulSoup, base_url: str | None) -> None:
             image["src"] = urljoin(base_url, source)
 
 
-def _replace_math_scripts(soup: BeautifulSoup) -> None:
-    for script in soup.find_all("script"):
+def _replace_math_scripts(soup: BeautifulSoup) -> dict[str, str]:
+    replacements: dict[str, str] = {}
+    for index, script in enumerate(soup.find_all("script")):
         script_type = (script.get("type") or "").lower()
         if "math/tex" not in script_type:
             script.decompose()
@@ -26,10 +27,13 @@ def _replace_math_scripts(soup: BeautifulSoup) -> None:
         if not formula:
             script.decompose()
             continue
+        token = f"MATHPLACEHOLDER{index}"
         if "mode=display" in script_type:
-            script.replace_with(f"\n\n$${formula}$$\n\n")
+            replacements[token] = f"\n\n$${formula}$$\n\n"
         else:
-            script.replace_with(f"${formula}$")
+            replacements[token] = f"${formula}$"
+        script.replace_with(token)
+    return replacements
 
 
 def _remove_non_content_nodes(soup: BeautifulSoup) -> None:
@@ -52,7 +56,7 @@ def _clean_markdown(markdown: str) -> str:
 
 def html_to_markdown(html: str, base_url: str | None = None) -> str:
     soup = BeautifulSoup(html, "html.parser")
-    _replace_math_scripts(soup)
+    math_replacements = _replace_math_scripts(soup)
     _remove_non_content_nodes(soup)
     _unwrap_heading_links(soup)
     _normalize_image_sources(soup, base_url)
@@ -62,4 +66,6 @@ def html_to_markdown(html: str, base_url: str | None = None) -> str:
         bullets="-",
         strip=["script", "style"],
     )
+    for token, formula in math_replacements.items():
+        markdown = markdown.replace(token, formula)
     return _clean_markdown(markdown)
