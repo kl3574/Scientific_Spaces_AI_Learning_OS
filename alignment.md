@@ -1,54 +1,64 @@
-# M7 AI Research Tutor Implementation Alignment
+# M7 Final Verification Gate Alignment
 
 ## Scope
 
-This run implements Milestone 7 - AI Research Tutor.
+This run executes the M7 Final Verification Gate.
 
 Allowed changes:
 
-- M7 tutor model, policy, service, local session summary store, and API.
-- Frontend tutor page and navigation entry.
-- M7 backend regression tests.
-- `docs/M7_IMPLEMENTATION_REPORT.md`
-- `docs/00_PROJECT_STATE.md`
+- `alignment.md`
+- `docs/M7_VERIFICATION_REPORT.md`
+- `docs/00_PROJECT_STATE.md` because the gate passed
 
 Forbidden changes:
 
-- M1 crawler, parser, converter, storage, validation, sync, browser access, or verification standards.
-- M2 Reader contract changes.
-- M3 RAG contract changes.
-- M4 Learning Management expansion beyond personalization-only read context.
-- M5 Zotero writes or real-library mutation.
-- M6 Knowledge Graph schema changes.
-- Web research, crawler expansion, PDF/HTML/image exports, runtime stores, `.env`, API keys, FAISS/index/cache artifacts, or private user data.
+- M7 implementation code
+- M1-M6 frozen implementation code
+- Verification standard changes
+- Runtime/private artifacts
+- Web research
+- Zotero library writes
+- API keys, `.env`, cache, PDF, HTML exports, images, traces, profiles, `node_modules`, or local runtime data
 
-## Implementation Alignment
+## Verification Alignment
 
-M7 tutor orchestration is layered on existing read interfaces:
+The gate verifies:
 
-1. M3 article chunk retrieval and vector search provide primary factual sources.
-2. M6 graph context supplements article evidence.
-3. M5 Zotero metadata supplements local research context in read-only mode.
-4. M4 learning state is exposed only as personalization context and is not a citation source.
-5. M7 citation policy refuses substantive answers without article sources.
+1. Tutor data model stability.
+2. Tutor orchestration over M3 RAG, M6 graph, M5 Zotero, and M4 learning state.
+3. Grounding and citation policy.
+4. Explain, derive, qa, quiz, and research modes.
+5. Tutor API and frontend `/tutor`.
+6. M2-M6 regression behavior.
+7. M1-M6 freeze protection.
+8. Artifact and privacy constraints.
 
-## Verification Evidence
+## Evidence Collected
 
-- Backend tests: `uv run --project backend --extra dev pytest -q`
-- Frontend build: `npm run build`
-- Runtime smoke using temporary data under `/tmp`
-- M2-M6 regression endpoint smoke checks
-- Freeze protection scan for frozen M1-M6 backend modules
-- Artifact scan for secrets, media, runtime stores, caches, and local data
+- Required docs were read where present.
+- M7 model, service, policy, store, API, tests, and frontend files were inspected.
+- Backend tests: `uv run --project backend --extra dev pytest -q`.
+- Frontend build: `npm run build`.
+- Backend runtime smoke with temporary data under `/tmp`.
+- Frontend route smoke for `/`, `/articles`, `/zotero`, `/graph`, and `/tutor`.
+- M3 no-source behavior checked with an isolated empty Article dataset.
+- Freeze protection scan showed no changes to M1-M6 frozen implementation paths.
+- Artifact/privacy scans found no tracked forbidden artifacts.
 
 ## Decision
 
-M7 implementation is ready for a separate M7 Verification Gate.
+M7 Final Verification Gate passed.
+
+Final recommendation:
+
+- A: MVP Complete
 
 ## State Update
 
 `docs/00_PROJECT_STATE.md` is updated to record:
 
-- `Version: v0.8.0`
-- `Phase: M7 Completed`
-- `Status: AI Research Tutor implemented`
+- `Version: v1.0.0`
+- `Phase: MVP Complete`
+- `Status: Scientific Spaces AI Learning OS MVP complete`
+- `M7 Verification Passed`
+- `MVP Status: Complete`
