@@ -13,6 +13,8 @@ Release-readiness evidence is recorded in `docs/POST_MVP_RELEASE_AUDIT.md`.
 
 Post-MVP corpus processing planning is recorded in `docs/FULL_CORPUS_PROCESSING_PLAN.md`.
 
+Bounded full-corpus pilot evidence is recorded in `docs/FULL_CORPUS_PILOT_REPORT.md`.
+
 ## MVP Capabilities
 
 - Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.
@@ -235,6 +237,16 @@ uv run --project backend python scripts/eval/run_rag_tutor_eval.py
 ```
 
 The default harness uses fake providers only. It does not require a real API key, web access, Zotero Desktop, or runtime article downloads. Optional JSON output must be written under ignored `eval_outputs/` or `evaluation_outputs/` paths.
+
+## Full Corpus Pilot
+
+Run the bounded full-corpus pilot:
+
+```bash
+uv run --project backend python scripts/corpus/run_full_corpus_pilot.py --limit 10 --delay-seconds 3
+```
+
+The pilot is capped at 30 articles, runs with concurrency `1`, writes runtime output under ignored `.local_data/`, and must not be used as a full crawl.
 
 ## Security and Privacy
 
