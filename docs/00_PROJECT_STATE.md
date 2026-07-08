@@ -74,6 +74,14 @@ M6:
 
 Knowledge Graph implemented
 
+M6.1:
+
+Concept Provenance Revision implemented
+
+M6 Verification:
+
+M6 Verification Passed
+
 M7 Readiness:
 
 Ready for M7

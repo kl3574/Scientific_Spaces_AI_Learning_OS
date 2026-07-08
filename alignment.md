@@ -1,63 +1,47 @@
-# M6.1 Concept Provenance Metadata Revision Alignment
+# M6 Verification Gate Re-run Alignment
 
 ## Scope
 
-This run fixes the M6 Verification blocker recorded in `docs/M6_VERIFICATION_REPORT.md`:
+This run re-executes the M6 Verification Gate after M6.1 Concept Provenance Metadata Revision.
 
-- Concept nodes were traceable through `mentions` edge evidence.
-- Concept node metadata only contained `normalized`.
-- M6 Verification requires source/provenance information on the concept node metadata itself.
+Allowed changes:
 
-## Allowed Changes
-
-- `backend/app/graph/`
-- `backend/tests/test_graph.py`
-- `docs/M6_CONCEPT_PROVENANCE_REVISION.md`
-- `docs/M6_IMPLEMENTATION_REPORT.md`
 - `alignment.md`
+- `docs/M6_VERIFICATION_REPORT.md`
+- `docs/00_PROJECT_STATE.md` only because the gate passed
 
-## Forbidden Changes
+Forbidden changes:
 
-- M1 crawler/parser/converter/storage/validation/sync code
-- M2 Article API contracts
-- M3 RAG contracts and citation/no-source behavior
-- M4 Learning API contracts
-- M5 Zotero contracts
-- `docs/00_PROJECT_STATE.md`
-- M7 AI Tutor, quiz, derive, explain, research, adaptive tutoring, or LLM-based extraction
-- Runtime graph files, caches, PDFs, HTML exports, images, traces, profiles, local data, secrets, or `node_modules`
+- M6 implementation code
+- M1-M5 frozen implementation code
+- M7 AI Tutor, quiz, derive, explain, research, adaptive tutoring, or LLM-based graph reasoning
+- Verification standard changes
+- Runtime graph data, cache, PDF, HTML export, images, trace/profile artifacts, local data, `node_modules`, `.env`, or API keys
 
-## Implementation Decision
+## Verification Evidence
 
-Concept provenance is aggregated in the graph builder and stored on each concept node:
+- Backend tests: `uv run --project backend --extra dev pytest -q`
+- Frontend build: `npm run build`
+- Runtime smoke using temporary article, learning, Zotero, vector, and graph files under `/tmp`
+- Freeze protection scan for M1-M5 frozen contracts
+- M7 scope leak scan across `backend/app` and `frontend/src`
+- Artifact scans for runtime graph/cache/data/secrets/media outputs
 
-- `normalized`
-- `source_count`
-- `sources`
-- `truncated`
+## Decision
 
-Each source record includes:
+M6 Verification Gate re-run passed.
 
-- `article_id`
-- `article_title`
-- `article_url`
-- `source_type`
-- `source_context`
-- `evidence`
-- `section_title`, `section_node_id`, and `chunk_index` when section-based
+Previous blocker status:
 
-The source list is sorted deterministically and capped at 10 entries. `source_count` records the complete deduplicated provenance count.
+- Previous failure: `concept:attention` metadata only had `{"normalized":"attention"}`.
+- Current runtime smoke: `concept:attention` metadata has `normalized`, `source_count`, `sources`, and `truncated`.
+- Current runtime smoke: `source_count=4`, `sources=4`, `truncated=False`.
+- Mentions edge evidence remains present.
 
-## Verification
+## State Update
 
-Fresh checks run in this revision:
+`docs/00_PROJECT_STATE.md` is updated to record:
 
-- Failing provenance test observed first: `KeyError: 'sources'`
-- Search broadening regression observed and fixed after adding a failing test
-- `uv run --project backend --extra dev pytest -q`
-- `npm run build`
-- Runtime smoke with temporary article, Zotero, learning, vector, and graph files under `/tmp`
-
-## Status
-
-M6.1 blocker is resolved by implementation evidence, but `docs/00_PROJECT_STATE.md` remains unchanged. M6 Verification Passed must be recorded only by a later M6 Verification Gate re-run.
+- `M6.1 Concept Provenance Revision: PASS`
+- `M6 Verification Passed`
+- `M7 Readiness: Ready for M7`

@@ -4,17 +4,20 @@
 
 | Item | Result | Evidence |
 |---|---|---|
-| M6 Implementation | PASS | Commit `223a5233f56275425b99f5d9a1ebc8d9804afd98` is present on `main`. |
-| M6 Verification | BLOCKED | Concept nodes are traceable through edge evidence, but concept node metadata does not contain source information. |
-| M7 Readiness | B: Need additional M6 work | A narrow M6.x revision is required before M7 AI Tutor implementation. |
+| M6 Implementation | PASS | Commit `223a5233f56275425b99f5d9a1ebc8d9804afd98` implemented the Knowledge Graph. |
+| M6.1 Concept Provenance Revision | PASS | Commit `ec5c95824bc53e49d418926ee427da6f4ce3e192` added deterministic concept provenance metadata. |
+| M6 Verification | PASS | Graph model, provenance, builder, API, frontend, regressions, freeze, scope, and artifact checks passed. |
+| M7 Readiness | A: Ready for M7 | M6 graph output is stable enough for a separate M7 AI Tutor milestone. |
 
-This is a verification gate only. No M6 implementation code, frozen M1-M5 implementation code, verification standards, or M7 functionality were changed by this gate.
+This is a verification gate only. No M6 implementation code, M1-M5 frozen implementation code, verification standards, or M7 functionality was changed by this gate.
 
 Required context documents were read where present:
 
 - `docs/00_PROJECT_STATE.md`
 - `milestones/M6_KNOWLEDGE_GRAPH.md`
 - `docs/M6_IMPLEMENTATION_REPORT.md`
+- `docs/M6_VERIFICATION_REPORT.md`
+- `docs/M6_CONCEPT_PROVENANCE_REVISION.md`
 - `docs/M5_VERIFICATION_REPORT.md`
 - `docs/M4_VERIFICATION_REPORT.md`
 - `docs/M3_VERIFICATION_REPORT.md`
@@ -24,10 +27,39 @@ Required context documents were read where present:
 - `docs/08_KNOWLEDGE_PIPELINE.md`
 - `docs/10_UI_SPEC.md`
 
-Missing context documents remain documentation gaps, not new implementation changes:
+Missing context documents remain documentation gaps, not M6 blockers:
 
 - `docs/15_ACCEPTANCE.md`
 - `docs/31_MVP_BOUNDARY.md`
+
+## Previous Blocker Status
+
+Result: RESOLVED
+
+Previous blocker:
+
+- Concept nodes were traceable through `mentions` edge evidence.
+- Concept node metadata itself did not include source/provenance information.
+
+Previous failing example:
+
+```text
+GET /graph/nodes/concept:attention
+metadata={"normalized":"attention"}
+```
+
+Current runtime evidence:
+
+```text
+GET /graph/nodes/concept:attention
+metadata keys=['normalized', 'source_count', 'sources', 'truncated']
+source_count=4
+sources=4
+truncated=False
+source_types=['article_title', 'section_content', 'section_heading']
+```
+
+The concept node now carries direct provenance. `mentions` edge evidence is still present.
 
 ## Graph Model Verification
 
@@ -68,16 +100,74 @@ Determinism:
 - `make_edge_id()` is deterministic.
 - Nodes and edges are sorted before graph output.
 
-Evidence/source metadata:
-
-- Runtime smoke confirmed `all_edges_have_evidence=True`.
-- Builder rejects empty edge evidence through `_add_edge()`.
-
 Boundary:
 
-- The graph model is separate from M1 Article storage.
-- It does not change M3 chunk schema.
-- It does not change M5 Zotero schema.
+- The graph model remains independent from the M1 Article storage schema.
+- M3 chunk schema is reused but not changed.
+- M5 Zotero item/link schema is reused but not changed.
+
+## Concept Provenance Verification
+
+Result: PASS
+
+Concept metadata schema:
+
+```text
+metadata.normalized
+metadata.source_count
+metadata.sources
+metadata.truncated
+```
+
+Each source record includes:
+
+- `article_id`
+- `article_title`
+- `article_url`
+- `source_type`
+- `source_context`
+- `evidence`
+
+Section-based source records additionally include:
+
+- `section_title`
+- `section_node_id`
+- `chunk_index`
+
+Runtime evidence:
+
+```text
+concept:attention source_count=4
+sources=4
+truncated=False
+first source keys=[
+  article_id,
+  article_title,
+  article_url,
+  evidence,
+  source_context,
+  source_type
+]
+```
+
+Test evidence:
+
+- `backend/tests/test_graph.py::test_concept_nodes_include_deterministic_provenance_metadata`
+- Verifies metadata is not only `normalized`.
+- Verifies `source_count`, `sources`, and `truncated`.
+- Verifies multiple articles and sections merge into one concept provenance list.
+- Verifies deterministic ordering across repeated graph builds.
+- Verifies `mentions` edge evidence remains present.
+
+Behavior:
+
+- Concept provenance is directly available on the concept node.
+- Provenance does not rely only on edge evidence.
+- Provenance is capped at 10 source records.
+- `source_count` records the full deduplicated count.
+- `truncated` records whether `sources` is capped.
+- Source records contain short source context/evidence, not full article bodies.
+- No LLM or external API is used for provenance generation.
 
 ## Graph Builder Verification
 
@@ -90,56 +180,50 @@ Implementation:
 
 Verified behavior:
 
-- Empty article storage returns an empty `GraphDocument` without crashing.
+- Empty article storage returns an empty graph without crashing.
 - Article nodes are created from existing Article records.
-- Section nodes are created from existing M3 Markdown chunks.
-- Concept nodes are created by deterministic rule-based extraction.
+- Section nodes are created from M3 Markdown chunks.
+- Concept nodes are created by deterministic rule-based extraction and enriched with provenance metadata.
 - Formula nodes are created from LaTeX block forms.
 - Zotero item nodes are created from M5 Article-Zotero links.
 - Article-Zotero relation edges use `related`, `cites`, or `background`.
-- `same_category` edges are limited to adjacent pairs from capped category lists, avoiding dense graph expansion.
-- Tests use fixture articles and fake Zotero provider, not real Zotero data or a real full corpus.
+- `same_category` edges are limited to adjacent pairs from capped category lists.
+- Tests use fixture articles and fake Zotero provider, not real Zotero data or a full live article corpus.
 - Builder does not call an LLM or external API.
 
-Runtime smoke:
+Runtime evidence:
 
-- `POST /graph/build` returned `node_count=21`, `edge_count=24`.
-- `source_counts={"articles":2,"sections":3,"concepts":14,"formulas":1,"zotero_links":1}`.
+```text
+POST /graph/build -> node_count=22, edge_count=26
+source_counts={
+  articles: 2,
+  sections: 3,
+  concepts: 15,
+  formulas: 1,
+  zotero_links: 1
+}
+```
 
 ## Concept Extraction Verification
 
-Result: BLOCKED
+Result: PASS
 
 Implementation:
 
 - `backend/app/graph/extractors.py`
-- `backend/app/graph/builder.py`
 
-Verified PASS items:
+Verified behavior:
 
-- Extraction is rule-based through regex token extraction.
-- Extraction is deterministic and reproducible.
+- Extraction is regex/rule-based.
+- Extraction is reproducible for the same input.
 - Extraction does not call an LLM.
 - Extraction does not call an external API.
-- Runtime graph edges from article/section to concept nodes include source evidence.
+- Concept nodes are created only from observed article metadata or section text.
+- Concept node metadata now contains source/provenance information.
 
-Blocking finding:
+Known limitation:
 
-- The verification standard requires concept node metadata to contain source information.
-- Runtime `GET /graph/nodes/concept:attention` returned:
-
-```text
-node_type=concept
-metadata={"normalized":"attention"}
-source_id=attention
-```
-
-- The current `_concept_node()` implementation stores only `{"normalized": normalized}` in concept node metadata.
-- Source traceability exists through `mentions` edge evidence, but the source is not present on the concept node metadata itself.
-
-Required follow-up:
-
-- Create an M6.x revision task to add source metadata for concept nodes or formally document that concept provenance is represented only by source-bearing edges.
+- Chinese concept extraction remains phrase-based and conservative.
 
 ## Formula / Section Verification
 
@@ -154,12 +238,13 @@ Verified behavior:
   - `\[ ... \]`
   - `\begin{equation} ... \end{equation}`
 - Formula nodes preserve full extracted formula text in metadata.
-- Formula edges use `has_formula` and include evidence containing chunk source data and formula text.
+- Formula edges use `has_formula` and contain evidence with chunk source data and formula text.
 
-Runtime smoke:
+Runtime evidence:
 
+- Fixture graph included `sections=3`.
 - Fixture graph included `formulas=1`.
-- Edge evidence check returned `edge_evidence_all=True`.
+- All graph edges had evidence or source metadata.
 
 ## Zotero Link Integration Verification
 
@@ -223,16 +308,17 @@ Verified endpoints:
 Runtime smoke:
 
 ```text
-POST /graph/build -> 200, node_count=21, edge_count=24
-GET /graph -> 200, nodes=21, edges=24, all_edges_have_evidence=True
-GET /graph/nodes?q=attention&node_type=concept -> 200, total=2
-GET /graph/nodes/concept:attention -> 200
-GET /graph/nodes/concept:attention/neighbors -> 200, nodes=2, edges=2
-GET /graph/subgraph/concept:attention -> 200, nodes=3, edges=2
+GET /health -> 200
+POST /graph/build -> 200, node_count=22, edge_count=26
+GET /graph -> 200, nodes=22, edges=26, all_edges_have_evidence=True
+GET /graph/nodes?q=attention&node_type=concept -> 200, total=2, labels=['attention', 'self-attention']
+GET /graph/nodes/concept:attention -> 200, provenance metadata present
+GET /graph/nodes/concept:attention/neighbors -> 200, nodes=3, edges=3, edge_evidence_all=True
+GET /graph/subgraph/concept:attention -> 200, nodes=4, edges=3
 GET /graph/nodes/not-found -> 404
 ```
 
-The API response shape is stable and existing APIs remained reachable during smoke.
+The API response shape remains stable and existing APIs remained reachable during smoke.
 
 ## Frontend Verification
 
@@ -255,6 +341,7 @@ Verified behavior:
 - Page supports selected node detail.
 - Page supports neighbors display.
 - Page supports evidence display.
+- Concept provenance metadata is available in the selected-node metadata JSON block.
 - Page includes empty states when graph data, results, selected node, neighbors, or evidence are absent.
 - Existing `/`, `/articles`, `/articles/[id]`, and `/zotero` routes still return HTTP 200.
 
@@ -273,21 +360,25 @@ Result: PASS
 Runtime smoke:
 
 ```text
-GET /articles?q=attention -> 200, total=1
+GET /articles?q=attention -> 200, total=2
 GET /articles/attention-001 -> 200, content present, metadata keys present
 POST /rag/index -> 200, article_count=2, chunk_count=3
 POST /rag/query -> 200, answer present, sources=3
-GET /learning/stats -> 200
+GET /learning/stats -> 200, total_articles=2
 GET /learning/state -> 200, total=0
 GET /zotero/status -> 200, fake provider, read_only=True
 GET /zotero/items?q=attention -> 200, total=1
-GET /zotero/links/attention-001 -> 200, total=1
+GET /zotero/links/attention-001 -> 200, total=1, relation=cites
 ```
+
+Additional test evidence:
+
+- Backend pytest includes `backend/tests/test_rag_api.py::test_rag_query_without_sources_refuses_to_answer`, which verifies the no-source refusal path.
 
 Regression boundaries:
 
 - M2 Article API contract remains reachable.
-- M3 RAG query and source output remain reachable.
+- M3 RAG source/no-source behavior remains covered.
 - M4 Learning API remains reachable.
 - M5 Zotero API remains reachable and read-only for provider access.
 
@@ -295,18 +386,30 @@ Regression boundaries:
 
 Result: PASS
 
-M6 implementation commit check:
+M1 frozen paths:
 
-- `git diff --name-only 773424f..223a523` against M1 frozen paths returned no files.
-- `git diff --name-only 773424f..223a523` against M2/M3/M4/M5 frozen implementation paths returned no API or service contract changes outside the M6 route registration and Graph UI navigation surface.
+- Unchanged since M5 Verification.
 
-Frozen path status:
+M2 frozen contracts:
 
-- M1 frozen pipeline paths unchanged.
-- M2 Article API contract unchanged.
-- M3 RAG service/API contract unchanged.
-- M4 Learning service/API contract unchanged.
-- M5 Zotero provider/store/API contract unchanged.
+- Article API files and article reader service unchanged since M5 Verification.
+- Article reader runtime routes returned HTTP 200.
+- M6 added a `Graph` navigation link to `ReaderShell`; this is a non-breaking navigation addition and does not alter Article API, reader detail, search behavior, or reading history contracts.
+
+M3 frozen contracts:
+
+- RAG API/service/chunking/vector/LLM provider paths unchanged since M5 Verification.
+- RAG runtime smoke and pytest regressions passed.
+
+M4 frozen contracts:
+
+- Learning implementation paths unchanged since M5 Verification.
+- Learning runtime smoke passed.
+
+M5 frozen contracts:
+
+- Zotero provider/store/API paths unchanged since M5 Verification.
+- Zotero runtime smoke passed with fake read-only provider.
 
 ## Scope Leak Scan
 
@@ -336,7 +439,7 @@ Result:
 
 Result: PASS
 
-Tracked artifact scan found no submitted:
+Tracked and working-tree artifact scans found no submitted:
 
 - runtime `knowledge_graph.json`
 - graph cache
@@ -357,8 +460,8 @@ Tracked artifact scan found no submitted:
 
 Notes:
 
-- Local Python `__pycache__` files may be generated by tests, but they are ignored and not tracked.
-- Existing HTML files under `backend/tests/fixtures/` are small regression fixtures from earlier milestones and are tracked test assets, not runtime article exports.
+- Existing HTML files under `backend/tests/fixtures/` are small regression fixtures from earlier milestones and are not runtime exports.
+- `.gitignore` covers `.local_data/`, `backend/.local_data/`, Python caches, frontend build output, and `node_modules`.
 
 ## Test Evidence
 
@@ -366,7 +469,7 @@ Backend:
 
 ```text
 uv run --project backend --extra dev pytest -q
-56 passed, 2 skipped in 3.43s
+57 passed, 2 skipped in 3.42s
 ```
 
 Frontend:
@@ -382,9 +485,9 @@ Runtime smoke:
 
 ```text
 Backend health: {"status":"ok"}
-Graph build: node_count=21, edge_count=24
-Graph summary: nodes=21, edges=24, all_edges_have_evidence=True
-Graph node concept:attention: metadata={"normalized":"attention"}
+Graph build: node_count=22, edge_count=26
+Concept provenance: source_count=4, sources=4, truncated=False
+Concept neighbors: edge_evidence_all=True
 Frontend /: 200
 Frontend /articles: 200
 Frontend /articles/attention-001: 200
@@ -399,24 +502,20 @@ docker --version
 /bin/bash: line 1: docker: command not found
 ```
 
-Docker is unavailable in the local environment. This is recorded as an environment limitation, not the M6 blocker, because backend tests, frontend build, and runtime smoke passed.
+Docker is unavailable in the local environment. This is recorded as an environment limitation, not a blocker, because backend tests, frontend build, and runtime smoke passed.
 
 ## Known Risks
 
-- Concept node provenance is currently edge-based, while the verification standard requires concept node metadata source information.
-- Rule-based concept extraction is conservative and may be coarse for Chinese phrases.
+- Rule-based concept extraction is conservative.
+- Concept provenance sources are capped at 10 records; `source_count` must be used to detect additional provenance.
 - Local JSON graph storage is not a production graph database.
-- Large graph visualization may need pagination, clustering, or a graph database in a later milestone.
+- Large graph visualization may need pagination, clustering, or a graph database later.
 - Corrupt graph JSON and concurrent graph writes need hardening in a future revision.
 - Docker is unavailable in the current local environment.
-- Optional LLM-based extraction is intentionally not implemented in M6.
+- Optional LLM extraction is intentionally not implemented in M6.
 
 ## M7 Readiness
 
-Result: B: Need additional M6 work
+Result: A: Ready for M7
 
-M6 is functionally implemented and most verification areas passed, but M7 should not start until the concept node provenance blocker is resolved or explicitly revised through an approved M6.x decision.
-
-Recommended next task:
-
-- Execute M6.1 Concept Provenance Metadata Revision.
+M6 Knowledge Graph and M6.1 concept provenance now satisfy the verification gate. The next milestone can proceed as a separate M7 AI Tutor implementation task.
