@@ -2,15 +2,15 @@
 
 Version:
 
-v0.3.0
+v0.4.0
 
 Phase:
 
-M2 Completed
+M3 Completed
 
 Status:
 
-Scientific Reader implemented
+Grounded RAG Assistant implemented
 
 Verification:
 
@@ -33,6 +33,14 @@ Scientific Reader implemented
 M3 Readiness:
 
 Ready for M3
+
+M3:
+
+Grounded RAG Assistant implemented
+
+M4 Readiness:
+
+Ready for M4 planning
 
 Post-freeze Change Rule:
 
