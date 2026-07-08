@@ -2,15 +2,15 @@
 
 Version:
 
-v0.6.0
+v0.7.0
 
 Phase:
 
-M5 Completed
+M6 Completed
 
 Status:
 
-Zotero Integration implemented
+Knowledge Graph implemented
 
 Verification:
 
@@ -69,6 +69,14 @@ M5 Verification Passed
 M6 Readiness:
 
 Ready for M6
+
+M6:
+
+Knowledge Graph implemented
+
+M7 Readiness:
+
+Ready for M7
 
 Post-freeze Change Rule:
 

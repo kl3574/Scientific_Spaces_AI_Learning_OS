@@ -19,6 +19,9 @@ export function ReaderShell({ children }: Readonly<{ children: ReactNode }>) {
             <Link className="rounded border border-slate-200 px-3 py-2 hover:bg-slate-50" href="/zotero">
               Zotero
             </Link>
+            <Link className="rounded border border-slate-200 px-3 py-2 hover:bg-slate-50" href="/graph">
+              Graph
+            </Link>
           </nav>
         </div>
       </header>
