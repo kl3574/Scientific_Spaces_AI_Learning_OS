@@ -12,7 +12,7 @@ from app.crawler.browser import BrowserArticleFetcher, BrowserFetchResult
 from app.crawler.discovery import discover_article_urls
 from app.crawler.downloader import download_url
 from app.crawler.rss import DEFAULT_FEED_URL, default_fetch_xml, discover_rss_article_urls
-from app.parser.article import parse_article_html
+from app.parser.article import ParsedArticle, parse_article_html
 from app.storage.article_store import ArticleStore
 from app.validation.quality import ArticleQualityValidator, ValidationReport
 
@@ -67,6 +67,10 @@ class SyncRunner:
 
         for result in self._fetch_articles(article_urls):
             article = parse_article_html(result.html, url=result.url)
+            import_issue = _article_import_issue(article)
+            if import_issue is not None:
+                failures.append({"url": article.url, "reason": import_issue})
+                continue
             self.store.upsert(article)
             imported += 1
 
@@ -189,6 +193,13 @@ def _article_dir_downloader(article_dir: Path) -> Callable[[str], str]:
         return (article_dir / f"{article_id}.html").read_text(encoding="utf-8")
 
     return download
+
+
+def _article_import_issue(article: ParsedArticle) -> str | None:
+    report = ArticleQualityValidator(sample_size=1).validate([article])
+    if report.issues:
+        return "; ".join(issue.split(": ", 1)[1] for issue in report.issues)
+    return None
 
 
 if __name__ == "__main__":

@@ -143,3 +143,55 @@ def test_sync_runner_imports_rss_browser_articles_and_is_idempotent(tmp_path: Pa
     assert second.imported_count == 2
     assert store.count() == 2
     assert (tmp_path / "validation_report.json").exists()
+
+
+def test_sync_runner_skips_browser_results_without_article_body(tmp_path: Path) -> None:
+    html = FIXTURE.read_text(encoding="utf-8")
+    store = ArticleStore(tmp_path / "articles.json")
+
+    feed_xml = """<?xml version="1.0" encoding="UTF-8"?>
+    <rss version="2.0">
+      <channel>
+        <item><link>https://spaces.ac.cn/archives/11787</link></item>
+        <item><link>https://spaces.ac.cn/archives/11804</link></item>
+      </channel>
+    </rss>
+    """
+
+    class FakeBrowserFetcher:
+        failures: list[dict[str, str]] = []
+
+        def fetch_many(self, urls: list[str]) -> list[BrowserFetchResult]:
+            return [
+                BrowserFetchResult(
+                    url=urls[0],
+                    html="<html><title>矩阵函数近似中的暴力美学 - 科学空间|Scientific Spaces</title></html>",
+                    title="矩阵函数近似中的暴力美学",
+                    status=200,
+                    mathjax_available=False,
+                ),
+                BrowserFetchResult(
+                    url=urls[1],
+                    html=html,
+                    title="Attention机制的一个直观解释",
+                    status=200,
+                    mathjax_available=True,
+                ),
+            ]
+
+    runner = SyncRunner(
+        source_strategy="rss-browser",
+        max_articles=2,
+        store=store,
+        rss_fetch_xml=lambda _url: feed_xml,
+        browser_fetcher=FakeBrowserFetcher(),
+        report_path=tmp_path / "validation_report.json",
+    )
+
+    result = runner.run()
+
+    articles = store.list_articles()
+    assert result.imported_count == 1
+    assert result.failed_count == 1
+    assert articles[0].url == "https://spaces.ac.cn/archives/11804"
+    assert any("content extraction failed" in failure["reason"] for failure in result.failures)

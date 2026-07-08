@@ -5,6 +5,11 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
+from bs4 import BeautifulSoup
+
+
+ARTICLE_BODY_SELECTORS = ("#content > .Post", "#content .Post", ".Post", "article", ".post", ".entry", "#article")
+
 
 @dataclass(frozen=True)
 class BrowserFetchResult:
@@ -32,6 +37,7 @@ class BrowserArticleFetcher:
         timeout_ms: int = 30_000,
         settle_ms: int = 3_000,
         mathjax_timeout_ms: int = 5_000,
+        article_ready_timeout_ms: int = 15_000,
     ) -> None:
         self.loader = loader
         self.retries = max(retries, 1)
@@ -39,6 +45,7 @@ class BrowserArticleFetcher:
         self.timeout_ms = timeout_ms
         self.settle_ms = settle_ms
         self.mathjax_timeout_ms = mathjax_timeout_ms
+        self.article_ready_timeout_ms = article_ready_timeout_ms
         self.failures: list[dict[str, str]] = []
 
     def fetch(self, url: str) -> BrowserFetchResult:
@@ -100,6 +107,7 @@ class BrowserArticleFetcher:
             page = context.new_page()
             try:
                 response = page.goto(url, wait_until="commit", timeout=self.timeout_ms)
+                page.wait_for_selector(", ".join(ARTICLE_BODY_SELECTORS), timeout=self.article_ready_timeout_ms)
                 page.wait_for_timeout(self.settle_ms)
                 self._wait_for_mathjax(page)
                 result = BrowserFetchResult(
@@ -139,6 +147,8 @@ class BrowserArticleFetcher:
             raise BrowserAccessError(result.url, f"HTTP status {result.status}")
         if not result.html.strip():
             raise BrowserAccessError(result.url, "empty HTML")
+        if not _html_has_article_body(result.html):
+            raise BrowserAccessError(result.url, "article body not found")
 
     def _record_failure(self, url: str, reason: str) -> None:
         self.failures.append({"url": url, "reason": reason})
@@ -151,3 +161,8 @@ _MATHJAX_CHECK = """
   document.querySelector('.katex, script[src*="KaTeX"], script[src*="katex"]')
 )
 """
+
+
+def _html_has_article_body(html: str) -> bool:
+    soup = BeautifulSoup(html, "html.parser")
+    return any(soup.select_one(selector) is not None for selector in ARTICLE_BODY_SELECTORS)
