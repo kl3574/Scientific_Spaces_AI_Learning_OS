@@ -121,3 +121,7 @@ Persistence Upgrade Decision and First Migration implemented
 P0-004:
 
 Security and Privacy Baseline: PASS
+
+P0-004 Verification:
+
+Security and Privacy Baseline Verification: PASS
