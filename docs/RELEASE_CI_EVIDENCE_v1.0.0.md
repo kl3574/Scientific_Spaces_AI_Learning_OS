@@ -15,12 +15,12 @@
 
 ## Run Result
 
-- run id: `28931334219`
-- run URL: `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/28931334219`
+- run id: `28939436887`
+- run URL: `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/28939436887`
 - status: `completed`
 - conclusion: `success`
-- started at: `2026-07-08T09:12:19Z`
-- completed at: `2026-07-08T09:13:52Z`
+- started at: `2026-07-08T11:34:12Z`
+- completed at: `2026-07-08T11:35:16Z`
 - event: `workflow_dispatch`
 - head branch/ref: `v1.0.0`
 - head SHA: `8e1e5bbbdebb8835c7e1b05a42f69093d43ddee6`
@@ -29,19 +29,19 @@
 
 - backend pytest: PASS
   - job: `Backend pytest`
-  - job id: `85830921768`
-  - started at: `2026-07-08T09:12:37Z`
-  - completed at: `2026-07-08T09:12:53Z`
+  - job id: `85857727077`
+  - started at: `2026-07-08T11:34:16Z`
+  - completed at: `2026-07-08T11:34:31Z`
 - frontend build: PASS
   - job: `Frontend build`
-  - job id: `85830921749`
-  - started at: `2026-07-08T09:12:37Z`
-  - completed at: `2026-07-08T09:13:15Z`
+  - job id: `85857727068`
+  - started at: `2026-07-08T11:34:16Z`
+  - completed at: `2026-07-08T11:34:56Z`
 - Docker compose smoke: PASS
   - job: `Docker compose smoke`
-  - job id: `85830921664`
-  - started at: `2026-07-08T09:12:42Z`
-  - completed at: `2026-07-08T09:13:51Z`
+  - job id: `85857727097`
+  - started at: `2026-07-08T11:34:17Z`
+  - completed at: `2026-07-08T11:35:15Z`
 
 ## Evidence Summary
 
