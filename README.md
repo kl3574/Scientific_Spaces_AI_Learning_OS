@@ -185,6 +185,26 @@ Optional real-provider behavior:
 - Local Zotero API is read-only and selected only with `SCIENTIFIC_SPACES_ZOTERO_PROVIDER=local`.
 - The system must refuse unsupported substantive tutor answers instead of relying on model common knowledge.
 
+## Security and Privacy
+
+Security policy:
+
+- `SECURITY.md`
+
+Baseline audit:
+
+- `docs/SECURITY_PRIVACY_BASELINE.md`
+
+Current security/privacy boundary:
+
+- The MVP is local-first and single-user.
+- Authentication, authorization, and multi-user isolation are not implemented.
+- Fake providers are the default for tests and local development.
+- Real OpenAI-compatible provider keys are optional and must stay outside git.
+- Zotero integration is read-only and local-provider access is opt-in.
+- RAG and tutor answers must be grounded in local article sources; no-source cases refuse.
+- Research mode is local-only and does not perform autonomous web research or paper downloads.
+
 ## Docker
 
 Docker support is defined in `docker-compose.yml` and service Dockerfiles:
@@ -270,6 +290,8 @@ Do not commit:
 - large article corpus exports
 - FAISS or embedding caches
 - PDFs, downloaded HTML, images, traces, profiles, or generated browser artifacts
+
+Browser reading history is stored in localStorage under the user's browser profile. Treat it as local private activity data.
 
 ## Verification Reports
 

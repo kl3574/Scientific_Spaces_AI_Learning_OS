@@ -9,6 +9,10 @@ __pycache__/
 *.db
 *.sqlite
 *.sqlite3
+*.log
+*.trace
+*.prof
+*.cache
 .cache/
 .local_data/
 .pytest_cache/
