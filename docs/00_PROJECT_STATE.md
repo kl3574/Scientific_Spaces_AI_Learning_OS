@@ -2,15 +2,15 @@
 
 Version:
 
-v0.5.0
+v0.6.0
 
 Phase:
 
-M4 Completed
+M5 Completed
 
 Status:
 
-Learning Management implemented
+Zotero Integration implemented
 
 Verification:
 
@@ -57,6 +57,14 @@ M4 Verification Passed
 M5 Readiness:
 
 Ready for M5
+
+M5:
+
+Zotero Integration implemented
+
+M6 Readiness:
+
+Ready for M6
 
 Post-freeze Change Rule:
 

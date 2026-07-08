@@ -5,6 +5,7 @@ from app.api.articles import router as articles_router
 from app.api.health import router as health_router
 from app.api.learning import router as learning_router
 from app.api.rag import router as rag_router
+from app.api.zotero import router as zotero_router
 
 app = FastAPI(title="Scientific Spaces AI Learning OS")
 app.add_middleware(
@@ -21,3 +22,4 @@ app.include_router(health_router)
 app.include_router(articles_router)
 app.include_router(rag_router)
 app.include_router(learning_router)
+app.include_router(zotero_router)
