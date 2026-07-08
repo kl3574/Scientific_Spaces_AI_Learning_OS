@@ -1,4 +1,4 @@
-# Task Alignment - M3 Verification Gate
+# Task Alignment - M4 Verification Gate
 
 ## 1. Background
 
@@ -11,98 +11,98 @@ Current milestone evidence:
 - M1 Final Freeze: PASS
 - M2 Scientific Reader: PASS
 - M2 Verification: PASS
-- M3 Grounded RAG Assistant: IMPLEMENTED
+- M3 Grounded RAG Assistant: PASS
+- M3 Verification: PASS
+- M4 Learning Management: IMPLEMENTED
 
-M3 implementation commit:
+M4 implementation commit:
 
-- `0e76a4b5021491fffe38955dfc93fa208123bd3c`
+- `0077f60fe6065b9143b865837e4d0664341a790f`
 
-This task verifies M3 only. It must not implement M4 Learning Management or any M5-M7 functionality.
+This task verifies M4 only. It must not implement M5 Zotero Integration, M6 Knowledge Graph, or M7 AI Tutor.
 
 ## 2. Scope
 
 Allowed changes:
 
 - `alignment.md`
-- `docs/M3_VERIFICATION_REPORT.md`
+- `docs/M4_VERIFICATION_REPORT.md`
 - `docs/00_PROJECT_STATE.md` only if verification passes
+- `.gitignore` only if local runtime data paths are not ignored
 
 Forbidden changes:
 
-- M3 implementation code
-- M1/M2 frozen implementation code
-- M3 verification standard
-- M4-M7 features
-- FAISS index files, embedding cache, API keys, `.env`, PDF, HTML dumps, images, traces, profiles, cache, `node_modules`, or large article data
+- M4 implementation code
+- M1/M2/M3 frozen implementation code
+- M4 verification standard
+- M5-M7 features
+- local runtime data, API keys, FAISS indexes, embedding caches, PDFs, HTML dumps, images, traces, profiles, caches, `node_modules`, or large article data
 
 ## 3. Gate Focus
 
 The verification gate must confirm:
 
-1. Markdown-aware chunking preserves heading sections, equation blocks, fenced code blocks, and chunk metadata.
-2. Embedding provider abstraction is testable with a default fake provider and no API key.
-3. FAISS vector search is reproducible, handles empty data, and does not commit index/cache artifacts.
-4. LLM provider abstraction is testable with a default fake provider and no API key.
-5. Grounded answers return non-empty citations.
-6. No-source queries refuse without fabrication.
-7. M1/M2 frozen code and contracts are unchanged.
-8. M4-M7 scope is not implemented early.
+1. Learning state model and API work for default, reading, completed, timestamps, and read counts.
+2. Bookmark/favorite add, list, delete, and duplicate behavior are stable.
+3. Manual notes support create, list, update, and delete without AI generation.
+4. Learning sessions support create, end, duration, and list without conversation history or tutor state.
+5. Dashboard stats match Article and learning store data and handle empty data.
+6. Storage uses local JSON, supports `SCIENTIFIC_SPACES_LEARNING_FILE`, and does not commit user data.
+7. Frontend Dashboard, Article List, and Article Detail expose basic M4 controls without M5-M7 UI.
+8. M2 Article API and M3 RAG API regressions pass.
+9. M1/M2/M3 frozen contracts are not broken.
+10. No M5-M7 scope leak or forbidden artifact exists.
 
-## 4. Execution Plan
+## 4. Execution Evidence
 
-1. Read required M3, M2, M1, data model, AI agent, and knowledge pipeline documents.
-2. Record missing required docs as verification risk when absent.
-3. Inspect M3 RAG, LLM, API, tests, and frontend paths.
-4. Check M1/M2 freeze protection through git diffs.
-5. Scan for M4-M7 scope leaks and forbidden tracked artifacts.
-6. Run backend tests:
-   - `uv run --project backend --extra dev pytest -q`
-7. Run frontend build:
-   - `npm run build`
-8. Run runtime smoke for:
-   - `POST /rag/index`
-   - `POST /rag/query`
-   - no-source refusal
-   - M2 `/articles` regression
-9. Create `docs/M3_VERIFICATION_REPORT.md`.
-10. If all pass, update `docs/00_PROJECT_STATE.md` with:
-    - `M3 Verification Passed`
-    - `M4 Readiness: Ready for M4`
+Verification used:
+
+- Code inspection of `backend/app/api/learning.py`, `backend/app/learning/`, `backend/tests/test_learning_api.py`, `frontend/src/lib/learning.ts`, and frontend M4 components.
+- Backend tests:
+  - `uv run --project backend --extra dev pytest -q`
+- Frontend build:
+  - `npm run build`
+- Runtime smoke with temporary `/tmp/scientific-spaces-m4-verification-*` fixtures.
+- Freeze path checks using git diffs from M3 verification commit to current `HEAD`.
+- Scope leak and artifact scans.
 
 ## 5. Pass Criteria
 
-M3 verification can pass only if:
+M4 verification can pass only if:
 
 - Backend tests pass.
 - Frontend build passes.
-- Chunking preserves sections, equations, and code blocks.
-- Fake embedding provider works without an API key.
-- FAISS search works and no vector artifacts are committed.
-- Fake LLM provider works without an API key.
-- Grounded answers return non-empty citations.
-- No-source behavior refuses without fabrication.
-- M1/M2 frozen code is not modified.
-- No M4-M7 scope leak is detected.
+- Learning state works.
+- Bookmark/favorite works.
+- Notes CRUD works.
+- Session history works.
+- Dashboard stats work.
+- Storage isolation works.
+- M2 Article API regression passes.
+- M3 RAG regression passes.
+- M1/M2/M3 frozen contracts are not broken.
+- No M5-M7 scope leak is detected.
 - No forbidden artifacts are committed.
 
 ## 6. Block Criteria
 
-M3 verification is blocked if any of these are found:
+M4 verification is blocked if any of these are found:
 
-- Substantive answer can be returned without citation.
-- No-source query fabricates an answer.
-- Chunking breaks equation or code blocks.
-- Embedding/vector tests require a real API key.
-- FAISS index/cache artifacts are committed.
-- M1/M2 frozen paths are modified.
-- M4-M7 functionality is implemented early.
-- Backend tests or frontend build fail.
+- Learning API tests fail.
+- Frontend build fails.
+- Real user learning data is committed.
+- Notes, session, or stats behavior is incorrect.
+- M2 Reader regression fails.
+- M3 RAG regression fails.
+- Frozen M1/M2/M3 contract is modified without a revision task.
+- M5-M7 functionality is implemented early.
+- Forbidden artifact is committed.
 
 ## 7. Expected Deliverables
 
 - Updated `alignment.md`
-- Created `docs/M3_VERIFICATION_REPORT.md`
+- Created `docs/M4_VERIFICATION_REPORT.md`
 - Updated `docs/00_PROJECT_STATE.md` if verification passes
 - Commit:
-  - pass: `docs: pass M3 verification gate`
-  - blocked: `docs: record M3 verification blockers`
+  - pass: `docs: pass M4 verification gate`
+  - blocked: `docs: record M4 verification blockers`
