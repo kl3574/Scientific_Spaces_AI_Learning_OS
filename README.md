@@ -143,6 +143,43 @@ Important variables:
 
 Do not commit real `.env` files, API keys, Zotero library exports, or local runtime data.
 
+## Deployment Profiles
+
+Deployment profile details are recorded in `docs/PRODUCTION_DEPLOYMENT_PROFILE.md`.
+
+Local development:
+
+```bash
+uv run --project backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
+cd frontend
+npm run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+Local production-like run:
+
+```bash
+uv run --project backend uvicorn app.main:app --host 127.0.0.1 --port 8000
+cd frontend
+npm run build
+npm run start -- --hostname 127.0.0.1 --port 3000
+```
+
+Smoke checklist:
+
+```bash
+curl http://127.0.0.1:8000/health
+curl http://127.0.0.1:3000/
+uv run --project backend python scripts/eval/run_rag_tutor_eval.py
+```
+
+Docker compose remains available for local or CI smoke where Docker is installed:
+
+```bash
+docker compose up --build
+```
+
+Production cloud deployment is not implemented in this MVP. Before real production use, add auth/authz, HTTPS, secret management, managed storage, CORS allowlists, backup/restore, monitoring, and rate limiting.
+
 ## Persistence
 
 The v1.0.0 MVP uses local JSON stores by default. Post-MVP persistence hardening introduces an opt-in SQLite slice for M4 Learning data while preserving the existing API contracts and JSON compatibility path.
