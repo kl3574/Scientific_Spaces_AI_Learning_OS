@@ -2,15 +2,15 @@
 
 Version:
 
-v0.7.0
+v0.8.0
 
 Phase:
 
-M6 Completed
+M7 Completed
 
 Status:
 
-Knowledge Graph implemented
+AI Research Tutor implemented
 
 Verification:
 
@@ -85,6 +85,10 @@ M6 Verification Passed
 M7 Readiness:
 
 Ready for M7
+
+M7:
+
+AI Research Tutor implemented
 
 Post-freeze Change Rule:
 

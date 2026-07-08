@@ -6,6 +6,7 @@ from app.api.graph import router as graph_router
 from app.api.health import router as health_router
 from app.api.learning import router as learning_router
 from app.api.rag import router as rag_router
+from app.api.tutor import router as tutor_router
 from app.api.zotero import router as zotero_router
 
 app = FastAPI(title="Scientific Spaces AI Learning OS")
@@ -25,3 +26,4 @@ app.include_router(rag_router)
 app.include_router(learning_router)
 app.include_router(zotero_router)
 app.include_router(graph_router)
+app.include_router(tutor_router)
