@@ -1,24 +1,23 @@
 # M1 Final Freeze Report
 
-## 1. Current Status
+## Current Status
 
 | Item | Status | Evidence |
 |---|---|---|
-| M1 Source Pipeline | PASS | Modules present; ordinary pytest passes. |
+| M1 Source Pipeline | PASS | RSS discovery, browser access, parser, converter, storage, validation, and sync modules are present. |
 | M1 Verification | PASS | `docs/00_PROJECT_STATE.md` records `M1 Verification Passed`. |
 | M1 PDF Export | PASS | `docs/M1_PDF_EXPORT_EVALUATION.md` records 5/5 live PDF exports. |
-| M1.1 Content Fidelity Revision | PASS for implemented fix | `docs/M1_CONTENT_FIDELITY_REVISION.md` records parser root and script-filtering fixes. |
-| M1 Final Freeze Re-run | BLOCKED | Fresh live sync still produced one imported article with invalid content length. |
+| M1.3 Browser Acquisition Quality Revision | PASS | `docs/M1_BROWSER_ACCESS_QUALITY_REVISION.md` records source HTML body-gate and sync import-quality gate. |
+| M1 Final Freeze Re-run | PASS | Fresh live sync imported and validated 5 real articles with no validation issues. |
+| M2 Readiness | A: Ready for M2 | M1 output is stable enough for M2 Scientific Reader input. |
 
-This is a freeze re-run after M1.1. It does not implement M2 Reader, Search, RAG, Learning System, or any new source-pipeline behavior.
+This freeze re-run is an acceptance handoff only. It does not implement M2 Reader, Search, RAG, Learning System, or M3-M7 behavior.
 
-## 2. Architecture Freeze
-
-The current M1 architecture remains unchanged by this gate.
+## Architecture Freeze
 
 ### Discovery
 
-Current:
+Frozen strategy:
 
 - RSS Discovery
 
@@ -28,7 +27,7 @@ Input:
 
 Output:
 
-- Article URL list matching `https://spaces.ac.cn/archives/{numeric_id}`
+- Article URLs matching `https://spaces.ac.cn/archives/{numeric_id}`
 
 Implementation:
 
@@ -37,7 +36,7 @@ Implementation:
 
 ### Access
 
-Current:
+Frozen strategy:
 
 - Playwright Browser Access
 
@@ -54,6 +53,12 @@ Implementation:
 - `backend/app/crawler/browser.py`
 - `BrowserArticleFetcher.fetch(url) -> BrowserFetchResult`
 - `BrowserArticleFetcher.fetch_many(urls) -> list[BrowserFetchResult]`
+
+M1.3 quality gate:
+
+- Browser fetch waits for an approved article body selector.
+- Browser fetch rejects title-only or shell HTML without an article body.
+- Sync performs a parsed-article import-quality check before storage.
 
 ### Processing
 
@@ -81,9 +86,9 @@ Validation:
 
 ### Export
 
-Current:
+Frozen independent capability:
 
-- PDF Export as an independent capability.
+- PDF Export
 
 Implementation:
 
@@ -96,9 +101,9 @@ Boundary:
 - PDF export is not wired into `python -m app.sync`.
 - PDF export is not part of M2 Reader or RAG.
 
-## 3. Data Contract Freeze
+## Data Contract Freeze
 
-The Article schema shape remains valid:
+Frozen Article schema:
 
 ```text
 Article
@@ -120,11 +125,16 @@ Fresh live sample data contract result:
 | `id`, `title`, `url`, `content`, `metadata` present | PASS |
 | Metadata keys include `date`, `category`, `references`, `images` | PASS |
 | Duplicate URLs absent | PASS |
-| Content fidelity for all imported articles | FAIL |
+| Content fidelity for imported articles | PASS |
+| Formula validity | PASS |
 
-The contract shape is stable, but one imported article failed the content quality threshold, so M1 is not ready to freeze as M2 input.
+Reference preservation note:
 
-## 4. Interface Freeze
+- The fresh sample exposes the `references` metadata field for every article.
+- The sampled articles did not contain extracted explicit reference entries, so `references_count=0` is accepted as preservation of source metadata shape, not field loss.
+- Image metadata was preserved with 2-3 images per sampled article.
+
+## Interface Freeze
 
 ### Discovery Interface
 
@@ -203,12 +213,7 @@ ArticlePdfExporter.export(url: str, output_path: Path | str) -> PdfExportResult
 validate_pdf_file(path: Path | str, *, url: str = "") -> int
 ```
 
-Interface freeze status:
-
-- Interfaces are documented.
-- Final M2 handoff remains blocked until live imported article content quality is consistently valid.
-
-## 5. Test Evidence
+## Test Evidence
 
 ### Ordinary Pytest
 
@@ -221,15 +226,21 @@ uv run --project backend --extra dev pytest -q
 Result:
 
 ```text
-18 passed, 2 skipped in 0.20s
+23 passed, 2 skipped in 0.22s
 ```
 
 ### M1 Live Sync Re-run
 
-Command:
+First attempt:
+
+- Result: RSS discovery failed with a TLS handshake timeout while reading `https://spaces.ac.cn/feed`.
+- Classification: transient external network risk.
+- Decision: non-blocking because the delayed low-frequency retry completed successfully and produced enough live evidence for content-quality validation.
+
+Successful retry command:
 
 ```bash
-SCIENTIFIC_SPACES_DATA_DIR=/tmp/scientific-spaces-m1-freeze-rerun \
+SCIENTIFIC_SPACES_DATA_DIR=/tmp/scientific-spaces-m1-final-freeze-rerun \
 uv run --project backend python -m app.sync --max-articles 5
 ```
 
@@ -246,6 +257,7 @@ Stored article metrics:
 | article count | 5 |
 | unique URL count | 5 |
 | duplicate count | 0 |
+| failed count | 0 |
 
 Imported article URLs:
 
@@ -259,48 +271,45 @@ Validation report:
 
 ```json
 {
-  "content_completeness_rate": 0.8,
+  "content_completeness_rate": 1.0,
   "formulas_valid": true,
   "images_valid": true,
-  "issues": [
-    "https://spaces.ac.cn/archives/11787: content shorter than 300 characters"
-  ],
+  "issues": [],
   "title_presence_rate": 1.0,
   "total_available": 5,
   "total_checked": 5
 }
 ```
 
-### Content Fidelity Gate
+### Content Fidelity
 
-Result: FAIL
+Result: PASS
 
-Evidence:
-
-| URL | Title | Content length | Content fidelity |
-|---|---|---:|---|
-| `https://spaces.ac.cn/archives/11777` | `流形上的最速下降：6. Muon + 双旋转` | 12128 | PASS |
-| `https://spaces.ac.cn/archives/11782` | `MoE环游记：9、门控归一化之争` | 9952 | PASS |
-| `https://spaces.ac.cn/archives/11784` | `强制间隔投影（Margin-Enforcing Projection）` | 7123 | PASS |
-| `https://spaces.ac.cn/archives/11787` | `矩阵函数近似中的暴力美学` | 38 | FAIL |
-| `https://spaces.ac.cn/archives/11804` | `让炼丹更科学一些（七）：步长调度与权重平均` | 11118 | PASS |
+| URL | Title | Content length | Images | References | Metadata keys | Fidelity |
+|---|---|---:|---:|---:|---|---|
+| `https://spaces.ac.cn/archives/11777` | `流形上的最速下降：6. Muon + 双旋转` | 14260 | 2 | 0 | `category,date,images,references` | PASS |
+| `https://spaces.ac.cn/archives/11782` | `MoE环游记：9、门控归一化之争` | 12025 | 2 | 0 | `category,date,images,references` | PASS |
+| `https://spaces.ac.cn/archives/11784` | `强制间隔投影（Margin-Enforcing Projection）` | 8963 | 2 | 0 | `category,date,images,references` | PASS |
+| `https://spaces.ac.cn/archives/11787` | `矩阵函数近似中的暴力美学` | 19933 | 3 | 0 | `category,date,images,references` | PASS |
+| `https://spaces.ac.cn/archives/11804` | `让炼丹更科学一些（七）：步长调度与权重平均` | 19140 | 2 | 0 | `category,date,images,references` | PASS |
 
 Forbidden content checks:
 
 | Check | Result |
 |---|---|
+| Content acquired from article body container | PASS |
 | Sidebar/recent-comment content absent | PASS |
-| Share script absent | PASS |
+| Share script text absent | PASS |
 | Comment area absent | PASS |
-| Navigation noise absent for 4/5; one article contains related-content navigation phrase | RISK |
+| Page title/site-title marker absent | PASS |
+| Navigation residue absent | PASS |
 
-Interpretation:
+Navigation note:
 
-- M1.1 fixed the previous sidebar/comment/script contamination for the successful article-body parses.
-- However, one imported article was accepted into storage with only title-level content.
-- This is an imported-data quality failure, not a simple browser timeout.
+- `https://spaces.ac.cn/archives/11804` contains the phrase `上一篇` inside the article's own discussion of a previous post.
+- This is article正文 context, not page navigation residue.
 
-### Formula Validity Gate
+### Formula Validity
 
 Result: PASS
 
@@ -312,15 +321,40 @@ Result: PASS
 | Inline delimiter counts even | true |
 | Block delimiter counts even | true |
 
-Formula delimiter counts in fresh live sample:
+Formula delimiter counts:
 
-| URL | `$` count | `$$` count |
-|---|---:|---:|
-| `https://spaces.ac.cn/archives/11777` | 140 | 16 |
-| `https://spaces.ac.cn/archives/11782` | 140 | 0 |
-| `https://spaces.ac.cn/archives/11784` | 158 | 0 |
-| `https://spaces.ac.cn/archives/11787` | 0 | 0 |
-| `https://spaces.ac.cn/archives/11804` | 144 | 0 |
+| URL | `$` count | `$$` count | Balanced |
+|---|---:|---:|---|
+| `https://spaces.ac.cn/archives/11777` | 148 | 24 | true |
+| `https://spaces.ac.cn/archives/11782` | 186 | 22 | true |
+| `https://spaces.ac.cn/archives/11784` | 174 | 0 | true |
+| `https://spaces.ac.cn/archives/11787` | 276 | 0 | true |
+| `https://spaces.ac.cn/archives/11804` | 224 | 44 | true |
+
+### 11787 Blocker Status
+
+Previous blocker:
+
+- `https://spaces.ac.cn/archives/11787` was previously imported with only title-level content.
+- Previous failure mode: HTTP `200` and non-empty HTML were accepted even when the article body container was absent.
+
+Current result:
+
+| Field | Value |
+|---|---|
+| URL | `https://spaces.ac.cn/archives/11787` |
+| Title | `矩阵函数近似中的暴力美学` |
+| Content length | 19933 |
+| Metadata keys | `category,date,images,references` |
+| Images | 3 |
+| References | 0 |
+| Formula delimiters balanced | true |
+| Validation issues | `[]` |
+| Status | Resolved |
+
+Decision:
+
+- The `11787` blocker is resolved.
 
 ### PDF Export
 
@@ -336,26 +370,35 @@ Result:
 | PDF exports succeeded | 5 |
 | PDF exports failed | 0 |
 | PDF success rate | 100% |
+| MathJax status | 5/5 PASS |
 
 PDF export status:
 
 - PASS as independent export capability.
 - Not connected to source sync or M2.
 
-### Browser Transient Failure Assessment
+### Browser Transient Risk Classification
 
-This re-run had:
+Observed in this freeze re-run:
 
-- browser discovered articles: 5
-- browser imported articles: 5
-- browser fetch failures: 0
+- One RSS feed TLS handshake timeout occurred before article discovery.
+- A delayed low-frequency retry completed successfully.
+- Successful retry imported and validated 5/5 articles.
+- Browser article fetch failures on the successful run: 0.
 
-No timeout or 403 occurred in this run.
+Classification:
 
-Decision rule:
+- Non-blocking risk.
 
-- Single article timeout or one-off 403 can be a non-blocking risk if bounded retry and failure logging are active and enough valid articles remain for content validation.
-- This run did not produce a browser transient failure. It produced one invalid imported content record, which is a freeze blocker.
+Reason:
+
+- The failure was transient and external to parser/storage/content quality.
+- The pipeline has bounded retry and failure logging for article browser access.
+- The successful retry produced enough live evidence to verify content fidelity, formulas, storage, validation, and `11787`.
+
+Blocking threshold:
+
+- If RSS discovery cannot be completed after a reasonable low-frequency retry, or if browser failures prevent content-quality validation, the freeze must be blocked.
 
 ### Homepage Browser Probe Decision
 
@@ -366,52 +409,50 @@ File checked:
 Decision:
 
 - The file is not present in the current worktree.
-- It was previously treated as a temporary homepage `403` diagnostic probe, not a long-term regression test.
-- No action is required in this re-run.
+- It was previously a temporary homepage `403` diagnostic probe, not part of the frozen RSS/browser article strategy.
+- No file action was needed.
 
-## 6. Known Risks
+## Known Risks
 
-1. RSS coverage
-   - RSS is valid for recent discovery but may not represent the full Scientific Spaces historical archive.
+1. RSS coverage scope
+   - RSS is stable for recent discovery but should not be treated as full historical archive coverage.
 
 2. Browser runtime dependency
    - Live source sync and PDF export depend on Playwright Chromium availability.
 
-3. External site changes
-   - Scientific Spaces markup and access behavior can change without project control.
+3. Transient browser/source access fluctuation
+   - RSS or article access can intermittently time out or fail.
+   - Mitigation: bounded retry, failure logging, and quality gates that avoid storing invalid articles.
 
-4. Content extraction completeness
-   - One fresh live imported article produced only title-level content.
-   - The pipeline needs an M1.x rule to reject or retry invalid content before storage.
+4. External site changes
+   - Scientific Spaces markup and access behavior can change outside project control.
 
-5. Related-content/navigation noise
-   - Fresh checks found one related-content navigation phrase in an imported article.
-   - This is secondary to the content-length blocker but should be considered in the next revision.
+5. Playwright maintenance cost
+   - Browser-based acquisition adds runtime and CI maintenance overhead.
 
-6. Historical ADR drift
+6. ADR follow-up
    - `ADR/0003-m1-live-source-access-blocker.md` still records the original homepage access blocker as `Blocking`.
-   - Later RSS/browser implementation resolved project-state verification, but the ADR has not been superseded by a new ADR.
+   - The implemented RSS/browser strategy supersedes the original blocked homepage/archive path for M1 operation, but ADR status has not been updated by this freeze gate.
 
-## 7. M2 Readiness
+## M2 Readiness
 
-B: Need additional M1 work
+A: Ready for M2
 
 Reason:
 
-- RSS discovery works.
-- Browser access worked for 5/5 articles in this re-run.
-- Storage idempotency and Article schema are stable.
-- Formula validity passed.
-- PDF export remains ready as an independent capability.
-- Content fidelity did not pass for all imported articles because `https://spaces.ac.cn/archives/11787` was stored with only title-level content.
+- RSS discovery works for the M1 source boundary.
+- Browser access now enforces an article-body acquisition gate.
+- Parser and converter preserve article body, images metadata, and math delimiters for the fresh live sample.
+- Storage upsert produced no duplicates.
+- Validation passed with `issues=[]`.
+- The `11787` blocker is resolved.
+- PDF export remains a separate PASS capability.
 
-M2 Scientific Reader should not consume this source output as frozen input until an explicit M1.x revision task prevents invalid-content imports or retries invalid article parses.
+M2 Scientific Reader can use the frozen M1 Article output as input, while keeping M1 implementation changes behind explicit M1.x revision tasks.
 
-## 8. Post-freeze Change Rule
+## Post-freeze Change Rule
 
-The intended freeze governance rule remains:
+Freeze governance rule:
 
 - After M1 freeze passes, any M1 implementation change must be created as an `M1.x revision task`.
 - Frozen M1 code must not be directly modified from M2 or later milestone work.
-
-Because this freeze re-run did not pass, `M1 Freeze Passed` is not added to project state.

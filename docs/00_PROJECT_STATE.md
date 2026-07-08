@@ -19,3 +19,15 @@ M1 Verification Passed
 Blocking Reason:
 
 Resolved by RSS discovery plus Playwright browser article access strategy.
+
+Freeze:
+
+M1 Freeze Passed
+
+M2 Readiness:
+
+Ready for M2
+
+Post-freeze Change Rule:
+
+Any M1 implementation change must be handled through a new M1.x revision task.
