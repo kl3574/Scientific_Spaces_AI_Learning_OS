@@ -11,6 +11,8 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 
 Release-readiness evidence is recorded in `docs/POST_MVP_RELEASE_AUDIT.md`.
 
+Post-MVP corpus processing planning is recorded in `docs/FULL_CORPUS_PROCESSING_PLAN.md`.
+
 ## MVP Capabilities
 
 - Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.

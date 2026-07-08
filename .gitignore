@@ -31,6 +31,25 @@ evaluation_outputs/
 *.eval.json
 *.eval.jsonl
 
+# Corpus processing runtime artifacts
+corpus_runs/
+corpus_outputs/
+corpus_artifacts/
+runtime_corpus/
+article_corpus/
+pdf_exports/
+browser_profiles/
+playwright-report/
+test-results/
+*.pdf
+*.html.dump
+*.html.snapshot
+*.article.html
+*.trace.zip
+*.faiss
+faiss_index/
+embedding_cache/
+
 # Node / Next.js
 node_modules/
 frontend/node_modules/

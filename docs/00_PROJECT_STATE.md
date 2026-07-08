@@ -141,3 +141,7 @@ Production Deployment Profile: PASS
 P0-003 Verification:
 
 Production Deployment Profile Verification: PASS
+
+P1 Planning:
+
+Full Scientific Spaces Corpus Processing Plan: PASS
