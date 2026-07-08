@@ -4,17 +4,21 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
 import { ArticleSummary, fetchArticles, formatMetadata } from "@/lib/articles";
+import { Bookmark, LearningState, fetchBookmarks, fetchLearningStates } from "@/lib/learning";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
 export function ArticleListView() {
   const [query, setQuery] = useState("");
   const [articles, setArticles] = useState<ArticleSummary[]>([]);
+  const [states, setStates] = useState<Record<string, LearningState>>({});
+  const [bookmarks, setBookmarks] = useState<Record<string, Bookmark>>({});
   const [status, setStatus] = useState<LoadState>("idle");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void loadArticles();
+    void loadLearningBadges();
   }, []);
 
   async function loadArticles(nextQuery = query) {
@@ -27,6 +31,17 @@ export function ArticleListView() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load articles");
       setStatus("error");
+    }
+  }
+
+  async function loadLearningBadges() {
+    try {
+      const [stateResponse, bookmarkResponse] = await Promise.all([fetchLearningStates(), fetchBookmarks()]);
+      setStates(Object.fromEntries(stateResponse.items.map((item) => [item.article_id, item])));
+      setBookmarks(Object.fromEntries(bookmarkResponse.items.map((item) => [item.article_id, item])));
+    } catch {
+      setStates({});
+      setBookmarks({});
     }
   }
 
@@ -72,6 +87,16 @@ export function ArticleListView() {
                   {article.title}
                 </Link>
                 <p className="mt-1 text-xs text-slate-500">{formatMetadata(article.metadata)}</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span className="rounded border border-slate-200 px-2 py-1 text-xs text-slate-600">
+                    {states[article.id]?.status ?? "unread"}
+                  </span>
+                  {bookmarks[article.id] ? (
+                    <span className="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-800">
+                      Bookmarked
+                    </span>
+                  ) : null}
+                </div>
               </div>
               <a
                 className="text-xs text-slate-500 hover:text-slate-950"

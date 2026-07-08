@@ -2,15 +2,15 @@
 
 Version:
 
-v0.4.0
+v0.5.0
 
 Phase:
 
-M3 Completed
+M4 Completed
 
 Status:
 
-Grounded RAG Assistant implemented
+Learning Management implemented
 
 Verification:
 
@@ -45,6 +45,14 @@ M3 Verification Passed
 M4 Readiness:
 
 Ready for M4
+
+M4:
+
+Learning Management implemented
+
+M5 Readiness:
+
+Ready for M5 planning
 
 Post-freeze Change Rule:
 
