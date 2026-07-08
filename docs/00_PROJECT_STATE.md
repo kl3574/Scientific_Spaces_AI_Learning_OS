@@ -149,3 +149,7 @@ Full Scientific Spaces Corpus Processing Plan: PASS
 P1-001:
 
 Full Corpus Pilot: PASS
+
+P1-002:
+
+Medium Batch 100 Articles Plan: PASS

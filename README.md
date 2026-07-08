@@ -15,6 +15,8 @@ Post-MVP corpus processing planning is recorded in `docs/FULL_CORPUS_PROCESSING_
 
 Bounded full-corpus pilot evidence is recorded in `docs/FULL_CORPUS_PILOT_REPORT.md`.
 
+Medium-batch 100-article planning is recorded in `docs/MEDIUM_BATCH_100_ARTICLES_PLAN.md`.
+
 ## MVP Capabilities
 
 - Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.
