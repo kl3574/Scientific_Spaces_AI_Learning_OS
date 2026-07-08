@@ -1,36 +1,268 @@
 # Scientific Spaces AI Learning OS
 
-Scientific Spaces AI Learning OS is a documentation-first learning platform project for turning Scientific Spaces blog content, papers, citations, and learning workflows into a grounded AI learning system.
+Scientific Spaces AI Learning OS is a local-first learning system for Scientific Spaces articles. The MVP combines a source pipeline, reader, grounded RAG assistant, learning state, Zotero metadata links, a knowledge graph, and a citation-grounded AI research tutor.
 
-## Bootstrap Status
+## Current Status
 
-- Version: `v0.0.1`
-- Phase: `Bootstrap`
-- Status: `Documentation initialized`
+- Version: `v1.0.0`
+- Phase: `MVP Complete`
+- Status: `Scientific Spaces AI Learning OS MVP complete`
+- Latest gate: `M7 Final Verification: PASS`
 
-## Scope
+Release-readiness evidence is recorded in `docs/POST_MVP_RELEASE_AUDIT.md`.
 
-This repository currently contains project specifications, milestone documents, and empty implementation directories.
+## MVP Capabilities
 
-Bootstrap does not implement backend, frontend, crawlers, RAG, or business logic.
+- Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.
+- Scientific Reader: article list, article detail, title/content search, and basic local reading history.
+- Grounded RAG Assistant: Markdown-structure chunking, deterministic fake embeddings by default, FAISS vector search, optional OpenAI-compatible providers, and source citations.
+- Learning Management: article learning state, bookmarks, notes, sessions, and dashboard statistics.
+- Zotero Integration: read-only fake provider by default, optional local Zotero API provider, metadata search/export, and article-to-Zotero links.
+- Knowledge Graph: article, section, concept, formula, and Zotero item graph with provenance metadata and edge evidence.
+- AI Research Tutor: `explain`, `derive`, `qa`, `quiz`, and `research` modes with required grounding and refusal for unsupported answers.
 
-## Repository Structure
+## Architecture
 
-- `docs/` - product, technical, workflow, testing, and policy specifications.
-- `milestones/` - milestone definitions from M0 to M7.
-- `ADR/` - architecture decision records.
-- `codex/` - agent working notes and future automation assets.
-- `backend/` - reserved for backend implementation.
-- `frontend/` - reserved for frontend implementation.
-- `tests/` - reserved for tests.
+```text
+Scientific Spaces RSS
+  -> browser article acquisition
+  -> parser / Markdown converter
+  -> Article storage
+  -> Reader API and UI
+  -> RAG chunking / embeddings / FAISS
+  -> Learning / Zotero / Knowledge Graph
+  -> Grounded AI Tutor
+```
 
-## Current Milestones
+Backend code is under `backend/app/`. Frontend code is under `frontend/src/`. Project specifications, verification reports, and milestone records are under `docs/` and `milestones/`.
 
-- M0 - Engineering Foundation
-- M1 - Scientific Spaces Source Pipeline
-- M2 - Scientific Reader
-- M3 - Grounded RAG Assistant
-- M4 - Learning Management
-- M5 - Zotero Integration
-- M6 - Knowledge Graph
-- M7 - AI Research Tutor
+## Backend Setup
+
+Requirements:
+
+- Python `3.11`
+- `uv`
+
+Install and test:
+
+```bash
+uv run --project backend --extra dev pytest -q
+```
+
+Run the backend:
+
+```bash
+uv run --project backend uvicorn app.main:app --reload
+```
+
+Default backend URL:
+
+```text
+http://localhost:8000
+```
+
+Useful endpoints:
+
+- `GET /health`
+- `GET /articles`
+- `POST /rag/query`
+- `GET /learning/stats`
+- `GET /zotero/status`
+- `GET /graph`
+- `POST /tutor/ask`
+
+## Frontend Setup
+
+Requirements:
+
+- Node.js `22`
+- npm
+
+Install dependencies:
+
+```bash
+cd frontend
+npm install
+```
+
+Build:
+
+```bash
+npm run build
+```
+
+Run the frontend:
+
+```bash
+npm run dev
+```
+
+Default frontend URL:
+
+```text
+http://localhost:3000
+```
+
+Main routes:
+
+- `/`
+- `/articles`
+- `/articles/[id]`
+- `/zotero`
+- `/graph`
+- `/tutor`
+
+## Environment Variables
+
+The project runs locally with fake providers by default and does not require a real API key for tests.
+
+Copy `.env.example` only if you need local overrides:
+
+```bash
+cp .env.example .env
+```
+
+Important variables:
+
+- `SCIENTIFIC_SPACES_DATA_DIR`: local runtime data directory. Defaults to `.local_data/scientific_spaces`.
+- `SCIENTIFIC_SPACES_ARTICLES_FILE`: override Article storage file.
+- `SCIENTIFIC_SPACES_LEARNING_FILE`: override learning-state storage file.
+- `SCIENTIFIC_SPACES_ZOTERO_FILE`: override Zotero link storage file.
+- `SCIENTIFIC_SPACES_GRAPH_FILE`: override graph storage file.
+- `SCIENTIFIC_SPACES_TUTOR_FILE`: override tutor session storage file.
+- `SCIENTIFIC_SPACES_ZOTERO_PROVIDER`: `fake` by default; set `local` to use the local Zotero API.
+- `SCIENTIFIC_SPACES_ZOTERO_BASE_URL`: local Zotero API URL, default `http://127.0.0.1:23119`.
+- `SCIENTIFIC_SPACES_TUTOR_LLM_PROVIDER`: `fake` by default; set `openai` for OpenAI-compatible chat.
+- `OPENAI_API_KEY`: optional, only needed for OpenAI-compatible providers.
+- `OPENAI_BASE_URL`: optional OpenAI-compatible base URL.
+- `OPENAI_CHAT_MODEL`: optional chat model override.
+- `OPENAI_EMBEDDING_MODEL`: optional embedding model override.
+- `NEXT_PUBLIC_API_BASE_URL`: frontend API base URL, default `http://localhost:8000`.
+
+Do not commit real `.env` files, API keys, Zotero library exports, or local runtime data.
+
+## Provider Boundaries
+
+Default local/test behavior:
+
+- RAG embeddings: deterministic fake embedding provider.
+- Tutor LLM: deterministic fake LLM provider.
+- Zotero: read-only fake provider.
+
+Optional real-provider behavior:
+
+- OpenAI-compatible chat/embedding providers are enabled only through environment variables.
+- Local Zotero API is read-only and selected only with `SCIENTIFIC_SPACES_ZOTERO_PROVIDER=local`.
+- The system must refuse unsupported substantive tutor answers instead of relying on model common knowledge.
+
+## Docker
+
+Docker support is defined in `docker-compose.yml` and service Dockerfiles:
+
+```bash
+docker compose up --build
+```
+
+Expected services:
+
+- Backend: `http://localhost:8000/health`
+- Frontend: `http://localhost:3000`
+
+Current local audit environment limitation:
+
+- `docker` is not installed in the current Codex environment, so local Docker smoke may be skipped there.
+- GitHub Actions includes a Docker compose smoke job.
+
+## Testing
+
+Backend:
+
+```bash
+uv run --project backend --extra dev pytest -q
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run build
+```
+
+Optional live checks:
+
+- Browser/live/PDF tests are marked and skipped by default.
+- Use `RUN_LIVE_TESTS=1` only for explicit live-source diagnostics.
+
+## CI
+
+GitHub Actions workflow:
+
+- `.github/workflows/ci.yml`
+
+Triggers:
+
+- Pull requests
+- Manual `workflow_dispatch`
+
+Jobs:
+
+- Backend pytest
+- Frontend build
+- Docker compose smoke
+
+## Local Data and Artifact Policy
+
+Ignored local/runtime paths include:
+
+- `.env`
+- `.local_data/`
+- `backend/.local_data/`
+- `backend/data/`
+- `node_modules/`
+- `frontend/node_modules/`
+- Python and Next.js caches
+
+Do not commit:
+
+- API keys
+- real tutor session data
+- private user study data
+- runtime Article/learning/graph/Zotero/tutor stores
+- real Zotero library data
+- large article corpus exports
+- FAISS or embedding caches
+- PDFs, downloaded HTML, images, traces, profiles, or generated browser artifacts
+
+## Verification Reports
+
+Release-readiness should be checked against:
+
+- `docs/M1_FINAL_FREEZE_REPORT.md`
+- `docs/M2_VERIFICATION_REPORT.md`
+- `docs/M3_VERIFICATION_REPORT.md`
+- `docs/M4_VERIFICATION_REPORT.md`
+- `docs/M5_VERIFICATION_REPORT.md`
+- `docs/M6_VERIFICATION_REPORT.md`
+- `docs/M7_VERIFICATION_REPORT.md`
+- `docs/POST_MVP_RELEASE_AUDIT.md`
+
+Project state:
+
+- `docs/00_PROJECT_STATE.md`
+
+## Known Limitations
+
+- The MVP is local-first and not production multi-user storage.
+- Real LLM quality depends on optional provider configuration and available source quality.
+- Research mode is local-only and does not perform autonomous web research or claim exhaustive literature review.
+- Zotero integration is read-only for local libraries.
+- Docker is optional locally; if unavailable, use backend/frontend test and runtime smoke commands.
+- Some historical planning documents are missing or renamed, including `docs/15_ACCEPTANCE.md`, `docs/31_MVP_BOUNDARY.md`, and `milestones/M7_AI_RESEARCH_TUTOR.md`.
+
+## Post-MVP Directions
+
+- Harden storage for multi-user deployments.
+- Add authentication and production deployment configuration.
+- Improve source coverage and source-quality monitoring.
+- Add release automation and versioned distribution artifacts.
+- Expand tutor evaluation with curated source-grounded benchmarks.
