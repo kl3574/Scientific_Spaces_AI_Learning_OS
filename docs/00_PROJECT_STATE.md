@@ -16,6 +16,8 @@ Verification:
 
 M1 Verification Passed
 
+M2 Verification Passed
+
 Blocking Reason:
 
 Resolved by RSS discovery plus Playwright browser article access strategy.
@@ -30,7 +32,7 @@ Scientific Reader implemented
 
 M3 Readiness:
 
-Ready for M3 planning
+Ready for M3
 
 Post-freeze Change Rule:
 
