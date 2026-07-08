@@ -17,3 +17,83 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+.reader-markdown {
+  color: #1f2937;
+  font-size: 1rem;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.reader-markdown h1,
+.reader-markdown h2,
+.reader-markdown h3 {
+  color: #0f172a;
+  font-weight: 700;
+  line-height: 1.35;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.reader-markdown h1 {
+  font-size: 1.75rem;
+}
+
+.reader-markdown h2 {
+  font-size: 1.35rem;
+}
+
+.reader-markdown h3 {
+  font-size: 1.1rem;
+}
+
+.reader-markdown p,
+.reader-markdown ul,
+.reader-markdown ol,
+.reader-markdown pre,
+.reader-markdown blockquote {
+  margin: 0.85rem 0;
+}
+
+.reader-markdown ul,
+.reader-markdown ol {
+  padding-left: 1.5rem;
+}
+
+.reader-markdown ul {
+  list-style: disc;
+}
+
+.reader-markdown ol {
+  list-style: decimal;
+}
+
+.reader-markdown code {
+  border-radius: 4px;
+  background: #f1f5f9;
+  padding: 0.1rem 0.25rem;
+  font-size: 0.92em;
+}
+
+.reader-markdown pre {
+  overflow-x: auto;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem;
+}
+
+.reader-markdown pre code {
+  background: transparent;
+  padding: 0;
+}
+
+.reader-markdown a {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.reader-markdown img {
+  max-width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+}

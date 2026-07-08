@@ -2,15 +2,15 @@
 
 Version:
 
-v0.2.0
+v0.3.0
 
 Phase:
 
-M1 Completed
+M2 Completed
 
 Status:
 
-Scientific Spaces source pipeline implemented
+Scientific Reader implemented
 
 Verification:
 
@@ -24,9 +24,13 @@ Freeze:
 
 M1 Freeze Passed
 
-M2 Readiness:
+M2:
 
-Ready for M2
+Scientific Reader implemented
+
+M3 Readiness:
+
+Ready for M3 planning
 
 Post-freeze Change Rule:
 
