@@ -11,6 +11,8 @@ from app.services.article_reader import list_articles
 from app.zotero.provider import get_zotero_provider
 from app.zotero.store import ZoteroLinkStore, zotero_store_path
 
+MAX_CONCEPT_SOURCES = 10
+
 
 class KnowledgeGraphBuilder:
     def __init__(
@@ -33,6 +35,7 @@ class KnowledgeGraphBuilder:
         nodes: dict[str, GraphNode] = {}
         edges: dict[str, GraphEdge] = {}
         category_articles: dict[str, list[str]] = defaultdict(list)
+        concept_sources: dict[str, dict[tuple[str, str, str, str, str], dict[str, Any]]] = defaultdict(dict)
         source_counts = {"articles": len(articles), "sections": 0, "concepts": 0, "formulas": 0, "zotero_links": 0}
         provider = get_zotero_provider()
         learning_store = LearningStore(learning_store_path())
@@ -62,13 +65,37 @@ class KnowledgeGraphBuilder:
             if category:
                 category_articles[category].append(article_node_id)
 
+            title_concepts = _concepts_by_normalized(article.title)
+            category_concepts = _concepts_by_normalized(category)
             for concept in extract_concepts(article.title, category):
-                concept_node = _concept_node(concept)
-                _add_node(nodes, concept_node)
+                normalized = normalize_concept(concept)
+                concept_node_id = make_node_id("concept", normalized)
+                if normalized in title_concepts:
+                    _record_concept_source(
+                        concept_sources,
+                        concept=concept,
+                        article_id=article.id,
+                        article_title=article.title,
+                        article_url=article.url,
+                        source_type="article_title",
+                        source_context=article.title,
+                        evidence=title_concepts[normalized],
+                    )
+                if normalized in category_concepts:
+                    _record_concept_source(
+                        concept_sources,
+                        concept=concept,
+                        article_id=article.id,
+                        article_title=article.title,
+                        article_url=article.url,
+                        source_type="metadata_category",
+                        source_context=category,
+                        evidence=category_concepts[normalized],
+                    )
                 _add_edge(
                     edges,
                     article_node_id,
-                    concept_node.node_id,
+                    concept_node_id,
                     "mentions",
                     evidence={"source": "article_metadata", "article_id": article.id, "text": concept},
                 )
@@ -100,13 +127,43 @@ class KnowledgeGraphBuilder:
                     evidence=chunk.source(),
                 )
 
+                section_heading_concepts = _concepts_by_normalized(chunk.section_title)
+                section_content_concepts = _concepts_by_normalized(_section_body(chunk.content))
                 for concept in extract_concepts(chunk.section_title, chunk.content):
-                    concept_node = _concept_node(concept)
-                    _add_node(nodes, concept_node)
+                    normalized = normalize_concept(concept)
+                    concept_node_id = make_node_id("concept", normalized)
+                    if normalized in section_heading_concepts:
+                        _record_concept_source(
+                            concept_sources,
+                            concept=concept,
+                            article_id=article.id,
+                            article_title=article.title,
+                            article_url=article.url,
+                            source_type="section_heading",
+                            source_context=chunk.section_title,
+                            evidence=section_heading_concepts[normalized],
+                            section_title=chunk.section_title,
+                            section_node_id=section_node_id,
+                            chunk_index=chunk.chunk_index,
+                        )
+                    if normalized in section_content_concepts:
+                        _record_concept_source(
+                            concept_sources,
+                            concept=concept,
+                            article_id=article.id,
+                            article_title=article.title,
+                            article_url=article.url,
+                            source_type="section_content",
+                            source_context=chunk.section_title,
+                            evidence=section_content_concepts[normalized],
+                            section_title=chunk.section_title,
+                            section_node_id=section_node_id,
+                            chunk_index=chunk.chunk_index,
+                        )
                     _add_edge(
                         edges,
                         section_node_id,
-                        concept_node.node_id,
+                        concept_node_id,
                         "mentions",
                         evidence={**chunk.source(), "text": concept},
                     )
@@ -162,6 +219,9 @@ class KnowledgeGraphBuilder:
                     weight=0.5,
                 )
 
+        for normalized, sources_by_key in concept_sources.items():
+            _add_node(nodes, _concept_node(normalized, sources_by_key.values()))
+
         source_counts["concepts"] = sum(1 for node in nodes.values() if node.node_type == "concept")
         source_counts["formulas"] = sum(1 for node in nodes.values() if node.node_type == "formula")
 
@@ -202,15 +262,79 @@ def _add_edge(
     edges.setdefault(edge.edge_id, edge)
 
 
-def _concept_node(concept: str) -> GraphNode:
+def _concept_node(concept: str, sources: Any) -> GraphNode:
     normalized = normalize_concept(concept)
+    sorted_sources = sorted(
+        sources,
+        key=lambda source: (
+            str(source["article_id"]),
+            str(source["source_type"]),
+            str(source.get("section_node_id") or ""),
+            str(source["source_context"]),
+            str(source["evidence"]),
+        ),
+    )
+    source_count = len(sorted_sources)
     return GraphNode(
         node_id=make_node_id("concept", normalized),
         node_type="concept",
         label=display_concept(concept),
         source_id=normalized,
-        metadata={"normalized": normalized},
+        metadata={
+            "normalized": normalized,
+            "source_count": source_count,
+            "sources": sorted_sources[:MAX_CONCEPT_SOURCES],
+            "truncated": source_count > MAX_CONCEPT_SOURCES,
+        },
     )
+
+
+def _concepts_by_normalized(text: str | None) -> dict[str, str]:
+    return {normalize_concept(concept): concept for concept in extract_concepts(text)}
+
+
+def _record_concept_source(
+    concept_sources: dict[str, dict[tuple[str, str, str, str, str], dict[str, Any]]],
+    *,
+    concept: str,
+    article_id: str,
+    article_title: str,
+    article_url: str,
+    source_type: str,
+    source_context: str,
+    evidence: str,
+    section_title: str | None = None,
+    section_node_id: str | None = None,
+    chunk_index: int | None = None,
+) -> None:
+    normalized = normalize_concept(concept)
+    source = {
+        "article_id": article_id,
+        "article_title": article_title,
+        "article_url": article_url,
+        "source_type": source_type,
+        "source_context": source_context,
+        "evidence": evidence,
+    }
+    if section_title is not None:
+        source["section_title"] = section_title
+    if section_node_id is not None:
+        source["section_node_id"] = section_node_id
+    if chunk_index is not None:
+        source["chunk_index"] = chunk_index
+
+    key = (
+        article_id,
+        source_type,
+        section_node_id or "",
+        source_context,
+        evidence,
+    )
+    concept_sources[normalized].setdefault(key, source)
+
+
+def _section_body(content: str) -> str:
+    return "\n".join(line for line in content.splitlines() if not line.lstrip().startswith("#")).strip()
 
 
 def _formula_label(formula: str) -> str:

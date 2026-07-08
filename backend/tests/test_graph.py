@@ -32,7 +32,7 @@ def write_articles(path: Path) -> None:
                     "id": "attention-002",
                     "title": "Transformer中的位置编码",
                     "url": "https://spaces.ac.cn/archives/6509",
-                    "content": "# 位置编码\n\nTransformer 需要位置编码来补充序列信息。",
+                    "content": "# 位置编码\n\nTransformer 需要位置编码来补充序列信息。Attention 也需要位置信息。",
                     "metadata": {
                         "date": "2018-06-02",
                         "category": "信息时代",
@@ -118,6 +118,52 @@ def test_graph_builder_creates_article_section_concept_formula_and_zotero_edges(
     assert article_node.metadata["learning"]["bookmarked"] is True
 
 
+def test_concept_nodes_include_deterministic_provenance_metadata(tmp_path: Path, monkeypatch) -> None:
+    from app.graph.builder import KnowledgeGraphBuilder
+
+    configure_files(tmp_path, monkeypatch)
+
+    first_graph = KnowledgeGraphBuilder().build()
+    second_graph = KnowledgeGraphBuilder().build()
+    attention_node = next(node for node in first_graph.nodes if node.node_type == "concept" and node.label.lower() == "attention")
+    second_attention_node = next(
+        node for node in second_graph.nodes if node.node_type == "concept" and node.label.lower() == "attention"
+    )
+    metadata = attention_node.metadata
+    sources = metadata["sources"]
+
+    assert metadata["normalized"] == "attention"
+    assert set(metadata) >= {"normalized", "source_count", "sources", "truncated"}
+    assert metadata["source_count"] >= 3
+    assert len(sources) <= metadata["source_count"]
+    assert len(sources) <= 10
+    assert sources == second_attention_node.metadata["sources"]
+    assert metadata["source_count"] == second_attention_node.metadata["source_count"]
+    assert sources == sorted(
+        sources,
+        key=lambda source: (
+            source["article_id"],
+            source["source_type"],
+            source.get("section_node_id") or "",
+            source["source_context"],
+            source["evidence"],
+        ),
+    )
+    assert {source["article_id"] for source in sources} == {"attention-001", "attention-002"}
+    assert {"article_title", "section_heading", "section_content"}.issubset(
+        {source["source_type"] for source in sources}
+    )
+    assert all(source["article_title"] for source in sources)
+    assert all(source["article_url"] for source in sources)
+    assert any(source.get("section_node_id") for source in sources)
+    assert any(source.get("section_title") == "Attention机制" for source in sources)
+    assert any(source["source_context"] == "Attention机制的一个直观解释" for source in sources)
+
+    attention_edges = [edge for edge in first_graph.edges if edge.target_node_id == attention_node.node_id]
+    assert attention_edges
+    assert all(edge.edge_type == "mentions" and edge.evidence for edge in attention_edges)
+
+
 def test_graph_store_load_save_clear_and_missing_file(tmp_path: Path) -> None:
     from app.graph.models import GraphDocument, GraphNode
     from app.graph.store import GraphStore
@@ -153,6 +199,7 @@ def test_graph_service_search_neighbors_and_subgraph(tmp_path: Path, monkeypatch
 
     assert search_results
     assert all(node.node_type == "concept" for node in concept_results)
+    assert {node.label for node in concept_results} == {"attention", "self-attention"}
     assert neighbors["nodes"]
     assert neighbors["edges"]
     assert any(node["node_id"] == concept.node_id for node in subgraph["nodes"])

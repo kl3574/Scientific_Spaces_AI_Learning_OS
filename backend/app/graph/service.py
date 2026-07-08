@@ -35,7 +35,9 @@ class GraphService:
         for node in graph.nodes:
             if node_type and node.node_type != node_type:
                 continue
-            haystack = " ".join([node.label, node.node_id, str(node.source_id or ""), str(node.metadata)]).lower()
+            haystack = " ".join(
+                [node.label, node.node_id, str(node.source_id or ""), _metadata_search_text(node.metadata)]
+            ).lower()
             if not normalized or normalized in haystack:
                 results.append(node)
             if len(results) >= capped_limit:
@@ -96,3 +98,8 @@ class GraphService:
                     if len(seen_nodes) >= capped_limit:
                         break
         return seen_nodes, sorted(seen_edges.values(), key=lambda edge: edge.edge_id)
+
+
+def _metadata_search_text(metadata: dict[str, object]) -> str:
+    searchable_metadata = {key: value for key, value in metadata.items() if key != "sources"}
+    return str(searchable_metadata)

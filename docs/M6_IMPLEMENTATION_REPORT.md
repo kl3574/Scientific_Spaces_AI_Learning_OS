@@ -24,6 +24,7 @@ Required context note:
 - Knowledge Graph data model.
 - Deterministic node and edge IDs.
 - Rule-based concept extraction.
+- M6.1 deterministic concept provenance metadata on concept nodes.
 - Formula extraction from LaTeX block forms.
 - Section extraction using existing M3 Markdown chunking.
 - Article node enrichment from M4 learning state and bookmark metadata.
@@ -123,6 +124,7 @@ Traceability:
 Implementation:
 
 - `backend/app/graph/extractors.py`
+- `backend/app/graph/builder.py`
 
 Strategy:
 
@@ -132,6 +134,18 @@ Strategy:
 - Applies a small stopword filter for common English words.
 - Does not call an LLM.
 - Does not call an external API.
+
+M6.1 provenance revision:
+
+- Concept nodes now include deterministic source metadata:
+  - `normalized`
+  - `source_count`
+  - `sources`
+  - `truncated`
+- Source records trace each concept to article/title/category/section context.
+- Section-based sources include `section_title`, `section_node_id`, and `chunk_index`.
+- `sources` is capped at 10 deterministic entries while `source_count` records the complete deduplicated source count.
+- `mentions` edge evidence remains intact and is not weakened.
 
 Known limitation:
 
