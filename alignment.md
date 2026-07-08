@@ -1,4 +1,4 @@
-# Task Alignment - M4 Verification Gate
+# Task Alignment - M5 Verification Gate
 
 ## 1. Background
 
@@ -13,96 +13,106 @@ Current milestone evidence:
 - M2 Verification: PASS
 - M3 Grounded RAG Assistant: PASS
 - M3 Verification: PASS
-- M4 Learning Management: IMPLEMENTED
+- M4 Learning Management: PASS
+- M4 Verification: PASS
+- M5 Zotero Integration: IMPLEMENTED
 
-M4 implementation commit:
+M5 implementation commit:
 
-- `0077f60fe6065b9143b865837e4d0664341a790f`
+- `f46ab8b72cb431b498d1e1f1c5bb641f40cbe466`
 
-This task verifies M4 only. It must not implement M5 Zotero Integration, M6 Knowledge Graph, or M7 AI Tutor.
+This task verifies M5 only. It must not implement M6 Knowledge Graph, M7 AI Tutor, Zotero library writes, citation graphs, paper graphs, or autonomous research agents.
 
 ## 2. Scope
 
 Allowed changes:
 
 - `alignment.md`
-- `docs/M4_VERIFICATION_REPORT.md`
+- `docs/M5_VERIFICATION_REPORT.md`
 - `docs/00_PROJECT_STATE.md` only if verification passes
 - `.gitignore` only if local runtime data paths are not ignored
 
 Forbidden changes:
 
-- M4 implementation code
-- M1/M2/M3 frozen implementation code
-- M4 verification standard
-- M5-M7 features
-- local runtime data, API keys, FAISS indexes, embedding caches, PDFs, HTML dumps, images, traces, profiles, caches, `node_modules`, or large article data
+- M5 implementation code
+- M1/M2/M3/M4 frozen implementation code
+- M5 verification standard
+- M6/M7 features
+- Zotero library writes
+- real Zotero data, BibTeX large exports, local runtime data, API keys, FAISS indexes, embedding caches, PDFs, HTML dumps, images, traces, profiles, caches, or `node_modules`
 
 ## 3. Gate Focus
 
 The verification gate must confirm:
 
-1. Learning state model and API work for default, reading, completed, timestamps, and read counts.
-2. Bookmark/favorite add, list, delete, and duplicate behavior are stable.
-3. Manual notes support create, list, update, and delete without AI generation.
-4. Learning sessions support create, end, duration, and list without conversation history or tutor state.
-5. Dashboard stats match Article and learning store data and handle empty data.
-6. Storage uses local JSON, supports `SCIENTIFIC_SPACES_LEARNING_FILE`, and does not commit user data.
-7. Frontend Dashboard, Article List, and Article Detail expose basic M4 controls without M5-M7 UI.
-8. M2 Article API and M3 RAG API regressions pass.
-9. M1/M2/M3 frozen contracts are not broken.
-10. No M5-M7 scope leak or forbidden artifact exists.
+1. Zotero provider abstraction exists and is read-only by default.
+2. `FakeZoteroProvider` works and tests do not require Zotero Desktop.
+3. No-Zotero or unavailable local API behavior is graceful and does not crash.
+4. Optional local API provider is env-enabled only and does not write to Zotero.
+5. Zotero status/search/item/BibTeX export APIs work.
+6. Zotero item key and BibTeX key are clearly distinguished.
+7. Article-Zotero link create/list/delete and duplicate behavior work.
+8. Link storage is project-local, env-isolated, ignored by git, and separate from Article/Learning models.
+9. Frontend `/zotero` and Article Detail related papers panel build and smoke.
+10. M2/M3/M4 API regressions pass.
+11. M1/M2/M3/M4 frozen contracts are not broken.
+12. No M6/M7 scope leak or forbidden artifact exists.
 
 ## 4. Execution Evidence
 
-Verification used:
+Verification will use:
 
-- Code inspection of `backend/app/api/learning.py`, `backend/app/learning/`, `backend/tests/test_learning_api.py`, `frontend/src/lib/learning.ts`, and frontend M4 components.
+- Required document reads where present.
+- Zotero helper `status --json` probe only.
+- Code inspection of `backend/app/zotero/`, `backend/app/api/zotero.py`, M5 tests, and M5 frontend files.
 - Backend tests:
   - `uv run --project backend --extra dev pytest -q`
 - Frontend build:
   - `npm run build`
-- Runtime smoke with temporary `/tmp/scientific-spaces-m4-verification-*` fixtures.
-- Freeze path checks using git diffs from M3 verification commit to current `HEAD`.
+- Runtime smoke with temporary fixtures and default fake provider.
+- Local unavailable-provider smoke with `SCIENTIFIC_SPACES_ZOTERO_PROVIDER=local`.
+- Freeze path checks with git diffs.
 - Scope leak and artifact scans.
 
 ## 5. Pass Criteria
 
-M4 verification can pass only if:
+M5 verification can pass only if:
 
 - Backend tests pass.
 - Frontend build passes.
-- Learning state works.
-- Bookmark/favorite works.
-- Notes CRUD works.
-- Session history works.
-- Dashboard stats work.
+- Fake provider works.
+- No-Zotero environment is handled gracefully.
+- `/zotero/status`, search, item, export, and link CRUD work.
 - Storage isolation works.
+- Frontend `/zotero` and Article Detail Zotero panel work.
 - M2 Article API regression passes.
 - M3 RAG regression passes.
-- M1/M2/M3 frozen contracts are not broken.
-- No M5-M7 scope leak is detected.
+- M4 Learning regression passes.
+- M1/M2/M3/M4 frozen contracts are not modified.
+- No M6/M7 scope leak is detected.
 - No forbidden artifacts are committed.
 
 ## 6. Block Criteria
 
-M4 verification is blocked if any of these are found:
+M5 verification is blocked if any of these are found:
 
-- Learning API tests fail.
-- Frontend build fails.
-- Real user learning data is committed.
-- Notes, session, or stats behavior is incorrect.
-- M2 Reader regression fails.
-- M3 RAG regression fails.
-- Frozen M1/M2/M3 contract is modified without a revision task.
-- M5-M7 functionality is implemented early.
+- Tests require real Zotero installation.
+- No-Zotero environment crashes.
+- Fake provider is missing.
+- Search/item/export API fails.
+- Link CRUD fails.
+- Real Zotero data or attachment paths are committed.
+- Zotero library write occurs without explicit user request.
+- M2/M3/M4 regressions fail.
+- Frozen M1/M2/M3/M4 contract is modified without a revision task.
+- M6 Knowledge Graph or M7 AI Tutor is implemented early.
 - Forbidden artifact is committed.
 
 ## 7. Expected Deliverables
 
 - Updated `alignment.md`
-- Created `docs/M4_VERIFICATION_REPORT.md`
+- Created `docs/M5_VERIFICATION_REPORT.md`
 - Updated `docs/00_PROJECT_STATE.md` if verification passes
 - Commit:
-  - pass: `docs: pass M4 verification gate`
-  - blocked: `docs: record M4 verification blockers`
+  - pass: `docs: pass M5 verification gate`
+  - blocked: `docs: record M5 verification blockers`

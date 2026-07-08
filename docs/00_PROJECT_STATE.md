@@ -62,6 +62,10 @@ M5:
 
 Zotero Integration implemented
 
+M5 Verification:
+
+M5 Verification Passed
+
 M6 Readiness:
 
 Ready for M6
