@@ -1,0 +1,113 @@
+[
+  {
+    "case_id": "rag_attention_sources",
+    "task_type": "rag_query",
+    "question": "什么是Attention机制？",
+    "expected_source_article_ids": [
+      "attention-basics"
+    ],
+    "expected_refusal": false,
+    "min_sources": 1,
+    "notes": "RAG should retrieve the attention article and return citation metadata."
+  },
+  {
+    "case_id": "rag_no_source_refusal",
+    "task_type": "no_source",
+    "question": "这个本地资料库是否证明了量子引力实验结论？",
+    "expected_source_article_ids": [],
+    "expected_refusal": true,
+    "min_sources": 0,
+    "notes": "Unsupported RAG query should refuse without fabricated citations."
+  },
+  {
+    "case_id": "tutor_explain_attention",
+    "task_type": "tutor_explain",
+    "question": "解释Attention机制的直觉。",
+    "article_id": "attention-basics",
+    "node_id": "concept:attention",
+    "expected_source_article_ids": [
+      "attention-basics"
+    ],
+    "expected_refusal": false,
+    "expected_mode": "explain",
+    "min_sources": 1,
+    "notes": "Explain mode should stay grounded in article chunks."
+  },
+  {
+    "case_id": "tutor_derive_crb_formula",
+    "task_type": "tutor_derive",
+    "question": "基于资料推导CRB不等式。",
+    "article_id": "crb-formula",
+    "expected_source_article_ids": [
+      "crb-formula"
+    ],
+    "expected_refusal": false,
+    "expected_mode": "derive",
+    "min_sources": 1,
+    "notes": "Derive mode has an explicit formula source."
+  },
+  {
+    "case_id": "tutor_derive_insufficient_formula",
+    "task_type": "tutor_derive",
+    "question": "推导Attention的完整数学证明。",
+    "article_id": "attention-basics",
+    "expected_source_article_ids": [
+      "attention-basics"
+    ],
+    "expected_refusal": true,
+    "expected_mode": "derive",
+    "min_sources": 1,
+    "notes": "Derive mode should refuse full derivation when formula evidence is insufficient."
+  },
+  {
+    "case_id": "tutor_qa_attention_sources",
+    "task_type": "tutor_qa",
+    "question": "Attention如何使用Query和Key？",
+    "article_id": "attention-basics",
+    "expected_source_article_ids": [
+      "attention-basics"
+    ],
+    "expected_refusal": false,
+    "expected_mode": "qa",
+    "min_sources": 1,
+    "notes": "QA mode requires article sources."
+  },
+  {
+    "case_id": "tutor_qa_no_source_refusal",
+    "task_type": "tutor_qa",
+    "question": "本地资料是否支持火星气候结论？",
+    "article_id": "missing-article",
+    "expected_source_article_ids": [],
+    "expected_refusal": true,
+    "expected_mode": "qa",
+    "min_sources": 0,
+    "notes": "Tutor QA no-source path should refuse."
+  },
+  {
+    "case_id": "tutor_quiz_crb_sources",
+    "task_type": "tutor_quiz",
+    "question": "基于CRB资料生成检查题。",
+    "article_id": "crb-formula",
+    "expected_source_article_ids": [
+      "crb-formula"
+    ],
+    "expected_refusal": false,
+    "expected_mode": "quiz",
+    "min_sources": 1,
+    "notes": "Each generated quiz item must include sources."
+  },
+  {
+    "case_id": "tutor_research_local_only",
+    "task_type": "tutor_research",
+    "question": "给出Attention后续研究路线。",
+    "article_id": "attention-basics",
+    "node_id": "concept:attention",
+    "expected_source_article_ids": [
+      "attention-basics"
+    ],
+    "expected_refusal": false,
+    "expected_mode": "research",
+    "min_sources": 1,
+    "notes": "Research mode should be local-only and include source gaps."
+  }
+]

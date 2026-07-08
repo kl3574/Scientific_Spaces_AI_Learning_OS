@@ -125,3 +125,7 @@ Security and Privacy Baseline: PASS
 P0-004 Verification:
 
 Security and Privacy Baseline Verification: PASS
+
+P0-005:
+
+RAG and Tutor Evaluation Harness: PASS

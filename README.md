@@ -185,6 +185,18 @@ Optional real-provider behavior:
 - Local Zotero API is read-only and selected only with `SCIENTIFIC_SPACES_ZOTERO_PROVIDER=local`.
 - The system must refuse unsupported substantive tutor answers instead of relying on model common knowledge.
 
+## Evaluation Harness
+
+The deterministic RAG/Tutor evaluation harness lives under `backend/app/evaluation/` with fixed fixtures in `backend/tests/fixtures/evaluation/`.
+
+Run the structural baseline:
+
+```bash
+uv run --project backend python scripts/eval/run_rag_tutor_eval.py
+```
+
+The default harness uses fake providers only. It does not require a real API key, web access, Zotero Desktop, or runtime article downloads. Optional JSON output must be written under ignored `eval_outputs/` or `evaluation_outputs/` paths.
+
 ## Security and Privacy
 
 Security policy:

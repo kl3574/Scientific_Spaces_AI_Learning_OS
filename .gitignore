@@ -26,6 +26,10 @@ backend/.venv/
 backend/.cache/
 backend/.local_data/
 backend/data/
+eval_outputs/
+evaluation_outputs/
+*.eval.json
+*.eval.jsonl
 
 # Node / Next.js
 node_modules/

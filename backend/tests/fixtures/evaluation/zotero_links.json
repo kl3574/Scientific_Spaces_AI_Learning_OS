@@ -1,0 +1,20 @@
+{
+  "attention-basics": {
+    "ABCD1234": {
+      "article_id": "attention-basics",
+      "zotero_item_key": "ABCD1234",
+      "relation_type": "cites",
+      "created_at": "2026-01-01T00:00:00Z",
+      "note": "Fake Zotero metadata link for attention evaluation."
+    }
+  },
+  "crb-formula": {
+    "EFGH5678": {
+      "article_id": "crb-formula",
+      "zotero_item_key": "EFGH5678",
+      "relation_type": "background",
+      "created_at": "2026-01-02T00:00:00Z",
+      "note": "Fake Zotero metadata link for CRB evaluation."
+    }
+  }
+}

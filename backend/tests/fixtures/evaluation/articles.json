@@ -1,0 +1,46 @@
+[
+  {
+    "id": "attention-basics",
+    "title": "Attention机制入门",
+    "url": "https://example.test/articles/attention-basics",
+    "content": "# Attention机制\n\nAttention 用 Query 和 Key 计算相关性，再用 Value 汇总信息。这个过程要求模型只基于输入序列中的可见证据分配权重。\n\n## 局部注意力\n\n局部上下文可以帮助解释 token 之间的依赖，但不能替代来源引用。",
+    "metadata": {
+      "date": "2026-01-01",
+      "category": "Deep Learning",
+      "references": [
+        "Vaswani et al. 2017"
+      ],
+      "images": [
+        "https://example.test/images/attention.png"
+      ]
+    }
+  },
+  {
+    "id": "crb-formula",
+    "title": "CRB公式与估计下界",
+    "url": "https://example.test/articles/crb-formula",
+    "content": "# Cramer-Rao Bound\n\nCRB 给出了无偏估计方差的下界。Fisher 信息越大，估计方差下界越小。\n\n## 数学形式\n\n$$\n\\operatorname{Var}(\\hat{\\theta}) \\ge I(\\theta)^{-1}\n$$\n\n这里 $I(\\theta)$ 表示 Fisher 信息。推导只能使用已给出的公式和假设。",
+    "metadata": {
+      "date": "2026-01-02",
+      "category": "Signal Processing",
+      "references": [
+        "Kay 1993"
+      ],
+      "images": []
+    }
+  },
+  {
+    "id": "local-research-map",
+    "title": "本地研究路径与来源边界",
+    "url": "https://example.test/articles/local-research-map",
+    "content": "# 本地研究路径\n\nResearch mode 只能基于本地文章、知识图谱和 Zotero metadata 给出建议。它不能声称完成了全网搜索，也不能替代完整文献综述。\n\n## Source Gaps\n\n当本地资料不足时，系统必须明确指出资料缺口。",
+    "metadata": {
+      "date": "2026-01-03",
+      "category": "Research Workflow",
+      "references": [
+        "Local-only research policy"
+      ],
+      "images": []
+    }
+  }
+]

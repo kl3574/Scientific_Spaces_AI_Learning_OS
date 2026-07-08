@@ -1,0 +1,13 @@
+{
+  "expected_nodes": [
+    "concept:attention",
+    "concept:crb"
+  ],
+  "expected_source_types": [
+    "article_chunk",
+    "graph_node",
+    "graph_edge",
+    "zotero_item"
+  ],
+  "notes": "Fake graph expectations are structural only and do not encode answer quality."
+}
