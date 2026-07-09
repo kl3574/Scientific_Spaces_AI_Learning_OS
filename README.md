@@ -23,6 +23,8 @@ Cumulative 200-article batch evidence is recorded in `docs/CUMULATIVE_200_ARTICL
 
 Seed year metadata enrichment evidence is recorded in `docs/SEED_YEAR_METADATA_ENRICHMENT_REPORT.md`.
 
+Year metadata source decision is recorded in `docs/P1_010_YEAR_METADATA_SOURCE_DECISION.md`.
+
 ## MVP Capabilities
 
 - Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.

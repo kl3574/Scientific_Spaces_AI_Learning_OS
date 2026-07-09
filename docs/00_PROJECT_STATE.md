@@ -185,3 +185,7 @@ Cumulative 200-Article Batch: PASS
 P1-009:
 
 Seed Year Metadata Enrichment: CONDITIONAL
+
+P1-010:
+
+Year Metadata Source Decision: PASS
