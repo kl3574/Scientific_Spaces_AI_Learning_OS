@@ -19,7 +19,7 @@ from app.corpus.seeds import load_seed_urls  # noqa: E402
 def main() -> int:
     parser = argparse.ArgumentParser(description="Run a bounded Scientific Spaces full-corpus pilot.")
     parser.add_argument("--limit", type=int, default=10)
-    parser.add_argument("--max-limit", type=int, default=700)
+    parser.add_argument("--max-limit", type=int, default=1000)
     parser.add_argument("--concurrency", type=int, default=1)
     parser.add_argument("--delay-seconds", type=float, default=3)
     parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)

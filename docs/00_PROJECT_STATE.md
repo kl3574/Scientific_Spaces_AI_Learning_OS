@@ -197,3 +197,7 @@ Cumulative 400-Article Batch: PASS
 P1-012:
 
 Cumulative 700-Article Batch: PASS
+
+P1-013:
+
+Cumulative 1000-Article Batch: PASS

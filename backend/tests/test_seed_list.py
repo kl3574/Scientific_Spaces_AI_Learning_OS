@@ -89,3 +89,37 @@ def test_run_full_corpus_pilot_cli_prints_seed_file_dry_run_json(tmp_path: Path)
     payload = json.loads(result.stdout)
     assert payload["target_count"] == 1
     assert payload["canonical_url_count"] == 1
+
+
+def test_run_full_corpus_pilot_cli_accepts_1000_default_max_limit(tmp_path: Path) -> None:
+    seed_file = tmp_path / "seed.json"
+    output_dir = tmp_path / ".local_data" / "pilot"
+    seed_file.write_text(
+        json.dumps({"articles": [{"url": "https://spaces.ac.cn/archives/119"}]}),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "corpus" / "run_full_corpus_pilot.py"),
+            "--limit",
+            "1000",
+            "--delay-seconds",
+            "8",
+            "--dry-run",
+            "--seed-file",
+            str(seed_file),
+            "--output-dir",
+            str(output_dir),
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["target_count"] == 1000
+    assert payload["canonical_url_count"] == 1

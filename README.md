@@ -25,6 +25,8 @@ Seed year metadata enrichment evidence is recorded in `docs/SEED_YEAR_METADATA_E
 
 Year metadata source decision is recorded in `docs/P1_010_YEAR_METADATA_SOURCE_DECISION.md`.
 
+Cumulative 1000-article batch evidence is recorded in `docs/CUMULATIVE_1000_ARTICLES_REPORT.md`.
+
 ## MVP Capabilities
 
 - Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.
@@ -266,7 +268,7 @@ Run the bounded full-corpus pilot:
 uv run --project backend python scripts/corpus/run_full_corpus_pilot.py --limit 10 --delay-seconds 3
 ```
 
-The default smoke command is intentionally small. Staged cumulative import phases are audited separately; the current bounded pilot cap is 700, runs with concurrency `1`, writes runtime output under ignored `.local_data/`, and must not be used as an unbounded full crawl.
+The default smoke command is intentionally small. Staged cumulative import phases are audited separately; the current bounded pilot cap is 1000, runs with concurrency `1`, writes runtime output under ignored `.local_data/`, and must not be used as an unbounded full crawl.
 
 Run the audited cumulative 400-article batch:
 
@@ -289,6 +291,25 @@ uv run --project backend python scripts/corpus/run_full_corpus_pilot.py \
 ```
 
 Do not reduce the 700-batch delay below 8 seconds or increase concurrency.
+
+Run the audited cumulative 1000-article batch:
+
+```bash
+uv run --project backend python scripts/corpus/run_full_corpus_pilot.py \
+  --limit 1000 \
+  --delay-seconds 8 \
+  --seed-file /home/lkx/Downloads/kexuefm_pdf_toolkit/article_list.json
+```
+
+Refresh the ignored local Markdown library after a successful cumulative batch:
+
+```bash
+uv run --project backend python scripts/corpus/materialize_local_library.py \
+  --article-store-path .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --output-dir .local_data/scientific_spaces/corpus/local_library
+```
+
+Do not reduce the 1000-batch delay below 8 seconds or increase concurrency. The next 1000 -> 1326 expansion requires a separate final-batch planning gate before execution.
 
 Run the full seed inventory dry-run without fetching article bodies:
 
