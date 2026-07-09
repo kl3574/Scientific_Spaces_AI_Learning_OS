@@ -21,6 +21,17 @@ RSS_FIXTURE = """<?xml version="1.0" encoding="UTF-8" ?>
 """
 
 
+def _rss_fixture_for_urls(urls: list[str]) -> str:
+    items = "\n".join(f"    <item><link>{url}</link></item>" for url in urls)
+    return f"""<?xml version="1.0" encoding="UTF-8" ?>
+<rss version="2.0">
+  <channel>
+{items}
+  </channel>
+</rss>
+"""
+
+
 def _output_dir(tmp_path: Path) -> Path:
     return tmp_path / ".local_data" / "scientific_spaces" / "corpus" / "pilot"
 
@@ -275,6 +286,108 @@ def test_resume_uses_article_store_before_source_discovery_when_limit_is_satisfi
     assert summary.imported_count == 1
     assert summary.browser_transient_failures == 0
     assert second_fetcher.calls == []
+
+
+def test_cumulative_resume_to_20_counts_existing_and_new_articles(tmp_path: Path) -> None:
+    urls = [f"https://spaces.ac.cn/archives/{1000 + index}" for index in range(20)]
+    rss_fixture = _rss_fixture_for_urls(urls)
+    output_dir = _output_dir(tmp_path)
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=10, output_dir=output_dir),
+        fetch_xml=lambda _url: rss_fixture,
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    second_fetcher = RecordingFetcher()
+    second_pilot = FullCorpusPilot(
+        PilotConfig(limit=20, output_dir=output_dir, delay_seconds=5),
+        fetch_xml=lambda _url: rss_fixture,
+        browser_fetcher=second_fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+
+    assert summary.status == "PASS"
+    assert summary.selected_count == 20
+    assert summary.imported_count == 20
+    assert summary.attempted_count == 10
+    assert summary.skipped_count == 10
+    assert second_fetcher.calls == urls[10:20]
+    assert summary.request_delay_seconds == 5
+    assert summary.concurrency == 1
+
+
+def test_transient_discovery_failure_preserves_existing_success_summary(tmp_path: Path) -> None:
+    urls = [f"https://spaces.ac.cn/archives/{2000 + index}" for index in range(10)]
+    rss_fixture = _rss_fixture_for_urls(urls)
+    output_dir = _output_dir(tmp_path)
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=10, output_dir=output_dir),
+        fetch_xml=lambda _url: rss_fixture,
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    second_pilot = FullCorpusPilot(
+        PilotConfig(limit=20, output_dir=output_dir, delay_seconds=5),
+        fetch_xml=lambda _url: (_ for _ in ()).throw(TimeoutError("TLS handshake timed out")),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+    written_summary = json.loads((output_dir / "validation_summary.json").read_text(encoding="utf-8"))
+
+    assert summary.status == "CONDITIONAL"
+    assert summary.imported_count == 10
+    assert summary.attempted_count == 0
+    assert summary.failed_url_categories == {"browser_transient": 1}
+    assert written_summary["imported_count"] == 10
+    assert written_summary["status"] == "CONDITIONAL"
+
+
+def test_manual_urls_can_complete_cumulative_target_when_rss_is_transient(tmp_path: Path) -> None:
+    existing_urls = [f"https://spaces.ac.cn/archives/{3000 + index}" for index in range(10)]
+    manual_urls = [f"https://spaces.ac.cn/archives/{4000 + index}" for index in range(10)]
+    output_dir = _output_dir(tmp_path)
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=10, output_dir=output_dir),
+        fetch_xml=lambda _url: _rss_fixture_for_urls(existing_urls),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    second_fetcher = RecordingFetcher()
+    second_pilot = FullCorpusPilot(
+        PilotConfig(limit=20, output_dir=output_dir, delay_seconds=5, manual_urls=tuple(manual_urls)),
+        fetch_xml=lambda _url: (_ for _ in ()).throw(TimeoutError("TLS handshake timed out")),
+        browser_fetcher=second_fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+
+    assert summary.status == "PASS"
+    assert summary.selected_count == 20
+    assert summary.imported_count == 20
+    assert summary.attempted_count == 10
+    assert summary.skipped_count == 10
+    assert summary.failed_url_categories == {"browser_transient": 1}
+    assert second_fetcher.calls == manual_urls
 
 
 def test_default_robots_allowed_fails_closed_on_timeout() -> None:

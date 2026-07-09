@@ -149,22 +149,26 @@ class FullCorpusPilot:
         except Exception as exc:  # noqa: BLE001 - discovery/network failures must be summarized.
             reason = _failure_reason(exc)
             failures.append(PilotFailure(url=self.config.feed_url, reason=reason, category=classify_failure_reason(reason)))
-            summary = self._build_summary(
-                status="BLOCKED",
-                discovered_count=0,
-                canonical_url_count=0,
-                duplicate_count=0,
-                selected_urls=[],
-                attempted_count=0,
-                imported_articles=[],
-                failures=failures,
-                parser_quality_issues=parser_quality_issues,
-                skipped_count=0,
-                rejected_urls=[],
-                elapsed_seconds=time.monotonic() - started_at,
-            )
-            self._write_runtime_files(summary, completed_urls=[])
-            return summary
+            discovered_urls = [article.url for article in existing_articles]
+            discovered_urls.extend(self.config.seed_urls)
+            discovered_urls.extend(self.config.manual_urls)
+            if not discovered_urls:
+                summary = self._build_summary(
+                    status="BLOCKED",
+                    discovered_count=0,
+                    canonical_url_count=0,
+                    duplicate_count=0,
+                    selected_urls=[],
+                    attempted_count=0,
+                    imported_articles=[],
+                    failures=failures,
+                    parser_quality_issues=parser_quality_issues,
+                    skipped_count=0,
+                    rejected_urls=[],
+                    elapsed_seconds=time.monotonic() - started_at,
+                )
+                self._write_runtime_files(summary, completed_urls=[])
+                return summary
 
         canonical = canonicalize_article_urls(discovered_urls)
         selected_urls = canonical.canonical_urls[: self.config.limit]
@@ -241,14 +245,17 @@ class FullCorpusPilot:
                 failures.append(PilotFailure(url=url, reason=reason, category=classify_failure_reason(reason)))
 
         stored_articles = self.store.list_articles()
+        status = _status_for_pilot(
+            selected_count=len(selected_urls),
+            duplicate_count=canonical.duplicate_count,
+            imported_count=len(stored_articles),
+            failures=failures,
+            stored_articles=stored_articles,
+        )
+        if failures and len(selected_urls) < self.config.limit:
+            status = "CONDITIONAL"
         summary = self._build_summary(
-            status=_status_for_pilot(
-                selected_count=len(selected_urls),
-                duplicate_count=canonical.duplicate_count,
-                imported_count=len(imported_articles),
-                failures=failures,
-                stored_articles=stored_articles,
-            ),
+            status=status,
             discovered_count=canonical.discovered_count,
             canonical_url_count=canonical.canonical_url_count,
             duplicate_count=canonical.duplicate_count,
