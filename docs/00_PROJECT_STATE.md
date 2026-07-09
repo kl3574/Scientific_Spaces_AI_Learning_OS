@@ -161,3 +161,7 @@ P1-003:
 P1-003.1:
 
 Seed List and Legacy Article Extraction Fix: PASS
+
+P1-004:
+
+50-Article Medium Batch Phase: PASS

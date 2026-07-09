@@ -33,7 +33,7 @@ class ArticleFetcher(Protocol):
 @dataclass(frozen=True)
 class PilotConfig:
     limit: int = 10
-    max_limit: int = 30
+    max_limit: int = 50
     concurrency: int = 1
     delay_seconds: float = 3.0
     output_dir: Path = DEFAULT_OUTPUT_DIR
@@ -41,18 +41,23 @@ class PilotConfig:
     feed_url: str = DEFAULT_FEED_URL
     seed_urls: tuple[str, ...] = ()
     manual_urls: tuple[str, ...] = ()
+    max_consecutive_failures: int = 5
 
     def __post_init__(self) -> None:
         output_dir = Path(self.output_dir)
         object.__setattr__(self, "output_dir", output_dir)
-        if self.limit < 1 or self.limit > self.max_limit or self.limit > 30:
-            raise ValueError("limit must be between 1 and 30")
-        if self.max_limit > 30:
-            raise ValueError("max_limit must be <= 30")
+        if self.limit < 1 or self.limit > self.max_limit or self.limit > 50:
+            raise ValueError("limit must be between 1 and 50")
+        if self.max_limit > 50:
+            raise ValueError("max_limit must be <= 50")
         if self.concurrency != 1:
             raise ValueError("pilot concurrency must be 1")
         if self.delay_seconds < 3:
             raise ValueError("delay_seconds must be >= 3")
+        if self.limit > 30 and self.delay_seconds < 5:
+            raise ValueError("delay_seconds must be >= 5 for medium batch limits above 30")
+        if self.max_consecutive_failures < 1:
+            raise ValueError("max_consecutive_failures must be >= 1")
         if ".local_data" not in output_dir.parts:
             raise ValueError("output_dir must be under an ignored .local_data runtime directory")
 
@@ -200,21 +205,22 @@ class FullCorpusPilot:
 
         if not self.robots_allowed(canonical.canonical_urls):
             failures.append(PilotFailure(url=self.config.feed_url, reason="robots/source policy not confirmed", category="permanent_failure"))
+            selected_existing_urls = [article.url for article in existing_articles[: self.config.limit]]
             summary = self._build_summary(
-                status="BLOCKED",
+                status="CONDITIONAL" if selected_existing_urls else "BLOCKED",
                 discovered_count=canonical.discovered_count,
                 canonical_url_count=canonical.canonical_url_count,
                 duplicate_count=canonical.duplicate_count,
-                selected_urls=selected_urls,
+                selected_urls=selected_existing_urls,
                 attempted_count=0,
-                imported_articles=[],
+                imported_articles=existing_articles[: self.config.limit],
                 failures=failures,
                 parser_quality_issues=parser_quality_issues,
-                skipped_count=skipped_count,
+                skipped_count=len(selected_existing_urls),
                 rejected_urls=canonical.rejected_urls,
                 elapsed_seconds=time.monotonic() - started_at,
             )
-            self._write_runtime_files(summary, completed_urls=[])
+            self._write_runtime_files(summary, completed_urls=selected_existing_urls)
             return summary
 
         completed_urls = self._read_completed_urls()
@@ -222,6 +228,7 @@ class FullCorpusPilot:
         attempted_count = 0
         selected_urls = [article.url for article in existing_articles[: self.config.limit]]
         skipped_count += len(selected_urls)
+        consecutive_failures = 0
 
         for url in canonical.canonical_urls:
             if len(selected_urls) >= self.config.limit:
@@ -242,14 +249,21 @@ class FullCorpusPilot:
                 if quality_issues:
                     parser_quality_issues.extend(f"{url}: {issue}" for issue in quality_issues)
                     failures.append(PilotFailure(url=url, reason="; ".join(quality_issues), category="skipped_non_article_or_legacy_page"))
+                    consecutive_failures += 1
+                    if consecutive_failures >= self.config.max_consecutive_failures:
+                        break
                     continue
                 stored = self.store.upsert(article)
                 imported_articles.append(article)
                 completed_urls.append(stored.url)
                 selected_urls.append(stored.url)
+                consecutive_failures = 0
             except Exception as exc:  # noqa: BLE001 - keep external fetch/parser detail.
                 reason = _failure_reason(exc)
                 failures.append(PilotFailure(url=url, reason=reason, category=classify_failure_reason(reason)))
+                consecutive_failures += 1
+                if consecutive_failures >= self.config.max_consecutive_failures:
+                    break
 
         for failure in getattr(self.browser_fetcher, "failures", []):
             url = failure.get("url", "")
@@ -516,9 +530,11 @@ def _status_for_pilot(
     categories = _failure_counts(failures)
     validation = ArticleQualityValidator(sample_size=max(len(stored_articles), 1)).validate(stored_articles)
     metadata_rate = _metadata_completeness_rate(stored_articles)
-    if _invalid_imported_content_count(stored_articles) > 0 or categories.get("permanent_failure", 0) > 0:
+    if _invalid_imported_content_count(stored_articles) > 0:
         return "BLOCKED"
     if selected_count < target_count and _invalid_candidate_count(categories) > 0:
+        return "BLOCKED"
+    if selected_count < target_count and categories.get("permanent_failure", 0) > 0:
         return "BLOCKED"
     if duplicate_count == 0 and selected_count >= target_count and imported_count >= target_count:
         if validation.content_completeness_rate >= 0.95 and validation.formulas_valid and metadata_rate >= 0.95:
