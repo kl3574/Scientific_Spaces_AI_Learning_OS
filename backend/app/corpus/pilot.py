@@ -33,7 +33,7 @@ class ArticleFetcher(Protocol):
 @dataclass(frozen=True)
 class PilotConfig:
     limit: int = 10
-    max_limit: int = 400
+    max_limit: int = 700
     concurrency: int = 1
     delay_seconds: float = 3.0
     output_dir: Path = DEFAULT_OUTPUT_DIR
@@ -46,10 +46,10 @@ class PilotConfig:
     def __post_init__(self) -> None:
         output_dir = Path(self.output_dir)
         object.__setattr__(self, "output_dir", output_dir)
-        if self.limit < 1 or self.limit > self.max_limit or self.limit > 400:
-            raise ValueError("limit must be between 1 and 400")
-        if self.max_limit > 400:
-            raise ValueError("max_limit must be <= 400")
+        if self.limit < 1 or self.limit > self.max_limit or self.limit > 700:
+            raise ValueError("limit must be between 1 and 700")
+        if self.max_limit > 700:
+            raise ValueError("max_limit must be <= 700")
         if self.concurrency != 1:
             raise ValueError("pilot concurrency must be 1")
         if self.delay_seconds < 3:
@@ -101,6 +101,8 @@ class PilotSummary:
     elapsed_seconds: float
     request_delay_seconds: float
     concurrency: int
+    max_consecutive_failures: int
+    consecutive_failure_peak: int
     rejected_urls: list[dict[str, str]] = field(default_factory=list)
     runtime_output_path: str = ""
 
@@ -233,6 +235,7 @@ class FullCorpusPilot:
         selected_urls = [article.url for article in existing_articles[: self.config.limit]]
         skipped_count += len(selected_urls)
         consecutive_failures = 0
+        consecutive_failure_peak = 0
 
         for url in canonical.canonical_urls:
             if len(selected_urls) >= self.config.limit:
@@ -254,6 +257,7 @@ class FullCorpusPilot:
                     parser_quality_issues.extend(f"{url}: {issue}" for issue in quality_issues)
                     failures.append(PilotFailure(url=url, reason="; ".join(quality_issues), category="skipped_non_article_or_legacy_page"))
                     consecutive_failures += 1
+                    consecutive_failure_peak = max(consecutive_failure_peak, consecutive_failures)
                     if consecutive_failures >= self.config.max_consecutive_failures:
                         break
                     continue
@@ -266,6 +270,7 @@ class FullCorpusPilot:
                 reason = _failure_reason(exc)
                 failures.append(PilotFailure(url=url, reason=reason, category=classify_failure_reason(reason)))
                 consecutive_failures += 1
+                consecutive_failure_peak = max(consecutive_failure_peak, consecutive_failures)
                 if consecutive_failures >= self.config.max_consecutive_failures:
                     break
 
@@ -296,6 +301,7 @@ class FullCorpusPilot:
             parser_quality_issues=parser_quality_issues,
             skipped_count=skipped_count,
             rejected_urls=canonical.rejected_urls,
+            consecutive_failure_peak=consecutive_failure_peak,
             elapsed_seconds=time.monotonic() - started_at,
         )
         self._write_runtime_files(summary, completed_urls=completed_urls)
@@ -323,6 +329,7 @@ class FullCorpusPilot:
         skipped_count: int,
         rejected_urls: list[RejectedUrl],
         elapsed_seconds: float,
+        consecutive_failure_peak: int = 0,
     ) -> PilotSummary:
         validation = ArticleQualityValidator(sample_size=max(len(imported_articles), 1)).validate(imported_articles)
         failed_url_categories = _failure_counts(failures)
@@ -357,6 +364,8 @@ class FullCorpusPilot:
             elapsed_seconds=round(elapsed_seconds, 3),
             request_delay_seconds=self.config.delay_seconds,
             concurrency=self.config.concurrency,
+            max_consecutive_failures=self.config.max_consecutive_failures,
+            consecutive_failure_peak=consecutive_failure_peak,
             rejected_urls=[asdict(item) for item in rejected_urls],
             runtime_output_path=str(self.config.output_dir),
         )

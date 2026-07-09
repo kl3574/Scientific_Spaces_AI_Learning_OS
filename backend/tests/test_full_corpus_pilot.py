@@ -84,16 +84,16 @@ class RecordingFetcher:
         )
 
 
-def test_limit_greater_than_400_is_rejected(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="limit must be between 1 and 400"):
-        PilotConfig(limit=401, output_dir=_output_dir(tmp_path))
+def test_limit_greater_than_700_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="limit must be between 1 and 700"):
+        PilotConfig(limit=701, output_dir=_output_dir(tmp_path))
 
 
 def test_medium_batch_limit_100_requires_polite_delay(tmp_path: Path) -> None:
     config = PilotConfig(limit=100, delay_seconds=5, output_dir=_output_dir(tmp_path))
 
     assert config.limit == 100
-    assert config.max_limit == 400
+    assert config.max_limit == 700
     assert config.concurrency == 1
     assert config.delay_seconds == 5
 
@@ -105,7 +105,7 @@ def test_cumulative_200_limit_requires_eight_second_delay(tmp_path: Path) -> Non
     config = PilotConfig(limit=200, delay_seconds=8, output_dir=_output_dir(tmp_path))
 
     assert config.limit == 200
-    assert config.max_limit == 400
+    assert config.max_limit == 700
     assert config.concurrency == 1
     assert config.delay_seconds == 8
 
@@ -117,7 +117,7 @@ def test_cumulative_400_limit_requires_eight_second_delay(tmp_path: Path) -> Non
     config = PilotConfig(limit=400, delay_seconds=8, output_dir=_output_dir(tmp_path))
 
     assert config.limit == 400
-    assert config.max_limit == 400
+    assert config.max_limit == 700
     assert config.concurrency == 1
     assert config.delay_seconds == 8
 
@@ -125,9 +125,21 @@ def test_cumulative_400_limit_requires_eight_second_delay(tmp_path: Path) -> Non
         PilotConfig(limit=400, delay_seconds=5, output_dir=_output_dir(tmp_path))
 
 
-def test_max_limit_greater_than_400_is_rejected(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="max_limit must be <= 400"):
-        PilotConfig(limit=400, max_limit=401, delay_seconds=8, output_dir=_output_dir(tmp_path))
+def test_cumulative_700_limit_requires_eight_second_delay(tmp_path: Path) -> None:
+    config = PilotConfig(limit=700, delay_seconds=8, output_dir=_output_dir(tmp_path))
+
+    assert config.limit == 700
+    assert config.max_limit == 700
+    assert config.concurrency == 1
+    assert config.delay_seconds == 8
+
+    with pytest.raises(ValueError, match="delay_seconds must be >= 8 for cumulative limits above 100"):
+        PilotConfig(limit=700, delay_seconds=5, output_dir=_output_dir(tmp_path))
+
+
+def test_max_limit_greater_than_700_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="max_limit must be <= 700"):
+        PilotConfig(limit=700, max_limit=701, delay_seconds=8, output_dir=_output_dir(tmp_path))
 
 
 def test_medium_batch_rejects_failure_window_above_policy_limit(tmp_path: Path) -> None:
@@ -759,6 +771,77 @@ def test_cumulative_400_idempotent_rerun_uses_local_runtime_only(tmp_path: Path)
     assert second_fetcher.calls == []
 
 
+def test_cumulative_resume_to_700_counts_existing_and_new_articles(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    existing_urls = [f"https://spaces.ac.cn/archives/{25000 + index}" for index in range(400)]
+    seed_urls = [f"https://spaces.ac.cn/archives/{26000 + index}" for index in range(320)]
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=400, output_dir=output_dir, delay_seconds=8, seed_urls=tuple(existing_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    second_fetcher = RecordingFetcher()
+    second_pilot = FullCorpusPilot(
+        PilotConfig(limit=700, output_dir=output_dir, delay_seconds=8, seed_urls=tuple(seed_urls)),
+        fetch_xml=lambda _url: (_ for _ in ()).throw(AssertionError("seed file should drive 700-article cumulative discovery")),
+        browser_fetcher=second_fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+
+    assert summary.status == "PASS"
+    assert summary.selected_count == 700
+    assert summary.imported_count == 700
+    assert summary.attempted_count == 300
+    assert summary.skipped_count == 400
+    assert summary.request_delay_seconds == 8
+    assert summary.concurrency == 1
+    assert summary.max_consecutive_failures == 5
+    assert summary.consecutive_failure_peak == 0
+    assert second_fetcher.calls == seed_urls[:300]
+
+
+def test_cumulative_700_idempotent_rerun_uses_local_runtime_only(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    seed_urls = [f"https://spaces.ac.cn/archives/{27000 + index}" for index in range(700)]
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=700, output_dir=output_dir, delay_seconds=8, seed_urls=tuple(seed_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    second_fetcher = RecordingFetcher()
+    second_pilot = FullCorpusPilot(
+        PilotConfig(limit=700, output_dir=output_dir, delay_seconds=8),
+        fetch_xml=lambda _url: (_ for _ in ()).throw(AssertionError("satisfied 700-article runtime state should not refetch source")),
+        browser_fetcher=second_fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+
+    assert summary.status == "PASS"
+    assert summary.selected_count == 700
+    assert summary.imported_count == 700
+    assert summary.attempted_count == 0
+    assert summary.skipped_count == 700
+    assert summary.max_consecutive_failures == 5
+    assert summary.consecutive_failure_peak == 0
+    assert second_fetcher.calls == []
+
+
 def test_medium_batch_stops_at_bounded_candidate_window(tmp_path: Path) -> None:
     output_dir = _output_dir(tmp_path)
     existing_urls = [f"https://spaces.ac.cn/archives/{7000 + index}" for index in range(20)]
@@ -884,6 +967,40 @@ def test_cumulative_400_stops_at_bounded_candidate_window(tmp_path: Path) -> Non
     assert summary.imported_count == 200
     assert summary.attempted_count == 5
     assert summary.browser_transient_failures == 5
+    assert len(fetcher.calls) == 5
+
+
+def test_cumulative_700_stops_at_bounded_candidate_window(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    existing_urls = [f"https://spaces.ac.cn/archives/{28000 + index}" for index in range(400)]
+    failing_seed_urls = [f"https://spaces.ac.cn/archives/{29000 + index}" for index in range(700)]
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=400, output_dir=output_dir, delay_seconds=8, seed_urls=tuple(existing_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    fetcher = RecordingFetcher({url: "TimeoutError: navigation timed out" for url in failing_seed_urls})
+    second_pilot = FullCorpusPilot(
+        PilotConfig(limit=700, output_dir=output_dir, delay_seconds=8, seed_urls=tuple(failing_seed_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+
+    assert summary.status == "CONDITIONAL"
+    assert summary.imported_count == 400
+    assert summary.attempted_count == 5
+    assert summary.browser_transient_failures == 5
+    assert summary.max_consecutive_failures == 5
+    assert summary.consecutive_failure_peak == 5
     assert len(fetcher.calls) == 5
 
 

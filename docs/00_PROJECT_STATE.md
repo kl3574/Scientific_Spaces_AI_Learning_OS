@@ -193,3 +193,7 @@ Year Metadata Source Decision: PASS
 P1-011:
 
 Cumulative 400-Article Batch: PASS
+
+P1-012:
+
+Cumulative 700-Article Batch: PASS
