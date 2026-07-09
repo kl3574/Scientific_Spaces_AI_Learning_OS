@@ -169,3 +169,7 @@ P1-004:
 P1-005:
 
 100-Article Medium Batch Phase: PASS
+
+P1-006:
+
+Full Corpus Execution Planning Gate: PASS

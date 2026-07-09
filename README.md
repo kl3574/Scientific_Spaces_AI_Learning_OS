@@ -17,6 +17,8 @@ Bounded full-corpus pilot evidence is recorded in `docs/FULL_CORPUS_PILOT_REPORT
 
 Medium-batch 100-article planning is recorded in `docs/MEDIUM_BATCH_100_ARTICLES_PLAN.md`.
 
+Full corpus execution planning is recorded in `docs/FULL_CORPUS_EXECUTION_PLAN.md`.
+
 ## MVP Capabilities
 
 - Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.
