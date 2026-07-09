@@ -33,7 +33,7 @@ class ArticleFetcher(Protocol):
 @dataclass(frozen=True)
 class PilotConfig:
     limit: int = 10
-    max_limit: int = 100
+    max_limit: int = 200
     concurrency: int = 1
     delay_seconds: float = 3.0
     output_dir: Path = DEFAULT_OUTPUT_DIR
@@ -46,16 +46,18 @@ class PilotConfig:
     def __post_init__(self) -> None:
         output_dir = Path(self.output_dir)
         object.__setattr__(self, "output_dir", output_dir)
-        if self.limit < 1 or self.limit > self.max_limit or self.limit > 100:
-            raise ValueError("limit must be between 1 and 100")
-        if self.max_limit > 100:
-            raise ValueError("max_limit must be <= 100")
+        if self.limit < 1 or self.limit > self.max_limit or self.limit > 200:
+            raise ValueError("limit must be between 1 and 200")
+        if self.max_limit > 200:
+            raise ValueError("max_limit must be <= 200")
         if self.concurrency != 1:
             raise ValueError("pilot concurrency must be 1")
         if self.delay_seconds < 3:
             raise ValueError("delay_seconds must be >= 3")
         if self.limit > 30 and self.delay_seconds < 5:
             raise ValueError("delay_seconds must be >= 5 for medium batch limits above 30")
+        if self.limit > 100 and self.delay_seconds < 8:
+            raise ValueError("delay_seconds must be >= 8 for cumulative limits above 100")
         if self.max_consecutive_failures < 1:
             raise ValueError("max_consecutive_failures must be >= 1")
         if self.max_consecutive_failures > 5:

@@ -19,6 +19,8 @@ Medium-batch 100-article planning is recorded in `docs/MEDIUM_BATCH_100_ARTICLES
 
 Full corpus execution planning is recorded in `docs/FULL_CORPUS_EXECUTION_PLAN.md`.
 
+Cumulative 200-article batch evidence is recorded in `docs/CUMULATIVE_200_ARTICLES_REPORT.md`.
+
 ## MVP Capabilities
 
 - Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.

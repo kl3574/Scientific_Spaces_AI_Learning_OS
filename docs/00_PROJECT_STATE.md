@@ -177,3 +177,7 @@ Full Corpus Execution Planning Gate: PASS
 P1-007:
 
 Full Seed Inventory Dry Run: CONDITIONAL
+
+P1-008:
+
+Cumulative 200-Article Batch: PASS
