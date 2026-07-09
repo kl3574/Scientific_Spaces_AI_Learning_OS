@@ -43,6 +43,7 @@ progress.json
 failed_urls.jsonl
 validation_summary.json
 inventory*.json
+year_enrichment*.json
 playwright-report/
 test-results/
 *.pdf

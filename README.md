@@ -21,6 +21,8 @@ Full corpus execution planning is recorded in `docs/FULL_CORPUS_EXECUTION_PLAN.m
 
 Cumulative 200-article batch evidence is recorded in `docs/CUMULATIVE_200_ARTICLES_REPORT.md`.
 
+Seed year metadata enrichment evidence is recorded in `docs/SEED_YEAR_METADATA_ENRICHMENT_REPORT.md`.
+
 ## MVP Capabilities
 
 - Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.
@@ -180,6 +182,16 @@ Smoke checklist:
 curl http://127.0.0.1:8000/health
 curl http://127.0.0.1:3000/
 uv run --project backend python scripts/eval/run_rag_tutor_eval.py
+```
+
+Seed year metadata enrichment defaults to no live fetch and writes ignored runtime output:
+
+```bash
+uv run --project backend python scripts/corpus/run_seed_year_enrichment.py \
+  --seed-file /path/to/article_list.json \
+  --archive-url https://spaces.ac.cn/content.html \
+  --output-dir .local_data/scientific_spaces/corpus/inventory \
+  --no-live-fetch
 ```
 
 Docker compose remains available for local or CI smoke where Docker is installed:
