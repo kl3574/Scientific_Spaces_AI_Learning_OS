@@ -252,6 +252,16 @@ uv run --project backend python scripts/corpus/run_full_corpus_pilot.py --limit 
 
 The pilot is capped at 30 articles, runs with concurrency `1`, writes runtime output under ignored `.local_data/`, and must not be used as a full crawl.
 
+Run the full seed inventory dry-run without fetching article bodies:
+
+```bash
+uv run --project backend python scripts/corpus/run_seed_inventory.py \
+  --seed-file /path/to/article_list.json \
+  --output-dir .local_data/scientific_spaces/corpus/inventory
+```
+
+The inventory dry-run reads seed metadata only and writes ignored runtime summary output.
+
 ## Security and Privacy
 
 Security policy:

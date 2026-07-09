@@ -42,6 +42,7 @@ browser_profiles/
 progress.json
 failed_urls.jsonl
 validation_summary.json
+inventory*.json
 playwright-report/
 test-results/
 *.pdf

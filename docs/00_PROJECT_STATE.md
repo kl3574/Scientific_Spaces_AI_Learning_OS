@@ -173,3 +173,7 @@ P1-005:
 P1-006:
 
 Full Corpus Execution Planning Gate: PASS
+
+P1-007:
+
+Full Seed Inventory Dry Run: CONDITIONAL
