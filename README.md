@@ -266,7 +266,18 @@ Run the bounded full-corpus pilot:
 uv run --project backend python scripts/corpus/run_full_corpus_pilot.py --limit 10 --delay-seconds 3
 ```
 
-The pilot is capped at 30 articles, runs with concurrency `1`, writes runtime output under ignored `.local_data/`, and must not be used as a full crawl.
+The default smoke command is intentionally small. Staged cumulative import phases are audited separately; the current bounded pilot cap is 400, runs with concurrency `1`, writes runtime output under ignored `.local_data/`, and must not be used as an unbounded full crawl.
+
+Run the audited cumulative 400-article batch:
+
+```bash
+uv run --project backend python scripts/corpus/run_full_corpus_pilot.py \
+  --limit 400 \
+  --delay-seconds 8 \
+  --seed-file /home/lkx/Downloads/kexuefm_pdf_toolkit/article_list.json
+```
+
+The seed file is operator-local runtime input and must not be committed. Do not reduce the 400-batch delay below 8 seconds or increase concurrency.
 
 Run the full seed inventory dry-run without fetching article bodies:
 
