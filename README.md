@@ -27,6 +27,8 @@ Year metadata source decision is recorded in `docs/P1_010_YEAR_METADATA_SOURCE_D
 
 Cumulative 1000-article batch evidence is recorded in `docs/CUMULATIVE_1000_ARTICLES_REPORT.md`.
 
+Full corpus final batch planning is recorded in `docs/FULL_CORPUS_FINAL_BATCH_PLAN.md`.
+
 ## MVP Capabilities
 
 - Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.
