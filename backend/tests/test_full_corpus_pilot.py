@@ -7,6 +7,7 @@ import pytest
 
 from app.corpus.pilot import FullCorpusPilot, PilotConfig, classify_failure_reason, default_robots_allowed
 from app.crawler.browser import BrowserFetchResult
+from app.storage.article_store import ArticleStore, StoredArticle
 
 
 RSS_FIXTURE = """<?xml version="1.0" encoding="UTF-8" ?>
@@ -160,8 +161,106 @@ def test_invalid_content_is_classified_as_blocker(tmp_path: Path) -> None:
 
     assert summary.status == "BLOCKED"
     assert summary.imported_count == 0
-    assert summary.invalid_content_count == 1
+    assert summary.invalid_content_count == 2
     assert summary.parser_quality_issues
+
+
+def test_invalid_candidate_is_skipped_and_replaced_without_storage_write(tmp_path: Path) -> None:
+    urls = [
+        "https://spaces.ac.cn/archives/12",
+        "https://spaces.ac.cn/archives/119",
+    ]
+
+    class OneInvalidCandidateFetcher(RecordingFetcher):
+        def fetch(self, url: str) -> BrowserFetchResult:
+            self.calls.append(url)
+            if url.endswith("/12"):
+                return BrowserFetchResult(
+                    url=url,
+                    html="<html><title>欢迎来到科学空间 - 科学空间|Scientific Spaces</title></html>",
+                    title="欢迎来到科学空间",
+                    status=200,
+                    mathjax_available=False,
+                )
+            return BrowserFetchResult(
+                url=url,
+                html=_article_html("替代有效文章"),
+                title="替代有效文章",
+                status=200,
+                mathjax_available=True,
+            )
+
+    output_dir = _output_dir(tmp_path)
+    pilot = FullCorpusPilot(
+        PilotConfig(limit=1, output_dir=output_dir, seed_urls=tuple(urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=OneInvalidCandidateFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = pilot.run()
+    stored_urls = [article.url for article in ArticleStore(output_dir / "article_store" / "articles.json").list_articles()]
+
+    assert summary.status == "PASS"
+    assert summary.selected_count == 1
+    assert summary.imported_count == 1
+    assert summary.attempted_count == 2
+    assert summary.invalid_candidate_count == 1
+    assert summary.invalid_imported_content_count == 0
+    assert summary.skipped_non_article_or_legacy_page == 1
+    assert summary.failed_url_categories == {"skipped_non_article_or_legacy_page": 1}
+    assert stored_urls == ["https://spaces.ac.cn/archives/119"]
+
+
+def test_invalid_imported_content_is_blocker(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    store = ArticleStore(output_dir / "article_store" / "articles.json")
+    store._write(  # noqa: SLF001 - regression setup needs a precise corrupt stored record.
+        [
+            StoredArticle(
+                id="bad",
+                title="Only title",
+                url="https://spaces.ac.cn/archives/12",
+                content="Only title",
+                metadata={"date": None, "category": None, "references": [], "images": []},
+            )
+        ]
+    )
+
+    pilot = FullCorpusPilot(
+        PilotConfig(limit=1, output_dir=output_dir),
+        fetch_xml=lambda _url: _rss_fixture_for_urls(["https://spaces.ac.cn/archives/12"]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = pilot.run()
+
+    assert summary.status == "BLOCKED"
+    assert summary.imported_count == 1
+    assert summary.attempted_count == 0
+    assert summary.invalid_candidate_count == 0
+    assert summary.invalid_imported_content_count == 1
+
+
+def test_seed_urls_can_drive_candidate_discovery_without_rss(tmp_path: Path) -> None:
+    pilot = FullCorpusPilot(
+        PilotConfig(limit=1, output_dir=_output_dir(tmp_path), seed_urls=("https://spaces.ac.cn/archives/119",)),
+        fetch_xml=lambda _url: (_ for _ in ()).throw(AssertionError("RSS should not be required when seed URLs are provided")),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = pilot.run()
+
+    assert summary.status == "PASS"
+    assert summary.discovered_url_count == 1
+    assert summary.canonical_url_count == 1
+    assert summary.duplicate_count == 0
+    assert summary.imported_count == 1
 
 
 def test_transient_failures_are_classified_separately(tmp_path: Path) -> None:
@@ -279,7 +378,7 @@ def test_resume_uses_article_store_before_source_discovery_when_limit_is_satisfi
 
     summary = second_pilot.run()
 
-    assert summary.status == "CONDITIONAL"
+    assert summary.status == "PASS"
     assert summary.discovered_url_count == 1
     assert summary.selected_count == 1
     assert summary.attempted_count == 0
@@ -321,6 +420,39 @@ def test_cumulative_resume_to_20_counts_existing_and_new_articles(tmp_path: Path
     assert second_fetcher.calls == urls[10:20]
     assert summary.request_delay_seconds == 5
     assert summary.concurrency == 1
+
+
+def test_cumulative_resume_counts_existing_articles_outside_seed_prefix(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    existing_urls = [f"https://spaces.ac.cn/archives/{100 + index}" for index in range(17)]
+    seed_urls = [f"https://spaces.ac.cn/archives/{1000 + index}" for index in range(10)]
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=17, output_dir=output_dir, seed_urls=tuple(existing_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().imported_count == 17
+
+    second_fetcher = RecordingFetcher()
+    second_pilot = FullCorpusPilot(
+        PilotConfig(limit=20, output_dir=output_dir, delay_seconds=5, seed_urls=tuple(seed_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=second_fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+
+    assert summary.status == "PASS"
+    assert summary.selected_count == 20
+    assert summary.imported_count == 20
+    assert summary.attempted_count == 3
+    assert len(second_fetcher.calls) == 3
+    assert second_fetcher.calls == seed_urls[:3]
 
 
 def test_transient_discovery_failure_preserves_existing_success_summary(tmp_path: Path) -> None:

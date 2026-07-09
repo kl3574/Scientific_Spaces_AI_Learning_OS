@@ -87,3 +87,53 @@ def test_parse_scientific_spaces_11787_edge_structure_preserves_article_body() -
             "url": "https://arxiv.org/abs/2506.10935",
         }
     ]
+
+
+def test_parse_legacy_postcontent_uses_body_and_drops_print_chrome() -> None:
+    html = """
+    <html>
+      <head><title>欢迎来到科学空间 - 科学空间|Scientific Spaces</title></head>
+      <body>
+        <div id="Header">site header</div>
+        <div id="Sidebar">recent comment with $broken</div>
+        <div id="content">
+          <div class="Post">
+            <h1>欢迎来到科学空间</h1>
+            <p>发布日期：2009-01-01 分类：站点日志 <a href="/category/site">站点日志</a></p>
+            <div id="share">分享到</div>
+            <div id="PostContent">
+              <p>这里是早期页面的正文内容，用于介绍科学空间的主要主题。</p>
+              <p>正文虽然不长，但包含完整句子和数学公式 $E=mc^2$。</p>
+              <img src="/usr/uploads/legacy.png" />
+              <h2>参考资料</h2>
+              <ul><li><a href="https://spaces.ac.cn/archives/100">历史文章</a></li></ul>
+            </div>
+            <div id="PostComment">comment area must not be parsed</div>
+            <div class="navigation">navigation should not become content</div>
+          </div>
+        </div>
+        <div id="Footer">footer</div>
+      </body>
+    </html>
+    """
+
+    article = parse_article_html(html, url="https://spaces.ac.cn/archives/12")
+
+    assert article.title == "欢迎来到科学空间"
+    assert article.date == "2009-01-01"
+    assert article.category == "站点日志"
+    assert "这里是早期页面的正文内容" in article.content
+    assert "$E=mc^2$" in article.content
+    assert "site header" not in article.content
+    assert "recent comment" not in article.content
+    assert "分享到" not in article.content
+    assert "comment area must not be parsed" not in article.content
+    assert "navigation should not become content" not in article.content
+    assert "footer" not in article.content
+    assert article.images == ["https://spaces.ac.cn/usr/uploads/legacy.png"]
+    assert article.references == [
+        {
+            "title": "历史文章",
+            "url": "https://spaces.ac.cn/archives/100",
+        }
+    ]

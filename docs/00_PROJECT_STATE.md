@@ -153,3 +153,11 @@ Full Corpus Pilot: PASS
 P1-002:
 
 Medium Batch 100 Articles Plan: PASS
+
+P1-003:
+
+20-Article Medium Batch Phase: PASS
+
+P1-003.1:
+
+Seed List and Legacy Article Extraction Fix: PASS

@@ -13,6 +13,7 @@ if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
 from app.corpus.pilot import DEFAULT_OUTPUT_DIR, FullCorpusPilot, PilotConfig  # noqa: E402
+from app.corpus.seeds import load_seed_urls  # noqa: E402
 
 
 def main() -> int:
@@ -28,7 +29,7 @@ def main() -> int:
     parser.add_argument("--manual-url", action="append", default=[])
     args = parser.parse_args()
 
-    seed_urls = _read_seed_file(args.seed_file) if args.seed_file else []
+    seed_urls = load_seed_urls(args.seed_file) if args.seed_file else []
     config = PilotConfig(
         limit=args.limit,
         max_limit=args.max_limit,
@@ -43,16 +44,6 @@ def main() -> int:
     summary = FullCorpusPilot(config).run()
     print(json.dumps(summary.to_dict(), ensure_ascii=False, indent=2))
     return 1 if summary.status == "BLOCKED" else 0
-
-
-def _read_seed_file(path: Path) -> list[str]:
-    text = path.read_text(encoding="utf-8")
-    if path.suffix == ".json":
-        data = json.loads(text)
-        if not isinstance(data, list):
-            raise SystemExit("--seed-file JSON must contain a list of URLs")
-        return [str(item) for item in data]
-    return [line.strip() for line in text.splitlines() if line.strip() and not line.strip().startswith("#")]
 
 
 if __name__ == "__main__":

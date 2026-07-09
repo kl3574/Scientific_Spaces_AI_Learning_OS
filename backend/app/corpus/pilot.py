@@ -67,6 +67,7 @@ class PilotFailure:
 @dataclass(frozen=True)
 class PilotSummary:
     status: str
+    target_count: int
     discovered_url_count: int
     canonical_url_count: int
     duplicate_count: int
@@ -80,6 +81,9 @@ class PilotSummary:
     metadata_completeness_rate: float
     short_content_count: int
     invalid_content_count: int
+    invalid_candidate_count: int
+    invalid_imported_content_count: int
+    skipped_non_article_or_legacy_page: int
     parser_quality_issues: list[str]
     browser_transient_failures: int
     permanent_failures: int
@@ -123,6 +127,7 @@ class FullCorpusPilot:
             selected_urls = [article.url for article in existing_articles[: self.config.limit]]
             summary = self._build_summary(
                 status=_status_for_pilot(
+                    target_count=self.config.limit,
                     selected_count=len(selected_urls),
                     duplicate_count=0,
                     imported_count=len(selected_urls),
@@ -172,9 +177,10 @@ class FullCorpusPilot:
 
         canonical = canonicalize_article_urls(discovered_urls)
         selected_urls = canonical.canonical_urls[: self.config.limit]
-        skipped_count = max(canonical.canonical_url_count - len(selected_urls), 0)
+        skipped_count = 0
 
         if self.config.dry_run:
+            skipped_count = max(canonical.canonical_url_count - len(selected_urls), 0)
             summary = self._build_summary(
                 status="CONDITIONAL",
                 discovered_count=canonical.discovered_count,
@@ -192,7 +198,7 @@ class FullCorpusPilot:
             self._write_runtime_files(summary, completed_urls=[])
             return summary
 
-        if not self.robots_allowed(selected_urls):
+        if not self.robots_allowed(canonical.canonical_urls):
             failures.append(PilotFailure(url=self.config.feed_url, reason="robots/source policy not confirmed", category="permanent_failure"))
             summary = self._build_summary(
                 status="BLOCKED",
@@ -214,10 +220,16 @@ class FullCorpusPilot:
         completed_urls = self._read_completed_urls()
         imported_articles: list[ParsedArticle] = []
         attempted_count = 0
+        selected_urls = [article.url for article in existing_articles[: self.config.limit]]
+        skipped_count += len(selected_urls)
 
-        for url in selected_urls:
+        for url in canonical.canonical_urls:
+            if len(selected_urls) >= self.config.limit:
+                break
             if url in completed_urls:
-                skipped_count += 1
+                if url not in selected_urls:
+                    selected_urls.append(url)
+                    skipped_count += 1
                 continue
             if attempted_count > 0:
                 self.sleep(self.config.delay_seconds)
@@ -229,11 +241,12 @@ class FullCorpusPilot:
                 quality_issues = _article_quality_issues(article)
                 if quality_issues:
                     parser_quality_issues.extend(f"{url}: {issue}" for issue in quality_issues)
-                    failures.append(PilotFailure(url=url, reason="; ".join(quality_issues), category="invalid_content"))
+                    failures.append(PilotFailure(url=url, reason="; ".join(quality_issues), category="skipped_non_article_or_legacy_page"))
                     continue
                 stored = self.store.upsert(article)
                 imported_articles.append(article)
                 completed_urls.append(stored.url)
+                selected_urls.append(stored.url)
             except Exception as exc:  # noqa: BLE001 - keep external fetch/parser detail.
                 reason = _failure_reason(exc)
                 failures.append(PilotFailure(url=url, reason=reason, category=classify_failure_reason(reason)))
@@ -246,14 +259,13 @@ class FullCorpusPilot:
 
         stored_articles = self.store.list_articles()
         status = _status_for_pilot(
+            target_count=self.config.limit,
             selected_count=len(selected_urls),
             duplicate_count=canonical.duplicate_count,
             imported_count=len(stored_articles),
             failures=failures,
             stored_articles=stored_articles,
         )
-        if failures and len(selected_urls) < self.config.limit:
-            status = "CONDITIONAL"
         summary = self._build_summary(
             status=status,
             discovered_count=canonical.discovered_count,
@@ -272,7 +284,9 @@ class FullCorpusPilot:
         return summary
 
     def _load_candidates(self) -> list[str]:
-        candidates = list(self.config.seed_urls) + list(self.config.manual_urls)
+        if self.config.seed_urls:
+            return list(self.config.seed_urls) + list(self.config.manual_urls)
+        candidates = list(self.config.manual_urls)
         rss_urls = _discover_rss_candidate_urls(self.config.feed_url, fetch_xml=self.fetch_xml, max_items=self.config.max_limit)
         return rss_urls + candidates
 
@@ -285,7 +299,7 @@ class FullCorpusPilot:
         duplicate_count: int,
         selected_urls: list[str],
         attempted_count: int,
-        imported_articles: list[ParsedArticle],
+        imported_articles: list[ParsedArticle | StoredArticle],
         failures: list[PilotFailure],
         parser_quality_issues: list[str],
         skipped_count: int,
@@ -295,9 +309,12 @@ class FullCorpusPilot:
         validation = ArticleQualityValidator(sample_size=max(len(imported_articles), 1)).validate(imported_articles)
         failed_url_categories = _failure_counts(failures)
         metadata_completeness_rate = _metadata_completeness_rate(imported_articles)
-        invalid_content_count = failed_url_categories.get("invalid_content", 0)
+        invalid_candidate_count = _invalid_candidate_count(failed_url_categories)
+        invalid_imported_content_count = _invalid_imported_content_count(imported_articles)
+        invalid_content_count = invalid_candidate_count + invalid_imported_content_count
         return PilotSummary(
             status=status,
+            target_count=self.config.limit,
             discovered_url_count=discovered_count,
             canonical_url_count=canonical_url_count,
             duplicate_count=duplicate_count,
@@ -311,6 +328,9 @@ class FullCorpusPilot:
             metadata_completeness_rate=metadata_completeness_rate,
             short_content_count=_short_content_count(imported_articles),
             invalid_content_count=invalid_content_count,
+            invalid_candidate_count=invalid_candidate_count,
+            invalid_imported_content_count=invalid_imported_content_count,
+            skipped_non_article_or_legacy_page=failed_url_categories.get("skipped_non_article_or_legacy_page", 0),
             parser_quality_issues=parser_quality_issues,
             browser_transient_failures=failed_url_categories.get("browser_transient", 0),
             permanent_failures=failed_url_categories.get("permanent_failure", 0),
@@ -399,7 +419,7 @@ def _fetch_robots_txt(url: str, timeout_seconds: float) -> str:
         return response.read().decode(charset, errors="replace")
 
 
-def _article_quality_issues(article: ParsedArticle) -> list[str]:
+def _article_quality_issues(article: ParsedArticle | StoredArticle) -> list[str]:
     report = ArticleQualityValidator(sample_size=1).validate([article])
     issues = [issue.split(": ", 1)[1] if ": " in issue else issue for issue in report.issues]
     if _metadata_keys_missing(article):
@@ -407,6 +427,14 @@ def _article_quality_issues(article: ParsedArticle) -> list[str]:
     if _contains_page_chrome(article.content):
         issues.append("sidebar/comment/share script/navigation contamination detected")
     return issues
+
+
+def _invalid_candidate_count(failed_url_categories: dict[str, int]) -> int:
+    return failed_url_categories.get("invalid_content", 0) + failed_url_categories.get("skipped_non_article_or_legacy_page", 0)
+
+
+def _invalid_imported_content_count(articles: list[ParsedArticle | StoredArticle]) -> int:
+    return sum(1 for article in articles if _article_quality_issues(article))
 
 
 def _discover_rss_candidate_urls(
@@ -478,6 +506,7 @@ def _short_content_count(articles: list[ParsedArticle | StoredArticle]) -> int:
 
 def _status_for_pilot(
     *,
+    target_count: int,
     selected_count: int,
     duplicate_count: int,
     imported_count: int,
@@ -487,9 +516,11 @@ def _status_for_pilot(
     categories = _failure_counts(failures)
     validation = ArticleQualityValidator(sample_size=max(len(stored_articles), 1)).validate(stored_articles)
     metadata_rate = _metadata_completeness_rate(stored_articles)
-    if categories.get("invalid_content", 0) > 0 or categories.get("permanent_failure", 0) > 0:
+    if _invalid_imported_content_count(stored_articles) > 0 or categories.get("permanent_failure", 0) > 0:
         return "BLOCKED"
-    if duplicate_count == 0 and 10 <= selected_count <= 30 and imported_count == selected_count:
+    if selected_count < target_count and _invalid_candidate_count(categories) > 0:
+        return "BLOCKED"
+    if duplicate_count == 0 and selected_count >= target_count and imported_count >= target_count:
         if validation.content_completeness_rate >= 0.95 and validation.formulas_valid and metadata_rate >= 0.95:
             return "PASS"
     return "CONDITIONAL"

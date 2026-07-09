@@ -29,11 +29,29 @@ def _article_root(soup: BeautifulSoup) -> Tag:
 
 
 def _content_root(root: Tag) -> Tag:
-    for selector in (".entry-content", ".post-content", ".article-content", ".content"):
+    for selector in ("#PostContent", ".entry-content", ".post-content", ".article-content", ".content"):
         found = root.select_one(selector)
         if isinstance(found, Tag):
             return found
     return root
+
+
+def _remove_page_chrome(root: Tag) -> None:
+    chrome_selectors = (
+        "#Sidebar",
+        "#Header",
+        "#Footer",
+        "#PostComment",
+        "#MainMenuiPad",
+        "#share",
+        "#kimi",
+        ".navigation",
+        '[class*="sidebar"]',
+        '[class*="menu"]',
+        '[class*="comment"]',
+    )
+    for element in root.select(",".join(chrome_selectors)):
+        element.decompose()
 
 
 def _extract_title(root: Tag, soup: BeautifulSoup) -> str:
@@ -113,6 +131,7 @@ def _extract_references(root: Tag) -> list[dict[str, str]]:
 def parse_article_html(html: str, *, url: str) -> ParsedArticle:
     soup = BeautifulSoup(html, "html.parser")
     root = _article_root(soup)
+    _remove_page_chrome(root)
     content_root = _content_root(root)
     fallback_root = root.parent if isinstance(root.parent, Tag) else soup
     return ParsedArticle(
