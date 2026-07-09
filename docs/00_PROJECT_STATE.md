@@ -165,3 +165,7 @@ Seed List and Legacy Article Extraction Fix: PASS
 P1-004:
 
 50-Article Medium Batch Phase: PASS
+
+P1-005:
+
+100-Article Medium Batch Phase: PASS

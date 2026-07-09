@@ -84,21 +84,26 @@ class RecordingFetcher:
         )
 
 
-def test_limit_greater_than_50_is_rejected(tmp_path: Path) -> None:
-    with pytest.raises(ValueError, match="limit must be between 1 and 50"):
-        PilotConfig(limit=51, output_dir=_output_dir(tmp_path))
+def test_limit_greater_than_100_is_rejected(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="limit must be between 1 and 100"):
+        PilotConfig(limit=101, output_dir=_output_dir(tmp_path))
 
 
-def test_medium_batch_limit_50_requires_polite_delay(tmp_path: Path) -> None:
-    config = PilotConfig(limit=50, delay_seconds=5, output_dir=_output_dir(tmp_path))
+def test_medium_batch_limit_100_requires_polite_delay(tmp_path: Path) -> None:
+    config = PilotConfig(limit=100, delay_seconds=5, output_dir=_output_dir(tmp_path))
 
-    assert config.limit == 50
-    assert config.max_limit == 50
+    assert config.limit == 100
+    assert config.max_limit == 100
     assert config.concurrency == 1
     assert config.delay_seconds == 5
 
     with pytest.raises(ValueError, match="delay_seconds must be >= 5 for medium batch limits above 30"):
-        PilotConfig(limit=50, delay_seconds=3, output_dir=_output_dir(tmp_path))
+        PilotConfig(limit=100, delay_seconds=3, output_dir=_output_dir(tmp_path))
+
+
+def test_medium_batch_rejects_failure_window_above_policy_limit(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="max_consecutive_failures must be <= 5"):
+        PilotConfig(limit=100, delay_seconds=5, max_consecutive_failures=6, output_dir=_output_dir(tmp_path))
 
 
 def test_dry_run_does_not_fetch(tmp_path: Path) -> None:
@@ -524,6 +529,73 @@ def test_cumulative_resume_to_50_counts_existing_and_new_articles(tmp_path: Path
     assert second_fetcher.calls == seed_urls[:30]
 
 
+def test_cumulative_resume_to_100_counts_existing_and_new_articles(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    existing_urls = [f"https://spaces.ac.cn/archives/{10000 + index}" for index in range(50)]
+    seed_urls = [f"https://spaces.ac.cn/archives/{11000 + index}" for index in range(60)]
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=50, output_dir=output_dir, delay_seconds=5, seed_urls=tuple(existing_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    second_fetcher = RecordingFetcher()
+    second_pilot = FullCorpusPilot(
+        PilotConfig(limit=100, output_dir=output_dir, delay_seconds=5, seed_urls=tuple(seed_urls)),
+        fetch_xml=lambda _url: (_ for _ in ()).throw(AssertionError("seed file should drive 100-article medium batch discovery")),
+        browser_fetcher=second_fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+
+    assert summary.status == "PASS"
+    assert summary.selected_count == 100
+    assert summary.imported_count == 100
+    assert summary.attempted_count == 50
+    assert summary.skipped_count == 50
+    assert summary.request_delay_seconds == 5
+    assert summary.concurrency == 1
+    assert second_fetcher.calls == seed_urls[:50]
+
+
+def test_medium_batch_100_idempotent_rerun_uses_local_runtime_only(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    seed_urls = [f"https://spaces.ac.cn/archives/{12000 + index}" for index in range(100)]
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=100, output_dir=output_dir, delay_seconds=5, seed_urls=tuple(seed_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    second_fetcher = RecordingFetcher()
+    second_pilot = FullCorpusPilot(
+        PilotConfig(limit=100, output_dir=output_dir, delay_seconds=5),
+        fetch_xml=lambda _url: (_ for _ in ()).throw(AssertionError("satisfied 100-article runtime state should not refetch source")),
+        browser_fetcher=second_fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+
+    assert summary.status == "PASS"
+    assert summary.selected_count == 100
+    assert summary.imported_count == 100
+    assert summary.attempted_count == 0
+    assert summary.skipped_count == 100
+    assert second_fetcher.calls == []
+
+
 def test_medium_batch_stops_at_bounded_candidate_window(tmp_path: Path) -> None:
     output_dir = _output_dir(tmp_path)
     existing_urls = [f"https://spaces.ac.cn/archives/{7000 + index}" for index in range(20)]
@@ -551,6 +623,38 @@ def test_medium_batch_stops_at_bounded_candidate_window(tmp_path: Path) -> None:
 
     assert summary.status == "CONDITIONAL"
     assert summary.imported_count == 20
+    assert summary.attempted_count == 5
+    assert summary.browser_transient_failures == 5
+    assert len(fetcher.calls) == 5
+
+
+def test_medium_batch_100_stops_at_bounded_candidate_window(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    existing_urls = [f"https://spaces.ac.cn/archives/{13000 + index}" for index in range(50)]
+    failing_seed_urls = [f"https://spaces.ac.cn/archives/{14000 + index}" for index in range(100)]
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=50, output_dir=output_dir, delay_seconds=5, seed_urls=tuple(existing_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    fetcher = RecordingFetcher({url: "TimeoutError: navigation timed out" for url in failing_seed_urls})
+    second_pilot = FullCorpusPilot(
+        PilotConfig(limit=100, output_dir=output_dir, delay_seconds=5, seed_urls=tuple(failing_seed_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+
+    assert summary.status == "CONDITIONAL"
+    assert summary.imported_count == 50
     assert summary.attempted_count == 5
     assert summary.browser_transient_failures == 5
     assert len(fetcher.calls) == 5
