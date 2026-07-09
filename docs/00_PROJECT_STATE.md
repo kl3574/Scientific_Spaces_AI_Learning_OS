@@ -205,3 +205,11 @@ Cumulative 1000-Article Batch: PASS
 P1-014:
 
 Full Corpus Final Batch Planning: PASS
+
+P1-015:
+
+Final Corpus Completion Batch: PASS
+
+Full Corpus Article.content Import:
+
+PASS

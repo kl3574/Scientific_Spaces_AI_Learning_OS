@@ -359,6 +359,7 @@ def test_transient_failures_are_classified_separately(tmp_path: Path) -> None:
     assert classify_failure_reason("TimeoutError: navigation timed out") == "browser_transient"
     assert classify_failure_reason("HTTP status 403") == "browser_transient"
     assert classify_failure_reason("HTTP status 429") == "browser_transient"
+    assert classify_failure_reason("Error: Page.goto: net::ERR_CONNECTION_CLOSED") == "browser_transient"
     assert classify_failure_reason("content extraction failed: article body not detected") == "invalid_content"
 
     failing_url = "https://spaces.ac.cn/archives/6508"
@@ -923,6 +924,252 @@ def test_cumulative_1000_idempotent_rerun_uses_local_runtime_only(tmp_path: Path
     assert summary.max_consecutive_failures == 5
     assert summary.consecutive_failure_peak == 0
     assert second_fetcher.calls == []
+
+
+def test_complete_all_seed_imports_valid_and_classifies_non_importable_candidates(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    existing_urls = [
+        "https://spaces.ac.cn/archives/35000",
+        "https://spaces.ac.cn/archives/35001",
+    ]
+    all_seed_urls = [
+        *existing_urls,
+        "https://spaces.ac.cn/archives/35002",
+        "https://spaces.ac.cn/archives/35003",
+        "https://spaces.ac.cn/archives/35004",
+    ]
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=2, output_dir=output_dir, seed_urls=tuple(existing_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    class MixedCompletionFetcher(RecordingFetcher):
+        def fetch(self, url: str) -> BrowserFetchResult:
+            self.calls.append(url)
+            if url.endswith("/35003"):
+                return BrowserFetchResult(
+                    url=url,
+                    html="<html><title>Only title</title></html>",
+                    title="Only title",
+                    status=200,
+                    mathjax_available=False,
+                )
+            if url.endswith("/35004"):
+                reason = "HTTP status 404"
+                self.failures.append({"url": url, "reason": reason})
+                raise RuntimeError(reason)
+            return BrowserFetchResult(
+                url=url,
+                html=_article_html("Final completion article"),
+                title="Final completion article",
+                status=200,
+                mathjax_available=True,
+            )
+
+    fetcher = MixedCompletionFetcher()
+    completion_pilot = FullCorpusPilot(
+        PilotConfig(
+            limit=2,
+            output_dir=output_dir,
+            delay_seconds=8,
+            seed_urls=tuple(all_seed_urls),
+            complete_all_seed=True,
+        ),
+        fetch_xml=lambda _url: (_ for _ in ()).throw(AssertionError("seed file should drive final completion")),
+        browser_fetcher=fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = completion_pilot.run()
+    stored_urls = [article.url for article in ArticleStore(output_dir / "article_store" / "articles.json").list_articles()]
+    classifications = json.loads((output_dir / "completion_classifications.json").read_text(encoding="utf-8"))
+
+    assert summary.status == "PASS"
+    assert summary.completion_mode == "all_importable"
+    assert summary.final_completion_definition_used == "all importable canonical Articles completed"
+    assert summary.total_seed_count == 5
+    assert summary.canonical_url_count == 5
+    assert summary.existing_runtime_count == 2
+    assert summary.final_valid_article_count == 3
+    assert summary.attempted_count == 3
+    assert summary.newly_attempted_count == 3
+    assert summary.newly_imported_count == 1
+    assert summary.non_importable_candidate_count == 2
+    assert summary.invalid_candidate_count == 2
+    assert summary.invalid_imported_content_count == 0
+    assert summary.remaining_unclassified_seed_count == 0
+    assert summary.remaining_unimported_seed_count == 2
+    assert summary.total_attempted_seed_count == 5
+    assert summary.consecutive_failure_peak == 0
+    assert fetcher.calls == all_seed_urls[2:]
+    assert stored_urls == [*existing_urls, "https://spaces.ac.cn/archives/35002"]
+    assert [item["url"] for item in classifications["classifications"]] == all_seed_urls[3:]
+
+
+def test_complete_all_seed_idempotent_rerun_reuses_classifications_without_fetching(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    existing_urls = [
+        "https://spaces.ac.cn/archives/35100",
+        "https://spaces.ac.cn/archives/35101",
+    ]
+    all_seed_urls = [
+        *existing_urls,
+        "https://spaces.ac.cn/archives/35102",
+    ]
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=2, output_dir=output_dir, seed_urls=tuple(existing_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    (output_dir / "completion_classifications.json").write_text(
+        json.dumps(
+            {
+                "classifications": [
+                    {
+                        "url": "https://spaces.ac.cn/archives/35102",
+                        "category": "skipped_non_article_or_legacy_page",
+                        "reason": "content extraction failed: article body not detected",
+                        "terminal": True,
+                    }
+                ]
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    fetcher = RecordingFetcher()
+    second_pilot = FullCorpusPilot(
+        PilotConfig(
+            limit=2,
+            output_dir=output_dir,
+            delay_seconds=8,
+            seed_urls=tuple(all_seed_urls),
+            complete_all_seed=True,
+        ),
+        fetch_xml=lambda _url: (_ for _ in ()).throw(AssertionError("complete final state should not discover source")),
+        browser_fetcher=fetcher,
+        robots_allowed=lambda _urls: (_ for _ in ()).throw(AssertionError("complete final state should not fetch robots")),
+        sleep=lambda _seconds: None,
+    )
+
+    summary = second_pilot.run()
+
+    assert summary.status == "PASS"
+    assert summary.attempted_count == 0
+    assert summary.final_valid_article_count == 2
+    assert summary.non_importable_candidate_count == 1
+    assert summary.remaining_unclassified_seed_count == 0
+    assert summary.total_attempted_seed_count == 3
+    assert fetcher.calls == []
+
+
+def test_complete_all_seed_transient_failure_preserves_state_as_conditional(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    existing_urls = ["https://spaces.ac.cn/archives/35200"]
+    transient_url = "https://spaces.ac.cn/archives/35201"
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=1, output_dir=output_dir, seed_urls=tuple(existing_urls)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+
+    fetcher = RecordingFetcher({transient_url: "TimeoutError: navigation timed out"})
+    completion_pilot = FullCorpusPilot(
+        PilotConfig(
+            limit=1,
+            output_dir=output_dir,
+            delay_seconds=8,
+            seed_urls=(*existing_urls, transient_url),
+            complete_all_seed=True,
+        ),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = completion_pilot.run()
+
+    assert summary.status == "CONDITIONAL"
+    assert summary.final_valid_article_count == 1
+    assert summary.browser_transient_failures == 1
+    assert summary.non_importable_candidate_count == 0
+    assert summary.invalid_imported_content_count == 0
+    assert summary.remaining_unclassified_seed_count == 1
+    assert ArticleStore(output_dir / "article_store" / "articles.json").list_articles()[0].url == existing_urls[0]
+
+
+def test_complete_all_seed_retries_stale_terminal_registry_entry_for_transient_network_failure(tmp_path: Path) -> None:
+    output_dir = _output_dir(tmp_path)
+    existing_url = "https://spaces.ac.cn/archives/35300"
+    transient_url = "https://spaces.ac.cn/archives/35301"
+
+    first_pilot = FullCorpusPilot(
+        PilotConfig(limit=1, output_dir=output_dir, seed_urls=(existing_url,)),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=RecordingFetcher(),
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+    assert first_pilot.run().status == "PASS"
+    (output_dir / "completion_classifications.json").write_text(
+        json.dumps(
+            {
+                "classifications": [
+                    {
+                        "url": transient_url,
+                        "category": "permanent_failure",
+                        "reason": "Error: Page.goto: net::ERR_CONNECTION_CLOSED",
+                        "terminal": True,
+                    }
+                ]
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    fetcher = RecordingFetcher()
+    completion_pilot = FullCorpusPilot(
+        PilotConfig(
+            limit=1,
+            output_dir=output_dir,
+            delay_seconds=8,
+            seed_urls=(existing_url, transient_url),
+            complete_all_seed=True,
+        ),
+        fetch_xml=lambda _url: _rss_fixture_for_urls([]),
+        browser_fetcher=fetcher,
+        robots_allowed=lambda _urls: True,
+        sleep=lambda _seconds: None,
+    )
+
+    summary = completion_pilot.run()
+
+    assert summary.status == "PASS"
+    assert summary.attempted_count == 1
+    assert summary.final_valid_article_count == 2
+    assert summary.non_importable_candidate_count == 0
+    assert summary.remaining_unclassified_seed_count == 0
+    assert fetcher.calls == [transient_url]
 
 
 def test_medium_batch_stops_at_bounded_candidate_window(tmp_path: Path) -> None:

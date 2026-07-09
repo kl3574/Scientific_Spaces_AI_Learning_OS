@@ -123,3 +123,46 @@ def test_run_full_corpus_pilot_cli_accepts_1000_default_max_limit(tmp_path: Path
     payload = json.loads(result.stdout)
     assert payload["target_count"] == 1000
     assert payload["canonical_url_count"] == 1
+
+
+def test_run_full_corpus_pilot_cli_accepts_complete_all_seed_mode(tmp_path: Path) -> None:
+    seed_file = tmp_path / "seed.json"
+    output_dir = tmp_path / ".local_data" / "pilot"
+    seed_file.write_text(
+        json.dumps(
+            {
+                "articles": [
+                    {"url": "https://spaces.ac.cn/archives/119"},
+                    {"url": "https://spaces.ac.cn/archives/120"},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(REPO_ROOT / "scripts" / "corpus" / "run_full_corpus_pilot.py"),
+            "--complete-all-seed",
+            "--dry-run",
+            "--delay-seconds",
+            "8",
+            "--seed-file",
+            str(seed_file),
+            "--output-dir",
+            str(output_dir),
+        ],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    payload = json.loads(result.stdout)
+    assert payload["completion_mode"] == "all_importable"
+    assert payload["target_count"] == 2
+    assert payload["total_seed_count"] == 2
+    assert payload["canonical_url_count"] == 2
+    assert payload["remaining_unclassified_seed_count"] == 2

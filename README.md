@@ -29,6 +29,8 @@ Cumulative 1000-article batch evidence is recorded in `docs/CUMULATIVE_1000_ARTI
 
 Full corpus final batch planning is recorded in `docs/FULL_CORPUS_FINAL_BATCH_PLAN.md`.
 
+Full corpus completion evidence is recorded in `docs/FULL_CORPUS_COMPLETION_REPORT.md`.
+
 ## MVP Capabilities
 
 - Scientific Spaces source pipeline: RSS discovery, Playwright article access, parser, Markdown converter, storage, validation, and independent PDF export capability.
@@ -312,6 +314,17 @@ uv run --project backend python scripts/corpus/materialize_local_library.py \
 ```
 
 Do not reduce the 1000-batch delay below 8 seconds or increase concurrency. The next 1000 -> 1326 expansion requires a separate final-batch planning gate before execution.
+
+Run the audited all-importable final completion batch:
+
+```bash
+uv run --project backend python scripts/corpus/run_full_corpus_pilot.py \
+  --seed-file /home/lkx/Downloads/kexuefm_pdf_toolkit/article_list.json \
+  --delay-seconds 8 \
+  --complete-all-seed
+```
+
+The final completion mode processes the approved canonical seed set and imports all safely importable Articles. Non-importable legacy or parser-quality candidates are classified under ignored runtime output. Do not reduce the delay below 8 seconds, increase concurrency, commit the seed file, or commit runtime corpus data.
 
 Run the full seed inventory dry-run without fetching article bodies:
 

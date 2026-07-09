@@ -27,6 +27,7 @@ def main() -> int:
     parser.add_argument("--feed-url", default="https://spaces.ac.cn/feed")
     parser.add_argument("--seed-file", type=Path, default=None)
     parser.add_argument("--manual-url", action="append", default=[])
+    parser.add_argument("--complete-all-seed", action="store_true")
     args = parser.parse_args()
 
     seed_urls = load_seed_urls(args.seed_file) if args.seed_file else []
@@ -40,6 +41,7 @@ def main() -> int:
         feed_url=args.feed_url,
         seed_urls=tuple(seed_urls),
         manual_urls=tuple(args.manual_url),
+        complete_all_seed=args.complete_all_seed,
     )
     summary = FullCorpusPilot(config).run()
     print(json.dumps(summary.to_dict(), ensure_ascii=False, indent=2))
