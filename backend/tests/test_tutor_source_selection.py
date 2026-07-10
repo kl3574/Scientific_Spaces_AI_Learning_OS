@@ -179,6 +179,21 @@ def test_research_selection_is_deterministic_and_uses_distinct_articles() -> Non
     assert first.evidence.refusal_reason is None
 
 
+def test_research_selects_distinct_articles_before_second_chunks() -> None:
+    selector = SourceSelector(SourceSelectionPolicy())
+    results = [
+        custom_result(article_id="a", chunk_index=0, score=0.1),
+        custom_result(article_id="a", chunk_index=1, score=0.2),
+        custom_result(article_id="b", chunk_index=0, score=0.3),
+    ]
+
+    selected = selector.select(query="attention", mode="research", results=results, requested_chunks=2)
+
+    article_ids = {item.result.chunk.article_id for item in selected.selected}
+    assert article_ids == {"a", "b"}
+    assert selected.evidence.refusal_reason is None
+
+
 def test_graph_context_requires_explicit_node_id_and_is_bounded() -> None:
     selector = SourceSelector(SourceSelectionPolicy(max_graph_nodes=1, max_graph_edges=1))
     graph_context = {

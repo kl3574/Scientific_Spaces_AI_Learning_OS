@@ -225,6 +225,16 @@ class SourceSelector:
         article_limit, chunk_limit = _mode_limits(mode, self.policy, requested_chunks)
         ordered_article_ids = self._rank_articles(mode=mode, grouped=grouped, article_limit=article_limit)
         selected: list[SourceCandidate] = []
+        if mode == "research":
+            for chunk_index in range(self.policy.max_chunks_per_article):
+                for article_id in ordered_article_ids:
+                    article_candidates = grouped[article_id]
+                    if chunk_index >= len(article_candidates):
+                        continue
+                    if len(selected) >= chunk_limit:
+                        return selected
+                    selected.append(article_candidates[chunk_index])
+            return selected
         for article_id in ordered_article_ids:
             for candidate in grouped[article_id][: self.policy.max_chunks_per_article]:
                 if len(selected) >= chunk_limit:
