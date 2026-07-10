@@ -8,9 +8,17 @@ from typing import Any, Mapping, Sequence
 from app.rag.vector_store import SearchResult
 from app.tutor.models import TutorMode, TutorSource
 
+MAX_TUTOR_GRAPH_NODES = 20
+MAX_TUTOR_GRAPH_EDGES = 30
+MAX_TUTOR_GRAPH_DEPTH = 2
+
 
 class TutorSourceConfigurationError(ValueError):
     """Raised when a local selector limit is invalid."""
+
+
+class GraphContextDataError(ValueError):
+    """Raised when Graph context does not match the persisted Graph contract."""
 
 
 @dataclass(frozen=True)
@@ -29,9 +37,9 @@ class SourceSelectionPolicy:
         _validate_limit("max_source_articles", self.max_source_articles, 12)
         _validate_limit("max_final_chunks", self.max_final_chunks, 20)
         _validate_limit("max_chunks_per_article", self.max_chunks_per_article, 2)
-        _validate_limit("max_graph_nodes", self.max_graph_nodes, 100)
-        _validate_limit("max_graph_edges", self.max_graph_edges, 200)
-        _validate_limit("max_graph_depth", self.max_graph_depth, 2)
+        _validate_limit("max_graph_nodes", self.max_graph_nodes, MAX_TUTOR_GRAPH_NODES)
+        _validate_limit("max_graph_edges", self.max_graph_edges, MAX_TUTOR_GRAPH_EDGES)
+        _validate_limit("max_graph_depth", self.max_graph_depth, MAX_TUTOR_GRAPH_DEPTH)
         _validate_limit("max_context_chars", self.max_context_chars, 100_000)
 
     @classmethod
@@ -39,8 +47,12 @@ class SourceSelectionPolicy:
         return cls(
             max_source_articles=_bounded_env("SCIENTIFIC_SPACES_TUTOR_MAX_SOURCE_ARTICLES", 6, 1, 12),
             max_final_chunks=_bounded_env("SCIENTIFIC_SPACES_TUTOR_MAX_CHUNKS", 10, 1, 20),
-            max_graph_nodes=_bounded_env("SCIENTIFIC_SPACES_TUTOR_MAX_GRAPH_NODES", 20, 1, 100),
-            max_graph_edges=_bounded_env("SCIENTIFIC_SPACES_TUTOR_MAX_GRAPH_EDGES", 30, 1, 200),
+            max_graph_nodes=_bounded_env(
+                "SCIENTIFIC_SPACES_TUTOR_MAX_GRAPH_NODES", 20, 1, MAX_TUTOR_GRAPH_NODES
+            ),
+            max_graph_edges=_bounded_env(
+                "SCIENTIFIC_SPACES_TUTOR_MAX_GRAPH_EDGES", 30, 1, MAX_TUTOR_GRAPH_EDGES
+            ),
             max_context_chars=_bounded_env("SCIENTIFIC_SPACES_TUTOR_MAX_CONTEXT_CHARS", 24_000, 1_000, 100_000),
         )
 
@@ -478,53 +490,79 @@ def sanitize_graph_context(
     policy: SourceSelectionPolicy,
 ) -> tuple[Mapping[str, tuple[Mapping[str, Any], ...]], bool]:
     """Return a bounded, path-safe graph view without changing valid output on repeat calls."""
-    if not graph_context:
-        return {"nodes": (), "edges": ()}, False
-    raw_nodes = _graph_records(graph_context.get("nodes"))
-    raw_edges = _graph_records(graph_context.get("edges"))
-    nodes = tuple(_safe_graph_node(item) for item in raw_nodes[: policy.max_graph_nodes])
-    edges = tuple(_safe_graph_edge(item) for item in raw_edges[: policy.max_graph_edges])
+    if not isinstance(graph_context, Mapping):
+        raise GraphContextDataError("Graph context root must be a mapping")
+    if "nodes" not in graph_context or "edges" not in graph_context:
+        raise GraphContextDataError("Graph context must contain nodes and edges")
+    raw_nodes = _graph_records(
+        graph_context["nodes"],
+        record_type="node",
+        required_fields=("node_id", "node_type", "label"),
+    )
+    raw_edges = _graph_records(
+        graph_context["edges"],
+        record_type="edge",
+        required_fields=("edge_id", "edge_type", "source_node_id", "target_node_id"),
+    )
+    node_limit = min(policy.max_graph_nodes, MAX_TUTOR_GRAPH_NODES)
+    edge_limit = min(policy.max_graph_edges, MAX_TUTOR_GRAPH_EDGES)
+    nodes = tuple(_safe_graph_node(item) for item in raw_nodes[:node_limit])
+    edges = tuple(_safe_graph_edge(item) for item in raw_edges[:edge_limit])
     return {"nodes": nodes, "edges": edges}, len(raw_nodes) > len(nodes) or len(raw_edges) > len(edges)
 
 
-def _graph_records(value: Any) -> tuple[Mapping[str, Any], ...]:
+def _graph_records(
+    value: Any,
+    *,
+    record_type: str,
+    required_fields: tuple[str, ...] = (),
+) -> tuple[Mapping[str, Any], ...]:
     if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
-        return ()
-    return tuple(item for item in value if isinstance(item, Mapping))
+        raise GraphContextDataError(f"Graph {record_type} records must be a sequence")
+    records: list[Mapping[str, Any]] = []
+    for item in value:
+        if not isinstance(item, Mapping):
+            raise GraphContextDataError(f"Graph {record_type} record must be a mapping")
+        if any(field not in item or not isinstance(item[field], str) for field in required_fields):
+            raise GraphContextDataError(f"Graph {record_type} record has malformed identity")
+        records.append(item)
+    return tuple(records)
 
 
 def _safe_graph_node(node: Mapping[str, Any]) -> Mapping[str, Any]:
     safe: dict[str, Any] = {
-        "node_id": str(node.get("node_id") or ""),
-        "node_type": str(node.get("node_type") or ""),
-        "label": str(node.get("label") or ""),
+        "node_id": _safe_identity(node["node_id"]),
+        "node_type": _safe_identity(node["node_type"]),
+        "label": _safe_identity(node["label"]),
     }
-    source_id = _safe_graph_value(node.get("source_id"))
-    source_url = _safe_graph_value(node.get("source_url"))
-    evidence = _safe_graph_value(node.get("evidence"))
+    source_id = _safe_graph_value(node.get("source_id")) if "source_id" in node else _REMOVED
+    source_url = _safe_http_url(node.get("source_url")) if "source_url" in node else _REMOVED
+    evidence = _safe_graph_value(node.get("evidence")) if "evidence" in node else _REMOVED
     metadata = node.get("metadata")
-    if source_id is not _REMOVED:
+    if source_id is not _REMOVED and source_id is not None:
         safe["source_id"] = source_id
-    if source_url is not _REMOVED:
+    if source_url is not _REMOVED and source_url is not None:
         safe["source_url"] = source_url
-    if evidence is not _REMOVED:
+    if evidence is not _REMOVED and evidence is not None:
         safe["evidence"] = evidence
+    if metadata is not None and not isinstance(metadata, Mapping):
+        raise GraphContextDataError("Graph node metadata must be a mapping")
     if isinstance(metadata, Mapping):
-        safe_metadata: dict[str, Any] = {}
-        normalized = _safe_graph_value(metadata.get("normalized"))
-        source_count = metadata.get("source_count")
-        if normalized is not _REMOVED:
-            safe_metadata["normalized"] = normalized
-        if isinstance(source_count, int) and not isinstance(source_count, bool):
-            safe_metadata["source_count"] = source_count
-        if "truncated" in metadata:
-            safe_metadata["truncated"] = bool(metadata["truncated"])
-        sources = _graph_records(metadata.get("sources"))
-        safe_sources = tuple(
-            source for item in sources[:2] if (source := _safe_graph_value(item)) is not _REMOVED
-        )
+        safe_metadata = _safe_graph_value({key: value for key, value in metadata.items() if key != "sources"})
+        if not isinstance(safe_metadata, dict):
+            raise GraphContextDataError("Graph node metadata could not be sanitized")
         if "sources" in metadata:
-            safe_metadata["sources"] = safe_sources
+            sources = _graph_records(metadata["sources"], record_type="provenance")
+            safe_sources: list[Mapping[str, Any]] = []
+            for source in sources:
+                if _contains_unsafe_graph_value(source):
+                    continue
+                sanitized = _safe_graph_value(source)
+                if isinstance(sanitized, Mapping):
+                    safe_sources.append(sanitized)
+                if len(safe_sources) == 2:
+                    break
+            safe_metadata["sources"] = tuple(safe_sources)
         if safe_metadata:
             safe["metadata"] = safe_metadata
     return safe
@@ -532,32 +570,74 @@ def _safe_graph_node(node: Mapping[str, Any]) -> Mapping[str, Any]:
 
 def _safe_graph_edge(edge: Mapping[str, Any]) -> Mapping[str, Any]:
     safe: dict[str, Any] = {
-        "edge_id": str(edge.get("edge_id") or ""),
-        "edge_type": str(edge.get("edge_type") or ""),
-        "source_node_id": str(edge.get("source_node_id") or ""),
-        "target_node_id": str(edge.get("target_node_id") or ""),
+        "edge_id": _safe_identity(edge["edge_id"]),
+        "edge_type": _safe_identity(edge["edge_type"]),
+        "source_node_id": _safe_identity(edge["source_node_id"]),
+        "target_node_id": _safe_identity(edge["target_node_id"]),
     }
-    evidence = _safe_graph_value(edge.get("evidence"))
-    if evidence is not _REMOVED:
+    evidence = _safe_graph_value(edge.get("evidence")) if "evidence" in edge else _REMOVED
+    if evidence is not _REMOVED and evidence is not None:
         safe["evidence"] = evidence
     return safe
 
 
 _REMOVED = object()
-_LOCAL_PATH = re.compile(
-    r"(?:^file:|(?:^|[\"'\s:=])/(?:home|users|root|tmp|var|etc|opt|mnt|srv|data)/|(?:^|[\"'\s:=])[A-Za-z]:[\\/])",
+_UNSAFE_URI = re.compile(r"\b(?:file|ftp):", re.IGNORECASE)
+_ABSOLUTE_POSIX_PATH = re.compile(r"(?:^|[\s\"'(<>=:])/(?!/)")
+_WINDOWS_PATH = re.compile(r"(?:^|[\s\"'(<>=:])[A-Za-z]:[\\/]")
+_RELATIVE_LOCAL_PATH = re.compile(
+    r"(?:^|[\s\"'(<>=:])(?:(?:\.{1,2}|~)[\\/]|(?:\.local_data|workspace|private|home|users|root|tmp|var|etc|opt|mnt|srv|data)[\\/])",
     re.IGNORECASE,
 )
+_HTTP_URL = re.compile(r"^https?://[^\s/]+(?:[/?#].*)?$", re.IGNORECASE)
+_PATH_KEYS = {"path", "file_path", "store_path", "local_path"}
+
+
+def _safe_identity(value: str) -> str:
+    return "" if _is_unsafe_graph_string(value) else value
+
+
+def _safe_http_url(value: Any) -> str | object | None:
+    if value is None:
+        return None
+    if not isinstance(value, str) or not _HTTP_URL.fullmatch(value.strip()):
+        return _REMOVED
+    return value.strip()
+
+
+def _is_unsafe_graph_string(value: str) -> bool:
+    return bool(
+        _UNSAFE_URI.search(value)
+        or _ABSOLUTE_POSIX_PATH.search(value)
+        or _WINDOWS_PATH.search(value)
+        or _RELATIVE_LOCAL_PATH.search(value)
+    )
+
+
+def _is_path_key(key: Any) -> bool:
+    normalized = str(key).lower()
+    return normalized in _PATH_KEYS or normalized.endswith("_path")
+
+
+def _contains_unsafe_graph_value(value: Any) -> bool:
+    if isinstance(value, str):
+        return _is_unsafe_graph_string(value)
+    if isinstance(value, Mapping):
+        return any(_is_path_key(key) or _contains_unsafe_graph_value(item) for key, item in value.items())
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return any(_contains_unsafe_graph_value(item) for item in value)
+    return False
 
 
 def _safe_graph_value(value: Any) -> Any:
     if isinstance(value, str):
-        return _REMOVED if _LOCAL_PATH.search(value) else value
+        return _REMOVED if _is_unsafe_graph_string(value) else value
     if isinstance(value, Mapping):
         return {
             str(key): sanitized
             for key, item in value.items()
-            if str(key) not in {"content", "body", "path", "file_path", "store_path"}
+            if str(key) not in {"content", "body"}
+            and not _is_path_key(key)
             and (sanitized := _safe_graph_value(item)) is not _REMOVED
         }
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):

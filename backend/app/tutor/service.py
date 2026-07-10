@@ -4,7 +4,7 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
-from app.graph.service import GraphService, NodeNotFoundError
+from app.graph.service import GraphService
 from app.learning.store import LearningStore, learning_store_path
 from app.llm.fake import FakeLLMProvider
 from app.llm.provider import LLMProvider, OpenAICompatibleLLMProvider
@@ -13,8 +13,10 @@ from app.rag.embeddings import EmbeddingProvider, FakeEmbeddingProvider
 from app.rag.vector_store import FaissVectorStore, SearchResult
 from app.services.article_reader import article_store_path
 from app.storage.article_store import ArticleStore, StoredArticle
+from app.tutor.graph_context import collect_graph_context
 from app.tutor.models import QuizQuestion, TutorMode, TutorRequest, TutorResponse, TutorSource
 from app.tutor.policy import enforce_grounding, refusal_response
+from app.tutor.source_selection import SourceSelectionPolicy
 from app.zotero.provider import get_zotero_provider
 from app.zotero.store import ZoteroLinkStore, zotero_store_path
 
@@ -39,11 +41,13 @@ class TutorService:
         llm_provider: LLMProvider | None = None,
         graph_service: GraphService | None = None,
         zotero_store: ZoteroLinkStore | None = None,
+        source_selection_policy: SourceSelectionPolicy | None = None,
     ) -> None:
         self.embedding_provider = embedding_provider or FakeEmbeddingProvider()
         self.llm_provider = llm_provider or _default_llm_provider()
         self.graph_service = graph_service or GraphService()
         self.zotero_store = zotero_store or ZoteroLinkStore(zotero_store_path())
+        self.source_selection_policy = source_selection_policy or SourceSelectionPolicy.from_env()
 
     def answer(self, request: TutorRequest) -> TutorResponse:
         context = self._collect_context(request)
@@ -162,49 +166,14 @@ class TutorService:
         return vector_store.search(request.question, top_k=max(1, min(request.top_k, 20)), embedding_provider=self.embedding_provider)
 
     def _graph_context(self, request: TutorRequest) -> tuple[dict[str, Any], list[TutorSource]]:
-        if not request.include_graph_context:
+        if not request.include_graph_context or not request.node_id or not request.node_id.strip():
             return {"nodes": [], "edges": []}, []
-        try:
-            graph = self.graph_service.get_graph()
-            if request.node_id and not graph.nodes:
-                self.graph_service.build_graph()
-            if request.node_id:
-                node = self.graph_service.get_node(request.node_id)
-                neighbors = self.graph_service.get_neighbors(request.node_id, depth=1, limit=20)
-                nodes = [node.to_dict(), *neighbors["nodes"]]
-                edges = neighbors["edges"]
-            else:
-                nodes = []
-                edges = []
-        except NodeNotFoundError:
-            return {"nodes": [], "edges": []}, []
-
-        sources: list[TutorSource] = []
-        for node in nodes[:10]:
-            sources.append(
-                TutorSource(
-                    source_type="graph_node",
-                    source_id=str(node["node_id"]),
-                    title=str(node["label"]),
-                    url=node.get("source_url"),
-                    evidence=node.get("metadata"),
-                    metadata={"node_type": node.get("node_type"), "source_id": node.get("source_id")},
-                )
-            )
-        for edge in edges[:10]:
-            sources.append(
-                TutorSource(
-                    source_type="graph_edge",
-                    source_id=str(edge["edge_id"]),
-                    title=str(edge["edge_type"]),
-                    evidence=edge.get("evidence"),
-                    metadata={
-                        "source_node_id": edge.get("source_node_id"),
-                        "target_node_id": edge.get("target_node_id"),
-                    },
-                )
-            )
-        return {"nodes": nodes, "edges": edges}, sources
+        result = collect_graph_context(
+            self.graph_service,
+            node_id=request.node_id,
+            policy=self.source_selection_policy,
+        )
+        return result.context, list(result.supplemental_sources)
 
     def _zotero_context(self, article_id: str | None) -> tuple[list[dict[str, Any]], list[TutorSource]]:
         if not article_id:

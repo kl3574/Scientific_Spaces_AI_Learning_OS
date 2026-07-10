@@ -7,7 +7,14 @@ from typing import Any
 
 from app.graph.service import GraphService, NodeNotFoundError
 from app.tutor.models import TutorSource
-from app.tutor.source_selection import SourceSelectionPolicy, sanitize_graph_context
+from app.tutor.source_selection import (
+    MAX_TUTOR_GRAPH_DEPTH,
+    MAX_TUTOR_GRAPH_EDGES,
+    MAX_TUTOR_GRAPH_NODES,
+    GraphContextDataError,
+    SourceSelectionPolicy,
+    sanitize_graph_context,
+)
 
 
 @dataclass(frozen=True)
@@ -31,14 +38,18 @@ def collect_graph_context(
     try:
         raw_context = graph_service.get_subgraph(
             node_id.strip(),
-            depth=policy.max_graph_depth,
-            node_limit=policy.max_graph_nodes,
-            edge_limit=policy.max_graph_edges,
+            depth=min(policy.max_graph_depth, MAX_TUTOR_GRAPH_DEPTH),
+            node_limit=min(policy.max_graph_nodes, MAX_TUTOR_GRAPH_NODES),
+            edge_limit=min(policy.max_graph_edges, MAX_TUTOR_GRAPH_EDGES),
         )
         safe_context, _ = sanitize_graph_context(raw_context, policy)
     except NodeNotFoundError:
         return _unavailable_result(started, "graph_node_not_found")
-    except (OSError, json.JSONDecodeError):
+    except (OSError, json.JSONDecodeError, GraphContextDataError):
+        return _unavailable_result(started, "graph_unavailable")
+    except (AttributeError, KeyError, TypeError, ValueError) as error:
+        if not _is_graph_model_data_error(error):
+            raise
         return _unavailable_result(started, "graph_unavailable")
 
     nodes = [dict(node) for node in safe_context["nodes"]]
@@ -72,6 +83,17 @@ def _place_root_first(nodes: list[dict[str, Any]], node_id: str) -> None:
             return
 
 
+def _is_graph_model_data_error(error: Exception) -> bool:
+    """Recognize only persisted Graph deserialization failures, not caller bugs."""
+    traceback = error.__traceback__
+    while traceback is not None:
+        frame = traceback.tb_frame
+        if frame.f_globals.get("__name__") == "app.graph.models" and frame.f_code.co_name == "from_dict":
+            return True
+        traceback = traceback.tb_next
+    return False
+
+
 def _node_sources(nodes: list[dict[str, Any]]) -> list[TutorSource]:
     return [
         TutorSource(
@@ -90,6 +112,7 @@ def _node_sources(nodes: list[dict[str, Any]]) -> list[TutorSource]:
             },
         )
         for node in nodes
+        if str(node.get("node_id") or "").strip() and str(node.get("label") or "").strip()
     ]
 
 
@@ -106,4 +129,5 @@ def _edge_sources(edges: list[dict[str, Any]]) -> list[TutorSource]:
             },
         )
         for edge in edges
+        if str(edge.get("edge_id") or "").strip() and str(edge.get("edge_type") or "").strip()
     ]

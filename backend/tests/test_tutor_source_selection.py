@@ -303,8 +303,17 @@ def test_policy_from_env_clamps_values_and_rejects_invalid_values(monkeypatch) -
 
     assert policy.max_source_articles == 12
     assert policy.max_final_chunks == 19
-    assert policy.max_graph_nodes == 100
-    assert policy.max_graph_edges == 200
+    assert policy.max_graph_nodes == 20
+    assert policy.max_graph_edges == 30
+
+
+@pytest.mark.parametrize(
+    ("override", "value"),
+    [("max_graph_nodes", 21), ("max_graph_edges", 31), ("max_graph_depth", 3)],
+)
+def test_policy_rejects_graph_limits_above_hard_maxima(override: str, value: int) -> None:
+    with pytest.raises(TutorSourceConfigurationError, match=override):
+        SourceSelectionPolicy(**{override: value})
 
 
 def test_derive_requires_article_formula_evidence() -> None:
@@ -493,20 +502,27 @@ def test_high_degree_graph_concept_context_is_bounded_and_sanitized() -> None:
             "truncated": True,
             "sources": [
                 {
-                    "article_id": "attention-001",
-                    "article_title": "Attention",
-                    "article_url": "https://spaces.ac.cn/archives/6508",
+                    "article_id": "unsafe-first",
+                    "article_title": "Unsafe",
+                    "article_url": "file:///private/attention.md",
                     "source_context": "/home/private/attention.md",
-                    "evidence": "Attention is a weighted lookup.",
+                    "evidence": "unsafe",
                 },
                 {
-                    "article_id": "attention-002",
-                    "article_title": "Transformer",
-                    "article_url": "https://spaces.ac.cn/archives/6509",
+                    "article_id": "safe-first",
+                    "article_title": "Attention",
+                    "article_url": "https://spaces.ac.cn/archives/6508",
                     "source_context": "Transformer attention",
                     "evidence": "query and key",
                 },
-                {"article_id": "attention-003", "article_url": "file:///private/third.md"},
+                {"article_id": "unsafe-second", "article_url": "ftp://localhost/private.txt"},
+                {
+                    "article_id": "safe-second",
+                    "article_title": "Transformer",
+                    "article_url": "https://spaces.ac.cn/archives/6509",
+                    "evidence": "safe evidence",
+                },
+                {"article_id": "safe-third", "article_url": "https://spaces.ac.cn/archives/6510"},
             ],
         },
     }
@@ -540,7 +556,9 @@ def test_high_degree_graph_concept_context_is_bounded_and_sanitized() -> None:
     assert result.context["nodes"][0]["metadata"]["source_count"] == 255
     assert result.context["nodes"][0]["metadata"]["truncated"] is True
     assert "source_url" not in result.context["nodes"][0]
-    assert "source_context" not in result.context["nodes"][0]["metadata"]["sources"][0]
+    assert [
+        source["article_id"] for source in result.context["nodes"][0]["metadata"]["sources"]
+    ] == ["safe-first", "safe-second"]
     assert "article_url" not in result.context["edges"][0]["evidence"]
     assert len(result.supplemental_sources) == 50
     assert {source.source_type for source in result.supplemental_sources} == {"graph_node", "graph_edge"}
@@ -563,6 +581,44 @@ def test_graph_context_missing_node_degrades_to_article_only() -> None:
 def test_graph_context_corrupt_store_degrades_to_article_only() -> None:
     result = collect_graph_context(
         SpyGraphService(error=json.JSONDecodeError("bad graph", "{", 1)),
+        node_id="concept:attention",
+        policy=SourceSelectionPolicy(),
+    )
+
+    assert result.context == {"nodes": [], "edges": []}
+    assert result.supplemental_sources == ()
+    assert result.error_code == "graph_unavailable"
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        [],
+        {"nodes": [{"node_id": "concept:attention", "node_type": "concept"}], "edges": []},
+        {
+            "nodes": [
+                {"node_id": "concept:attention", "node_type": "concept", "label": "Attention"}
+            ],
+            "edges": [
+                {
+                    "edge_id": "edge:bad",
+                    "source_node_id": "concept:attention",
+                    "edge_type": "related_to",
+                }
+            ],
+        },
+    ],
+    ids=["wrong-root", "malformed-node", "malformed-edge"],
+)
+def test_structurally_corrupt_graph_store_degrades_to_article_only(tmp_path: Path, payload: object) -> None:
+    from app.graph.service import GraphService
+    from app.graph.store import GraphStore
+
+    graph_file = tmp_path / "graph.json"
+    graph_file.write_text(json.dumps(payload), encoding="utf-8")
+
+    result = collect_graph_context(
+        GraphService(store=GraphStore(graph_file)),
         node_id="concept:attention",
         policy=SourceSelectionPolicy(),
     )
@@ -596,13 +652,132 @@ def test_graph_context_sanitizer_is_idempotent() -> None:
     assert twice == once
 
 
-def test_graph_context_does_not_swallow_programming_errors() -> None:
-    with pytest.raises(ValueError, match="programming error"):
+@pytest.mark.parametrize("error_type", [ValueError, RuntimeError])
+def test_graph_context_does_not_swallow_programming_errors(error_type: type[Exception]) -> None:
+    with pytest.raises(error_type, match="programming error"):
         collect_graph_context(
-            SpyGraphService(error=ValueError("programming error")),
+            SpyGraphService(error=error_type("programming error")),
             node_id="concept:attention",
             policy=SourceSelectionPolicy(),
         )
+
+
+@pytest.mark.parametrize(
+    ("source_url", "expected"),
+    [
+        ("https://spaces.ac.cn/archives/6508", "https://spaces.ac.cn/archives/6508"),
+        ("http://example.test/article", "http://example.test/article"),
+        ("file:///private/article.md", None),
+        ("ftp://example.test/article", None),
+        ("/workspace/article.md", None),
+        (r"C:\private\article.md", None),
+    ],
+)
+def test_graph_context_keeps_only_http_source_urls(source_url: str, expected: str | None) -> None:
+    context, _ = sanitize_graph_context(
+        {
+            "nodes": [
+                {
+                    "node_id": "concept:attention",
+                    "node_type": "concept",
+                    "label": "Attention",
+                    "source_url": source_url,
+                    "metadata": {},
+                }
+            ],
+            "edges": [],
+        },
+        SourceSelectionPolicy(),
+    )
+
+    assert context["nodes"][0].get("source_url") == expected
+
+
+def test_graph_context_sanitizes_identity_evidence_and_metadata_strings() -> None:
+    context, _ = sanitize_graph_context(
+        {
+            "nodes": [
+                {
+                    "node_id": "/workspace/concept",
+                    "node_type": r"C:\private\concept",
+                    "label": "../private/label.txt",
+                    "source_id": "ftp://localhost/source",
+                    "metadata": {
+                        "safe": "attention",
+                        "workspace": "/workspace/graph.json",
+                        "private": "/private/graph.json",
+                        "windows": r"C:\private\graph.json",
+                        "fragment": "../private/graph.json",
+                        "nested": {"unsafe": r"..\private\graph.json", "safe": "evidence"},
+                    },
+                    "evidence": {"unsafe": "file:///private/evidence", "safe": "weighted lookup"},
+                }
+            ],
+            "edges": [
+                {
+                    "edge_id": "edge:safe",
+                    "edge_type": "related_to",
+                    "source_node_id": "/workspace/source",
+                    "target_node_id": r"C:\private\target",
+                    "evidence": {"unsafe": "ftp://localhost/evidence", "safe": "related"},
+                }
+            ],
+        },
+        SourceSelectionPolicy(),
+    )
+
+    node = context["nodes"][0]
+    edge = context["edges"][0]
+    assert node["node_id"] == ""
+    assert node["node_type"] == ""
+    assert node["label"] == ""
+    assert "source_id" not in node
+    assert node["metadata"] == {"safe": "attention", "nested": {"safe": "evidence"}}
+    assert node["evidence"] == {"safe": "weighted lookup"}
+    assert edge["source_node_id"] == ""
+    assert edge["target_node_id"] == ""
+    assert edge["evidence"] == {"safe": "related"}
+
+
+def test_graph_context_skips_supplements_with_empty_required_identity() -> None:
+    result = collect_graph_context(
+        SpyGraphService(
+            {
+                "nodes": [
+                    {"node_id": "", "node_type": "concept", "label": "Missing ID"},
+                    {"node_id": "concept:missing-title", "node_type": "concept", "label": ""},
+                    {"node_id": "concept:attention", "node_type": "concept", "label": "Attention"},
+                ],
+                "edges": [
+                    {
+                        "edge_id": "",
+                        "edge_type": "related_to",
+                        "source_node_id": "concept:attention",
+                        "target_node_id": "concept:query",
+                    },
+                    {
+                        "edge_id": "edge:missing-title",
+                        "edge_type": "",
+                        "source_node_id": "concept:attention",
+                        "target_node_id": "concept:query",
+                    },
+                    {
+                        "edge_id": "edge:attention",
+                        "edge_type": "related_to",
+                        "source_node_id": "concept:attention",
+                        "target_node_id": "concept:query",
+                    },
+                ],
+            }
+        ),
+        node_id="concept:attention",
+        policy=SourceSelectionPolicy(),
+    )
+
+    assert [(source.source_type, source.source_id) for source in result.supplemental_sources] == [
+        ("graph_node", "concept:attention"),
+        ("graph_edge", "edge:attention"),
+    ]
 
 
 def test_context_ceiling_truncates_content_without_losing_citation_identity() -> None:

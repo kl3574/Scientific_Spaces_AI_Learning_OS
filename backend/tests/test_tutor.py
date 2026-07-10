@@ -6,6 +6,59 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 
+class RecordingGraphService:
+    def __init__(self) -> None:
+        from app.graph.models import GraphDocument, GraphEdge, GraphNode
+
+        self.calls: list[tuple[str, dict[str, object]]] = []
+        self.node = GraphNode(
+            node_id="concept:attention",
+            node_type="concept",
+            label="Attention",
+            source_id="attention",
+            source_url="https://spaces.ac.cn/archives/6508",
+            metadata={"normalized": "attention", "source_count": 1, "sources": [], "truncated": False},
+        )
+        self.edge = GraphEdge(
+            edge_id="edge:attention",
+            source_node_id="concept:attention",
+            target_node_id="article:attention-001",
+            edge_type="mentions",
+            evidence={"article_id": "attention-001"},
+        )
+        self.graph = GraphDocument(nodes=[self.node], edges=[self.edge])
+
+    def get_graph(self):
+        self.calls.append(("get_graph", {}))
+        return self.graph
+
+    def build_graph(self):
+        self.calls.append(("build_graph", {}))
+        return self.graph
+
+    def get_node(self, node_id: str):
+        self.calls.append(("get_node", {"node_id": node_id}))
+        return self.node
+
+    def get_neighbors(self, node_id: str, **kwargs: object) -> dict[str, object]:
+        self.calls.append(("get_neighbors", {"node_id": node_id, **kwargs}))
+        return {"nodes": [], "edges": [self.edge.to_dict()]}
+
+    def get_subgraph(self, node_id: str, **kwargs: object) -> dict[str, object]:
+        self.calls.append(("get_subgraph", {"node_id": node_id, **kwargs}))
+        return {
+            "nodes": [self.node.to_dict()],
+            "edges": [self.edge.to_dict()],
+            "built_at": None,
+            "source_counts": {"concepts": 1},
+            "limits": {
+                "depth": kwargs["depth"],
+                "node_limit": kwargs["node_limit"],
+                "edge_limit": kwargs["edge_limit"],
+            },
+        }
+
+
 def write_articles(path: Path, *, include_formula: bool = True) -> None:
     formula_section = "\n\n## 数学形式\n\n$$\nQK^T\n$$\n" if include_formula else ""
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -56,6 +109,61 @@ def configure_files(tmp_path: Path, monkeypatch, *, include_formula: bool = True
     monkeypatch.setenv("SCIENTIFIC_SPACES_GRAPH_FILE", str(tmp_path / "knowledge_graph.json"))
     monkeypatch.setenv("SCIENTIFIC_SPACES_TUTOR_FILE", str(tmp_path / "tutor_sessions.json"))
     monkeypatch.setenv("SCIENTIFIC_SPACES_ZOTERO_PROVIDER", "fake")
+
+
+def _tutor_service_with_graph(graph_service: RecordingGraphService, tmp_path: Path):
+    from app.tutor.service import TutorService
+    from app.zotero.store import ZoteroLinkStore
+
+    return TutorService(
+        graph_service=graph_service,
+        zotero_store=ZoteroLinkStore(tmp_path / "zotero_links.json"),
+    )
+
+
+def test_tutor_service_does_not_load_graph_without_enabled_explicit_node(tmp_path: Path) -> None:
+    from app.tutor.models import TutorRequest
+
+    for include_graph_context, node_id in ((False, "concept:attention"), (True, None), (True, "   ")):
+        graph = RecordingGraphService()
+        service = _tutor_service_with_graph(graph, tmp_path)
+        request = TutorRequest(
+            question="attention",
+            mode="qa",
+            node_id=node_id,
+            include_graph_context=include_graph_context,
+        )
+
+        context, sources = service._graph_context(request)
+
+        assert graph.calls == []
+        assert context == {"nodes": [], "edges": []}
+        assert sources == []
+
+
+def test_tutor_service_uses_bounded_graph_collector_for_explicit_node(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    from app.tutor.models import TutorRequest
+
+    monkeypatch.setenv("SCIENTIFIC_SPACES_TUTOR_MAX_GRAPH_NODES", "999")
+    monkeypatch.setenv("SCIENTIFIC_SPACES_TUTOR_MAX_GRAPH_EDGES", "999")
+    graph = RecordingGraphService()
+    service = _tutor_service_with_graph(graph, tmp_path)
+
+    context, sources = service._graph_context(
+        TutorRequest(question="attention", mode="qa", node_id="concept:attention")
+    )
+
+    assert graph.calls == [
+        (
+            "get_subgraph",
+            {"node_id": "concept:attention", "depth": 2, "node_limit": 20, "edge_limit": 30},
+        )
+    ]
+    assert context["nodes"][0]["node_id"] == "concept:attention"
+    assert {source.source_type for source in sources} == {"graph_node", "graph_edge"}
 
 
 def test_tutor_models_and_citation_policy_require_sources() -> None:
