@@ -24,7 +24,7 @@ from app.rag.embeddings import (
     FakeEmbeddingProvider,
     OpenAICompatibleEmbeddingProvider,
 )
-from app.rag.vector_store import FaissVectorStore
+from app.rag.vector_store import FaissVectorStore, SearchResult
 from app.rag.service import NO_SOURCE_ANSWER, RagIndex, RagService
 from app.storage.article_store import StoredArticle
 
@@ -144,10 +144,31 @@ class FullCorpusRagService:
     def has_local_support(self, question: str) -> bool:
         return bool(_tokens(question) & self._corpus_tokens)
 
-    def answer(self, *, question: str, top_k: int = 5) -> dict[str, Any]:
+    def search(self, *, question: str, top_k: int = 20) -> list[SearchResult]:
         if not self.has_local_support(question):
+            return []
+        return self.loaded_index.vector_store.search(
+            question,
+            top_k=max(1, min(top_k, 20)),
+            embedding_provider=self.embedding_provider,
+        )
+
+    def answer(self, *, question: str, top_k: int = 5) -> dict[str, Any]:
+        results = self.search(question=question, top_k=top_k)
+        if not results:
             return {"answer": NO_SOURCE_ANSWER, "sources": []}
-        return self._service.answer(question=question, top_k=top_k)
+        contexts = [
+            {
+                "content": result.chunk.content,
+                "article_title": result.chunk.article_title,
+                "section_title": result.chunk.section_title,
+            }
+            for result in results
+        ]
+        return {
+            "answer": self._service.llm_provider.chat(question=question, contexts=contexts),
+            "sources": [result.chunk.source() for result in results],
+        }
 
 
 def embedding_provider_for_manifest(

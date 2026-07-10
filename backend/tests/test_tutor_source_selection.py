@@ -1,10 +1,129 @@
+from __future__ import annotations
+
+import json
+import urllib.request
+from pathlib import Path
+
+import pytest
+
 from app.rag.chunking import ArticleChunk
+from app.rag.full_corpus import FullCorpusIndexError, build_full_corpus_index
 from app.rag.vector_store import SearchResult
+from app.tutor import retrieval
+from app.tutor.models import TutorRequest
+from app.tutor.retrieval import ConfiguredTutorRetriever
 from app.tutor.source_selection import (
     SourceSelectionPolicy,
     SourceSelector,
     TutorSourceConfigurationError,
 )
+
+
+def tutor_request(question: str, *, article_id: str | None = None) -> TutorRequest:
+    return TutorRequest(question=question, mode="qa", article_id=article_id)
+
+
+def _article(article_id: str, content: str) -> dict[str, object]:
+    return {
+        "id": article_id,
+        "title": f"Article {article_id}",
+        "url": f"https://spaces.ac.cn/archives/{article_id}",
+        "content": content,
+        "metadata": {"date": "2024-01-01", "category": "math", "references": [], "images": []},
+    }
+
+
+@pytest.fixture
+def built_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, Path]:
+    store = tmp_path / "articles.json"
+    output = tmp_path / "full_corpus"
+    store.write_text(
+        json.dumps(
+            [
+                _article("attention", "# Attention\n\nattention transformer query key value"),
+                _article("matrix", "# Matrix\n\nmatrix singular value decomposition"),
+            ],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    build_full_corpus_index(article_store_path=store, output_dir=output, provider_name="fake", rebuild=True)
+    monkeypatch.setenv("SCIENTIFIC_SPACES_ARTICLE_STORE", str(store))
+    monkeypatch.setenv("SCIENTIFIC_SPACES_RAG_INDEX_DIR", str(output))
+    retrieval.reset_configured_retriever_cache()
+    return store, output
+
+
+def test_configured_retriever_reuses_loaded_full_corpus_index(
+    monkeypatch: pytest.MonkeyPatch,
+    built_index: tuple[Path, Path],
+) -> None:
+    del built_index
+    loads = 0
+    original_load = retrieval.FullCorpusRagService.load
+
+    def counting_loader(*args, **kwargs):
+        nonlocal loads
+        loads += 1
+        return original_load(*args, **kwargs)
+
+    monkeypatch.setattr(retrieval.FullCorpusRagService, "load", counting_loader)
+    retriever = ConfiguredTutorRetriever()
+
+    first = retriever.retrieve(tutor_request("attention"), candidate_limit=20)
+    second = retriever.retrieve(tutor_request("transformer"), candidate_limit=20)
+
+    assert first.results and second.results
+    assert loads == 1
+
+
+def test_explicit_article_id_retrieval_never_returns_other_articles(built_index: tuple[Path, Path]) -> None:
+    del built_index
+
+    result = ConfiguredTutorRetriever().retrieve(tutor_request("matrix attention", article_id="attention"), candidate_limit=20)
+
+    assert result.results
+    assert {item.chunk.article_id for item in result.results} == {"attention"}
+
+
+def test_configured_corrupt_index_fails_closed(built_index: tuple[Path, Path]) -> None:
+    _, output = built_index
+    (output / "index" / "faiss.index").write_bytes(b"corrupt")
+    retrieval.reset_configured_retriever_cache()
+
+    with pytest.raises(FullCorpusIndexError):
+        ConfiguredTutorRetriever().retrieve(tutor_request("attention"), candidate_limit=20)
+
+
+def test_unconfigured_retriever_uses_small_fixture_index(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "articles.json"
+    store.write_text(json.dumps([_article("attention", "# Attention\n\nattention transformer")]), encoding="utf-8")
+    monkeypatch.setenv("SCIENTIFIC_SPACES_ARTICLE_STORE", str(store))
+    monkeypatch.delenv("SCIENTIFIC_SPACES_RAG_INDEX_DIR", raising=False)
+    retrieval.reset_configured_retriever_cache()
+
+    result = ConfiguredTutorRetriever().retrieve(tutor_request("attention"), candidate_limit=20)
+
+    assert [item.chunk.article_id for item in result.results] == ["attention"]
+
+
+def test_fake_provider_retrieval_never_accesses_network(
+    monkeypatch: pytest.MonkeyPatch,
+    built_index: tuple[Path, Path],
+) -> None:
+    del built_index
+
+    def reject_network(*_args, **_kwargs):
+        raise AssertionError("fake provider must not access the network")
+
+    monkeypatch.setattr(urllib.request, "urlopen", reject_network)
+
+    result = ConfiguredTutorRetriever().retrieve(tutor_request("attention"), candidate_limit=20)
+
+    assert result.results
 
 
 def result(article_id: str, chunk_index: int, score: float) -> SearchResult:
