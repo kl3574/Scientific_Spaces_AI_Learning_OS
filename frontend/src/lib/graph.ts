@@ -19,59 +19,77 @@ export type GraphEdge = {
   metadata: Record<string, unknown>;
 };
 
-export type GraphDocument = {
-  nodes: GraphNode[];
-  edges: GraphEdge[];
-  built_at: string | null;
-  source_counts: Record<string, number>;
-};
-
-export type GraphBuildResponse = {
+export type GraphSummary = {
   node_count: number;
   edge_count: number;
   built_at: string | null;
   source_counts: Record<string, number>;
+  node_count_by_type: Partial<Record<GraphNodeType, number>>;
 };
 
-export type GraphSearchResponse = {
+export type GraphNodeQuery = {
+  q?: string;
+  node_type?: GraphNodeType | "";
+  page: number;
+  page_size: number;
+};
+
+export type GraphNodeListResponse = {
   items: GraphNode[];
   total: number;
-  query: string;
-  node_type: GraphNodeType | null;
+  page: number;
+  page_size: number;
+  pages: number;
 };
 
-export type GraphNeighborsResponse = {
+export type GraphSubgraphQuery = {
+  node_id: string;
+  depth: number;
+  node_limit: number;
+  edge_limit: number;
+};
+
+export type GraphSubgraphResponse = {
   nodes: GraphNode[];
   edges: GraphEdge[];
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-export async function buildGraph(): Promise<GraphBuildResponse> {
-  return requestJson<GraphBuildResponse>("/graph/build", { method: "POST" });
+export async function fetchGraphSummary(signal?: AbortSignal): Promise<GraphSummary> {
+  return requestJson<GraphSummary>("/graph/summary", { signal });
 }
 
-export async function fetchGraph(): Promise<GraphDocument> {
-  return requestJson<GraphDocument>("/graph");
-}
-
-export async function searchGraphNodes(query: string, nodeType?: GraphNodeType | ""): Promise<GraphSearchResponse> {
+export async function fetchGraphNodes(
+  query: GraphNodeQuery,
+  signal?: AbortSignal,
+): Promise<GraphNodeListResponse> {
   const url = new URL("/graph/nodes", API_BASE_URL);
-  if (query.trim()) {
-    url.searchParams.set("q", query.trim());
+  if (query.q?.trim()) {
+    url.searchParams.set("q", query.q.trim());
   }
-  if (nodeType) {
-    url.searchParams.set("node_type", nodeType);
+  if (query.node_type) {
+    url.searchParams.set("node_type", query.node_type);
   }
-  return requestJsonUrl<GraphSearchResponse>(url);
+  url.searchParams.set("page", String(query.page));
+  url.searchParams.set("page_size", String(query.page_size));
+  return requestJsonUrl<GraphNodeListResponse>(url, { signal });
 }
 
-export async function fetchGraphNode(nodeId: string): Promise<GraphNode> {
-  return requestJson<GraphNode>(`/graph/nodes/${encodeURIComponent(nodeId)}`);
+export async function fetchGraphNode(nodeId: string, signal?: AbortSignal): Promise<GraphNode> {
+  return requestJson<GraphNode>(`/graph/nodes/${encodeURIComponent(nodeId)}`, { signal });
 }
 
-export async function fetchGraphNeighbors(nodeId: string): Promise<GraphNeighborsResponse> {
-  return requestJson<GraphNeighborsResponse>(`/graph/nodes/${encodeURIComponent(nodeId)}/neighbors`);
+export async function fetchGraphSubgraph(
+  query: GraphSubgraphQuery,
+  signal?: AbortSignal,
+): Promise<GraphSubgraphResponse> {
+  const url = new URL("/graph/subgraph", API_BASE_URL);
+  url.searchParams.set("node_id", query.node_id);
+  url.searchParams.set("depth", String(query.depth));
+  url.searchParams.set("node_limit", String(query.node_limit));
+  url.searchParams.set("edge_limit", String(query.edge_limit));
+  return requestJsonUrl<GraphSubgraphResponse>(url, { signal });
 }
 
 async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {

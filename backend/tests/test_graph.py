@@ -1,4 +1,7 @@
 import json
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from fastapi.testclient import TestClient
@@ -211,6 +214,42 @@ def test_graph_service_search_neighbors_and_subgraph(tmp_path: Path, monkeypatch
         raise AssertionError("missing graph node should raise")
 
 
+def test_graph_service_coalesces_concurrent_cold_loads(tmp_path: Path, monkeypatch) -> None:
+    from app.graph.models import GraphDocument, GraphNode
+    from app.graph.service import GraphService
+    from app.graph.store import GraphStore
+
+    path = tmp_path / "concurrent-graph.json"
+    store = GraphStore(path)
+    store.save(
+        GraphDocument(nodes=[GraphNode(node_id="concept:attention", node_type="concept", label="attention")])
+    )
+    original_load = GraphStore.load
+    load_count = 0
+    count_lock = threading.Lock()
+    start = threading.Event()
+
+    def slow_load(self: GraphStore):
+        nonlocal load_count
+        with count_lock:
+            load_count += 1
+        time.sleep(0.05)
+        return original_load(self)
+
+    monkeypatch.setattr(GraphStore, "load", slow_load)
+
+    def load_summary() -> int:
+        start.wait()
+        return int(GraphService(store=GraphStore(path)).get_summary()["node_count"])
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        futures = [pool.submit(load_summary) for _ in range(4)]
+        start.set()
+        assert [future.result() for future in futures] == [1, 1, 1, 1]
+
+    assert load_count == 1
+
+
 def test_graph_api_build_get_search_neighbors_and_regressions(tmp_path: Path, monkeypatch) -> None:
     from app.graph.models import make_node_id
     from app.zotero.store import ZoteroLinkStore
@@ -226,10 +265,31 @@ def test_graph_api_build_get_search_neighbors_and_regressions(tmp_path: Path, mo
 
     build_response = client.post("/graph/build")
     graph_response = client.get("/graph")
-    search_response = client.get("/graph/nodes", params={"q": "attention", "node_type": "concept"})
+    summary_response = client.get("/graph/summary")
+    search_response = client.get(
+        "/graph/nodes",
+        params={"q": "attention", "node_type": "concept", "page": 1, "page_size": 1},
+    )
+    legacy_limit_response = client.get("/graph/nodes", params={"limit": 1})
+    article_filter_response = client.get(
+        "/graph/nodes",
+        params={"article_id": "attention-001", "sort": "label_asc"},
+    )
+    concept_filter_response = client.get(
+        "/graph/nodes",
+        params={"concept": "attention", "page_size": 10},
+    )
     node_response = client.get(f"/graph/nodes/{attention_concept_id}")
     neighbors_response = client.get(f"/graph/nodes/{attention_concept_id}/neighbors", params={"limit": 20})
-    subgraph_response = client.get(f"/graph/subgraph/{attention_concept_id}", params={"limit": 50})
+    subgraph_response = client.get(
+        "/graph/subgraph",
+        params={"node_id": attention_concept_id, "depth": 1, "node_limit": 50, "edge_limit": 100},
+    )
+    invalid_depth_response = client.get(
+        "/graph/subgraph",
+        params={"node_id": attention_concept_id, "depth": 4},
+    )
+    excessive_page_response = client.get("/graph/nodes", params={"page_size": 101})
     missing_response = client.get("/graph/nodes/not-found")
     article_response = client.get("/articles")
     rag_response = client.post("/rag/query", json={"question": "什么是Attention？"})
@@ -241,16 +301,83 @@ def test_graph_api_build_get_search_neighbors_and_regressions(tmp_path: Path, mo
     assert build_response.json()["edge_count"] > 0
     assert graph_response.status_code == 200
     assert graph_response.json()["source_counts"]["articles"] == 2
+    assert graph_response.json()["nodes"]
+    assert graph_response.json()["edges"]
+    assert summary_response.status_code == 200
+    assert summary_response.json()["source_counts"]["articles"] == 2
+    assert "nodes" not in summary_response.json()
+    assert "edges" not in summary_response.json()
     assert search_response.status_code == 200
     assert search_response.json()["total"] >= 1
+    assert search_response.json()["page"] == 1
+    assert search_response.json()["page_size"] == 1
+    assert search_response.json()["total_pages"] >= 1
+    assert len(search_response.json()["items"]) == 1
+    assert legacy_limit_response.status_code == 200
+    assert len(legacy_limit_response.json()["items"]) == 1
+    assert legacy_limit_response.json()["total"] == 1
+    assert legacy_limit_response.json()["page_size"] == 1
+    assert article_filter_response.status_code == 200
+    assert article_filter_response.json()["items"]
+    graph_payload = graph_response.json()
+    related_node_ids = {
+        node["node_id"]
+        for node in graph_payload["nodes"]
+        if node["metadata"].get("article_id") == "attention-001"
+        or node.get("source_id") == "attention-001"
+        or any(source.get("article_id") == "attention-001" for source in node["metadata"].get("sources", []))
+    }
+    for edge in graph_payload["edges"]:
+        if edge["evidence"].get("article_id") == "attention-001":
+            related_node_ids.update((edge["source_node_id"], edge["target_node_id"]))
+    assert all(item["node_id"] in related_node_ids for item in article_filter_response.json()["items"])
+    assert concept_filter_response.status_code == 200
+    assert any(item["node_id"] == attention_concept_id for item in concept_filter_response.json()["items"])
     assert node_response.status_code == 200
     assert node_response.json()["node_type"] == "concept"
     assert neighbors_response.status_code == 200
     assert neighbors_response.json()["nodes"]
     assert subgraph_response.status_code == 200
     assert subgraph_response.json()["edges"]
+    assert len(subgraph_response.json()["nodes"]) <= 50
+    assert len(subgraph_response.json()["edges"]) <= 100
+    assert invalid_depth_response.status_code == 422
+    assert excessive_page_response.status_code == 422
     assert missing_response.status_code == 404
     assert article_response.status_code == 200
     assert rag_response.status_code == 200
     assert learning_response.status_code == 200
     assert zotero_response.status_code == 200
+
+
+def test_graph_build_api_refuses_to_overwrite_managed_full_corpus_graph(tmp_path: Path, monkeypatch) -> None:
+    from app.graph.builder import KnowledgeGraphBuilder
+    from app.graph.store import GraphStore
+
+    configure_files(tmp_path, monkeypatch)
+    graph_dir = tmp_path / "full-corpus"
+    graph_file = graph_dir / "graph.json"
+    graph_dir.mkdir()
+    monkeypatch.setenv("SCIENTIFIC_SPACES_GRAPH_FILE", str(graph_file))
+    GraphStore(graph_file).save(KnowledgeGraphBuilder().build())
+    original_graph = graph_file.read_bytes()
+    (graph_dir / "manifest.json").write_text(
+        json.dumps(
+            {
+                "schema_version": 1,
+                "graph_contract_version": "m6.1",
+                "audit_rule_version": "p2-003-integrity-v3",
+                "article_count": 2,
+                "corpus_fingerprint": "corpus-fingerprint",
+                "graph_fingerprint": "graph-fingerprint",
+                "graph_file": "graph.json",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    response = TestClient(app).post("/graph/build")
+
+    assert response.status_code == 409
+    assert "managed full-corpus graph" in response.json()["detail"]
+    assert graph_file.read_bytes() == original_graph

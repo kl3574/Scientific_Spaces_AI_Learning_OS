@@ -221,3 +221,7 @@ Full Local Corpus RAG Index Rebuild: PASS
 P2-002:
 
 Local Corpus Reader/Search UX Audit: PASS
+
+P2-003:
+
+Full-Corpus Knowledge Graph Scaling: PASS

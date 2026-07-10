@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+import uuid
 
 from app.graph.models import GraphDocument
 
@@ -28,7 +29,15 @@ class GraphStore:
         return GraphDocument.from_dict(json.loads(self.path.read_text(encoding="utf-8")))
 
     def save(self, graph: GraphDocument) -> GraphDocument:
-        self.path.write_text(json.dumps(graph.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+        temporary = self.path.with_name(f".{self.path.name}.tmp-{uuid.uuid4().hex}")
+        try:
+            with temporary.open("w", encoding="utf-8") as handle:
+                json.dump(graph.to_dict(), handle, ensure_ascii=False, indent=2)
+                handle.flush()
+                os.fsync(handle.fileno())
+            os.replace(temporary, self.path)
+        finally:
+            temporary.unlink(missing_ok=True)
         return graph
 
     def clear(self) -> None:

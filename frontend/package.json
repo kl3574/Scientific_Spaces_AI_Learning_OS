@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:graph": "sh scripts/test-graph.sh"
   },
   "dependencies": {
     "@tailwindcss/postcss": "4.1.17",
