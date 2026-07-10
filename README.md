@@ -336,6 +336,30 @@ uv run --project backend python scripts/corpus/run_seed_inventory.py \
 
 The inventory dry-run reads seed metadata only and writes ignored runtime summary output.
 
+## Full Corpus RAG Index
+
+Build the deterministic local index from the completed 1311-Article store:
+
+```bash
+uv run --project backend python scripts/rag/build_full_corpus_index.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --output-dir .local_data/scientific_spaces/rag/full_corpus \
+  --provider fake \
+  --rebuild
+```
+
+The command validates the strict 1311-Article input contract, computes a deterministic corpus fingerprint, audits Markdown-structure chunks, and atomically writes the FAISS index plus source metadata under ignored `.local_data/`. Repeating the command with an unchanged, integrity-checked corpus is a no-op.
+
+Run the explicit full-corpus retrieval suite:
+
+```bash
+uv run --project backend python scripts/eval/run_full_corpus_rag_eval.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --index-dir .local_data/scientific_spaces/rag/full_corpus
+```
+
+Both commands use the deterministic fake embedding provider by default, require no API key, and perform no source fetch or web access. The build command's optional real-provider path requires `--provider openai --allow-real-provider`, a local `OPENAI_API_KEY`, and a non-CI environment; it is not part of the P2-001 PASS baseline.
+
 ## Security and Privacy
 
 Security policy:

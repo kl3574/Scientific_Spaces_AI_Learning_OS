@@ -213,3 +213,7 @@ Final Corpus Completion Batch: PASS
 Full Corpus Article.content Import:
 
 PASS
+
+P2-001:
+
+Full Local Corpus RAG Index Rebuild: PASS
