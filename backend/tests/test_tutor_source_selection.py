@@ -15,6 +15,7 @@ from app.tutor import retrieval
 from app.tutor.models import TutorRequest
 from app.tutor.retrieval import ConfiguredTutorRetriever
 from app.tutor.source_selection import (
+    MAX_TUTOR_GRAPH_SUPPLEMENT_CHARS,
     SourceSelectionPolicy,
     SourceSelector,
     TutorSourceConfigurationError,
@@ -338,6 +339,100 @@ def test_derive_requires_article_formula_evidence() -> None:
     assert refused.evidence.refusal_reason == "insufficient_formula_evidence"
 
 
+@pytest.mark.parametrize("mode", ["explain", "qa", "quiz"])
+def test_non_derive_modes_preserve_a_relevant_formula_candidate(mode: str) -> None:
+    selector = SourceSelector(SourceSelectionPolicy())
+    results = [
+        custom_result(
+            chunk_index=0,
+            section_title="Overview",
+            content="Attention connects query and key representations.",
+            score=0.01,
+        ),
+        custom_result(
+            chunk_index=1,
+            section_title="Applications",
+            content="Attention is useful in sequence models.",
+            score=0.02,
+        ),
+        custom_result(
+            chunk_index=2,
+            section_title="Attention matrix",
+            content="The attention matrix is $$A = softmax(QK^T).$$",
+            score=0.8,
+        ),
+    ]
+
+    selected = selector.select(
+        query="attention matrix",
+        mode=mode,
+        results=results,
+        requested_chunks=2,
+    )
+
+    assert len(selected.selected) == 2
+    assert any(item.chunk_id == "attention:2" for item in selected.selected)
+    assert selected.evidence.has_formula_evidence is True
+
+
+def test_non_derive_modes_do_not_force_an_unrelated_formula_candidate() -> None:
+    selector = SourceSelector(SourceSelectionPolicy())
+    results = [
+        custom_result(
+            chunk_index=0,
+            section_title="Overview",
+            content="Attention connects query and key representations.",
+            score=0.01,
+        ),
+        custom_result(
+            chunk_index=1,
+            section_title="Applications",
+            content="Attention is useful in sequence models.",
+            score=0.02,
+        ),
+        custom_result(
+            chunk_index=2,
+            section_title="Equation",
+            content="The determinant is $$D = ad - bc.$$",
+            score=0.8,
+        ),
+    ]
+
+    selected = selector.select(
+        query="attention representation",
+        mode="qa",
+        results=results,
+        requested_chunks=2,
+    )
+
+    assert [item.chunk_id for item in selected.selected] == ["attention:0", "attention:1"]
+
+
+def test_non_derive_modes_do_not_replace_valid_evidence_with_an_invalid_formula_source() -> None:
+    selector = SourceSelector(SourceSelectionPolicy())
+    results = [
+        custom_result(chunk_index=0, content="Attention connects query and key representations.", score=0.01),
+        custom_result(chunk_index=1, content="Attention is useful in sequence models.", score=0.02),
+        custom_result(
+            article_url="",
+            chunk_index=2,
+            section_title="Attention matrix",
+            content="The attention matrix is $$A = softmax(QK^T).$$",
+            score=0.8,
+        ),
+    ]
+
+    selected = selector.select(
+        query="attention matrix",
+        mode="qa",
+        results=results,
+        requested_chunks=2,
+    )
+
+    assert [item.chunk_id for item in selected.selected] == ["attention:0", "attention:1"]
+    assert selected.evidence.source_schema_valid is True
+
+
 def test_selector_marks_definition_and_unsupported_local_scope() -> None:
     selector = SourceSelector(SourceSelectionPolicy())
 
@@ -359,6 +454,52 @@ def test_selector_marks_definition_and_unsupported_local_scope() -> None:
     assert defined.evidence.has_answerable_evidence is True
     assert unsupported.evidence.unsupported_or_out_of_scope is True
     assert unsupported.evidence.refusal_reason == "unsupported_query"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "请联网检索今天新发布的 arXiv 大模型论文，给出摘要和可点击链接。",
+        "请读取我的电子邮件收件箱，并汇总今天所有未读邮件。",
+        "请根据我没有提供的病历直接诊断疾病，并给出具体处方和剂量。",
+        "Search the web for new arXiv papers and return clickable links.",
+        "Access my private account records and summarize them.",
+        "Diagnose me without medical records and prescribe a specific dosage.",
+    ],
+)
+def test_selector_rejects_external_private_and_high_stakes_requests(query: str) -> None:
+    selected = SourceSelector(SourceSelectionPolicy()).select(
+        query=query,
+        mode="qa",
+        results=[custom_result(content=query)],
+        requested_chunks=1,
+        locally_supported=True,
+    )
+
+    assert selected.evidence.unsupported_or_out_of_scope is True
+    assert selected.evidence.refusal_reason == "unsupported_query"
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "解释本地 arXiv 论文中的 Transformer attention 方法。",
+        "电子邮件分类模型如何保护训练数据隐私？",
+        "医学诊断模型的校准误差应如何评估？",
+        "处方推荐模型中的因果混杂是什么？",
+    ],
+)
+def test_selector_does_not_overreject_local_scientific_questions(query: str) -> None:
+    selected = SourceSelector(SourceSelectionPolicy()).select(
+        query=query,
+        mode="qa",
+        results=[custom_result(content=f"{query} 这是本地科学资料中的定义与方法。")],
+        requested_chunks=1,
+        locally_supported=True,
+    )
+
+    assert selected.evidence.unsupported_or_out_of_scope is False
+    assert selected.evidence.refusal_reason is None
 
 
 def test_selector_recognizes_chinese_query_overlap() -> None:
@@ -564,6 +705,96 @@ def test_high_degree_graph_concept_context_is_bounded_and_sanitized() -> None:
     assert {source.source_type for source in result.supplemental_sources} == {"graph_node", "graph_edge"}
 
 
+def test_graph_supplements_bound_nested_payloads_without_losing_safe_provenance() -> None:
+    oversized_text = "bounded graph evidence " * 1000
+    root = {
+        "node_id": "concept:attention",
+        "node_type": "concept",
+        "label": "Attention",
+        "source_url": "https://spaces.ac.cn/archives/6508",
+        "evidence": {
+            "summary": oversized_text,
+            "aliases": [f"alias-{index}" for index in range(100)],
+            "local_path": "/home/user/private/evidence.json",
+        },
+        "metadata": {
+            "source_count": 255,
+            "truncated": True,
+            "sources": [
+                {
+                    "article_id": "attention",
+                    "article_url": "https://spaces.ac.cn/archives/6508",
+                    "evidence": oversized_text,
+                },
+                {
+                    "article_id": "transformer",
+                    "article_url": "https://spaces.ac.cn/archives/6509",
+                    "evidence": oversized_text,
+                },
+                {
+                    "article_id": "third",
+                    "article_url": "https://spaces.ac.cn/archives/6510",
+                },
+            ],
+            **{f"extra_{index}": oversized_text for index in range(100)},
+        },
+    }
+    graph = SpyGraphService(
+        {
+            "nodes": [
+                root,
+                *[
+                    {
+                        "node_id": f"concept:neighbor-{index}",
+                        "node_type": "concept",
+                        "label": f"Neighbor {index}",
+                        "evidence": oversized_text,
+                    }
+                    for index in range(25)
+                ],
+            ],
+            "edges": [
+                {
+                    "edge_id": f"edge:{index}",
+                    "edge_type": "related_to",
+                    "source_node_id": "concept:attention",
+                    "target_node_id": f"concept:neighbor-{index}",
+                    "evidence": {"summary": oversized_text},
+                }
+                for index in range(35)
+            ],
+        }
+    )
+
+    result = collect_graph_context(graph, node_id="concept:attention", policy=SourceSelectionPolicy())
+    serialized = json.dumps(result.context, ensure_ascii=False)
+    aggregate_serialized = json.dumps(
+        {
+            "context": result.context,
+            "sources": [source.to_dict() for source in result.supplemental_sources],
+        },
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
+    safe_root = result.context["nodes"][0]
+
+    assert 1 <= len(result.context["nodes"]) <= 20
+    assert len(result.context["edges"]) <= 30
+    assert len(result.supplemental_sources) == len(result.context["nodes"]) + len(result.context["edges"])
+    assert len(aggregate_serialized) <= MAX_TUTOR_GRAPH_SUPPLEMENT_CHARS
+    assert result.truncated is True
+    assert result.omitted_count > 0
+    assert len(safe_root["evidence"]["summary"]) <= 1000
+    assert len(safe_root["evidence"]["aliases"]) <= 20
+    assert len(safe_root["metadata"]["sources"]) == 2
+    assert len(safe_root["metadata"]) <= 24
+    assert safe_root["metadata"]["source_count"] == 255
+    assert safe_root["metadata"]["truncated"] is True
+    assert safe_root["metadata"]["sources"][0]["article_url"] == "https://spaces.ac.cn/archives/6508"
+    assert safe_root["source_url"] == "https://spaces.ac.cn/archives/6508"
+    assert "/home/user/private" not in serialized
+
+
 def test_graph_context_missing_node_degrades_to_article_only() -> None:
     from app.graph.service import NodeNotFoundError
 
@@ -581,6 +812,18 @@ def test_graph_context_missing_node_degrades_to_article_only() -> None:
 def test_graph_context_corrupt_store_degrades_to_article_only() -> None:
     result = collect_graph_context(
         SpyGraphService(error=json.JSONDecodeError("bad graph", "{", 1)),
+        node_id="concept:attention",
+        policy=SourceSelectionPolicy(),
+    )
+
+    assert result.context == {"nodes": [], "edges": []}
+    assert result.supplemental_sources == ()
+    assert result.error_code == "graph_unavailable"
+
+
+def test_graph_context_invalid_utf8_graph_file_degrades_to_article_only() -> None:
+    result = collect_graph_context(
+        SpyGraphService(error=UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")),
         node_id="concept:attention",
         policy=SourceSelectionPolicy(),
     )
@@ -669,6 +912,8 @@ def test_graph_context_does_not_swallow_programming_errors(error_type: type[Exce
         ("http://example.test/article", "http://example.test/article"),
         ("file:///private/article.md", None),
         ("ftp://example.test/article", None),
+        ("javascript:alert(1)", None),
+        ("//server.local/share/article.md", None),
         ("/workspace/article.md", None),
         (r"C:\private\article.md", None),
     ],
@@ -691,6 +936,69 @@ def test_graph_context_keeps_only_http_source_urls(source_url: str, expected: st
     )
 
     assert context["nodes"][0].get("source_url") == expected
+
+
+def test_graph_context_discard_empty_sanitized_sources_before_counting_and_preserve_metadata() -> None:
+    context, _ = sanitize_graph_context(
+        {
+            "nodes": [
+                {
+                    "node_id": "concept:attention",
+                    "node_type": "concept",
+                    "label": "Attention",
+                    "metadata": {
+                        "source_count": 4,
+                        "truncated": True,
+                        "sources": [
+                            {
+                                "article_id": "safe-first",
+                                "article_url": "https://spaces.ac.cn/archives/6508",
+                                "nested": {"safe": "primary source"},
+                            },
+                            {
+                                "article_url": "javascript:alert(1)",
+                                "source_context": "//server/share/secret",
+                            },
+                            {
+                                "article_id": "unsafe-mail",
+                                "article_url": "mailto:test@example.com",
+                                "local_path": "../private/path",
+                            },
+                            {
+                                "article_id": "safe-second",
+                                "article_url": "https://spaces.ac.cn/archives/6509",
+                                "proof": {"snippet": "second source"},
+                            },
+                            {
+                                "article_id": "safe-third",
+                                "article_url": "https://spaces.ac.cn/archives/6510",
+                                "notes": "bounded by two-source cap",
+                            },
+                        ],
+                    },
+                }
+            ],
+            "edges": [],
+        },
+        SourceSelectionPolicy(),
+    )
+
+    metadata = context["nodes"][0]["metadata"]
+
+    assert metadata["source_count"] == 4
+    assert metadata["truncated"] is True
+    assert metadata["sources"] == (
+        {
+            "article_id": "safe-first",
+            "article_url": "https://spaces.ac.cn/archives/6508",
+            "nested": {"safe": "primary source"},
+        },
+        {
+            "article_id": "safe-second",
+            "article_url": "https://spaces.ac.cn/archives/6509",
+            "proof": {"snippet": "second source"},
+        },
+    )
 
 
 def test_graph_context_sanitizes_identity_evidence_and_metadata_strings() -> None:

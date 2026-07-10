@@ -47,18 +47,21 @@ class ConfiguredTutorRetriever:
 
     def retrieve(self, request: TutorRequest, candidate_limit: int) -> RetrievalResult:
         top_k = max(1, min(candidate_limit, 20))
-        if request.article_id:
-            return self._retrieve_article(request=request, top_k=top_k)
-
         configured_index_dir = os.getenv("SCIENTIFIC_SPACES_RAG_INDEX_DIR")
+        configured_service: FullCorpusRagService | None = None
         if configured_index_dir:
-            service = _load_cached_full_corpus_service(
+            configured_service = _load_cached_full_corpus_service(
                 article_store=article_store_path(),
                 configured_index_dir=Path(configured_index_dir),
             )
+
+        if request.article_id:
+            return self._retrieve_article(request=request, top_k=top_k)
+
+        if configured_service is not None:
             return RetrievalResult(
-                results=service.search(question=request.question, top_k=top_k),
-                locally_supported=service.has_local_support(request.question),
+                results=configured_service.search(question=request.question, top_k=top_k),
+                locally_supported=configured_service.has_local_support(request.question),
             )
 
         return self._retrieve_articles(articles=list_articles(), question=request.question, top_k=top_k)

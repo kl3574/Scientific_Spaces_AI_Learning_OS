@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 from dataclasses import dataclass
@@ -11,6 +12,17 @@ from app.tutor.models import TutorMode, TutorSource
 MAX_TUTOR_GRAPH_NODES = 20
 MAX_TUTOR_GRAPH_EDGES = 30
 MAX_TUTOR_GRAPH_DEPTH = 2
+MAX_SUPPLEMENT_TEXT_CHARS = 1_000
+MAX_SUPPLEMENT_URL_CHARS = 2_048
+MAX_SUPPLEMENT_COLLECTION_ITEMS = 20
+MAX_SUPPLEMENT_MAPPING_ITEMS = 20
+MAX_SUPPLEMENT_NESTING_DEPTH = 4
+MAX_SUPPLEMENT_PAYLOAD_CHARS = 8_192
+MAX_GRAPH_METADATA_PAYLOAD_CHARS = 4_096
+MAX_GRAPH_PROVENANCE_PAYLOAD_CHARS = 1_500
+MAX_TUTOR_GRAPH_SUPPLEMENT_CHARS = 31_500
+MAX_TUTOR_ZOTERO_SUPPLEMENT_CHARS = 16_000
+MAX_TUTOR_SUPPLEMENT_RESPONSE_CHARS = 48_000
 
 
 class TutorSourceConfigurationError(ValueError):
@@ -141,6 +153,12 @@ class SourceSelector:
             grouped=grouped,
             requested_chunks=requested_chunks,
         )
+        selected_candidates = self._preserve_relevant_formula_candidate(
+            query=query,
+            mode=mode,
+            candidates=candidates,
+            selected=selected_candidates,
+        )
         selected, generation_context, context_truncated, source_truncation_count = self._assemble_context(selected_candidates)
         safe_graph_context, graph_truncated = self._bounded_graph_context(graph_context)
         source_schema_valid = all(_valid_source(candidate.result) for candidate in selected_candidates)
@@ -253,6 +271,53 @@ class SourceSelector:
                     return selected
                 selected.append(candidate)
         return selected
+
+    @staticmethod
+    def _preserve_relevant_formula_candidate(
+        *,
+        query: str,
+        mode: TutorMode,
+        candidates: Sequence[SourceCandidate],
+        selected: Sequence[SourceCandidate],
+    ) -> list[SourceCandidate]:
+        selected_candidates = list(selected)
+        if (
+            mode not in {"explain", "qa", "quiz"}
+            or len(selected_candidates) < 2
+            or any(_has_formula_or_derivation(item.result.chunk.content) for item in selected_candidates)
+        ):
+            return selected_candidates
+
+        selected_article_ids = {
+            item.result.chunk.article_id
+            for item in selected_candidates
+        }
+        query_tokens = _tokens(query)
+        formula_candidate = next(
+            (
+                item
+                for item in candidates
+                if item.result.chunk.article_id in selected_article_ids
+                and _valid_source(item.result)
+                and _jaccard(
+                    query_tokens,
+                    _tokens(f"{item.result.chunk.section_title} {item.result.chunk.content}"),
+                )
+                > 0
+                and _has_formula_or_derivation(item.result.chunk.content)
+            ),
+            None,
+        )
+        if formula_candidate is None:
+            return selected_candidates
+
+        for index in range(len(selected_candidates) - 1, -1, -1):
+            selected_item = selected_candidates[index]
+            if selected_item.result.chunk.article_id != formula_candidate.result.chunk.article_id:
+                continue
+            selected_candidates[index] = formula_candidate
+            break
+        return selected_candidates
 
     @staticmethod
     def _rank_articles(
@@ -443,8 +508,40 @@ def _has_definition(content: str) -> bool:
 
 def _is_explicitly_unsupported(query: str) -> bool:
     normalized = query.lower()
-    unsupported_markers = ("weather", "current news", "latest news", "stock price", "market price", "real-time", "实时", "天气", "新闻", "股价")
-    return any(marker in normalized for marker in unsupported_markers)
+    external_access = (
+        "search the web",
+        "browse the web",
+        "search the internet",
+        "access the internet",
+        "联网检索",
+        "联网搜索",
+        "上网搜索",
+        "访问互联网",
+        "浏览网页",
+    )
+    private_actions = ("access my", "read my", "log into my", "open my", "retrieve my", "读取我的", "访问我的", "登录我的", "打开我的")
+    private_targets = ("email", "inbox", "account", "private record", "private data", "personal file", "电子邮件", "收件箱", "邮箱", "账户", "账号", "私人记录", "私有数据", "个人文件")
+    diagnosis = ("diagnose me", "diagnose my", "诊断疾病", "直接诊断", "为我诊断")
+    prescription = ("prescribe", "prescription", "dosage", "处方", "剂量")
+    missing_records = ("without medical records", "without records", "没有提供的病历", "未提供病历", "无病历")
+    current_scope = ("latest", "current", "today", "real-time", "现在", "今天", "实时", "未来两小时")
+    dynamic_targets = ("weather", "news", "stock price", "market price", "气温", "降雨", "预报", "新闻", "股价")
+    return (
+        any(marker in normalized for marker in external_access)
+        or (
+            any(marker in normalized for marker in private_actions)
+            and any(marker in normalized for marker in private_targets)
+        )
+        or (
+            any(marker in normalized for marker in diagnosis)
+            and any(marker in normalized for marker in prescription)
+            and any(marker in normalized for marker in missing_records)
+        )
+        or (
+            any(marker in normalized for marker in current_scope)
+            and any(marker in normalized for marker in dynamic_targets)
+        )
+    )
 
 
 def _valid_source(result: SearchResult) -> bool:
@@ -508,7 +605,16 @@ def sanitize_graph_context(
     edge_limit = min(policy.max_graph_edges, MAX_TUTOR_GRAPH_EDGES)
     nodes = tuple(_safe_graph_node(item) for item in raw_nodes[:node_limit])
     edges = tuple(_safe_graph_edge(item) for item in raw_edges[:edge_limit])
-    return {"nodes": nodes, "edges": edges}, len(raw_nodes) > len(nodes) or len(raw_edges) > len(edges)
+    graph_truncated = (
+        len(raw_nodes) > len(nodes)
+        or len(raw_edges) > len(edges)
+        or any(
+            isinstance(node.get("metadata"), Mapping)
+            and node["metadata"].get("truncated") is True
+            for node in nodes
+        )
+    )
+    return {"nodes": nodes, "edges": edges}, graph_truncated
 
 
 def _graph_records(
@@ -535,9 +641,17 @@ def _safe_graph_node(node: Mapping[str, Any]) -> Mapping[str, Any]:
         "node_type": _safe_identity(node["node_type"]),
         "label": _safe_identity(node["label"]),
     }
-    source_id = _safe_graph_value(node.get("source_id")) if "source_id" in node else _REMOVED
+    source_id = (
+        _safe_graph_value(node.get("source_id"), max_chars=MAX_SUPPLEMENT_TEXT_CHARS)
+        if "source_id" in node
+        else _REMOVED
+    )
     source_url = _safe_http_url(node.get("source_url")) if "source_url" in node else _REMOVED
-    evidence = _safe_graph_value(node.get("evidence")) if "evidence" in node else _REMOVED
+    evidence = (
+        _safe_graph_value(node.get("evidence"), max_chars=2 * MAX_SUPPLEMENT_TEXT_CHARS)
+        if "evidence" in node
+        else _REMOVED
+    )
     metadata = node.get("metadata")
     if source_id is not _REMOVED and source_id is not None:
         safe["source_id"] = source_id
@@ -548,24 +662,13 @@ def _safe_graph_node(node: Mapping[str, Any]) -> Mapping[str, Any]:
     if metadata is not None and not isinstance(metadata, Mapping):
         raise GraphContextDataError("Graph node metadata must be a mapping")
     if isinstance(metadata, Mapping):
-        safe_metadata = _safe_graph_value({key: value for key, value in metadata.items() if key != "sources"})
-        if not isinstance(safe_metadata, dict):
-            raise GraphContextDataError("Graph node metadata could not be sanitized")
-        if "sources" in metadata:
-            sources = _graph_records(metadata["sources"], record_type="provenance")
-            safe_sources: list[Mapping[str, Any]] = []
-            for source in sources:
-                if _contains_unsafe_graph_value(source):
-                    continue
-                sanitized = _safe_graph_value(source)
-                if isinstance(sanitized, Mapping):
-                    safe_sources.append(sanitized)
-                if len(safe_sources) == 2:
-                    break
-            safe_metadata["sources"] = tuple(safe_sources)
+        safe_metadata = _safe_graph_metadata(metadata)
         if safe_metadata:
             safe["metadata"] = safe_metadata
-    return safe
+    bounded = _fit_payload(safe, MAX_SUPPLEMENT_PAYLOAD_CHARS)
+    if not isinstance(bounded, Mapping):
+        raise GraphContextDataError("Graph node could not be bounded")
+    return bounded
 
 
 def _safe_graph_edge(edge: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -575,48 +678,139 @@ def _safe_graph_edge(edge: Mapping[str, Any]) -> Mapping[str, Any]:
         "source_node_id": _safe_identity(edge["source_node_id"]),
         "target_node_id": _safe_identity(edge["target_node_id"]),
     }
-    evidence = _safe_graph_value(edge.get("evidence")) if "evidence" in edge else _REMOVED
+    evidence = (
+        _safe_graph_value(edge.get("evidence"), max_chars=2 * MAX_SUPPLEMENT_TEXT_CHARS)
+        if "evidence" in edge
+        else _REMOVED
+    )
     if evidence is not _REMOVED and evidence is not None:
         safe["evidence"] = evidence
-    return safe
+    bounded = _fit_payload(safe, MAX_SUPPLEMENT_PAYLOAD_CHARS)
+    if not isinstance(bounded, Mapping):
+        raise GraphContextDataError("Graph edge could not be bounded")
+    return bounded
+
+
+def _safe_graph_metadata(metadata: Mapping[str, Any]) -> dict[str, Any]:
+    safe_metadata: dict[str, Any] = {}
+    for key in ("source_count", "truncated"):
+        if key not in metadata:
+            continue
+        value = _safe_graph_value(metadata[key], max_chars=MAX_SUPPLEMENT_TEXT_CHARS)
+        if value is not _REMOVED:
+            safe_metadata[key] = value
+
+    if "sources" in metadata:
+        sources = _graph_records(metadata["sources"], record_type="provenance")
+        safe_sources: list[Mapping[str, Any]] = []
+        for source in sources:
+            if _contains_unsafe_graph_value(source):
+                continue
+            sanitized = _safe_graph_value(
+                source,
+                max_chars=MAX_GRAPH_PROVENANCE_PAYLOAD_CHARS,
+            )
+            if isinstance(sanitized, Mapping) and sanitized:
+                safe_sources.append(sanitized)
+            if len(safe_sources) == 2:
+                break
+        safe_metadata["sources"] = tuple(safe_sources)
+
+    remaining = {
+        key: value
+        for key, value in metadata.items()
+        if key not in {"source_count", "truncated", "sources"}
+    }
+    safe_remaining = _safe_graph_value(
+        remaining,
+        max_chars=MAX_GRAPH_METADATA_PAYLOAD_CHARS,
+    )
+    if isinstance(safe_remaining, Mapping):
+        safe_metadata.update(safe_remaining)
+
+    bounded = _fit_payload(safe_metadata, MAX_GRAPH_METADATA_PAYLOAD_CHARS)
+    if not isinstance(bounded, Mapping):
+        raise GraphContextDataError("Graph node metadata could not be bounded")
+    return dict(bounded)
 
 
 _REMOVED = object()
-_UNSAFE_URI = re.compile(r"\b(?:file|ftp):", re.IGNORECASE)
+_UNSAFE_URI = re.compile(r"\b(?:data|file|ftp|javascript|mailto|sftp|ssh|vbscript):", re.IGNORECASE)
 _ABSOLUTE_POSIX_PATH = re.compile(r"(?:^|[\s\"'(<>=:])/(?!/)")
 _WINDOWS_PATH = re.compile(r"(?:^|[\s\"'(<>=:])[A-Za-z]:[\\/]")
 _RELATIVE_LOCAL_PATH = re.compile(
     r"(?:^|[\s\"'(<>=:])(?:(?:\.{1,2}|~)[\\/]|(?:\.local_data|workspace|private|home|users|root|tmp|var|etc|opt|mnt|srv|data)[\\/])",
     re.IGNORECASE,
 )
+_UNC_PATH = re.compile(r"^(?:\\\\|//)")
 _HTTP_URL = re.compile(r"^https?://[^\s/]+(?:[/?#].*)?$", re.IGNORECASE)
 _PATH_KEYS = {"path", "file_path", "store_path", "local_path"}
+_URL_KEYS = {"url", "article_url", "source_url"}
+_MAX_SUPPLEMENT_KEY_CHARS = 128
+_MAX_SUPPLEMENT_IDENTITY_CHARS = 256
 
 
 def _safe_identity(value: str) -> str:
-    return "" if _is_unsafe_graph_string(value) else value
+    normalized = value.strip()
+    if len(normalized) > _MAX_SUPPLEMENT_IDENTITY_CHARS or _is_unsafe_graph_string(normalized):
+        return ""
+    return normalized
+
+
+def sanitize_supplement_identity(value: Any) -> str | None:
+    """Return a bounded, path-safe identity for supplemental response sources."""
+    if not isinstance(value, str):
+        return None
+    sanitized = _safe_identity(value)
+    return sanitized or None
 
 
 def _safe_http_url(value: Any) -> str | object | None:
     if value is None:
         return None
-    if not isinstance(value, str) or not _HTTP_URL.fullmatch(value.strip()):
+    if not isinstance(value, str):
         return _REMOVED
-    return value.strip()
+    normalized = value.strip()
+    if len(normalized) > MAX_SUPPLEMENT_URL_CHARS or not _HTTP_URL.fullmatch(normalized):
+        return _REMOVED
+    return normalized
+
+
+def sanitize_http_url(value: Any) -> str | None:
+    """Return a bounded HTTP(S) identity for supplemental response payloads."""
+    sanitized = _safe_http_url(value)
+    return sanitized if isinstance(sanitized, str) else None
+
+
+def sanitize_supplement_payload(
+    value: Any,
+    *,
+    max_chars: int = MAX_SUPPLEMENT_PAYLOAD_CHARS,
+) -> Any:
+    """Sanitize and structurally bound a Graph/Zotero supplemental value."""
+    sanitized = _safe_graph_value(value, max_chars=max_chars)
+    return None if sanitized is _REMOVED else sanitized
 
 
 def _is_unsafe_graph_string(value: str) -> bool:
+    value = value.strip()
     return bool(
         _UNSAFE_URI.search(value)
         or _ABSOLUTE_POSIX_PATH.search(value)
         or _WINDOWS_PATH.search(value)
+        or _UNC_PATH.match(value)
         or _RELATIVE_LOCAL_PATH.search(value)
     )
 
 
 def _is_path_key(key: Any) -> bool:
+    normalized = re.sub(r"[^a-z0-9]+", "_", str(key).lower()).strip("_")
+    return normalized in _PATH_KEYS or normalized.endswith("path")
+
+
+def _is_url_key(key: Any) -> bool:
     normalized = str(key).lower()
-    return normalized in _PATH_KEYS or normalized.endswith("_path")
+    return normalized in _URL_KEYS or normalized.endswith("_url")
 
 
 def _contains_unsafe_graph_value(value: Any) -> bool:
@@ -629,22 +823,97 @@ def _contains_unsafe_graph_value(value: Any) -> bool:
     return False
 
 
-def _safe_graph_value(value: Any) -> Any:
+def _safe_graph_value(value: Any, *, max_chars: int = MAX_SUPPLEMENT_PAYLOAD_CHARS) -> Any:
+    sanitized = _sanitize_graph_value(value, depth=0)
+    if sanitized is _REMOVED:
+        return _REMOVED
+    return _fit_payload(sanitized, max_chars)
+
+
+def _sanitize_graph_value(value: Any, *, depth: int) -> Any:
     if isinstance(value, str):
-        return _REMOVED if _is_unsafe_graph_string(value) else value
+        normalized = value.strip()
+        if _is_unsafe_graph_string(normalized):
+            return _REMOVED
+        return normalized[:MAX_SUPPLEMENT_TEXT_CHARS]
     if isinstance(value, Mapping):
-        return {
-            str(key): sanitized
-            for key, item in value.items()
-            if str(key) not in {"content", "body"}
-            and not _is_path_key(key)
-            and (sanitized := _safe_graph_value(item)) is not _REMOVED
-        }
+        if depth >= MAX_SUPPLEMENT_NESTING_DEPTH:
+            return _REMOVED
+        safe: dict[str, Any] = {}
+        for key, item in value.items():
+            key_text = str(key)
+            if key_text in {"content", "body"} or _is_path_key(key_text):
+                continue
+            bounded_key = key_text[:_MAX_SUPPLEMENT_KEY_CHARS]
+            sanitized = (
+                _safe_http_url(item)
+                if _is_url_key(key_text)
+                else _sanitize_graph_value(item, depth=depth + 1)
+            )
+            if sanitized is _REMOVED:
+                continue
+            safe[bounded_key] = sanitized
+            if len(safe) >= MAX_SUPPLEMENT_MAPPING_ITEMS:
+                break
+        return safe
     if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
-        return tuple(sanitized for item in value if (sanitized := _safe_graph_value(item)) is not _REMOVED)
+        if depth >= MAX_SUPPLEMENT_NESTING_DEPTH:
+            return _REMOVED
+        safe_items: list[Any] = []
+        for item in value:
+            sanitized = _sanitize_graph_value(item, depth=depth + 1)
+            if sanitized is not _REMOVED:
+                safe_items.append(sanitized)
+            if len(safe_items) >= MAX_SUPPLEMENT_COLLECTION_ITEMS:
+                break
+        return tuple(safe_items)
     if value is None or isinstance(value, (bool, int, float)):
         return value
     return _REMOVED
+
+
+def _fit_payload(value: Any, max_chars: int) -> Any:
+    if max_chars <= 0:
+        return _REMOVED
+    if _json_size(value) <= max_chars:
+        return value
+    if isinstance(value, str):
+        low = 0
+        high = min(len(value), max_chars)
+        while low < high:
+            middle = (low + high + 1) // 2
+            if _json_size(value[:middle]) <= max_chars:
+                low = middle
+            else:
+                high = middle - 1
+        return value[:low] if low else _REMOVED
+    if isinstance(value, Mapping):
+        bounded: dict[str, Any] = {}
+        for key, item in value.items():
+            available = max_chars - _json_size(bounded) - _json_size(str(key)) - 2
+            fitted = _fit_payload(item, available)
+            if fitted is _REMOVED:
+                continue
+            candidate = {**bounded, str(key): fitted}
+            if _json_size(candidate) <= max_chars:
+                bounded[str(key)] = fitted
+        return bounded
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        bounded_items: list[Any] = []
+        for item in value:
+            available = max_chars - _json_size(bounded_items) - 1
+            fitted = _fit_payload(item, available)
+            if fitted is _REMOVED:
+                continue
+            candidate = [*bounded_items, fitted]
+            if _json_size(candidate) <= max_chars:
+                bounded_items.append(fitted)
+        return tuple(bounded_items)
+    return _REMOVED
+
+
+def _json_size(value: Any) -> int:
+    return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")))
 
 
 def _estimate_tokens(context: str) -> int:

@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from app.tutor.models import TutorMode, TutorRequest
-from app.tutor.service import TutorService
+from app.tutor.service import TutorIndexUnavailable, TutorService
 from app.tutor.store import TutorSessionStore
 
 router = APIRouter(prefix="/tutor")
@@ -23,6 +23,7 @@ class TutorAskRequest(BaseModel):
 class TutorQuizRequest(BaseModel):
     article_id: str | None = None
     node_id: str | None = None
+    topic: str | None = None
     num_questions: int = Field(default=3, ge=1, le=10)
 
 
@@ -51,16 +52,23 @@ def ask_tutor(request: TutorAskRequest) -> dict[str, object]:
         include_graph_context=request.include_graph_context,
         include_zotero_context=request.include_zotero_context,
     )
-    return get_tutor_service().answer(tutor_request).to_dict()
+    try:
+        return get_tutor_service().answer(tutor_request).to_dict()
+    except TutorIndexUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
 
 
 @router.post("/quiz")
 def tutor_quiz(request: TutorQuizRequest) -> dict[str, object]:
-    questions = get_tutor_service().quiz(
-        article_id=request.article_id,
-        node_id=request.node_id,
-        num_questions=request.num_questions,
-    )
+    try:
+        questions = get_tutor_service().quiz(
+            article_id=request.article_id,
+            node_id=request.node_id,
+            topic=request.topic,
+            num_questions=request.num_questions,
+        )
+    except TutorIndexUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
     return {"questions": [question.to_dict() for question in questions], "total": len(questions)}
 
 

@@ -122,7 +122,7 @@ class EvaluationRunner:
             TutorRequest(
                 question=case.question,
                 mode=mode,  # type: ignore[arg-type]
-                article_id=case.article_id,
+                article_id=None if mode == "research" else case.article_id,
                 node_id=case.node_id,
                 top_k=max(1, case.top_k),
                 include_graph_context=True,

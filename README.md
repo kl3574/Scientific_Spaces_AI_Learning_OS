@@ -156,6 +156,12 @@ Important variables:
 - `SCIENTIFIC_SPACES_ZOTERO_PROVIDER`: `fake` by default; set `local` to use the local Zotero API.
 - `SCIENTIFIC_SPACES_ZOTERO_BASE_URL`: local Zotero API URL, default `http://127.0.0.1:23119`.
 - `SCIENTIFIC_SPACES_TUTOR_LLM_PROVIDER`: `fake` by default; set `openai` for OpenAI-compatible chat.
+- `SCIENTIFIC_SPACES_RAG_INDEX_DIR`: optional persisted RAG index used by full-corpus Tutor retrieval.
+- `SCIENTIFIC_SPACES_TUTOR_MAX_SOURCE_ARTICLES`: maximum selected Articles per Tutor response, default `6`.
+- `SCIENTIFIC_SPACES_TUTOR_MAX_CHUNKS`: maximum selected Article chunks, default `10`.
+- `SCIENTIFIC_SPACES_TUTOR_MAX_GRAPH_NODES`: maximum explicit Graph nodes, hard-capped at `20`.
+- `SCIENTIFIC_SPACES_TUTOR_MAX_GRAPH_EDGES`: maximum explicit Graph edges, hard-capped at `30`.
+- `SCIENTIFIC_SPACES_TUTOR_MAX_CONTEXT_CHARS`: selected generation-context ceiling, default `24000`.
 - `OPENAI_API_KEY`: optional, only needed for OpenAI-compatible providers.
 - `OPENAI_BASE_URL`: optional OpenAI-compatible base URL.
 - `OPENAI_CHAT_MODEL`: optional chat model override.
@@ -273,6 +279,18 @@ uv run --project backend python scripts/eval/run_rag_tutor_eval.py
 ```
 
 The default harness uses fake providers only. It does not require a real API key, web access, Zotero Desktop, or runtime article downloads. Optional JSON output must be written under ignored `eval_outputs/` or `evaluation_outputs/` paths.
+
+Run the metadata-only 42-case Tutor evaluation against existing local resources:
+
+```bash
+uv run --project backend python scripts/eval/run_full_corpus_tutor_eval.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --rag-index-dir .local_data/scientific_spaces/rag/full_corpus \
+  --graph-dir .local_data/scientific_spaces/graph/full_corpus \
+  --provider fake
+```
+
+The command reads existing local Article, RAG, and Graph resources without fetching source content. Runtime output is aggregate-only and belongs under ignored `.local_data/scientific_spaces/evaluation/tutor_full_corpus/`.
 
 ## Full Corpus Pilot
 

@@ -1,7 +1,40 @@
 export type TutorMode = "explain" | "derive" | "qa" | "quiz" | "research";
 
+export type TutorSourceType =
+  | "article_chunk"
+  | "graph_node"
+  | "graph_edge"
+  | "zotero_item"
+  | "learning_state"
+  | "article_metadata";
+
+export type TutorSelectionSummary = {
+  candidate_count: number;
+  selected_article_count: number;
+  selected_chunk_count: number;
+  graph_node_count: number;
+  graph_edge_count: number;
+  graph_latency_ms: number | null;
+  graph_error_code: string | null;
+  context_character_count: number;
+  estimated_token_count: number;
+  truncated: boolean;
+  supplement_omitted_count: number;
+};
+
+export type TutorEvidenceSummary = {
+  source_count: number;
+  article_count: number;
+  has_formula_evidence: boolean;
+  has_definition_evidence: boolean;
+  has_answerable_evidence: boolean;
+  source_schema_valid: boolean;
+  unsupported_or_out_of_scope: boolean;
+  refusal_reason: string | null;
+};
+
 export type TutorSource = {
-  source_type: string;
+  source_type: TutorSourceType;
   source_id: string;
   title: string;
   url: string | null;
@@ -22,6 +55,8 @@ export type TutorResponse = {
   zotero_context: Array<Record<string, unknown>>;
   follow_up_questions: string[];
   refusal_reason: string | null;
+  selection_summary?: TutorSelectionSummary | null;
+  evidence_summary?: TutorEvidenceSummary | null;
 };
 
 export type QuizQuestion = {
@@ -73,6 +108,7 @@ export async function requestTutorQuiz(input: {
   article_id?: string;
   node_id?: string;
   num_questions?: number;
+  topic?: string;
 }): Promise<TutorQuizResponse> {
   return requestJson<TutorQuizResponse>("/tutor/quiz", {
     body: JSON.stringify(input),

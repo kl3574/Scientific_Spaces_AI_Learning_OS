@@ -202,12 +202,13 @@ def test_tutor_ask_modes_are_grounded_and_include_context(tmp_path: Path, monkey
     client.post("/graph/build")
 
     for mode in ["explain", "derive", "qa", "research"]:
+        article_id = None if mode == "research" else "attention-001"
         response = client.post(
             "/tutor/ask",
             json={
                 "question": "什么是Attention？",
                 "mode": mode,
-                "article_id": "attention-001",
+                "article_id": article_id,
                 "node_id": "concept:attention",
                 "top_k": 3,
                 "include_graph_context": True,
@@ -218,16 +219,27 @@ def test_tutor_ask_modes_are_grounded_and_include_context(tmp_path: Path, monkey
 
         assert response.status_code == 200
         assert payload["mode"] == mode
-        assert payload["refusal_reason"] is None
-        assert payload["answer"]
-        assert payload["sources"]
-        assert any(source["source_type"] == "article_chunk" for source in payload["sources"])
-        assert not any(source["source_type"] == "learning_state" for source in payload["sources"])
-        assert payload["graph_context"]["nodes"]
-        assert payload["graph_context"]["learning_state"]["source_type"] == "learning_state"
-        assert payload["graph_context"]["learning_state"]["metadata"]["usage"] == "personalization_only"
-        assert payload["zotero_context"]
-        assert payload["follow_up_questions"]
+        if mode == "research":
+            assert payload["refusal_reason"] is None
+            article_ids = {
+                source["metadata"]["article_id"]
+                for source in payload["sources"]
+                if source["source_type"] == "article_chunk"
+            }
+            assert len(article_ids) >= 2
+            assert "资料缺口" in payload["answer"]
+            assert payload["follow_up_questions"]
+        else:
+            assert payload["refusal_reason"] is None
+            assert payload["answer"]
+            assert payload["sources"]
+            assert any(source["source_type"] == "article_chunk" for source in payload["sources"])
+            assert not any(source["source_type"] == "learning_state" for source in payload["sources"])
+            assert payload["graph_context"]["nodes"]
+            assert payload["graph_context"]["learning_state"]["source_type"] == "learning_state"
+            assert payload["graph_context"]["learning_state"]["metadata"]["usage"] == "personalization_only"
+            assert payload["zotero_context"]
+            assert payload["follow_up_questions"]
 
 
 def test_tutor_derive_refuses_when_formula_source_is_missing(tmp_path: Path, monkeypatch) -> None:

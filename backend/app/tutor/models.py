@@ -8,6 +8,33 @@ TutorSourceType = Literal["article_chunk", "graph_node", "graph_edge", "zotero_i
 
 
 @dataclass(frozen=True)
+class SelectionSummary:
+    candidate_count: int = 0
+    selected_article_count: int = 0
+    selected_chunk_count: int = 0
+    graph_node_count: int = 0
+    graph_edge_count: int = 0
+    graph_latency_ms: float | None = None
+    graph_error_code: str | None = None
+    context_character_count: int = 0
+    estimated_token_count: int = 0
+    truncated: bool = False
+    supplement_omitted_count: int = 0
+
+
+@dataclass(frozen=True)
+class EvidenceSummary:
+    source_count: int = 0
+    article_count: int = 0
+    has_formula_evidence: bool = False
+    has_definition_evidence: bool = False
+    has_answerable_evidence: bool = False
+    source_schema_valid: bool = False
+    unsupported_or_out_of_scope: bool = False
+    refusal_reason: str | None = None
+
+
+@dataclass(frozen=True)
 class TutorSource:
     source_type: TutorSourceType
     source_id: str
@@ -62,6 +89,8 @@ class TutorResponse:
     zotero_context: list[dict[str, Any]] = field(default_factory=list)
     follow_up_questions: list[str] = field(default_factory=list)
     refusal_reason: str | None = None
+    selection_summary: SelectionSummary = field(default_factory=SelectionSummary)
+    evidence_summary: EvidenceSummary = field(default_factory=EvidenceSummary)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -72,6 +101,29 @@ class TutorResponse:
             "zotero_context": self.zotero_context,
             "follow_up_questions": self.follow_up_questions,
             "refusal_reason": self.refusal_reason,
+            "selection_summary": {
+                "candidate_count": self.selection_summary.candidate_count,
+                "selected_article_count": self.selection_summary.selected_article_count,
+                "selected_chunk_count": self.selection_summary.selected_chunk_count,
+                "graph_node_count": self.selection_summary.graph_node_count,
+                "graph_edge_count": self.selection_summary.graph_edge_count,
+                "graph_latency_ms": self.selection_summary.graph_latency_ms,
+                "graph_error_code": self.selection_summary.graph_error_code,
+                "context_character_count": self.selection_summary.context_character_count,
+                "estimated_token_count": self.selection_summary.estimated_token_count,
+                "truncated": self.selection_summary.truncated,
+                "supplement_omitted_count": self.selection_summary.supplement_omitted_count,
+            },
+            "evidence_summary": {
+                "source_count": self.evidence_summary.source_count,
+                "article_count": self.evidence_summary.article_count,
+                "has_formula_evidence": self.evidence_summary.has_formula_evidence,
+                "has_definition_evidence": self.evidence_summary.has_definition_evidence,
+                "has_answerable_evidence": self.evidence_summary.has_answerable_evidence,
+                "source_schema_valid": self.evidence_summary.source_schema_valid,
+                "unsupported_or_out_of_scope": self.evidence_summary.unsupported_or_out_of_scope,
+                "refusal_reason": self.evidence_summary.refusal_reason,
+            },
         }
 
 

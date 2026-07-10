@@ -11,6 +11,7 @@ from app.tutor.source_selection import (
     MAX_TUTOR_GRAPH_DEPTH,
     MAX_TUTOR_GRAPH_EDGES,
     MAX_TUTOR_GRAPH_NODES,
+    MAX_TUTOR_GRAPH_SUPPLEMENT_CHARS,
     GraphContextDataError,
     SourceSelectionPolicy,
     sanitize_graph_context,
@@ -23,6 +24,8 @@ class GraphContextResult:
     supplemental_sources: tuple[TutorSource, ...]
     latency_ms: float
     error_code: str | None = None
+    truncated: bool = False
+    omitted_count: int = 0
 
 
 def collect_graph_context(
@@ -42,11 +45,13 @@ def collect_graph_context(
             node_limit=min(policy.max_graph_nodes, MAX_TUTOR_GRAPH_NODES),
             edge_limit=min(policy.max_graph_edges, MAX_TUTOR_GRAPH_EDGES),
         )
-        safe_context, _ = sanitize_graph_context(raw_context, policy)
+        raw_node_count = _record_count(raw_context.get("nodes"))
+        raw_edge_count = _record_count(raw_context.get("edges"))
+        safe_context, truncated = sanitize_graph_context(raw_context, policy)
+    except (UnicodeDecodeError, OSError, json.JSONDecodeError, GraphContextDataError):
+        return _unavailable_result(started, "graph_unavailable")
     except NodeNotFoundError:
         return _unavailable_result(started, "graph_node_not_found")
-    except (OSError, json.JSONDecodeError, GraphContextDataError):
-        return _unavailable_result(started, "graph_unavailable")
     except (AttributeError, KeyError, TypeError, ValueError) as error:
         if not _is_graph_model_data_error(error):
             raise
@@ -55,11 +60,21 @@ def collect_graph_context(
     nodes = [dict(node) for node in safe_context["nodes"]]
     edges = [dict(edge) for edge in safe_context["edges"]]
     _place_root_first(nodes, node_id.strip())
+    nodes, edges, supplemental_sources = _bound_graph_response(nodes, edges)
+    omitted_count = (
+        raw_node_count
+        - len(nodes)
+        + raw_edge_count
+        - len(edges)
+        + _provenance_omitted_count(nodes)
+    )
     context = {"nodes": nodes, "edges": edges}
     return GraphContextResult(
         context=context,
-        supplemental_sources=tuple(_node_sources(nodes) + _edge_sources(edges)),
+        supplemental_sources=tuple(supplemental_sources),
         latency_ms=(time.perf_counter() - started) * 1000,
+        truncated=truncated or omitted_count > 0,
+        omitted_count=omitted_count,
     )
 
 
@@ -81,6 +96,51 @@ def _place_root_first(nodes: list[dict[str, Any]], node_id: str) -> None:
         if node.get("node_id") == node_id:
             nodes.insert(0, nodes.pop(index))
             return
+
+
+def _bound_graph_response(
+    nodes: list[dict[str, Any]],
+    edges: list[dict[str, Any]],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[TutorSource]]:
+    bounded_nodes = list(nodes)
+    bounded_edges = list(edges)
+    while True:
+        sources = _node_sources(bounded_nodes) + _edge_sources(bounded_edges)
+        payload = {
+            "context": {"nodes": bounded_nodes, "edges": bounded_edges},
+            "sources": [source.to_dict() for source in sources],
+        }
+        if _serialized_chars(payload) <= MAX_TUTOR_GRAPH_SUPPLEMENT_CHARS:
+            return bounded_nodes, bounded_edges, sources
+        if bounded_edges:
+            bounded_edges.pop()
+            continue
+        if len(bounded_nodes) > 1:
+            bounded_nodes.pop()
+            continue
+        return bounded_nodes, bounded_edges, sources
+
+
+def _provenance_omitted_count(nodes: list[dict[str, Any]]) -> int:
+    omitted = 0
+    for node in nodes:
+        metadata = node.get("metadata")
+        if not isinstance(metadata, dict):
+            continue
+        source_count = metadata.get("source_count")
+        sources = metadata.get("sources")
+        if isinstance(source_count, int) and not isinstance(source_count, bool):
+            returned = len(sources) if isinstance(sources, (list, tuple)) else 0
+            omitted += max(0, source_count - returned)
+    return omitted
+
+
+def _serialized_chars(value: Any) -> int:
+    return len(json.dumps(value, ensure_ascii=False, separators=(",", ":")))
+
+
+def _record_count(value: Any) -> int:
+    return len(value) if isinstance(value, (list, tuple)) else 0
 
 
 def _is_graph_model_data_error(error: Exception) -> bool:

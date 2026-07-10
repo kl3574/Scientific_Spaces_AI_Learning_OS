@@ -1,332 +1,328 @@
 # Full Corpus Tutor Source Selection Report
 
-## Design Status
+## Current Status
 
-- P2-004 architecture: approved
-- Selected approach: independent deterministic source selector
-- Graph expansion: only when the request explicitly supplies `node_id`
-- Implementation evidence: not yet collected
+- P2-004 Tutor Source Selection over Full Corpus: PASS
+- Selected architecture: deterministic bounded source selector (Scheme A)
+- Graph expansion: explicit nonblank `node_id` only
+- Baseline provider: deterministic fake/local
+- Recommendation: A: Ready for P2-005 Optional PDF Export Workflow
 
-This document is the approved design baseline for P2-004. The implementation
-phase will replace this design status with the required PASS, CONDITIONAL, or
-BLOCKED result and measured full-corpus evidence. The design does not change
-the M3 citation/no-source contract or the M6 provenance/evidence contract.
+This gate implements and evaluates Tutor source selection against the completed
+local corpus. It does not fetch Scientific Spaces, access the web, modify
+`Article.content`, generate PDFs, or claim real-provider language quality.
 
-## Scope and Input Contract
+## Input Resources
 
-The selector operates only over the completed local resources:
+| Resource | Result |
+| --- | --- |
+| Article store | `.local_data/scientific_spaces/corpus/pilot/article_store/articles.json` |
+| Article count | 1,311 |
+| RAG index | `.local_data/scientific_spaces/rag/full_corpus/` |
+| RAG chunk count | 5,547 |
+| Graph directory | `.local_data/scientific_spaces/graph/full_corpus/` |
+| Graph nodes | 52,874 |
+| Graph edges | 82,230 |
+| Corpus fingerprint | `cc8717db54615bfcc426b64826c8b38565ddba901707582657331ae9772cdf5d` |
+| Graph fingerprint | `abfcbc2b6dfc266e7fe190bee6d7196eb7fa00c07c6bbd68a2e2eaa9573ac9dc` |
+| RAG provider/model | `fake` / `deterministic-hash-v1` |
+| RAG dimension | 128 |
 
-- Article store: `.local_data/scientific_spaces/corpus/pilot/article_store/articles.json`
-- RAG index: `.local_data/scientific_spaces/rag/full_corpus/`
-- Knowledge Graph: `.local_data/scientific_spaces/graph/full_corpus/`
-
-The full-corpus runtime requires matching Article, RAG, and Graph corpus
-fingerprints. Normal CI uses deterministic temporary fixtures and does not
-require any of these local resources.
-
-No selector code may fetch Scientific Spaces, browse the web, parse PDFs or
-HTML dumps, rebuild Article content, or use `article_list.json` as body input.
-
-## Architecture
-
-The implementation adds an isolated selector under `backend/app/tutor/` and
-keeps `TutorService` as the orchestration boundary:
-
-```text
-TutorRequest
-  -> query normalization and scope guard
-  -> persisted FAISS candidate retrieval
-  -> optional explicit bounded Graph expansion
-  -> chunk deduplication and Article grouping
-  -> mode-aware relevance and diversity ranking
-  -> evidence sufficiency check
-  -> bounded context assembly
-  -> Tutor generation or refusal
-  -> citation and response-schema validation
-```
-
-The selector exposes focused domain types:
-
-- `SourceSelectionPolicy`: validated hard limits and mode defaults.
-- `SourceCandidate`: one retrieved Article chunk and its deterministic scores.
-- `SelectedSource`: a selected chunk with stable Article identity and evidence.
-- `EvidenceSufficiencyResult`: mode-specific support and refusal decision.
-- `SourceSelectionResult`: final Article evidence, bounded Graph context,
-  generation context, safe summaries, truncation counts, and timing metrics.
-
-The selector depends on retrieval and Graph protocols so fixture tests can use
-small in-memory providers. It does not require an API key or real provider.
-
-## Retrieval and Cache Design
-
-For an unscoped request, the Tutor loads the existing persisted full-corpus
-FAISS index lazily and caches the loaded index by resolved path and file
-signature. It retrieves at most 20 candidate chunks.
-
-For an explicit `article_id`, retrieval remains strictly Article-scoped. The
-service chunks only that Article and builds a small temporary in-memory index,
-preserving existing M7 behavior without searching unrelated Articles.
-
-If no full-corpus index path is configured, the service keeps the existing
-small-store compatibility path used by normal CI and M7 fixtures. The legacy
-M3 RAG API and its global service are not redirected or modified.
-
-`TutorRequest.top_k` remains accepted for backward compatibility. It controls
-the requested final Article-chunk count and is clamped by the selector policy;
-the candidate retrieval stage remains independently capped at 20.
+The evaluator validates the persisted RAG artifacts against the Article store,
+recomputes the corpus fingerprint, loads `graph.json`, recomputes the Graph
+fingerprint, and compares both fingerprints with their manifests before any
+case runs. All 44 expected Article IDs in the 42-case suite exist in the local
+Article store.
 
 ## Selection Policy
 
-Safe defaults:
+The Tutor uses one Article retrieval operation per ask and then performs
+deterministic Article-level selection.
 
-| Limit | Default |
+| Limit | Value |
 | --- | ---: |
-| RAG candidate chunks | 20 |
+| Retrieval candidates | 20 chunks |
 | Chunks per Article | 2 |
 | Final source Articles | 6 |
 | Final Article chunks | 10 |
-| Evidence snippets per Article | 2 |
 | Graph depth | 2 |
 | Graph nodes | 20 |
 | Graph edges | 30 |
-| Context characters | 24,000 |
+| Generation context | 24,000 characters |
+| Stored Graph provenance per node | 2 records |
+| Per-record supplemental payload | 8,192 serialized characters |
+| Aggregate Graph supplement | 31,500 serialized characters |
+| Aggregate Zotero supplement | 16,000 serialized characters |
+| Combined supplemental response | 48,000 serialized characters |
 
-The final limits are configurable through safe integer environment variables,
-but code-level ceilings prevent unbounded values. Configuration errors fail
-closed with a clear local configuration error rather than silently removing
-all limits.
+The pipeline normalizes the query, retrieves bounded candidates, removes
+duplicate chunk IDs, groups by Article, ranks Articles deterministically,
+applies mode-specific diversity/evidence rules, assembles a bounded context,
+and validates citation identity before generation.
 
-Candidate ranking is deterministic. FAISS L2 distance is converted to a
-bounded relevance value and combined with query-token overlap, reciprocal
-retrieval rank, and mode-specific evidence bonuses. Article score uses the
-best chunk plus a bounded aggregate contribution from its second chunk.
-Stable tie-breaking uses Article ID and chunk ID.
+Graph behavior is deliberately explicit:
 
-Selection proceeds at Article level. Duplicate chunk IDs are removed before
-grouping, each Article contributes at most two chunks, and every selected
-Article appears once in the Article-level source summary. Research mode applies
-a deterministic similarity penalty to already selected titles and sections so
-one high-frequency topic cannot fill the entire source budget.
+- no `node_id` means zero Graph lookup and zero Graph context;
+- a nonblank `node_id` uses the bounded M6 subgraph interface;
+- Graph and Zotero evidence are supplemental and never satisfy Article
+  grounding, Research diversity, or Derive formula requirements;
+- Graph/Zotero strings, collections, nesting, URLs, and payload size are
+  bounded and local paths are removed;
+- aggregate supplemental overflow is dropped deterministically and exposed as
+  `supplement_omitted_count` instead of returning an unbounded response;
+- the combined clamp removes trailing Zotero items first, then Graph edges and
+  trailing nodes, and reports the post-clamp Graph counts actually returned;
+- Graph latency, safe error code, counts, and truncation are additive response
+  metadata.
 
-Graph evidence is supplemental. It never creates or replaces Article evidence
-and never raises an Article's rank solely because a Concept has high degree.
-
-## Explicit Graph Policy
-
-Graph expansion runs only when `TutorRequest.node_id` is non-empty. The selector
-uses the existing bounded subgraph interface with depth at most 2, 20 nodes,
-and 30 edges by default. A high-degree Concept such as `concept:attention`
-therefore cannot return all 255 provenance sources.
-
-Tutor Graph context is sanitized before response or prompt assembly:
-
-- Node and edge identity, type, label, and bounded evidence are retained.
-- Concept `source_count` and `truncated` are retained.
-- At most two bounded provenance records are retained per Graph node.
-- Full provenance arrays, Article bodies, local absolute paths, and store paths
-  are removed.
-
-A missing optional Graph node or unavailable Graph store degrades to
-Article-only selection and is recorded in the selection summary. It does not
-override an otherwise valid Article-grounded response.
-
-## Mode-Specific Policy
+## Mode-Specific Policies
 
 ### Explain
 
-- Target 2 to 5 distinct Articles, with one Article allowed when it is the only
-  relevant local source.
-- Prefer definition and explanatory passages.
-- Formula evidence is optional.
-- Refuse when no relevant Article evidence exists.
+- Maximum 5 Articles and 10 chunks.
+- Definition/explanation passages receive a deterministic evidence bonus.
+- When the bounded candidate set contains a query-relevant formula passage,
+  the final multi-chunk selection preserves one such passage.
+- One relevant Article is sufficient; no relevant Article causes refusal.
 
 ### Derive
 
-- Select at most 4 Articles and 8 chunks.
-- Require at least one selected Article chunk containing balanced formula
-  delimiters or explicit theorem/derivation evidence.
-- Graph Formula nodes can supplement but cannot satisfy this requirement alone.
-- Refuse with `insufficient_formula_evidence` when Article evidence is
-  insufficient. The model may not fill missing steps from memory.
+- Maximum 4 Articles and 8 chunks.
+- At least one selected Article chunk must contain balanced formula or explicit
+  theorem/derivation evidence.
+- Zero Article evidence maps to the existing `no_sources` contract.
+- Article evidence without formulas maps to
+  `insufficient_formula_sources`; Graph Formula nodes cannot satisfy the gate.
 
 ### QA
 
-- Select 1 to 4 distinct Articles and at most 6 chunks.
-- Prefer the strongest direct query overlap.
-- Return only a grounded answer with valid Article sources, otherwise refuse.
+- Maximum 4 Articles and 6 chunks.
+- Requires answerable Article evidence and valid citation schema.
+- Query-relevant formula evidence is preserved when available without adding
+  candidates or exceeding the Article/chunk budget.
+- Explicit web/account/private-data and unsupported real-time/high-stakes
+  requests refuse deterministically.
 
 ### Quiz
 
-- Select up to 6 Articles and 10 chunks.
-- Every generated question and answer maps to at least one selected Article
-  source.
-- Stable source/chunk keys prevent duplicate questions.
-- The number of questions cannot exceed the number of distinct auditable
-  evidence units available under the request limit.
+- Maximum 6 Articles and 10 chunks.
+- Quiz generation reuses the same evidence/refusal gates.
+- Every question maps to a unique auditable Article evidence unit and carries
+  at least one valid Article source.
+- The requested count, normalized uniqueness, topic relevance, and Article
+  source mapping are hard evaluation gates.
 
 ### Research
 
-- Target 4 to 6 distinct Articles and require at least 2 for a synthesis.
-- Apply diversity selection across Article titles and sections.
-- Always state that results are local-corpus-only.
-- Always state evidence gaps and never claim current external literature
-  coverage.
-- Refuse with `insufficient_local_corpus_evidence` when a multi-source synthesis
-  cannot be grounded.
+- Maximum 6 Articles and 10 chunks; at least 2 distinct Articles are required.
+- Diversity ranking penalizes repeated title/section terms.
+- Every successful answer states the local-corpus-only boundary and evidence
+  gap; a single-Article scope refuses instead of pretending to be a synthesis.
 
-## Evidence Sufficiency and Refusal
+## Full-Corpus Evaluation Dataset
 
-The selector records:
-
-- source and Article counts
-- formula, definition, and answerable evidence flags
-- source-schema validity
-- unsupported or out-of-scope status
-- refusal reason
-
-Canonical refusal reasons are:
-
-- `no_relevant_source`
-- `insufficient_formula_evidence`
-- `insufficient_local_corpus_evidence`
-- `unsupported_query`
-- `invalid_source_schema`
-
-These are internal evidence-decision reasons. The outward
-`TutorResponse.refusal_reason` preserves the M7 compatibility values:
-`no_relevant_source` and `unsupported_query` map to `no_sources`, while
-`insufficient_formula_evidence` maps to `insufficient_formula_sources`.
-`evidence_summary.refusal_reason` exposes the more precise internal reason as
-an additive field. Research keeps its existing no-source compatibility value
-and mode-specific Chinese message.
-
-Unsupported detection combines the full-corpus local-token support gate with a
-small deterministic guard for explicit real-time, web-search, weather, market,
-or current-news requests. A populated FAISS index must not turn every query
-into a supported answer merely because nearest neighbors always exist.
-
-The existing Chinese no-source response remains unchanged. Research and derive
-retain their existing mode-specific refusal messages.
-
-## Context Assembly
-
-Only selected evidence enters the generation context. The assembler consumes
-chunks in final rank order, keeps citation identity separate from snippet text,
-and enforces the 24,000-character default ceiling.
-
-If a chunk exceeds the remaining budget, the assembler uses a bounded excerpt
-ending at a paragraph or line boundary and keeps it attached to the same
-Article/section identity. If no meaningful excerpt fits, the chunk and its
-source are removed together. The system never creates an orphan snippet or
-truncates Article ID, title, URL, section, or chunk identity.
-
-The result records context characters, estimated tokens, context truncation,
-and source truncation for each mode. Token estimates are explicitly diagnostic
-and do not claim provider-specific tokenizer accuracy.
-
-## API Compatibility
-
-`POST /tutor/ask` keeps all existing request and response fields. It adds only
-safe optional response summaries:
-
-- `selection_summary`: candidate count, selected Article/chunk count, bounded
-  Graph counts, truncation flags, and context size.
-- `evidence_summary`: sufficiency flags and refusal reason.
-
-The response does not expose internal prompts, full candidate lists, full
-Graph documents, local paths, API keys, or unselected evidence.
-
-For backward compatibility, `sources` remains the concatenation of selected
-Article chunks and separately bounded Graph/Zotero supplemental sources.
-Grounding and source-count metrics use only Article chunks; Graph and Zotero
-entries cannot satisfy Article evidence requirements. `graph_context` remains
-present but is sanitized and bounded by the selector policy.
-
-`POST /tutor/quiz` keeps its existing shape and may accept an optional topic
-question so full-corpus quiz selection does not require a hard-coded Article.
-
-## Frontend Design
-
-The `/tutor` page keeps the five existing modes and removes hard-coded fixture
-Article/Graph defaults. Mode selection uses a compact segmented control.
-
-The result surface provides:
-
-- bounded, deduplicated Article sources with visible section metadata
-- local Article and safe original-source links
-- explicit refusal and derive-insufficiency states
-- per-question Quiz sources
-- a local-corpus-only Research label and evidence-gap notice
-- safe selection/context counts without internal prompt data
-- independent loading, error, empty, and retry behavior
-
-Long titles, sections, and source lists wrap without horizontal overflow. URLs
-with local-file or absolute-path schemes are not rendered as external links.
-
-## Evaluation Design
-
-The committed evaluation dataset contains metadata only, never Article bodies.
-It has 42 cases:
+The committed fixture contains metadata only: questions, expected Article IDs,
+mode, evidence type, source bounds, expected refusal, and optional explicit
+identifiers. It contains no Article body, answer, snippet, URL, local path, or
+candidate list.
 
 | Mode | Cases |
 | --- | ---: |
 | Explain | 8 |
-| Derive | 8, including 3 required refusals |
+| Derive | 8 (5 supported, 3 required refusals) |
 | QA | 8 |
 | Quiz | 8 |
 | Research | 6 |
 | Unsupported | 4 |
+| Total | 42 |
 
-Each case records case ID, mode, question, expected Article IDs, source-count
-bounds, expected evidence type, and expected refusal. Full-corpus execution uses
-the fake provider by default and writes only aggregate metrics plus limited
-failed-case IDs under ignored `.local_data/` output.
+`P2-004-EX-05` explicitly supplies `node_id=concept:attention`; all other
+cases leave `node_id` absent. This proves that the Graph path is reachable and
+that Graph does not expand implicitly.
 
-The runner measures selection counts, duplicate rates, budget compliance,
-source schema, expected-Article hits, diversity, high-degree expansion,
-grounding/refusal behavior, context size by mode, and retrieval/Graph/selector/
-Tutor latency distributions. Expected-Article misses are reported rather than
-rewritten to produce an artificial 100 percent score.
+## Source Selection Results
 
-## Failure Handling and Privacy
+| Metric | Result |
+| --- | ---: |
+| evaluation case count | 42 |
+| selected source chunks mean / median / p95 / max | 2.4286 / 2 / 6 / 7 |
+| selected chunks mean / median / p95 / max | 2.5238 / 2 / 6 / 7 |
+| duplicate source rate | 0.0 |
+| source budget violations | 0 |
+| Graph budget violations | 0 |
+| source schema valid rate | 1.0 |
+| source title present rate | 1.0 |
+| source URL present rate | 1.0 |
+| source section present rate | 1.0 |
+| supported case non-empty source rate | 1.0 |
+| expected evidence type pass rate | 1.0 |
+| supported Derive formula evidence rate | 1.0 |
+| expected Article hit rate | 0.9143 |
+| expected Article recall | 0.6038 |
+| selected Article diversity mean | 0.5170 |
+| irrelevant Article rate | 0.5077 |
+| high-degree concepts checked | 1 |
+| high-degree overexpansion count | 0 |
 
-- Missing or fingerprint-mismatched full-corpus resources fail the explicit
-  full-corpus CLI with a clear error.
-- API compatibility mode falls back only when no full-corpus index is
-  configured, not when a configured index is corrupt.
-- Invalid source identity causes refusal, never silent citation removal after
-  generation.
-- Optional Graph/Zotero failures cannot become Article citations.
-- Fake providers remain default and no API key is required.
-- Real-provider execution remains opt-in, disabled in CI, and outside PASS.
-- No web, source fetch, PDF generation, corpus mutation, or runtime artifact
-  commit is permitted.
+Expected-Article misses are diagnostic, not rewritten to manufacture a perfect
+retrieval score. The six misses are the six broad Research cases
+`P2-004-RS-01` through `P2-004-RS-06`; each still passed all grounding,
+multi-Article, citation, budget, and local-only requirements. This reflects the
+deterministic fake embedding baseline and broad expected-source sets, not a
+claim about real semantic reranking quality.
 
-## Test Strategy
+The high-degree guard used `concept:attention`, whose complete M6 provenance
+count is 255. The Tutor response retained `source_count=255`,
+`truncated=true`, and only two sanitized provenance records. The independent
+Graph/Tutor smoke returned 20 nodes and 19 edges and did not inject the full
+52,874-node graph.
 
-Unit and fixture integration tests cover every required selection invariant:
-Article grouping, duplicate removal, per-Article and total budgets,
-deterministic ranking, high-degree Graph truncation, each mode, evidence
-sufficiency, unsupported refusal, schema rejection, context ceiling, local-path
-filtering, no-network behavior, fake-provider default, and ordinary-CI
-independence from the full corpus.
+## Grounding and Refusal
 
-Regression execution preserves:
+| Metric | Result |
+| --- | ---: |
+| citation required pass rate | 1.0 |
+| no-source refusal rate | 1.0 |
+| Derive insufficient-evidence refusal rate | 1.0 |
+| refusal match rate | 1.0 |
+| unsupported answer fabrication count | 0 |
+| answer without sources count | 0 |
+| Quiz question source coverage | 1.0 (16/16 questions) |
+| Quiz requested count pass rate | 1.0 |
+| Quiz normalized unique question rate | 1.0 |
+| Quiz topic relevance rate | 1.0 |
+| Quiz Article source mapping rate | 1.0 |
+| empty Quiz suites | 0 |
+| Research local-only pass rate | 1.0 |
+| Research evidence-gap statement rate | 1.0 |
+| Research multi-Article evidence rate | 1.0 |
+| execution errors | 0 |
 
-- the complete backend pytest suite
-- frontend production build and Tutor-specific tests
-- the unchanged 9-case RAG/Tutor baseline
-- the unchanged full-corpus RAG evaluation
-- the P2-003 Graph benchmark and browser smoke
-- bounded Tutor Graph context
+The outward M7 aliases remain stable: `no_sources` for unsupported/no relevant
+Article context and `insufficient_formula_sources` when selected Article
+evidence lacks formula support. The additive `evidence_summary` retains the
+more precise internal decision.
 
-Production-like browser smoke covers all five modes, derive success/refusal,
-Quiz source display, Research scope and gaps, safe links, bounded rendering,
-loading/error/refusal states, and zero external requests.
+## Context Size
 
-## Implementation Boundary
+The measured context is selected Article generation context; Graph and
+supplemental payloads have independent count and serialization bounds.
 
-Implementation may change only the paths permitted by the P2-004 task. It will
-not modify Article content, crawler/source access, M3 grounding semantics, M6
-provenance semantics, default provider opt-in behavior, release tags, or CI's
-fixture-only full-corpus independence.
+| Mode | Mean chars | P95 chars | Max chars | Mean estimated tokens | Truncation rate |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Explain | 2,280.9 | 4,618 | 4,618 | 570.6 | 0.125 |
+| Derive | 1,580.0 | 3,149 | 3,149 | 395.3 | 0.0 |
+| QA | 1,931.9 | 2,936 | 2,936 | 483.4 | 0.0 |
+| Quiz | 2,587.6 | 3,323 | 3,323 | 647.3 | 0.0 |
+| Research | 9,364.2 | 13,475 | 13,475 | 2,341.5 | 0.0 |
+| Unsupported | 3,250.0 | 6,946 | 6,946 | 812.8 | 0.0 |
+
+All Article contexts remained below the 24,000-character ceiling. The one
+Explain truncation flag is the explicit high-degree Graph case: bounded Graph
+provenance was intentionally truncated. Citation identity is stored separately
+from excerpts, so no orphan snippet or truncated source identity was produced.
+
+## Performance Baseline
+
+Environment:
+
+- Linux `7.0.0-27-generic`, x86_64
+- Python `3.11.15`
+- Intel Core Ultra X7 358H, 16 logical CPUs
+- 30 GiB system memory
+
+Times are local fake-provider baselines in milliseconds and are not a
+cross-device SLA.
+
+| Stage | Min | Mean | Median | P95 | Max |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Retrieval | 0.513 | 44.954 | 8.376 | 20.081 | 1,560.673 |
+| Graph | 0.003 | 46.736 | 0.003 | 0.008 | 1,962.734 |
+| Selector | 1.057 | 5.241 | 4.174 | 10.375 | 12.876 |
+| Tutor residual/fake generation | 0.055 | 0.248 | 0.224 | 0.519 | 0.633 |
+
+The retrieval maximum is the cold persisted-index load. The Graph maximum is
+the single explicit `concept:attention` cold 75 MB Graph load; no-node Graph
+paths are near-zero. The separate P2-003 Graph benchmark remained PASS with a
+1,956.2 ms cold summary load and 90.4 ms maximum warm query in this run.
+
+## Tutor API and Frontend UX
+
+`POST /tutor/ask` preserves all M7 keys and adds safe `selection_summary` and
+`evidence_summary` objects. `POST /tutor/quiz` accepts an optional topic while
+preserving its existing response shape. A configured corrupt or missing full
+corpus index returns HTTP 503; it does not silently start a second retrieval
+route.
+
+The `/tutor` UI now provides:
+
+- all five modes with stale state cleared on mode changes;
+- bounded, deduplicated Article/Graph/Zotero source rendering;
+- bidirectional source expand/collapse and backend/UI omitted-count messaging;
+- safe local Article and HTTP(S) original links;
+- section/chunk metadata, refusal states, and Derive insufficiency text;
+- one visible Quiz prompt mapped to the request topic and per-question sources;
+- local-corpus-only Research scope and evidence-gap text;
+- additive source/context/Graph timing summaries;
+- embedded POSIX, Windows, UNC, traversal, and executable-scheme filtering.
+
+The fixture Chromium smoke passed 20/20 UI checks, including simulated 500
+error/retry and empty/refusal states. The live Chromium smoke passed 17/17
+checks through the real local backend, persisted full-corpus RAG index, and
+explicit bounded Graph access. Both reported zero external network requests,
+zero unexpected console errors, and no desktop/mobile horizontal overflow.
+
+## Artifact and Privacy
+
+- No source fetch, web request, crawler, PDF, HTML dump, or Article mutation
+  occurred.
+- Fake providers remained the default; no API key was required or recorded.
+- The 42-case fixture contains metadata only.
+- Runtime evaluation summaries and smoke output stayed under ignored
+  `.local_data/`.
+- API/frontend checks found no local path exposure.
+- No corpus, RAG index, Graph runtime, response log, candidate list, PDF,
+  image, trace, profile, cache, `.env`, or `node_modules` is committed.
+
+## Regression Evidence
+
+| Check | Result |
+| --- | --- |
+| Backend pytest | PASS, 341 passed / 2 skipped |
+| Frontend Tutor tests | PASS, 13/13 |
+| Frontend Graph tests | PASS, 7/7 |
+| Next.js production build | PASS, 8 routes generated |
+| Original RAG/Tutor evaluation | PASS, 9 cases / all required rates 1.0 |
+| Full-corpus RAG evaluation | PASS, hit@10 0.9091 / no-source 1.0 / errors 0 |
+| P2-003 Graph benchmark | PASS, response bounds and latency guard satisfied |
+| Bounded Tutor Graph smoke | PASS, 20 nodes / 19 edges / full graph not injected |
+| Full-corpus Tutor evaluation | PASS, 42 cases / 0 hard or validity failures |
+| Frontend fixture smoke | PASS, 20/20 |
+| Frontend live full-corpus smoke | PASS, 17/17 |
+
+Normal CI remains fixture-only and does not depend on the ignored 1,311-Article
+corpus, FAISS index, or Graph runtime.
+
+## Limitations
+
+- Fake embeddings and fake generation prove deterministic structure,
+  grounding, and budgets; they do not establish final language or mathematical
+  quality for a real model.
+- Six broad Research expected-source sets were not hit exactly; IDs and metrics
+  are retained for future semantic retrieval work.
+- Research is local-corpus-only and does not cover external or latest
+  literature.
+- Real-provider execution remains explicit opt-in, disabled in CI, and subject
+  to cost, rate, latency, token, and data-egress constraints.
+- The 75 MB JSON Graph has a visible cold-load cost and remains a local
+  single-process baseline.
+- Corpus year metadata limitations remain unchanged.
+- PDF export was not executed or marked complete.
+
+## Recommendation
+
+A: Ready for P2-005 Optional PDF Export Workflow
+
+P2-004 is complete for deterministic full-corpus source selection. Real-provider
+quality evaluation remains a separate opt-in task and is not implied by this
+PASS result.

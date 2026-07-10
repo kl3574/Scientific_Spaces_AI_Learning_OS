@@ -225,3 +225,5 @@ Local Corpus Reader/Search UX Audit: PASS
 P2-003:
 
 Full-Corpus Knowledge Graph Scaling: PASS
+
+P2-004 Tutor Source Selection over Full Corpus: PASS

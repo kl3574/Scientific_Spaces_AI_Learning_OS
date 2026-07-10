@@ -10,7 +10,7 @@ def enforce_grounding(*, mode: TutorMode, answer: str, sources: list[TutorSource
     if mode in {"explain", "derive", "qa", "quiz", "research"} and not any(
         source.source_type == "article_chunk" for source in sources
     ):
-        return NO_SOURCE_ANSWER, "no_article_sources"
+        return NO_SOURCE_ANSWER, "no_sources"
     return answer, None
 
 
