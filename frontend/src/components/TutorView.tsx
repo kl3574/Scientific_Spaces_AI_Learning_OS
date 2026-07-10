@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import {
   QuizQuestion,
@@ -201,11 +202,26 @@ function SourceList({ sources, compact = false }: Readonly<{ sources: TutorSourc
                 {source.section_title ? ` · ${source.section_title}` : ""}
                 {typeof source.chunk_index === "number" ? ` · chunk ${source.chunk_index}` : ""}
               </p>
-              {source.url ? (
-                <a className="mt-2 inline-block text-xs text-slate-600 hover:text-slate-950" href={source.url} rel="noreferrer" target="_blank">
-                  Open source
-                </a>
-              ) : null}
+              <div className="mt-2 flex flex-wrap gap-2">
+                {resolveLocalArticleId(source) ? (
+                  <Link
+                    className="inline-block text-xs text-slate-700 hover:text-slate-950"
+                    href={`/articles/${resolveLocalArticleId(source)}`}
+                  >
+                    Open local article
+                  </Link>
+                ) : null}
+                {source.url ? (
+                  <a
+                    className="inline-block text-xs text-slate-600 hover:text-slate-950"
+                    href={source.url}
+                    rel="noreferrer"
+                    target="_blank"
+                  >
+                    Open original source
+                  </a>
+                ) : null}
+              </div>
             </article>
           ))
         ) : (
@@ -240,4 +256,28 @@ function ContextSummary({
       </dl>
     </section>
   );
+}
+
+function resolveLocalArticleId(source: TutorSource): string | null {
+  const direct = source.metadata?.article_id;
+  if (typeof direct === "string" && direct.trim()) {
+    return direct.trim();
+  }
+
+  if (source.source_type !== "article_chunk" && source.source_type !== "article_metadata") {
+    return null;
+  }
+
+  const sourceId = source.source_id;
+  const lastSeparator = sourceId.lastIndexOf(":");
+  if (lastSeparator <= 0) {
+    return sourceId.trim() || null;
+  }
+
+  const chunkSegment = sourceId.slice(lastSeparator + 1).trim();
+  if (!chunkSegment || Number.isNaN(Number(chunkSegment))) {
+    return sourceId.trim() || null;
+  }
+
+  return sourceId.slice(0, lastSeparator).trim() || null;
 }

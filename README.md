@@ -147,6 +147,7 @@ Important variables:
 - `SCIENTIFIC_SPACES_DATA_DIR`: local runtime data directory. Defaults to `.local_data/scientific_spaces`.
 - `SCIENTIFIC_SPACES_DB_FILE`: optional SQLite database path. Defaults to `.local_data/scientific_spaces/scientific_spaces.db`.
 - `SCIENTIFIC_SPACES_LEARNING_BACKEND`: `json` by default; set `sqlite` to opt into the v1.1 Learning SQLite persistence slice.
+- `SCIENTIFIC_SPACES_ARTICLE_STORE`: preferred full-corpus Reader override for an existing Article JSON store.
 - `SCIENTIFIC_SPACES_ARTICLES_FILE`: override Article storage file.
 - `SCIENTIFIC_SPACES_LEARNING_FILE`: override learning-state storage file.
 - `SCIENTIFIC_SPACES_ZOTERO_FILE`: override Zotero link storage file.
@@ -162,6 +163,15 @@ Important variables:
 - `NEXT_PUBLIC_API_BASE_URL`: frontend API base URL, default `http://localhost:8000`.
 
 Do not commit real `.env` files, API keys, Zotero library exports, or local runtime data.
+
+Run the Reader against the completed local corpus without copying or modifying it:
+
+```bash
+SCIENTIFIC_SPACES_ARTICLE_STORE=.local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  uv run --project backend uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+The Article API reads that local store with bounded pagination (`page_size=20`, maximum `100`). List responses contain summaries only; full Markdown content is returned only by `GET /articles/{id}`. The legacy `SCIENTIFIC_SPACES_ARTICLES_FILE` override remains supported and takes precedence when both variables are set.
 
 ## Deployment Profiles
 

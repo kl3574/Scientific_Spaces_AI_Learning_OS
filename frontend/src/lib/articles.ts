@@ -1,8 +1,18 @@
 export type ArticleMetadata = {
   date?: string | null;
   category?: string | null;
-  references?: Array<Record<string, string>>;
-  images?: string[];
+  references?: Array<string | Record<string, unknown>>;
+  images?: Array<string | Record<string, unknown>>;
+};
+
+export type ArticleListSort = "date_desc" | "archive_desc" | "title_asc" | "relevance";
+
+export type ArticleListRequest = {
+  q?: string;
+  page?: number;
+  page_size?: number;
+  category?: string;
+  sort?: ArticleListSort;
 };
 
 export type ArticleSummary = {
@@ -25,14 +35,35 @@ export type ArticleListResponse = {
   items: ArticleSummary[];
   total: number;
   query: string | null;
+  category: string | null;
+  sort: ArticleListSort;
+  page: number;
+  page_size: number;
+  total_pages: number;
+  has_next: boolean;
+  has_previous: boolean;
 };
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-export async function fetchArticles(query?: string): Promise<ArticleListResponse> {
+export async function fetchArticles(queryOrOptions?: string | ArticleListRequest): Promise<ArticleListResponse> {
   const url = new URL("/articles", API_BASE_URL);
-  if (query?.trim()) {
-    url.searchParams.set("q", query.trim());
+
+  const options: ArticleListRequest = typeof queryOrOptions === "string" ? { q: queryOrOptions } : queryOrOptions ?? {};
+  if (options.q?.trim()) {
+    url.searchParams.set("q", options.q.trim());
+  }
+  if (Number.isFinite(options.page) && (options.page as number) > 0) {
+    url.searchParams.set("page", String(options.page));
+  }
+  if (Number.isFinite(options.page_size) && (options.page_size as number) > 0) {
+    url.searchParams.set("page_size", String(options.page_size));
+  }
+  if (options.category?.trim()) {
+    url.searchParams.set("category", options.category.trim());
+  }
+  if (options.sort) {
+    url.searchParams.set("sort", options.sort);
   }
 
   const response = await fetch(url.toString(), { cache: "no-store" });

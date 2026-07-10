@@ -1,10 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { ComponentPropsWithoutRef, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
 import ReactMarkdown from "react-markdown";
+import rehypeKatex from "rehype-katex";
+import { Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 
-import { ArticleDetail, fetchArticle, formatMetadata } from "@/lib/articles";
+import { ArticleDetail, ArticleMetadata, fetchArticle, formatMetadata } from "@/lib/articles";
 import {
   LearningNote,
   LearningSession,
@@ -52,12 +56,12 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
   async function loadLearningContext(nextArticleId: string) {
     setLearningError(null);
     try {
-      const [state, bookmarkResponse, noteResponse, session] = await Promise.all([
+      const [state, bookmarkResponse, noteResponse] = await Promise.all([
         fetchLearningState(nextArticleId),
         fetchBookmarks(),
         fetchNotes(nextArticleId),
-        createSession(nextArticleId, "reader"),
       ]);
+      const session = await createSession(nextArticleId, "reader");
       setLearningState(state);
       setIsBookmarked(bookmarkResponse.items.some((bookmark) => bookmark.article_id === nextArticleId));
       setNotes(noteResponse.items);
@@ -149,6 +153,10 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
     }
   }
 
+  const metadataImages = useMemo(() => parseMetadataItems(article?.metadata.images), [article?.metadata.images]);
+  const metadataReferences = useMemo(() => parseMetadataItems(article?.metadata.references), [article?.metadata.references]);
+  const renderedContent = useMemo(() => prepareMarkdownForMath(article?.content ?? ""), [article?.content]);
+
   if (error) {
     return (
       <section className="space-y-4">
@@ -170,7 +178,7 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
         <Link className="text-sm text-slate-600 hover:text-slate-950" href="/articles">
           Back to articles
         </Link>
-        <h1 className="mt-4 text-2xl font-semibold leading-tight">{article.title}</h1>
+        <h1 className="mt-4 break-words text-2xl font-semibold leading-tight">{article.title}</h1>
         <p className="mt-2 text-sm text-slate-500">{formatMetadata(article.metadata)}</p>
         <a
           className="mt-2 inline-block text-sm text-slate-600 hover:text-slate-950"
@@ -181,7 +189,13 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
           Source article
         </a>
         <div className="reader-markdown mt-6">
-          <ReactMarkdown>{article.content}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[[rehypeKatex, { strict: false, throwOnError: false }]]}
+            components={markdownComponents}
+          >
+            {renderedContent}
+          </ReactMarkdown>
         </div>
       </article>
 
@@ -344,7 +358,7 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
 
         <section className="rounded border border-slate-200 bg-white p-4">
           <h2 className="text-base font-semibold">Metadata</h2>
-          <dl className="mt-3 space-y-2 text-sm">
+          <dl className="mt-3 space-y-3 text-sm">
             <div>
               <dt className="text-slate-500">Date</dt>
               <dd>{article.metadata.date ?? "Unknown"}</dd>
@@ -355,11 +369,11 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
             </div>
             <div>
               <dt className="text-slate-500">Images</dt>
-              <dd>{article.metadata.images?.length ?? 0}</dd>
+              <dd>{renderMetadataList(metadataImages, "Image")}</dd>
             </div>
             <div>
               <dt className="text-slate-500">References</dt>
-              <dd>{article.metadata.references?.length ?? 0}</dd>
+              <dd>{renderMetadataList(metadataReferences, "Reference")}</dd>
             </div>
           </dl>
         </section>
@@ -395,4 +409,200 @@ function formatDate(value: string | null | undefined): string {
     return "Not recorded";
   }
   return new Date(value).toLocaleString();
+}
+
+type MarkdownItem = {
+  label: string;
+  href?: string;
+};
+
+const metadataLabelKeys = ["title", "name", "label", "filename", "path", "source", "reference", "id"];
+const metadataLinkKeys = ["url", "link", "href", "source_url", "pdf_url", "download_url", "html_url", "image"];
+
+function parseMetadataItems(values?: Array<string | Record<string, unknown>>): MarkdownItem[] {
+  if (!values?.length) {
+    return [];
+  }
+  const parsed = values
+    .map((value) => {
+      if (typeof value === "string") {
+        return toMarkdownItem({ text: value, link: value });
+      }
+      if (value && typeof value === "object") {
+        const text = pickString(value as Record<string, unknown>, metadataLabelKeys);
+        const link = pickString(value as Record<string, unknown>, metadataLinkKeys);
+        return toMarkdownItem({ text, link });
+      }
+      return null;
+    })
+    .filter((item): item is MarkdownItem => item !== null);
+
+  return parsed;
+}
+
+function pickString(input: Record<string, unknown>, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = input[key];
+    if (typeof value === "string" && value.trim()) {
+      return value.trim();
+    }
+  }
+  return null;
+}
+
+function toMarkdownItem({ text, link }: { text: string | null; link?: string | null }): MarkdownItem | null {
+  if (!text) {
+    return null;
+  }
+  const label = sanitizeDisplay(text);
+  const href = (link ?? "").trim();
+  if (href && isExternalUrl(href)) {
+    return { label, href };
+  }
+  return { label };
+}
+
+function sanitizeDisplay(value: string): string {
+  const raw = value.trim();
+  if (!raw) {
+    return "Unknown";
+  }
+  return looksLikeLocalPath(raw) ? raw.split(/[\\/]/).pop() ?? raw : raw;
+}
+
+function looksLikeLocalPath(value: string): boolean {
+  return (
+    value.startsWith("/") ||
+    value.startsWith("./") ||
+    value.startsWith("../") ||
+    /^[a-zA-Z]:\\/.test(value) ||
+    value.includes("/tmp/") ||
+    value.includes("\\tmp\\")
+  );
+}
+
+function isExternalUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value) || /^mailto:/i.test(value) || /^tel:/i.test(value);
+}
+
+function renderMetadataList(values: MarkdownItem[], emptyLabel: string): ReactNode {
+  if (!values.length) {
+    return <p className="text-xs text-slate-500">No {emptyLabel.toLowerCase()} metadata.</p>;
+  }
+  return (
+    <ul className="mt-1 list-disc space-y-1 break-all pl-5 text-sm">
+      {values.map((item) => (
+        <li key={`${item.label}-${item.href ?? "no-url"}`}>
+          {item.href ? (
+            <a className="text-slate-700 underline underline-offset-2 hover:text-slate-950" href={item.href} rel="noreferrer" target="_blank">
+              {item.label}
+            </a>
+          ) : (
+            item.label
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const markdownComponents: Components = {
+  a: ({ node: _node, href, ...props }) => {
+    const normalizedHref = normalizeContentUrl(href);
+    const isExternal = typeof normalizedHref === "string" && isExternalUrl(normalizedHref);
+    if (!isExternal) {
+      return (
+        <a
+          {...props}
+          href={normalizedHref ?? "#"}
+          rel={props.rel ?? undefined}
+          target={props.target ?? undefined}
+          className="text-sky-700 underline underline-offset-2 hover:text-slate-950"
+        />
+      );
+    }
+    return (
+      <a
+        {...props}
+        href={normalizedHref}
+        rel="noopener noreferrer"
+        target="_blank"
+        className="text-sky-700 underline underline-offset-2 hover:text-slate-950"
+      />
+    );
+  },
+  img: (props) => <MarkdownImage {...props} />,
+};
+
+function MarkdownImage({ node: _node, src: rawSrc, alt: rawAlt, ...props }: ComponentPropsWithoutRef<"img"> & { node?: unknown }) {
+  const [hasError, setHasError] = useState(false);
+  const src = normalizeContentUrl(typeof rawSrc === "string" ? rawSrc : "") ?? "";
+  const alt = typeof rawAlt === "string" && rawAlt.trim() ? rawAlt : "Article image";
+
+  if (!src || hasError) {
+    return (
+      <span className="mt-1 inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
+        <span>{`${alt} unavailable`}</span>
+      </span>
+    );
+  }
+
+  return (
+    <img
+      {...props}
+      src={src}
+      alt={alt}
+      className="max-w-full rounded border border-slate-200"
+      onError={() => setHasError(true)}
+    />
+  );
+}
+
+function normalizeContentUrl(value: string | undefined): string | undefined {
+  if (!value) {
+    return value;
+  }
+  if (isExternalUrl(value) || value.startsWith("#")) {
+    return value;
+  }
+  if (value.startsWith("//")) {
+    return `https:${value}`;
+  }
+  try {
+    return new URL(value, "https://spaces.ac.cn").toString();
+  } catch {
+    return value;
+  }
+}
+
+function prepareMarkdownForMath(content: string): string {
+  return content
+    .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g)
+    .map((segment, index) => {
+      if (index % 2 === 1) {
+        return segment;
+      }
+      const normalizedCommands = segment
+        .replace(
+          /(\\newcommand\{([A-Za-z][A-Za-z0-9]*)\}[^\n$]*?\\\2)\$\1\$/g,
+          (_match, formula: string) => `$${normalizeNewcommand(formula)}$`,
+        )
+        .replace(/\\newcommand\{([A-Za-z][A-Za-z0-9]*)\}/g, (_match, name: string) => `\\newcommand{\\${name}}`);
+
+      const normalizedDisplayMath = normalizedCommands.replace(
+        /\$\$([\s\S]*?)\$\$/g,
+        (_match, formula: string) => `\n\n$$\n${formula.trim()}\n$$\n\n`,
+      );
+
+      return normalizedDisplayMath
+        .replace(/(?<!\\)\\\[/g, () => "$$")
+        .replace(/(?<!\\)\\\]/g, () => "$$")
+        .replace(/(?<!\\)\\\(/g, () => "$")
+        .replace(/(?<!\\)\\\)/g, () => "$");
+    })
+    .join("");
+}
+
+function normalizeNewcommand(value: string): string {
+  return value.replace(/\\newcommand\{([A-Za-z][A-Za-z0-9]*)\}/g, (_match, name: string) => `\\newcommand{\\${name}}`);
 }

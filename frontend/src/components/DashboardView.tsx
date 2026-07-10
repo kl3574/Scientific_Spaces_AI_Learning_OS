@@ -1,35 +1,52 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 
-import { ArticleSummary, fetchArticles, formatMetadata } from "@/lib/articles";
+import { ArticleListResponse, ArticleSummary, fetchArticles } from "@/lib/articles";
 import { LearningStats, fetchLearningStats } from "@/lib/learning";
 import { ReadingHistoryItem, loadReadingHistory } from "@/lib/readingHistory";
 
 export function DashboardView() {
   const [articles, setArticles] = useState<ArticleSummary[]>([]);
+  const [articleQuery, setArticleQuery] = useState<ArticleListResponse | null>(null);
   const [stats, setStats] = useState<LearningStats | null>(null);
   const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
+  const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     setHistory(loadReadingHistory());
-    Promise.all([fetchArticles(), fetchLearningStats()])
-      .then(([articleResponse, learningStats]) => {
-        setArticles(articleResponse.items);
-        setStats(learningStats);
-      })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load articles"));
+    void loadDashboard();
   }, []);
 
-  const recentArticles = useMemo(
-    () =>
-      [...articles]
-        .sort((left, right) => String(right.metadata.date ?? "").localeCompare(String(left.metadata.date ?? "")))
-        .slice(0, 5),
-    [articles],
-  );
+  async function loadDashboard() {
+    setStatus("loading");
+    setError(null);
+    try {
+      const [articleResponse, learningStats] = await Promise.all([
+        fetchArticles({ page: 1, page_size: 5, sort: "date_desc" }),
+        fetchLearningStats(),
+      ]);
+      setArticleQuery(articleResponse);
+      setArticles(articleResponse.items);
+      setStats(learningStats);
+      setStatus("loaded");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to load dashboard");
+      setStatus("error");
+    }
+  }
+
+  if (status === "loading") {
+    return <p className="text-sm text-slate-600">Loading dashboard...</p>;
+  }
+
+  if (status === "error") {
+    return <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>;
+  }
+
+  const articleTotal = articleQuery?.total ?? 0;
 
   return (
     <section className="space-y-6">
@@ -40,12 +57,10 @@ export function DashboardView() {
         </p>
       </div>
 
-      {error ? <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
-
       <div className="grid gap-4 md:grid-cols-3">
         <section className="rounded border border-slate-200 bg-white p-4">
           <p className="text-sm text-slate-500">Articles</p>
-          <p className="mt-2 text-3xl font-semibold">{stats?.total_articles ?? articles.length}</p>
+          <p className="mt-2 text-3xl font-semibold">{articleTotal}</p>
         </section>
         <section className="rounded border border-slate-200 bg-white p-4">
           <p className="text-sm text-slate-500">Reading</p>
@@ -65,7 +80,7 @@ export function DashboardView() {
         </section>
         <section className="rounded border border-slate-200 bg-white p-4">
           <p className="text-sm text-slate-500">Unread</p>
-          <p className="mt-2 text-3xl font-semibold">{stats?.unread_count ?? articles.length}</p>
+          <p className="mt-2 text-3xl font-semibold">{stats?.unread_count ?? 0}</p>
         </section>
         <section className="rounded border border-slate-200 bg-white p-4 md:col-span-3">
           <div className="flex items-center justify-between gap-3">
@@ -74,15 +89,18 @@ export function DashboardView() {
               View all
             </Link>
           </div>
+          <p className="mt-2 text-xs text-slate-500">
+            {articleQuery ? `Showing ${articleQuery.items.length} of ${articleQuery.total}` : `Showing 0 of ${articleTotal}`}
+          </p>
           <div className="mt-3 grid gap-2">
-            {recentArticles.length ? (
-              recentArticles.map((article) => (
+            {articles.length ? (
+              articles.map((article) => (
                 <Link
                   key={article.id}
                   className="rounded border border-slate-100 px-3 py-2 text-sm hover:bg-slate-50"
                   href={`/articles/${article.id}`}
                 >
-                  <span className="block font-medium">{article.title}</span>
+                  <span className="block break-words font-medium">{article.title}</span>
                   <span className="mt-1 block text-xs text-slate-500">{formatMetadata(article.metadata)}</span>
                 </Link>
               ))
@@ -149,9 +167,7 @@ export function DashboardView() {
                 href={`/articles/${item.id}`}
               >
                 <span className="block font-medium">{item.title}</span>
-                <span className="mt-1 block text-xs text-slate-500">
-                  Last read at {new Date(item.last_read_at).toLocaleString()}
-                </span>
+                <span className="mt-1 block text-xs text-slate-500">Last read at {new Date(item.last_read_at).toLocaleString()}</span>
               </Link>
             ))
           ) : (
@@ -168,4 +184,13 @@ function formatDate(value: string | null | undefined): string {
     return "No timestamp";
   }
   return new Date(value).toLocaleString();
+}
+
+function formatMetadataFromDate(value: string | null | undefined, category: string | null | undefined) {
+  const parts = [value, category].filter(Boolean);
+  return parts.length ? parts.join(" · ") : "No metadata";
+}
+
+function formatMetadata(metadata: { date?: string | null; category?: string | null }) {
+  return formatMetadataFromDate(metadata.date, metadata.category);
 }

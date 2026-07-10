@@ -97,3 +97,25 @@ body {
   border: 1px solid #e2e8f0;
   border-radius: 6px;
 }
+
+.reader-markdown .katex {
+  overflow-x: auto;
+}
+
+.reader-markdown .katex-display {
+  overflow-x: auto;
+}
+
+.reader-markdown table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+}
+
+.reader-markdown th,
+.reader-markdown td {
+  border: 1px solid #cbd5e1;
+  padding: 0.5rem;
+  text-align: left;
+}

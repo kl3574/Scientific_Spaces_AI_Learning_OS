@@ -207,7 +207,7 @@ def test_tutor_sessions_and_m2_to_m6_regressions(tmp_path: Path, monkeypatch) ->
     assert detail_response.json()["session_id"] == session_id
 
     assert article_response.status_code == 200
-    assert article_response.json()["items"][0]["id"] == "attention-001"
+    assert "attention-001" in {item["id"] for item in article_response.json()["items"]}
     assert rag_index_response.status_code == 200
     assert rag_query_response.status_code == 200
     assert rag_query_response.json()["sources"]
