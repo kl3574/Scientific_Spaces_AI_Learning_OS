@@ -309,11 +309,7 @@ class SourceSelector:
     ) -> tuple[Mapping[str, tuple[Mapping[str, Any], ...]], bool]:
         if not graph_context or not str(graph_context.get("node_id") or "").strip():
             return {"nodes": (), "edges": ()}, False
-        raw_nodes = graph_context.get("nodes") if isinstance(graph_context.get("nodes"), Sequence) else ()
-        raw_edges = graph_context.get("edges") if isinstance(graph_context.get("edges"), Sequence) else ()
-        nodes = tuple(_safe_graph_node(item) for item in raw_nodes[: self.policy.max_graph_nodes] if isinstance(item, Mapping))
-        edges = tuple(_safe_graph_edge(item) for item in raw_edges[: self.policy.max_graph_edges] if isinstance(item, Mapping))
-        return {"nodes": nodes, "edges": edges}, len(raw_nodes) > len(nodes) or len(raw_edges) > len(edges)
+        return sanitize_graph_context(graph_context, self.policy)
 
     @staticmethod
     def _evaluate_evidence(
@@ -477,34 +473,98 @@ def _bounded_excerpt(content: str, available: int) -> str:
     return normalized[:boundary].strip() if boundary > 0 else ""
 
 
+def sanitize_graph_context(
+    graph_context: Mapping[str, Any] | None,
+    policy: SourceSelectionPolicy,
+) -> tuple[Mapping[str, tuple[Mapping[str, Any], ...]], bool]:
+    """Return a bounded, path-safe graph view without changing valid output on repeat calls."""
+    if not graph_context:
+        return {"nodes": (), "edges": ()}, False
+    raw_nodes = _graph_records(graph_context.get("nodes"))
+    raw_edges = _graph_records(graph_context.get("edges"))
+    nodes = tuple(_safe_graph_node(item) for item in raw_nodes[: policy.max_graph_nodes])
+    edges = tuple(_safe_graph_edge(item) for item in raw_edges[: policy.max_graph_edges])
+    return {"nodes": nodes, "edges": edges}, len(raw_nodes) > len(nodes) or len(raw_edges) > len(edges)
+
+
+def _graph_records(value: Any) -> tuple[Mapping[str, Any], ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        return ()
+    return tuple(item for item in value if isinstance(item, Mapping))
+
+
 def _safe_graph_node(node: Mapping[str, Any]) -> Mapping[str, Any]:
-    safe = {
+    safe: dict[str, Any] = {
         "node_id": str(node.get("node_id") or ""),
         "node_type": str(node.get("node_type") or ""),
         "label": str(node.get("label") or ""),
     }
-    if "evidence" in node:
-        safe["evidence"] = node["evidence"]
-    if "source_count" in node:
-        safe["source_count"] = node["source_count"]
-    if "truncated" in node:
-        safe["truncated"] = bool(node["truncated"])
-    provenance = node.get("provenance")
-    if isinstance(provenance, Sequence) and not isinstance(provenance, (str, bytes)):
-        safe["provenance"] = tuple(provenance[:2])
+    source_id = _safe_graph_value(node.get("source_id"))
+    source_url = _safe_graph_value(node.get("source_url"))
+    evidence = _safe_graph_value(node.get("evidence"))
+    metadata = node.get("metadata")
+    if source_id is not _REMOVED:
+        safe["source_id"] = source_id
+    if source_url is not _REMOVED:
+        safe["source_url"] = source_url
+    if evidence is not _REMOVED:
+        safe["evidence"] = evidence
+    if isinstance(metadata, Mapping):
+        safe_metadata: dict[str, Any] = {}
+        normalized = _safe_graph_value(metadata.get("normalized"))
+        source_count = metadata.get("source_count")
+        if normalized is not _REMOVED:
+            safe_metadata["normalized"] = normalized
+        if isinstance(source_count, int) and not isinstance(source_count, bool):
+            safe_metadata["source_count"] = source_count
+        if "truncated" in metadata:
+            safe_metadata["truncated"] = bool(metadata["truncated"])
+        sources = _graph_records(metadata.get("sources"))
+        safe_sources = tuple(
+            source for item in sources[:2] if (source := _safe_graph_value(item)) is not _REMOVED
+        )
+        if "sources" in metadata:
+            safe_metadata["sources"] = safe_sources
+        if safe_metadata:
+            safe["metadata"] = safe_metadata
     return safe
 
 
 def _safe_graph_edge(edge: Mapping[str, Any]) -> Mapping[str, Any]:
-    safe = {
+    safe: dict[str, Any] = {
         "edge_id": str(edge.get("edge_id") or ""),
         "edge_type": str(edge.get("edge_type") or ""),
         "source_node_id": str(edge.get("source_node_id") or ""),
         "target_node_id": str(edge.get("target_node_id") or ""),
     }
-    if "evidence" in edge:
-        safe["evidence"] = edge["evidence"]
+    evidence = _safe_graph_value(edge.get("evidence"))
+    if evidence is not _REMOVED:
+        safe["evidence"] = evidence
     return safe
+
+
+_REMOVED = object()
+_LOCAL_PATH = re.compile(
+    r"(?:^file:|(?:^|[\"'\s:=])/(?:home|users|root|tmp|var|etc|opt|mnt|srv|data)/|(?:^|[\"'\s:=])[A-Za-z]:[\\/])",
+    re.IGNORECASE,
+)
+
+
+def _safe_graph_value(value: Any) -> Any:
+    if isinstance(value, str):
+        return _REMOVED if _LOCAL_PATH.search(value) else value
+    if isinstance(value, Mapping):
+        return {
+            str(key): sanitized
+            for key, item in value.items()
+            if str(key) not in {"content", "body", "path", "file_path", "store_path"}
+            and (sanitized := _safe_graph_value(item)) is not _REMOVED
+        }
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes)):
+        return tuple(sanitized for item in value if (sanitized := _safe_graph_value(item)) is not _REMOVED)
+    if value is None or isinstance(value, (bool, int, float)):
+        return value
+    return _REMOVED
 
 
 def _estimate_tokens(context: str) -> int:

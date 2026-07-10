@@ -18,7 +18,9 @@ from app.tutor.source_selection import (
     SourceSelectionPolicy,
     SourceSelector,
     TutorSourceConfigurationError,
+    sanitize_graph_context,
 )
+from app.tutor.graph_context import collect_graph_context
 
 
 def tutor_request(question: str, *, article_id: str | None = None) -> TutorRequest:
@@ -415,7 +417,21 @@ def test_graph_context_requires_explicit_node_id_and_is_bounded() -> None:
     selector = SourceSelector(SourceSelectionPolicy(max_graph_nodes=1, max_graph_edges=1))
     graph_context = {
         "nodes": [
-            {"node_id": "concept:attention", "node_type": "concept", "label": "Attention", "provenance": [1, 2, 3]},
+            {
+                "node_id": "concept:attention",
+                "node_type": "concept",
+                "label": "Attention",
+                "metadata": {
+                    "normalized": "attention",
+                    "source_count": 3,
+                    "truncated": True,
+                    "sources": [
+                        {"article_id": "attention", "article_url": "https://spaces.ac.cn/archives/attention"},
+                        {"article_id": "query", "article_url": "https://spaces.ac.cn/archives/query"},
+                        {"article_id": "value", "article_url": "https://spaces.ac.cn/archives/value"},
+                    ],
+                },
+            },
             {"node_id": "concept:query", "node_type": "concept", "label": "Query"},
         ],
         "edges": [
@@ -436,7 +452,157 @@ def test_graph_context_requires_explicit_node_id_and_is_bounded() -> None:
     assert implicit.graph_context == {"nodes": (), "edges": ()}
     assert len(explicit.graph_context["nodes"]) == 1
     assert len(explicit.graph_context["edges"]) == 1
-    assert len(explicit.graph_context["nodes"][0]["provenance"]) == 2
+    assert len(explicit.graph_context["nodes"][0]["metadata"]["sources"]) == 2
+
+
+class SpyGraphService:
+    def __init__(self, subgraph: dict[str, object] | None = None, error: Exception | None = None) -> None:
+        self.calls = 0
+        self.subgraph = subgraph or {"nodes": [], "edges": []}
+        self.error = error
+        self.call_args: dict[str, object] | None = None
+
+    def get_subgraph(self, node_id: str, **kwargs: object) -> dict[str, object]:
+        self.calls += 1
+        self.call_args = {"node_id": node_id, **kwargs}
+        if self.error:
+            raise self.error
+        return self.subgraph
+
+
+def test_graph_context_is_not_loaded_without_explicit_node_id() -> None:
+    graph = SpyGraphService()
+
+    result = collect_graph_context(graph, node_id=None, policy=SourceSelectionPolicy())
+
+    assert graph.calls == 0
+    assert result.context == {"nodes": [], "edges": []}
+    assert result.supplemental_sources == ()
+    assert result.error_code is None
+
+
+def test_high_degree_graph_concept_context_is_bounded_and_sanitized() -> None:
+    root = {
+        "node_id": "concept:attention",
+        "node_type": "concept",
+        "label": "Attention",
+        "source_url": "file:///private/graph.json",
+        "metadata": {
+            "normalized": "attention",
+            "source_count": 255,
+            "truncated": True,
+            "sources": [
+                {
+                    "article_id": "attention-001",
+                    "article_title": "Attention",
+                    "article_url": "https://spaces.ac.cn/archives/6508",
+                    "source_context": "/home/private/attention.md",
+                    "evidence": "Attention is a weighted lookup.",
+                },
+                {
+                    "article_id": "attention-002",
+                    "article_title": "Transformer",
+                    "article_url": "https://spaces.ac.cn/archives/6509",
+                    "source_context": "Transformer attention",
+                    "evidence": "query and key",
+                },
+                {"article_id": "attention-003", "article_url": "file:///private/third.md"},
+            ],
+        },
+    }
+    nodes = [root, *[
+        {"node_id": f"concept:neighbor-{index}", "node_type": "concept", "label": f"Neighbor {index}"}
+        for index in range(25)
+    ]]
+    edges = [
+        {
+            "edge_id": f"edge:{index}",
+            "edge_type": "related_to",
+            "source_node_id": "concept:attention",
+            "target_node_id": f"concept:neighbor-{index}",
+            "evidence": {"article_url": "file:///private/evidence.md", "excerpt": "safe evidence"},
+        }
+        for index in range(35)
+    ]
+    graph = SpyGraphService({"nodes": nodes, "edges": edges})
+
+    result = collect_graph_context(graph, node_id="concept:attention", policy=SourceSelectionPolicy())
+
+    assert graph.call_args == {
+        "node_id": "concept:attention",
+        "depth": 2,
+        "node_limit": 20,
+        "edge_limit": 30,
+    }
+    assert len(result.context["nodes"]) <= 20
+    assert len(result.context["edges"]) <= 30
+    assert len(result.context["nodes"][0]["metadata"]["sources"]) <= 2
+    assert result.context["nodes"][0]["metadata"]["source_count"] == 255
+    assert result.context["nodes"][0]["metadata"]["truncated"] is True
+    assert "source_url" not in result.context["nodes"][0]
+    assert "source_context" not in result.context["nodes"][0]["metadata"]["sources"][0]
+    assert "article_url" not in result.context["edges"][0]["evidence"]
+    assert len(result.supplemental_sources) == 50
+    assert {source.source_type for source in result.supplemental_sources} == {"graph_node", "graph_edge"}
+
+
+def test_graph_context_missing_node_degrades_to_article_only() -> None:
+    from app.graph.service import NodeNotFoundError
+
+    result = collect_graph_context(
+        SpyGraphService(error=NodeNotFoundError("Graph node not found: concept:missing")),
+        node_id="concept:missing",
+        policy=SourceSelectionPolicy(),
+    )
+
+    assert result.context == {"nodes": [], "edges": []}
+    assert result.supplemental_sources == ()
+    assert result.error_code == "graph_node_not_found"
+
+
+def test_graph_context_corrupt_store_degrades_to_article_only() -> None:
+    result = collect_graph_context(
+        SpyGraphService(error=json.JSONDecodeError("bad graph", "{", 1)),
+        node_id="concept:attention",
+        policy=SourceSelectionPolicy(),
+    )
+
+    assert result.context == {"nodes": [], "edges": []}
+    assert result.supplemental_sources == ()
+    assert result.error_code == "graph_unavailable"
+
+
+def test_graph_context_sanitizer_is_idempotent() -> None:
+    policy = SourceSelectionPolicy()
+    context = {
+        "nodes": [
+            {
+                "node_id": "concept:attention",
+                "node_type": "concept",
+                "label": "Attention",
+                "metadata": {
+                    "source_count": 1,
+                    "truncated": False,
+                    "sources": [{"article_url": "https://spaces.ac.cn/archives/6508", "path": "/tmp/secret"}],
+                },
+            }
+        ],
+        "edges": [],
+    }
+
+    once, _ = sanitize_graph_context(context, policy)
+    twice, _ = sanitize_graph_context(once, policy)
+
+    assert twice == once
+
+
+def test_graph_context_does_not_swallow_programming_errors() -> None:
+    with pytest.raises(ValueError, match="programming error"):
+        collect_graph_context(
+            SpyGraphService(error=ValueError("programming error")),
+            node_id="concept:attention",
+            policy=SourceSelectionPolicy(),
+        )
 
 
 def test_context_ceiling_truncates_content_without_losing_citation_identity() -> None:
