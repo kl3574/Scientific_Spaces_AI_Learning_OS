@@ -192,6 +192,14 @@ Canonical refusal reasons are:
 - `unsupported_query`
 - `invalid_source_schema`
 
+These are internal evidence-decision reasons. The outward
+`TutorResponse.refusal_reason` preserves the M7 compatibility values:
+`no_relevant_source` and `unsupported_query` map to `no_sources`, while
+`insufficient_formula_evidence` maps to `insufficient_formula_sources`.
+`evidence_summary.refusal_reason` exposes the more precise internal reason as
+an additive field. Research keeps its existing no-source compatibility value
+and mode-specific Chinese message.
+
 Unsupported detection combines the full-corpus local-token support gate with a
 small deterministic guard for explicit real-time, web-search, weather, market,
 or current-news requests. A populated FAISS index must not turn every query
@@ -227,6 +235,12 @@ safe optional response summaries:
 
 The response does not expose internal prompts, full candidate lists, full
 Graph documents, local paths, API keys, or unselected evidence.
+
+For backward compatibility, `sources` remains the concatenation of selected
+Article chunks and separately bounded Graph/Zotero supplemental sources.
+Grounding and source-count metrics use only Article chunks; Graph and Zotero
+entries cannot satisfy Article evidence requirements. `graph_context` remains
+present but is sanitized and bounded by the selector policy.
 
 `POST /tutor/quiz` keeps its existing shape and may accept an optional topic
 question so full-corpus quiz selection does not require a hard-coded Article.
