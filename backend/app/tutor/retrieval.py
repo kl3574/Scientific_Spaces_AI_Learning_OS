@@ -8,7 +8,7 @@ from typing import Protocol
 
 from app.rag.chunking import ArticleChunk, chunk_article
 from app.rag.embeddings import EmbeddingProvider, FakeEmbeddingProvider
-from app.rag.full_corpus import FullCorpusRagService
+from app.rag.full_corpus import FullCorpusRagService, has_local_token_support, local_support_tokens
 from app.rag.vector_store import FaissVectorStore, SearchResult
 from app.services.article_reader import article_store_path, get_article, list_articles
 from app.tutor.models import TutorRequest
@@ -84,9 +84,11 @@ class ConfiguredTutorRetriever:
             )
         if not chunks:
             return RetrievalResult(results=[], locally_supported=False)
+        if not has_local_token_support(question, local_support_tokens(chunks)):
+            return RetrievalResult(results=[], locally_supported=False)
         vector_store = FaissVectorStore.from_chunks(chunks, self.embedding_provider)
         results = vector_store.search(question, top_k=top_k, embedding_provider=self.embedding_provider)
-        return RetrievalResult(results=results, locally_supported=bool(results))
+        return RetrievalResult(results=results, locally_supported=True)
 
 
 def reset_configured_retriever_cache() -> None:
@@ -128,7 +130,7 @@ def _persisted_index_cache_key(*, article_store: Path, configured_index_dir: Pat
 
 
 def _artifact_directory(configured_index_dir: Path) -> Path:
-    return configured_index_dir if (configured_index_dir / "manifest.json").exists() else configured_index_dir / "index"
+    return configured_index_dir if (configured_index_dir / "manifest.json").is_file() else configured_index_dir / "index"
 
 
 def _file_signature(path: Path) -> tuple[int, int] | None:

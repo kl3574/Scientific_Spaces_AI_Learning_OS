@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 import urllib.request
 from pathlib import Path
 
 import pytest
 
 from app.rag.chunking import ArticleChunk
-from app.rag.full_corpus import FullCorpusIndexError, build_full_corpus_index
+from app.rag.full_corpus import FullCorpusIndexError, FullCorpusRagService, build_full_corpus_index
+from app.rag.service import NO_SOURCE_ANSWER
 from app.rag.vector_store import SearchResult
 from app.tutor import retrieval
 from app.tutor.models import TutorRequest
@@ -54,11 +56,17 @@ def built_index(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> tuple[Path, 
     return store, output
 
 
+@pytest.mark.parametrize("direct_index_dir", [False, True], ids=["root-directory", "direct-index-directory"])
 def test_configured_retriever_reuses_loaded_full_corpus_index(
     monkeypatch: pytest.MonkeyPatch,
     built_index: tuple[Path, Path],
+    direct_index_dir: bool,
 ) -> None:
-    del built_index
+    _, output = built_index
+    monkeypatch.setenv(
+        "SCIENTIFIC_SPACES_RAG_INDEX_DIR",
+        str(output / "index" if direct_index_dir else output),
+    )
     loads = 0
     original_load = retrieval.FullCorpusRagService.load
 
@@ -75,6 +83,33 @@ def test_configured_retriever_reuses_loaded_full_corpus_index(
 
     assert first.results and second.results
     assert loads == 1
+
+
+def test_cache_root_resolution_ignores_non_file_manifest(
+    monkeypatch: pytest.MonkeyPatch,
+    built_index: tuple[Path, Path],
+) -> None:
+    _, output = built_index
+    (output / "manifest.json").mkdir()
+    nested_manifest = output / "index" / "manifest.json"
+    loads = 0
+    original_load = retrieval.FullCorpusRagService.load
+
+    def counting_loader(*args, **kwargs):
+        nonlocal loads
+        loads += 1
+        return original_load(*args, **kwargs)
+
+    monkeypatch.setattr(retrieval.FullCorpusRagService, "load", counting_loader)
+    retriever = ConfiguredTutorRetriever()
+
+    first = retriever.retrieve(tutor_request("attention"), candidate_limit=20)
+    stat = nested_manifest.stat()
+    os.utime(nested_manifest, ns=(stat.st_atime_ns, stat.st_mtime_ns + 1))
+    second = retriever.retrieve(tutor_request("transformer"), candidate_limit=20)
+
+    assert first.results and second.results
+    assert loads == 2
 
 
 def test_explicit_article_id_retrieval_never_returns_other_articles(built_index: tuple[Path, Path]) -> None:
@@ -95,6 +130,19 @@ def test_configured_corrupt_index_fails_closed(built_index: tuple[Path, Path]) -
         ConfiguredTutorRetriever().retrieve(tutor_request("attention"), candidate_limit=20)
 
 
+def test_full_corpus_rag_service_preserves_no_source_answer_for_zero_top_k(
+    built_index: tuple[Path, Path],
+) -> None:
+    store, output = built_index
+    service = FullCorpusRagService.load(article_store_path=store, index_dir=output)
+
+    assert service.search(question="attention", top_k=0) == []
+    assert service.answer(question="attention", top_k=0) == {
+        "answer": NO_SOURCE_ANSWER,
+        "sources": [],
+    }
+
+
 def test_unconfigured_retriever_uses_small_fixture_index(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -108,6 +156,56 @@ def test_unconfigured_retriever_uses_small_fixture_index(
     result = ConfiguredTutorRetriever().retrieve(tutor_request("attention"), candidate_limit=20)
 
     assert [item.chunk.article_id for item in result.results] == ["attention"]
+
+
+def test_unconfigured_retriever_rejects_query_without_local_token_support(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = tmp_path / "articles.json"
+    store.write_text(json.dumps([_article("attention", "# Attention\n\nattention transformer")]), encoding="utf-8")
+    monkeypatch.setenv("SCIENTIFIC_SPACES_ARTICLE_STORE", str(store))
+    monkeypatch.delenv("SCIENTIFIC_SPACES_RAG_INDEX_DIR", raising=False)
+    search_calls = 0
+    original_search = retrieval.FaissVectorStore.search
+
+    def counting_search(*args, **kwargs):
+        nonlocal search_calls
+        search_calls += 1
+        return original_search(*args, **kwargs)
+
+    monkeypatch.setattr(retrieval.FaissVectorStore, "search", counting_search)
+
+    result = ConfiguredTutorRetriever().retrieve(tutor_request("zxqv_unsupported_7f3c9a"), candidate_limit=20)
+
+    assert result.results == []
+    assert result.locally_supported is False
+    assert search_calls == 0
+
+
+def test_explicit_article_retriever_rejects_query_without_local_token_support(
+    monkeypatch: pytest.MonkeyPatch,
+    built_index: tuple[Path, Path],
+) -> None:
+    del built_index
+    search_calls = 0
+    original_search = retrieval.FaissVectorStore.search
+
+    def counting_search(*args, **kwargs):
+        nonlocal search_calls
+        search_calls += 1
+        return original_search(*args, **kwargs)
+
+    monkeypatch.setattr(retrieval.FaissVectorStore, "search", counting_search)
+
+    result = ConfiguredTutorRetriever().retrieve(
+        tutor_request("zxqv_unsupported_7f3c9a", article_id="attention"),
+        candidate_limit=20,
+    )
+
+    assert result.results == []
+    assert result.locally_supported is False
+    assert search_calls == 0
 
 
 def test_fake_provider_retrieval_never_accesses_network(

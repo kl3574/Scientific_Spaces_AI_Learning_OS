@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from statistics import mean, median
-from typing import Any
+from typing import AbstractSet, Any, Iterable
 
 import faiss
 import numpy as np
@@ -113,12 +113,12 @@ class FullCorpusRagService:
     ) -> None:
         self.loaded_index = loaded_index
         self.embedding_provider = embedding_provider
-        self._corpus_tokens = _corpus_tokens(loaded_index.chunks)
         self._service = RagService(
             embedding_provider=embedding_provider,
             llm_provider=FakeLLMProvider(),
         )
         article_chunks = [chunk.to_article_chunk() for chunk in loaded_index.chunks]
+        self._corpus_tokens = local_support_tokens(article_chunks)
         self._service.index = RagIndex(
             article_count=int(loaded_index.manifest["article_count"]),
             chunks=article_chunks,
@@ -142,14 +142,14 @@ class FullCorpusRagService:
         return cls(loaded_index=loaded, embedding_provider=provider)
 
     def has_local_support(self, question: str) -> bool:
-        return bool(_tokens(question) & self._corpus_tokens)
+        return has_local_token_support(question, self._corpus_tokens)
 
     def search(self, *, question: str, top_k: int = 20) -> list[SearchResult]:
-        if not self.has_local_support(question):
+        if top_k <= 0 or not self.has_local_support(question):
             return []
         return self.loaded_index.vector_store.search(
             question,
-            top_k=max(1, min(top_k, 20)),
+            top_k=min(top_k, 20),
             embedding_provider=self.embedding_provider,
         )
 
@@ -815,10 +815,14 @@ def _tokens(text: str) -> set[str]:
     return tokens
 
 
-def _corpus_tokens(chunks: list[FullCorpusChunk]) -> set[str]:
+def local_support_tokens(chunks: Iterable[ArticleChunk]) -> frozenset[str]:
     tokens: set[str] = set()
     for chunk in chunks:
-        tokens.update(_tokens(chunk.text))
+        tokens.update(_tokens(chunk.content))
         tokens.update(_tokens(chunk.article_title))
-        tokens.update(_tokens(chunk.section))
-    return tokens
+        tokens.update(_tokens(chunk.section_title))
+    return frozenset(tokens)
+
+
+def has_local_token_support(question: str, corpus_tokens: AbstractSet[str]) -> bool:
+    return bool(_tokens(question) & corpus_tokens)
