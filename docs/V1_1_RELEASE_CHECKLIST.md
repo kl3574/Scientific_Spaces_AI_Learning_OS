@@ -8,7 +8,7 @@ Current formal version: `v1.0.0`
 
 Gate status: **PASS - Ready to tag v1.1.0 after the audit commit main CI succeeds**
 
-The prior Article/Graph compatibility and Learning migration blockers are resolved by P2-008. The fresh P2-007 audit returns recommendation A. This task still does not create a tag or Release.
+The prior Article/Graph compatibility and Learning migration blockers are resolved by P2-008. The fresh P2-007 audit returns recommendation A.
 
 ## Repository
 
@@ -18,8 +18,8 @@ The prior Article/Graph compatibility and Learning migration blockers are resolv
 - [x] `v1.0.0` and its GitHub Release were not moved or rewritten.
 - [x] Final pre-release baseline SHA is `220f11eee637e19074776f55bb8f0b8bb5b82171`.
 - [x] `v1.0.0` baseline has not changed and post-release artifacts were reviewed.
-- [ ] Push the audit commit and confirm `main` is synchronized.
-- [ ] Record the final `v1.1.0` target commit after the audit commit is on `origin/main` and main CI passes.
+- [x] Push the audit commit and confirm `main` is synchronized.
+- [x] Record the final `v1.1.0` target commit after the audit commit is on `origin/main` and main CI passes.
 
 ## Tests
 
@@ -56,8 +56,8 @@ The prior Article/Graph compatibility and Learning migration blockers are resolv
 - [x] Docker compose smoke runs on tag pushes and manual dispatch.
 - [x] P2-008 `main` run `29157847470` succeeded for commit `bf6a4515ceb4e7ed6d9bd150a4aaba444b131c73`.
 - [x] CI requires no real-provider secret.
-- [ ] Release metadata commit `main` CI succeeds.
-- [ ] `v1.1.0` tag CI succeeds, including Docker compose smoke.
+- [x] Release metadata commit `main` CI succeeds.
+- [x] `v1.1.0` tag CI succeeds, including Docker compose smoke.
 
 ## Artifacts
 
@@ -93,11 +93,11 @@ The prior Article/Graph compatibility and Learning migration blockers are resolv
 - [x] Resolve/version the M2 Article list compatibility blocker and add a >20-Article regression.
 - [x] Audit M6 default query/build compatibility and verify the Learning migration/rollback contract.
 - [x] Re-run P2-007 and obtain `A: Ready to tag v1.1.0`.
-- [ ] Push the audit commit to `origin/main`.
-- [ ] Wait for main CI and record the successful run URL.
-- [ ] Confirm the working tree is clean and `main` equals `origin/main`.
-- [ ] Create annotated tag `v1.1.0` at the audited commit.
-- [ ] Push only the new tag; do not move `v1.0.0`.
-- [ ] Wait for tag CI: backend pytest, frontend build, and Docker compose smoke must pass.
-- [ ] Create and publish the GitHub Release using the finalized release notes.
-- [ ] Add a post-release CI evidence document with tag, target SHA, run URL, jobs, and conclusion.
+- [x] Push the audit commit to `origin/main`.
+- [x] Wait for main CI and record the successful run URL.
+- [x] Confirm the working tree is clean and `main` equals `origin/main`.
+- [x] Create annotated tag `v1.1.0` at the audited commit.
+- [x] Push only the new tag; do not move `v1.0.0`.
+- [x] Wait for tag CI: backend pytest, frontend build, and Docker compose smoke must pass.
+- [x] Create and publish the GitHub Release using the finalized release notes.
+- [x] Add a post-release CI evidence document with tag, target SHA, run URL, jobs, and conclusion.

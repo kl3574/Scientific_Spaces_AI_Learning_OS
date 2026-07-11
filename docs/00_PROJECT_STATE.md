@@ -2,19 +2,19 @@
 
 Version:
 
-v1.0.0
+v1.1.0
 
 Candidate Version:
 
-v1.1.0
+Released
 
 Phase:
 
-v1.1 Release Readiness
+v1.1 Released
 
 Status:
 
-Ready to tag v1.1.0
+Published
 
 Release Readiness:
 
@@ -113,6 +113,14 @@ Release readiness audit passed
 v1.0.0 Release:
 
 Published
+
+v1.1.0 Release:
+
+Published
+
+Next Targeted Task:
+
+post-release monitoring / v1.2 planning
 
 Post-freeze Change Rule:
 

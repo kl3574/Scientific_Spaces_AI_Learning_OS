@@ -4,15 +4,17 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 
 ## Current Status
 
-- Version: `v1.0.0`
-- Formal Version: `v1.0.0`
-- Phase: `MVP Complete`
-- Status: `Ready to tag v1.1.0; not yet released`
+- Version: `v1.1.0`
+- Formal Version: `v1.1.0`
+- Phase: `v1.1 Released`
+- Status: `Published`
 - Candidate: `v1.1.0`
 - Release Readiness: `PASS`
 - Latest gate: `P2-007 re-audit PASS`
+- Current version: `v1.1.0`
 
-Release-readiness evidence is recorded in `docs/POST_MVP_RELEASE_AUDIT.md`.
+Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
+Release notes: `docs/RELEASE_NOTES_v1.1.0.md` (draft history in `docs/RELEASE_NOTES_v1.1.0_DRAFT.md`).
 
 Post-MVP corpus processing planning is recorded in `docs/FULL_CORPUS_PROCESSING_PLAN.md`.
 
