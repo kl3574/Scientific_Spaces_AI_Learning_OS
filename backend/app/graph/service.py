@@ -149,13 +149,20 @@ class GraphService:
         }
 
     def search_nodes(self, query: str, node_type: str | None = None, limit: int = 50) -> list[GraphNode]:
-        page = self.list_nodes(
-            query=query,
-            node_type=node_type,
-            page=1,
-            page_size=max(1, min(limit, 100)),
-        )
-        return [GraphNode.from_dict(item) for item in page["items"]]
+        normalized = query.strip().lower()
+        capped_limit = max(1, min(limit, 100))
+        results: list[GraphNode] = []
+        for node in self.get_graph().nodes:
+            if node_type and node.node_type != node_type:
+                continue
+            haystack = " ".join(
+                [node.label, node.node_id, str(node.source_id or ""), _metadata_search_text(node.metadata)]
+            ).lower()
+            if not normalized or normalized in haystack:
+                results.append(node)
+            if len(results) >= capped_limit:
+                break
+        return results
 
     def get_node(self, node_id: str) -> GraphNode:
         node = self._index().node_map.get(node_id)

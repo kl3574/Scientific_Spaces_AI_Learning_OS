@@ -6,9 +6,9 @@ Audit date: 2026-07-11
 
 Current formal version: `v1.0.0`
 
-Gate status: **BLOCKED**
+Gate status: **P2-008 PASS; P2-007 RE-AUDIT PENDING**
 
-Blocking item: unparameterized `GET /articles` does not preserve the frozen v1.0 list behavior. Release actions remain disabled until a targeted compatibility/migration revision and this gate's re-run pass.
+The prior Article/Graph compatibility and Learning migration blockers are resolved by P2-008. Release actions remain disabled until the P2-008 commit is on `origin/main`, main CI passes, and a fresh P2-007 audit returns recommendation A.
 
 ## Repository
 
@@ -22,9 +22,14 @@ Blocking item: unparameterized `GET /articles` does not preserve the frozen v1.0
 
 ## Tests
 
-- [x] Backend full suite: 453 passed, 3 skipped.
+- [x] Backend full suite: 469 passed, 3 skipped.
+- [x] Article legacy/versioned regression: 18 passed, including 37-record no-truncation and duplicate-record compatibility coverage.
+- [x] Graph legacy/versioned regression: 11 passed.
+- [x] Learning JSON/SQLite migration and persistence regression: 16 passed.
 - [x] Frontend production build: PASS, 8 routes.
+- [x] Frontend Article API client tests: 3/3 PASS.
 - [x] Frontend Graph tests: 7/7 PASS.
+- [x] Fresh Frontend Graph tests after endpoint versioning: 8/8 PASS.
 - [x] Frontend Tutor tests: 13/13 PASS.
 - [x] Original deterministic RAG/Tutor evaluation: 9/9 PASS.
 - [x] Full-corpus RAG evaluation: PASS, 12 queries, expected hit@10 90.91%, 0 errors/fabrications.
@@ -36,6 +41,10 @@ Blocking item: unparameterized `GET /articles` does not preserve the frozen v1.0
 - [x] Configured operations health: PASS with zero issues.
 - [x] Essential backup, independent verification, isolated restore, and restored Article audit: PASS.
 - [x] Production-like backend API, Reader detail, and frontend route smoke: PASS.
+- [x] Full-corpus legacy Article smoke: 1,311/1,311 returned with exact v1.0 top-level keys.
+- [x] Full-corpus `/v1.1/articles` smoke: 20 returned, total 1,311.
+- [x] Managed full-corpus `POST /graph/build`: 200 with 52,874 nodes/82,230 edges; Graph SHA-256 unchanged.
+- [x] Reader Chromium smoke uses `/v1.1/articles`: PASS; final controlled run blocked four remote image references and received zero external responses.
 
 ## CI
 
@@ -73,14 +82,16 @@ Blocking item: unparameterized `GET /articles` does not preserve the frozen v1.0
 - [x] Security/privacy baseline and verification are present.
 - [x] Deployment profile and verification are present.
 - [x] Persistence migration/rollback and local data management are documented.
+- [x] `docs/API_COMPATIBILITY_MIGRATION_REVISION.md` records P2-008 evidence and recommendation A to rerun P2-007.
+- [x] `docs/ADR/0005-m1-post-freeze-corpus-compatibility-revisions.md` records M1 post-freeze governance and compatibility.
 - [x] Backup/restore/health/cleanup behavior is documented.
 - [x] Known limitations do not claim multi-user production, full image parity, exhaustive research, or real-model certification.
 - [x] Historical P0 numbering drift and missing historical boundary documents are recorded as documentation hygiene risks.
 
 ## Release action
 
-- [ ] Resolve or version the M2 Article list compatibility blocker and add a >20-Article regression.
-- [ ] Audit M6 default query/build compatibility and verify the Learning migration/rollback contract.
+- [x] Resolve/version the M2 Article list compatibility blocker and add a >20-Article regression.
+- [x] Audit M6 default query/build compatibility and verify the Learning migration/rollback contract.
 - [ ] Re-run P2-007 and obtain `A: Ready to release v1.1.0`.
 - [ ] Push the audit commit to `origin/main`.
 - [ ] Wait for main CI and record the successful run URL.

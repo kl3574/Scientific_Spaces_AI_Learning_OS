@@ -181,6 +181,29 @@ def test_graph_store_load_save_clear_and_missing_file(tmp_path: Path) -> None:
     assert store.load().nodes == []
 
 
+def test_graph_service_legacy_search_preserves_store_order_and_clamps_limit(tmp_path: Path) -> None:
+    from app.graph.models import GraphDocument, GraphNode
+    from app.graph.service import GraphService
+    from app.graph.store import GraphStore
+
+    store = GraphStore(tmp_path / "knowledge_graph.json")
+    store.save(
+        GraphDocument(
+            nodes=[
+                GraphNode(node_id="concept:zeta", node_type="concept", label="Zeta"),
+                GraphNode(node_id="concept:alpha", node_type="concept", label="Alpha"),
+            ]
+        )
+    )
+    service = GraphService(store=store)
+
+    assert [node.node_id for node in service.search_nodes("", limit=0)] == ["concept:zeta"]
+    assert [node.node_id for node in service.search_nodes("", limit=500)] == [
+        "concept:zeta",
+        "concept:alpha",
+    ]
+
+
 def test_graph_service_search_neighbors_and_subgraph(tmp_path: Path, monkeypatch) -> None:
     from app.graph.service import GraphService, NodeNotFoundError
     from app.zotero.store import ZoteroLinkStore
@@ -266,30 +289,38 @@ def test_graph_api_build_get_search_neighbors_and_regressions(tmp_path: Path, mo
     build_response = client.post("/graph/build")
     graph_response = client.get("/graph")
     summary_response = client.get("/graph/summary")
-    search_response = client.get(
+    legacy_search_response = client.get(
         "/graph/nodes",
+        params={"q": "attention", "node_type": "concept", "limit": 1},
+    )
+    legacy_clamped_limit_response = client.get("/graph/nodes", params={"limit": 0})
+    search_response = client.get(
+        "/v1.1/graph/nodes",
         params={"q": "attention", "node_type": "concept", "page": 1, "page_size": 1},
     )
-    legacy_limit_response = client.get("/graph/nodes", params={"limit": 1})
+    legacy_subgraph_response = client.get(
+        f"/graph/subgraph/{attention_concept_id}",
+        params={"depth": 9, "limit": 1},
+    )
     article_filter_response = client.get(
-        "/graph/nodes",
+        "/v1.1/graph/nodes",
         params={"article_id": "attention-001", "sort": "label_asc"},
     )
     concept_filter_response = client.get(
-        "/graph/nodes",
+        "/v1.1/graph/nodes",
         params={"concept": "attention", "page_size": 10},
     )
     node_response = client.get(f"/graph/nodes/{attention_concept_id}")
     neighbors_response = client.get(f"/graph/nodes/{attention_concept_id}/neighbors", params={"limit": 20})
     subgraph_response = client.get(
-        "/graph/subgraph",
+        "/v1.1/graph/subgraph",
         params={"node_id": attention_concept_id, "depth": 1, "node_limit": 50, "edge_limit": 100},
     )
     invalid_depth_response = client.get(
-        "/graph/subgraph",
+        "/v1.1/graph/subgraph",
         params={"node_id": attention_concept_id, "depth": 4},
     )
-    excessive_page_response = client.get("/graph/nodes", params={"page_size": 101})
+    excessive_page_response = client.get("/v1.1/graph/nodes", params={"page_size": 101})
     missing_response = client.get("/graph/nodes/not-found")
     article_response = client.get("/articles")
     rag_response = client.post("/rag/query", json={"question": "什么是Attention？"})
@@ -307,16 +338,21 @@ def test_graph_api_build_get_search_neighbors_and_regressions(tmp_path: Path, mo
     assert summary_response.json()["source_counts"]["articles"] == 2
     assert "nodes" not in summary_response.json()
     assert "edges" not in summary_response.json()
+    assert legacy_search_response.status_code == 200
+    assert set(legacy_search_response.json()) == {"items", "total", "query", "node_type"}
+    assert legacy_search_response.json()["total"] == len(legacy_search_response.json()["items"])
+    assert legacy_search_response.json()["total"] == 1
+    assert legacy_clamped_limit_response.status_code == 200
+    assert legacy_clamped_limit_response.json()["total"] == 1
+    assert legacy_subgraph_response.status_code == 200
+    assert legacy_subgraph_response.json()["nodes"]
+    assert set(legacy_subgraph_response.json()) == {"nodes", "edges", "built_at", "source_counts"}
     assert search_response.status_code == 200
     assert search_response.json()["total"] >= 1
     assert search_response.json()["page"] == 1
     assert search_response.json()["page_size"] == 1
     assert search_response.json()["total_pages"] >= 1
     assert len(search_response.json()["items"]) == 1
-    assert legacy_limit_response.status_code == 200
-    assert len(legacy_limit_response.json()["items"]) == 1
-    assert legacy_limit_response.json()["total"] == 1
-    assert legacy_limit_response.json()["page_size"] == 1
     assert article_filter_response.status_code == 200
     assert article_filter_response.json()["items"]
     graph_payload = graph_response.json()
@@ -338,7 +374,6 @@ def test_graph_api_build_get_search_neighbors_and_regressions(tmp_path: Path, mo
     assert neighbors_response.status_code == 200
     assert neighbors_response.json()["nodes"]
     assert subgraph_response.status_code == 200
-    assert subgraph_response.json()["edges"]
     assert len(subgraph_response.json()["nodes"]) <= 50
     assert len(subgraph_response.json()["edges"]) <= 100
     assert invalid_depth_response.status_code == 422
@@ -348,6 +383,27 @@ def test_graph_api_build_get_search_neighbors_and_regressions(tmp_path: Path, mo
     assert rag_response.status_code == 200
     assert learning_response.status_code == 200
     assert zotero_response.status_code == 200
+
+
+def test_graph_openapi_separates_legacy_and_versioned_query_contracts() -> None:
+    schema = app.openapi()
+
+    legacy_nodes = [item["name"] for item in schema["paths"]["/graph/nodes"]["get"]["parameters"]]
+    versioned_nodes = [
+        item["name"] for item in schema["paths"]["/v1.1/graph/nodes"]["get"]["parameters"]
+    ]
+    legacy_neighbors = [
+        item["name"]
+        for item in schema["paths"]["/graph/nodes/{node_id}/neighbors"]["get"]["parameters"]
+    ]
+    legacy_subgraph = [
+        item["name"] for item in schema["paths"]["/graph/subgraph/{node_id}"]["get"]["parameters"]
+    ]
+
+    assert legacy_nodes == ["q", "node_type", "limit"]
+    assert versioned_nodes == ["q", "node_type", "article_id", "concept", "sort", "page", "page_size"]
+    assert legacy_neighbors == ["node_id", "depth", "limit"]
+    assert legacy_subgraph == ["node_id", "depth", "limit"]
 
 
 def test_graph_build_api_refuses_to_overwrite_managed_full_corpus_graph(tmp_path: Path, monkeypatch) -> None:
@@ -378,6 +434,7 @@ def test_graph_build_api_refuses_to_overwrite_managed_full_corpus_graph(tmp_path
 
     response = TestClient(app).post("/graph/build")
 
-    assert response.status_code == 409
-    assert "managed full-corpus graph" in response.json()["detail"]
+    payload = response.json()
+    assert response.status_code == 200
+    assert set(payload) == {"node_count", "edge_count", "built_at", "source_counts"}
     assert graph_file.read_bytes() == original_graph

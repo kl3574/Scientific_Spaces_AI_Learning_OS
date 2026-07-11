@@ -153,41 +153,43 @@ Backend behavior:
 
 ## Migration Procedure
 
-This task implements the SQLite learning backend and documents the migration path. It does not automatically migrate real local data.
+No automatic migration runs at startup. Create and verify an essential backup, then migrate the existing JSON data with explicit paths:
 
-Manual JSON-to-SQLite migration procedure:
+```bash
+uv run --project backend python scripts/persistence/migrate_learning_json_to_sqlite.py \
+  --json-path .local_data/scientific_spaces/learning.json \
+  --sqlite-path .local_data/scientific_spaces/scientific_spaces.db
+```
 
-1. Back up the current JSON file:
+The migration preserves state, bookmark, note, and session primary keys, timestamps, `read_count`, status, and content. It builds a staged SQLite database and atomically replaces the target only after validation and insertion complete. The source JSON is never modified. Repeating the command replaces the target with the same source snapshot and does not grow record counts.
 
-   ```text
-   .local_data/scientific_spaces/learning.json
-   ```
+After verifying the command result, opt in:
 
-2. Configure an isolated SQLite database path:
+```text
+SCIENTIFIC_SPACES_DB_FILE=.local_data/scientific_spaces/scientific_spaces.db
+SCIENTIFIC_SPACES_LEARNING_BACKEND=sqlite
+```
 
-   ```text
-   SCIENTIFIC_SPACES_DB_FILE=.local_data/scientific_spaces/scientific_spaces.db
-   SCIENTIFIC_SPACES_LEARNING_BACKEND=sqlite
-   ```
+Verify through the unchanged Learning API:
 
-3. Run the backend in SQLite mode.
-
-4. Re-create or import learning state through existing Learning API endpoints.
-
-5. Verify:
-
-   ```text
-   GET /learning/stats
-   GET /learning/state
-   GET /learning/bookmarks
-   GET /learning/sessions
-   ```
-
-No automatic migration script is run at startup. A future P0/P1 task can add a JSON-to-SQLite migration command once backup/restore policy is finalized.
+```text
+GET /learning/stats
+GET /learning/state
+GET /learning/bookmarks
+GET /learning/sessions
+```
 
 ## Rollback Procedure
 
-Rollback to JSON backend:
+If SQLite contains newer writes, export them before switching back:
+
+```bash
+uv run --project backend python scripts/persistence/migrate_learning_sqlite_to_json.py \
+  --sqlite-path .local_data/scientific_spaces/scientific_spaces.db \
+  --json-path .local_data/scientific_spaces/learning.json
+```
+
+The export stages and atomically replaces the JSON target. Verify the resulting JSON and then configure the JSON backend:
 
 ```text
 SCIENTIFIC_SPACES_LEARNING_BACKEND=json
@@ -199,16 +201,18 @@ If using an explicit JSON file:
 SCIENTIFIC_SPACES_LEARNING_FILE=.local_data/scientific_spaces/learning.json
 ```
 
-Rollback does not require deleting the SQLite file. SQLite files are runtime artifacts and are ignored by git.
+Rollback does not require deleting the SQLite file. A backend setting change alone does not transfer writes between backends. SQLite and JSON files are runtime artifacts and are ignored by git. General backup and isolated restore remain available through `scripts/ops/backup_local_data.py` and `scripts/ops/restore_local_backup.py`.
 
 ## Test Evidence
 
-Targeted SQLite/config/API tests:
+Targeted migration/SQLite/config tests:
 
 ```text
-uv run --project backend --extra dev pytest -q backend/tests/test_persistence_sqlite.py backend/tests/test_learning_sqlite_store.py backend/tests/test_learning_api.py::test_learning_api_uses_sqlite_backend_when_configured
-9 passed in 0.26s
+uv run --project backend --extra dev pytest -q backend/tests/test_learning_migration.py backend/tests/test_persistence_sqlite.py backend/tests/test_learning_sqlite_store.py
+16 passed
 ```
+
+These tests cover an exact JSON -> SQLite -> JSON round trip, repeat execution, explicit-path CLIs, strict numeric/identity preservation, and injected atomic-replace failures in both directions.
 
 Learning API regression tests:
 
@@ -221,7 +225,7 @@ Full backend test suite:
 
 ```text
 uv run --project backend --extra dev pytest -q
-72 passed, 2 skipped in 3.50s
+469 passed, 3 skipped
 ```
 
 Frontend build:
@@ -285,9 +289,9 @@ M3 FAISS/vector index:
 
 ## Risks
 
-- JSON and SQLite learning backends can diverge without shared regression tests.
+- JSON and SQLite learning backends can diverge if an operator changes the backend without running the explicit migration/export command.
 - SQLite files require explicit backup discipline.
 - SQLite is not a production multi-user database.
 - Concurrent writes are improved by SQLite transactions but still require deployment-level policy.
 - Future Postgres migration requires a repository adapter and schema migration plan.
-- Automatic migration must not run before backup/restore expectations are defined.
+- Automatic startup migration remains intentionally disabled; operators retain an explicit backup and verification gate.

@@ -53,8 +53,20 @@ def list_articles(
     return articles
 
 
+def list_legacy_articles(query: str | None = None) -> list[StoredArticle]:
+    articles = list(_load_store_articles(article_store_path()))
+    normalized_query = query.strip().lower() if query else ""
+    if not normalized_query:
+        return articles
+    return [
+        article
+        for article in articles
+        if normalized_query in article.title.lower() or normalized_query in article.content.lower()
+    ]
+
+
 def get_article(article_id: str) -> StoredArticle | None:
-    for article in _load_articles(article_store_path()):
+    for article in _load_store_articles(article_store_path()):
         if article.id == article_id:
             return article
     return None
@@ -82,21 +94,25 @@ def _content_preview(content: str, max_chars: int = 240) -> str:
 
 
 def _load_articles(path: Path) -> tuple[StoredArticle, ...]:
+    by_url: dict[str, StoredArticle] = {}
+    for article in _load_store_articles(path):
+        by_url[article.url] = article
+    return tuple(by_url.values())
+
+
+def _load_store_articles(path: Path) -> tuple[StoredArticle, ...]:
     try:
         stat = path.stat()
         signature = (stat.st_mtime_ns, stat.st_size)
     except FileNotFoundError:
         signature = None
-    return _cached_articles(str(path.resolve()), signature)
+    return _cached_store_articles(str(path.resolve()), signature)
 
 
 @lru_cache(maxsize=8)
-def _cached_articles(path: str, signature: tuple[int, int] | None) -> tuple[StoredArticle, ...]:
+def _cached_store_articles(path: str, signature: tuple[int, int] | None) -> tuple[StoredArticle, ...]:
     del signature
-    by_url: dict[str, StoredArticle] = {}
-    for article in ArticleStore(Path(path)).list_articles():
-        by_url[article.url] = article
-    return tuple(by_url.values())
+    return tuple(ArticleStore(Path(path)).list_articles())
 
 
 def _sort_articles(

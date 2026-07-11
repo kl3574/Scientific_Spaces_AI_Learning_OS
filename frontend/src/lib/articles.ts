@@ -47,7 +47,7 @@ export type ArticleListResponse = {
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
 export async function fetchArticles(queryOrOptions?: string | ArticleListRequest): Promise<ArticleListResponse> {
-  const url = new URL("/articles", API_BASE_URL);
+  const url = new URL("/v1.1/articles", API_BASE_URL);
 
   const options: ArticleListRequest = typeof queryOrOptions === "string" ? { q: queryOrOptions } : queryOrOptions ?? {};
   if (options.q?.trim()) {

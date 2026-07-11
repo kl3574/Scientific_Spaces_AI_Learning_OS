@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- `v1.1.0` release readiness is blocked by a frozen Article-list compatibility regression. No tag or Release may be created until a targeted compatibility/migration revision and gate re-run pass.
+- The v1.0 Article and Graph API contracts have been restored, scalable list/query APIs are versioned under `/v1.1`, and identity-preserving Learning JSON/SQLite migration is available. Release readiness remains pending a fresh P2-007 audit; no tag or Release is authorized yet.
 
 ## [1.1.0] - Unreleased
 
@@ -15,11 +15,13 @@
 - Full-corpus Tutor source selection, deterministic grounding evaluations, and local-only frontend smoke coverage.
 - Local data inventory, health, cleanup, essential backup, independent verification, and isolated restore tooling.
 - Local production-like deployment, security/privacy, and evaluation-harness documentation.
+- Executable, atomic Learning JSON-to-SQLite migration and SQLite-to-JSON export commands.
 
 ### Changed
 
 - CI now runs on pull requests, `main` pushes, `v*` tag pushes, and manual dispatch; Docker smoke remains limited to tags and manual runs.
-- `GET /articles` now uses bounded pagination and supports category and sort parameters while retaining the original list item fields.
+- Full-corpus Reader pagination, filtering, and sorting use `GET /v1.1/articles`; legacy `GET /articles` retains the v1.0 all-matches contract.
+- Full-corpus Graph pagination and query subgraphs use `/v1.1/graph/*`; legacy Graph routes retain their v1.0 request and response contracts.
 - Full-corpus Reader, RAG, Graph, and Tutor paths can be selected through explicit local environment variables.
 - Learning JSON remains the default; SQLite is an opt-in persistence slice with documented rollback.
 
@@ -29,6 +31,7 @@
 - Tutor retrieval support gates, refusal behavior, research-source diversity, bounded graph context, and source payload limits.
 - Graph concept provenance and large-corpus API bounds.
 - PDF resume validation and local-data backup/restore safety checks.
+- Restored v1.0 Article list ordering, response shape, and no-truncation behavior; restored Graph search/build/subgraph compatibility for unchanged clients.
 
 ### Security
 
@@ -39,7 +42,7 @@
 ### Known limitations
 
 - The product remains local-first and single-user, without authentication or authorization.
-- JSON stores are not safe for production multi-user concurrency; SQLite covers only an opt-in Learning migration slice.
+- JSON stores are not safe for production multi-user concurrency; SQLite remains an opt-in Learning-only persistence slice.
 - Fake-provider evaluations establish deterministic contracts and grounding, not real-model language or mathematical quality.
 - PDFs replace remote images with placeholders and do not claim source print parity.
 - Backup archives are local, unencrypted by the application, and are not automatically retained off-site.

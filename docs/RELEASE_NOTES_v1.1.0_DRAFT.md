@@ -2,13 +2,13 @@
 
 ## Status
 
-Draft — not yet released.
+Draft - not yet released.
 
-Release readiness: BLOCKED. The formal project version remains `v1.0.0`, and no `v1.1.0` tag target is authorized. A targeted API compatibility and migration revision must pass before these notes can be finalized.
+Release readiness: pending P2-007 re-audit. The P2-008 compatibility and migration revision passed its implementation checks, but the formal project version remains `v1.0.0` and no `v1.1.0` tag target is authorized until the fresh release-readiness audit passes.
 
 ## Highlights
 
-`v1.1.0` is an operational-maturity and full-local-corpus candidate. Its runtime, data, and safety checks pass, but the current candidate does not preserve the frozen unparameterized M2 Article-list behavior. The release is blocked until that compatibility decision is implemented and verified.
+`v1.1.0` is an operational-maturity and full-local-corpus candidate. P2-008 restores the frozen Article and Graph contracts, moves scalable list/query behavior to explicit `/v1.1` endpoints, and adds identity-preserving Learning JSON/SQLite migration. A fresh P2-007 audit is still required before release actions.
 
 ## Full Local Corpus
 
@@ -25,7 +25,8 @@ Release readiness: BLOCKED. The formal project version remains `v1.0.0`, and no 
 
 - Reader and keyword/title search run against the 1,311-Article local store.
 - Article list responses retain `id`, `title`, `url`, `metadata`, and `content_preview`.
-- List access is bounded: page size defaults to 20 and is capped at 100.
+- Legacy `GET /articles` returns every match in original store order with exactly `items`, `total`, and `query`.
+- The Reader uses `GET /v1.1/articles`; page size defaults to 20 and is capped at 100.
 - Article detail keeps the frozen `id`, `title`, `url`, `content`, and `metadata` contract.
 - The Reader renders Chinese Markdown and math and preserves basic local reading history.
 
@@ -43,10 +44,10 @@ The release baseline uses deterministic fake embeddings. It does not certify rea
 - 52,874 nodes: 1,311 Articles, 5,547 Sections, 39,032 Concepts, and 6,984 Formulas.
 - 82,230 source-grounded edges.
 - Article coverage: 100%; dangling edges, duplicate IDs, missing provenance, and invalid Article references: 0.
-- API summary, pagination, filters, and subgraphs are bounded for full-corpus use.
+- API summary, pagination, filters, and subgraphs are bounded for full-corpus use under `/v1.1/graph/*`.
 - Current benchmark: 1,347.9 ms cold summary load and 76.3 ms maximum warm query, within the local 5,000/1,000 ms guards.
 
-The legacy full-document Graph endpoint remains for M6 compatibility. Full-corpus callers should use bounded endpoints.
+The legacy full-document, node-search, build, and path-subgraph Graph contracts remain for M6 compatibility. Full-corpus callers should use bounded `/v1.1/graph/nodes` and `/v1.1/graph/subgraph` endpoints.
 
 ## AI Research Tutor
 
@@ -91,9 +92,11 @@ The verification archive is temporary audit evidence, not a retained user backup
 
 Fresh release-readiness checks on 2026-07-11:
 
-- Backend: 453 passed, 3 skipped.
+- Backend: 469 passed, 3 skipped.
 - Frontend production build: PASS, 8 routes.
+- Frontend Article API client tests: 3/3 PASS.
 - Frontend Graph tests: 7/7 PASS.
+- Fresh versioned Graph client tests: 8/8 PASS.
 - Frontend Tutor tests: 13/13 PASS.
 - Deterministic RAG/Tutor baseline: 9/9 PASS.
 - Full-corpus RAG evaluation: PASS.
@@ -101,16 +104,18 @@ Fresh release-readiness checks on 2026-07-11:
 - Full-corpus Tutor evaluation and 17-check live Tutor frontend smoke: PASS.
 - PDF manifest/idempotency: PASS.
 - Configured health and essential backup/verify/isolated restore: PASS.
+- Legacy Article full-corpus smoke: 1,311/1,311 with exact v1.0 response keys; `/v1.1/articles` returned 20 with total 1,311.
+- Learning JSON/SQLite identity round trip, repeated execution, reverse export, and injected-failure atomicity: PASS.
 
-These release-CI steps remain required, but they are not authorized until the API compatibility blocker is resolved and a fresh readiness gate passes.
+These release-CI steps remain required after a fresh readiness gate passes.
 
 ## Upgrade Notes
 
 1. Keep `Version` at `v1.0.0` until the `v1.1.0` tag and GitHub Release exist.
 2. Preserve `.local_data/` before Git operations; `git clean -fdX` deletes ignored local corpus and derived assets.
 3. Configure `SCIENTIFIC_SPACES_ARTICLE_STORE`, `SCIENTIFIC_SPACES_RAG_INDEX_DIR`, and `SCIENTIFIC_SPACES_GRAPH_FILE` for the completed local profile.
-4. Do not deploy the current candidate over a v1.0 client that depends on unparameterized `GET /articles`; the compatibility revision must restore or version that behavior first.
-5. JSON Learning persistence remains the default. SQLite is opt-in through `SCIENTIFIC_SPACES_LEARNING_BACKEND=sqlite`; its current rollback is a backend switch, not an automatic merge of SQLite writes into JSON.
+4. Existing v1.0 clients can continue using `GET /articles` and legacy Graph routes. New Reader/Graph clients should use the bounded `/v1.1` list/query endpoints.
+5. JSON Learning persistence remains the default. Before opting into SQLite, run `scripts/persistence/migrate_learning_json_to_sqlite.py` with explicit source and target paths. Before switching back after SQLite writes, run `scripts/persistence/migrate_learning_sqlite_to_json.py`; a backend configuration change alone does not transfer data.
 6. Derived Markdown, PDF, RAG, and Graph assets must be rebuilt or restored when their corpus fingerprint is stale.
 
 ## Data Locations
@@ -149,9 +154,9 @@ Article corpus data, reading history, Learning state, Tutor sessions, Zotero lin
 
 ## Breaking Changes
 
-Release blocker: the frozen v1.0 `GET /articles` behavior returned all matches for an unparameterized request. The candidate returns the first 20 in a new default order and changes the response shape. This can silently truncate unchanged clients and is not accepted as a minor-release compatibility change.
+No intentional breaking API change remains in the P2-008 candidate. The frozen v1.0 `GET /articles` behavior and legacy Graph query/build/subgraph response contracts are covered by compatibility regressions. Scalable behavior is additive under `/v1.1`.
 
-M6 default node-query totals and managed Graph build behavior also changed and require explicit compatibility coverage. The optional SQLite migration does not automatically preserve all JSON identities or merge SQLite writes back into JSON on rollback.
+SQLite is still optional and Learning-only. Migration/export must be invoked explicitly; switching the backend setting does not merge data automatically.
 
 The targeted legacy parser revision adds body selection and page-chrome removal without changing the frozen Article schema.
 
@@ -161,4 +166,4 @@ The targeted legacy parser revision adds body selection and page-chrome removal 
 2. Review available capacity before retaining the approximately 830 MB PDF library or creating a complete backup.
 3. Set the full-corpus Reader/RAG/Graph environment variables and run the health checker.
 4. Keep fake providers for deterministic validation; opt into real providers only after reviewing cost and privacy boundaries.
-5. Do not create or publish `v1.1.0` until the targeted compatibility revision and a fresh release-readiness gate both pass.
+5. Do not create or publish `v1.1.0` until the fresh P2-007 release-readiness gate passes.

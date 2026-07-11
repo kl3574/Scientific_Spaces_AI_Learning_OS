@@ -43,8 +43,8 @@ def main() -> int:
     cold_started = time.perf_counter()
     summary = client.get("/graph/summary")
     cold_summary_latency_ms = (time.perf_counter() - cold_started) * 1000
-    concepts = client.get("/graph/nodes", params={"node_type": "concept", "page_size": 1}).json()
-    articles = client.get("/graph/nodes", params={"node_type": "article", "page_size": 1}).json()
+    concepts = client.get("/v1.1/graph/nodes", params={"node_type": "concept", "page_size": 1}).json()
+    articles = client.get("/v1.1/graph/nodes", params={"node_type": "article", "page_size": 1}).json()
     if not concepts.get("items") or not articles.get("items"):
         raise RuntimeError("Graph benchmark requires at least one Concept and Article node")
     concept = concepts["items"][0]
@@ -52,38 +52,38 @@ def main() -> int:
     middle_page = max(1, math.ceil(int(summary.json()["node_count"]) / 100 / 2))
     cases = [
         ("graph_summary", "/graph/summary", {}, 200),
-        ("nodes_first_page", "/graph/nodes", {"page": 1, "page_size": 100}, 200),
-        ("nodes_middle_page", "/graph/nodes", {"page": middle_page, "page_size": 100}, 200),
-        ("filter_article_nodes", "/graph/nodes", {"node_type": "article", "page_size": 50}, 200),
-        ("filter_concept_nodes", "/graph/nodes", {"node_type": "concept", "page_size": 50}, 200),
-        ("concept_search", "/graph/nodes", {"q": concept["label"], "page_size": 50}, 200),
+        ("nodes_first_page", "/v1.1/graph/nodes", {"page": 1, "page_size": 100}, 200),
+        ("nodes_middle_page", "/v1.1/graph/nodes", {"page": middle_page, "page_size": 100}, 200),
+        ("filter_article_nodes", "/v1.1/graph/nodes", {"node_type": "article", "page_size": 50}, 200),
+        ("filter_concept_nodes", "/v1.1/graph/nodes", {"node_type": "concept", "page_size": 50}, 200),
+        ("concept_search", "/v1.1/graph/nodes", {"q": concept["label"], "page_size": 50}, 200),
         (
             "concept_parameter_filter",
-            "/graph/nodes",
+            "/v1.1/graph/nodes",
             {"concept": concept["label"], "page_size": 50},
             200,
         ),
         (
             "article_specific_nodes",
-            "/graph/nodes",
+            "/v1.1/graph/nodes",
             {"article_id": article["source_id"], "page_size": 100},
             200,
         ),
         (
             "one_hop_subgraph",
-            "/graph/subgraph",
+            "/v1.1/graph/subgraph",
             {"node_id": concept["node_id"], "depth": 1, "node_limit": 100, "edge_limit": 250},
             200,
         ),
         (
             "two_hop_subgraph",
-            "/graph/subgraph",
+            "/v1.1/graph/subgraph",
             {"node_id": concept["node_id"], "depth": 2, "node_limit": 250, "edge_limit": 500},
             200,
         ),
         ("missing_node", "/graph/nodes/not-a-real-node", {}, 404),
-        ("invalid_depth", "/graph/subgraph", {"node_id": concept["node_id"], "depth": 4}, 422),
-        ("excessive_page_size", "/graph/nodes", {"page_size": 101}, 422),
+        ("invalid_depth", "/v1.1/graph/subgraph", {"node_id": concept["node_id"], "depth": 4}, 422),
+        ("excessive_page_size", "/v1.1/graph/nodes", {"page_size": 101}, 422),
     ]
 
     case_results = [

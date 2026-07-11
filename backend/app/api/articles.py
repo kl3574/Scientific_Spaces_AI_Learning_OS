@@ -4,13 +4,27 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException, Query
 
-from app.services.article_reader import article_detail, article_summary, get_article, list_articles
+from app.services.article_reader import (
+    article_detail,
+    article_summary,
+    get_article,
+    list_articles,
+    list_legacy_articles,
+)
 
 router = APIRouter()
 
 
 @router.get("/articles")
 def articles(
+    q: str | None = None,
+) -> dict[str, object]:
+    items = [article_summary(article) for article in list_legacy_articles(q)]
+    return {"items": items, "total": len(items), "query": q}
+
+
+@router.get("/v1.1/articles")
+def versioned_articles(
     q: Annotated[str | None, Query(max_length=200)] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 20,

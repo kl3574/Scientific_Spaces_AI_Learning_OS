@@ -5,6 +5,7 @@ import {
   fetchGraphNodes,
   fetchGraphSubgraph,
   fetchGraphSummary,
+  fetchGraphNode,
 } from "../src/lib/graph";
 import {
   getConceptProvenance,
@@ -64,7 +65,7 @@ test("fetchGraphNodes sends trimmed filters and pagination", async () => {
   });
 
   const url = new URL(calls[0].input);
-  assert.equal(url.pathname, "/graph/nodes");
+  assert.equal(url.pathname, "/v1.1/graph/nodes");
   assert.deepEqual(Object.fromEntries(url.searchParams), {
     q: "attention",
     node_type: "concept",
@@ -84,13 +85,29 @@ test("fetchGraphSubgraph always sends explicit traversal bounds", async () => {
   });
 
   const url = new URL(calls[0].input);
-  assert.equal(url.pathname, "/graph/subgraph");
+  assert.equal(url.pathname, "/v1.1/graph/subgraph");
   assert.deepEqual(Object.fromEntries(url.searchParams), {
     node_id: "concept:scaled attention",
     depth: "1",
     node_limit: "25",
     edge_limit: "50",
   });
+});
+
+test("fetchGraphNode continues to use legacy detail endpoint", async () => {
+  const calls = installFetchStub({
+    node_id: "concept:attention",
+    node_type: "concept",
+    label: "Attention",
+    source_id: null,
+    source_url: null,
+    metadata: {},
+  });
+
+  await fetchGraphNode("concept:attention");
+
+  const url = new URL(calls[0].input);
+  assert.equal(url.pathname, "/graph/nodes/concept%3Aattention");
 });
 
 test("getConceptProvenance reports source and omitted counts", () => {

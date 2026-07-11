@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "test:articles": "sh scripts/test-articles.sh",
     "test:tutor": "sh scripts/test-tutor.sh",
     "test:graph": "sh scripts/test-graph.sh"
   },

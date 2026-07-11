@@ -64,7 +64,7 @@ export async function fetchGraphNodes(
   query: GraphNodeQuery,
   signal?: AbortSignal,
 ): Promise<GraphNodeListResponse> {
-  const url = new URL("/graph/nodes", API_BASE_URL);
+  const url = new URL("/v1.1/graph/nodes", API_BASE_URL);
   if (query.q?.trim()) {
     url.searchParams.set("q", query.q.trim());
   }
@@ -84,7 +84,7 @@ export async function fetchGraphSubgraph(
   query: GraphSubgraphQuery,
   signal?: AbortSignal,
 ): Promise<GraphSubgraphResponse> {
-  const url = new URL("/graph/subgraph", API_BASE_URL);
+  const url = new URL("/v1.1/graph/subgraph", API_BASE_URL);
   url.searchParams.set("node_id", query.node_id);
   url.searchParams.set("depth", String(query.depth));
   url.searchParams.set("node_limit", String(query.node_limit));

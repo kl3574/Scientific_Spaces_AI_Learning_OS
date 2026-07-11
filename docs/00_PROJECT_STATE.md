@@ -14,11 +14,11 @@ v1.1 Release Readiness
 
 Status:
 
-Release blocked pending API compatibility and migration revision
+P2-008 compatibility and migration revision passed; release readiness pending re-audit
 
 Release Readiness:
 
-BLOCKED
+Pending re-audit
 
 Verification:
 
@@ -246,6 +246,10 @@ P2-007 v1.1 Release Readiness Audit:
 
 BLOCKED
 
+P2-008 v1.1 API Compatibility and Migration Revision:
+
+PASS
+
 Next Targeted Task:
 
-P2-008 v1.1 API Compatibility and Migration Revision
+Re-run P2-007 v1.1 Release Readiness Audit

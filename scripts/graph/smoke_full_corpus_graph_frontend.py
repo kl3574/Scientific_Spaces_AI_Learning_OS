@@ -56,17 +56,19 @@ def run_smoke(frontend_url: str, api_url: str) -> dict[str, object]:
                 route.continue_()
                 return
             if parsed.hostname in allowed_hosts:
-                if parsed.path.startswith("/graph"):
+                is_graph_nodes_request = parsed.path in {"/graph/nodes", "/v1.1/graph/nodes"}
+                is_graph_subgraph_request = parsed.path in {"/graph/subgraph", "/v1.1/graph/subgraph"}
+                if parsed.path.startswith("/graph") or parsed.path.startswith("/v1.1/graph"):
                     graph_requests.append(route.request.url)
-                if state["fail_next_nodes"] and parsed.path == "/graph/nodes":
+                if state["fail_next_nodes"] and is_graph_nodes_request:
                     state["fail_next_nodes"] = False
                     route.abort("failed")
                     return
-                if state["fail_next_subgraph"] and parsed.path == "/graph/subgraph":
+                if state["fail_next_subgraph"] and is_graph_subgraph_request:
                     state["fail_next_subgraph"] = False
                     route.abort("failed")
                     return
-                if state["empty_next_subgraph"] and parsed.path == "/graph/subgraph":
+                if state["empty_next_subgraph"] and is_graph_subgraph_request:
                     state["empty_next_subgraph"] = False
                     route.fulfill(status=200, content_type="application/json", body='{"nodes":[],"edges":[]}')
                     return
@@ -80,14 +82,17 @@ def run_smoke(frontend_url: str, api_url: str) -> dict[str, object]:
         page.get_by_text(re.compile(r"Showing 1-20 of ")).wait_for(timeout=60_000)
 
         initial_node_request = next(
-            url for url in graph_requests if urlparse(url).path == "/graph/nodes"
+            url for url in graph_requests if urlparse(url).path in {"/graph/nodes", "/v1.1/graph/nodes"}
         )
-        initial_page_size = int(parse_qs(urlparse(initial_node_request).query)["page_size"][0])
+        initial_node_request_path = urlparse(initial_node_request).path
+        initial_node_request_query = parse_qs(urlparse(initial_node_request).query)
+        initial_page_size = int(initial_node_request_query.get("page_size", ["20"])[0])
         checks: dict[str, bool] = {
             "initial_summary_and_20_nodes": any(
                 urlparse(url).path == "/graph/summary" for url in graph_requests
             )
-            and initial_page_size == 20,
+            and initial_page_size == 20
+            and initial_node_request_path == "/v1.1/graph/nodes",
             "initial_has_no_build_action": page.get_by_role("button", name=re.compile("build", re.I)).count() == 0,
             "desktop_no_horizontal_overflow": _no_horizontal_overflow(page),
         }
@@ -146,7 +151,9 @@ def run_smoke(frontend_url: str, api_url: str) -> dict[str, object]:
         page.get_by_text(re.compile(r"Showing 1-\d+ of ")).wait_for(timeout=30_000)
         checks["error_and_retry_state"] = True
 
-        subgraph_requests = [url for url in graph_requests if urlparse(url).path == "/graph/subgraph"]
+        subgraph_requests = [
+            url for url in graph_requests if urlparse(url).path in {"/graph/subgraph", "/v1.1/graph/subgraph"}
+        ]
         bounded_subgraph = False
         if subgraph_requests:
             params = parse_qs(urlparse(subgraph_requests[-1]).query)

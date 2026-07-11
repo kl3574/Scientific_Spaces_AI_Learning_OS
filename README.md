@@ -85,11 +85,14 @@ http://localhost:8000
 Useful endpoints:
 
 - `GET /health`
-- `GET /articles`
+- `GET /articles` (v1.0-compatible unbounded list; optional `q` only)
+- `GET /v1.1/articles` (bounded pagination, filters, and sorting)
 - `POST /rag/query`
 - `GET /learning/stats`
 - `GET /zotero/status`
 - `GET /graph`
+- `GET /graph/nodes` (v1.0-compatible bounded search)
+- `GET /v1.1/graph/nodes` (full-corpus pagination and filters)
 - `POST /tutor/ask`
 
 ## Frontend Setup
@@ -178,7 +181,7 @@ SCIENTIFIC_SPACES_ARTICLE_STORE=.local_data/scientific_spaces/corpus/pilot/artic
   uv run --project backend uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-The Article API reads that local store with bounded pagination (`page_size=20`, maximum `100`). List responses contain summaries only; full Markdown content is returned only by `GET /articles/{id}`. The legacy `SCIENTIFIC_SPACES_ARTICLES_FILE` override remains supported and takes precedence when both variables are set.
+The Article API reads that local store through two explicit contracts. Legacy `GET /articles` preserves the v1.0 response (`items`, `total`, `query`), original store order, and all matches. The Reader uses `GET /v1.1/articles`, where `page_size` defaults to `20` and is capped at `100`; this endpoint also supports `q`, `category`, and deterministic sorting. Both list endpoints return summaries only, and full Markdown content remains on `GET /articles/{id}`. The legacy `SCIENTIFIC_SPACES_ARTICLES_FILE` override remains supported and takes precedence when both variables are set.
 
 ## Deployment Profiles
 
@@ -530,6 +533,28 @@ Primary local paths:
 - Graph: `.local_data/scientific_spaces/graph/full_corpus/`
 - Unified ignored manifest: `.local_data/scientific_spaces/operations/local_data_manifest.json`
 
+### Learning JSON and SQLite migration
+
+JSON remains the default Learning backend. Before changing backends, create and verify an essential backup. Migrate an existing JSON store to an explicit SQLite target with:
+
+```bash
+uv run --project backend python scripts/persistence/migrate_learning_json_to_sqlite.py \
+  --json-path .local_data/scientific_spaces/learning.json \
+  --sqlite-path .local_data/scientific_spaces/scientific_spaces.db
+```
+
+The command stages a complete database and atomically replaces the target only after all states, bookmarks, notes, and sessions are valid. Repeating it produces the same record identities and counts. It does not modify the source JSON.
+
+To export SQLite writes back to JSON before switching the backend to `json`:
+
+```bash
+uv run --project backend python scripts/persistence/migrate_learning_sqlite_to_json.py \
+  --sqlite-path .local_data/scientific_spaces/scientific_spaces.db \
+  --json-path .local_data/scientific_spaces/learning.json
+```
+
+This export is also staged and atomically replaces its target. A configuration switch alone is not a data rollback: export first when SQLite contains newer writes, verify the JSON result, then set `SCIENTIFIC_SPACES_LEARNING_BACKEND=json`. The general `scripts/ops/backup_local_data.py` and `scripts/ops/restore_local_backup.py` commands remain the executable backup/restore path for both Learning formats.
+
 Audit the inventory and write the deterministic manifest. Read-only hashing uses four workers by default:
 
 ```bash
@@ -647,6 +672,7 @@ Release-readiness should be checked against:
 - `docs/POST_MVP_RELEASE_AUDIT.md`
 - `docs/POST_CORPUS_HARDENING_RECOVERY_REPORT.md`
 - `docs/V1_1_RELEASE_READINESS_AUDIT.md`
+- `docs/API_COMPATIBILITY_MIGRATION_REVISION.md`
 - `docs/RELEASE_NOTES_v1.1.0_DRAFT.md`
 - `docs/V1_1_RELEASE_CHECKLIST.md`
 - `CHANGELOG.md`
