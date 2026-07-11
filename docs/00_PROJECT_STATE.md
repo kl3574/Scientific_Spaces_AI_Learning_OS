@@ -229,3 +229,7 @@ Full-Corpus Knowledge Graph Scaling: PASS
 P2-004 Tutor Source Selection over Full Corpus: PASS
 
 P2-005 Optional Local PDF Export Workflow: PASS
+
+P2-006 Post-Corpus Product Hardening and Recovery:
+
+PASS

@@ -508,6 +508,105 @@ Release evidence process:
 - Record the workflow run URL, ref/tag, conclusion, and covered checks in a release evidence document.
 - Release publishing remains manual; CI does not move tags or create GitHub Releases.
 
+## Local Data Operations
+
+The post-corpus runtime is local-only. Its source-of-truth assets are:
+
+| Tier | Assets | Policy |
+|---|---|---|
+| Tier 1 | Article store, completion classifications, corpus progress, Learning/bookmarks/notes/sessions, Zotero links, Tutor sessions, other user-created data | Back up first; never remove through routine cleanup |
+| Tier 2 | Markdown, PDF, RAG chunks/FAISS, Knowledge Graph, manifests, benchmark/evaluation output | Rebuildable from Tier 1; include only when the backup profile requires it |
+| Tier 3 | Browser cache/profile, rendered HTML, traces, transient logs and staging directories | Safe cleanup candidates after review |
+
+Primary local paths:
+
+- Article source of truth: `.local_data/scientific_spaces/corpus/pilot/article_store/articles.json`
+- Completion classifications: `.local_data/scientific_spaces/corpus/pilot/completion_classifications.json`
+- Learning/user data: `.local_data/scientific_spaces/learning.json` or `scientific_spaces.db`
+- Markdown: `.local_data/scientific_spaces/corpus/local_library/`
+- PDF: `.local_data/scientific_spaces/corpus/pdf_library/`
+- RAG: `.local_data/scientific_spaces/rag/full_corpus/`
+- Graph: `.local_data/scientific_spaces/graph/full_corpus/`
+- Unified ignored manifest: `.local_data/scientific_spaces/operations/local_data_manifest.json`
+
+Audit the inventory and write the deterministic manifest. Read-only hashing uses four workers by default:
+
+```bash
+uv run --project backend python scripts/ops/audit_local_data.py \
+  --data-root .local_data/scientific_spaces \
+  --workers 4
+```
+
+Create and verify the default essential backup outside the source root:
+
+```bash
+uv run --project backend python scripts/ops/backup_local_data.py \
+  --data-root .local_data/scientific_spaces \
+  --output-dir /path/on/another/disk/scientific-spaces-backups \
+  --profile essential \
+  --verify \
+  --workers 4
+```
+
+An essential backup excludes Markdown, PDF, RAG, and Graph. A complete backup requires an explicit PDF choice because the current PDF library is approximately 830 MB:
+
+```bash
+uv run --project backend python scripts/ops/backup_local_data.py \
+  --data-root .local_data/scientific_spaces \
+  --output-dir /path/on/another/disk/scientific-spaces-backups \
+  --profile complete \
+  --exclude-pdf \
+  --verify
+```
+
+Use `--include-pdf` instead only when the destination has enough capacity. Backups are private local archives, are created with user-only permissions where supported, never upload automatically, and exclude `.env`, keys, profiles, traces, caches, and logs by default. No application-specific encryption is provided; encrypted/off-site backup remains a separate operational decision.
+
+Verify an existing archive and restore only into an isolated empty directory:
+
+```bash
+uv run --project backend python scripts/ops/verify_local_backup.py \
+  --backup /path/to/scientific-spaces-essential-*.zip \
+  --workers 4
+
+uv run --project backend python scripts/ops/restore_local_backup.py \
+  --backup /path/to/scientific-spaces-essential-*.zip \
+  --target-dir /tmp/scientific-spaces-restore-check \
+  --protected-data-root .local_data/scientific_spaces \
+  --verify \
+  --workers 4
+```
+
+Check source/derived fingerprints, integrity, runtime configuration, and disk capacity:
+
+```bash
+uv run --project backend python scripts/ops/check_local_system.py \
+  --data-root .local_data/scientific_spaces \
+  --workers 4
+```
+
+Cleanup is a dry-run unless `--execute` is supplied. `all-derived` additionally requires `--confirm-derived-delete`; no command can delete the full data root or Tier 1 assets:
+
+```bash
+uv run --project backend python scripts/ops/cleanup_local_data.py \
+  --data-root .local_data/scientific_spaces \
+  --category temp \
+  --category logs \
+  --category browser-cache
+```
+
+Derived artifact rebuild commands are explicit and never run from the health checker:
+
+```bash
+uv run --project backend python scripts/corpus/materialize_local_library.py
+uv run --project backend python scripts/export/export_local_corpus_pdfs.py
+uv run --project backend python scripts/rag/build_full_corpus_index.py
+uv run --project backend python scripts/graph/build_full_corpus_graph.py
+```
+
+Keep at least twice the current local-data size free for a complete backup and isolated restore. PDF rebuilds also require free space comparable to the PDF library.
+
+> **Destructive Git warning:** `git clean -fdX` deletes ignored data. In this repository that includes the Article corpus, Markdown library, PDF library, RAG index, Knowledge Graph, unified manifest, and all other `.local_data` state. Create and verify an essential backup before running it.
+
 ## Local Data and Artifact Policy
 
 Ignored local/runtime paths include:
@@ -545,6 +644,7 @@ Release-readiness should be checked against:
 - `docs/M6_VERIFICATION_REPORT.md`
 - `docs/M7_VERIFICATION_REPORT.md`
 - `docs/POST_MVP_RELEASE_AUDIT.md`
+- `docs/POST_CORPUS_HARDENING_RECOVERY_REPORT.md`
 
 Project state:
 

@@ -60,6 +60,17 @@ test-results/
 faiss_index/
 embedding_cache/
 
+# Local backup and isolated restore artifacts
+local_backups/
+backup_archives/
+restore_test_data/
+scientific-spaces-*.zip
+scientific-spaces-*.tar
+scientific-spaces-*.tar.gz
+*.zip.partial
+*.backup.partial
+*.restore-staging
+
 # Node / Next.js
 node_modules/
 frontend/node_modules/
