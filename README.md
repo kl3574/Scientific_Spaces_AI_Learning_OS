@@ -7,7 +7,8 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.0.0`
 - Phase: `MVP Complete`
 - Status: `Scientific Spaces AI Learning OS MVP complete`
-- Latest gate: `M7 Final Verification: PASS`
+- Candidate: `v1.1.0` (`Release Readiness: BLOCKED`; not released)
+- Latest gate: `P2-007 v1.1 Release Readiness Audit: BLOCKED`
 
 Release-readiness evidence is recorded in `docs/POST_MVP_RELEASE_AUDIT.md`.
 
@@ -645,6 +646,10 @@ Release-readiness should be checked against:
 - `docs/M7_VERIFICATION_REPORT.md`
 - `docs/POST_MVP_RELEASE_AUDIT.md`
 - `docs/POST_CORPUS_HARDENING_RECOVERY_REPORT.md`
+- `docs/V1_1_RELEASE_READINESS_AUDIT.md`
+- `docs/RELEASE_NOTES_v1.1.0_DRAFT.md`
+- `docs/V1_1_RELEASE_CHECKLIST.md`
+- `CHANGELOG.md`
 
 Project state:
 
