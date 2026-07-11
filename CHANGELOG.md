@@ -2,7 +2,7 @@
 
 ## [Unreleased]
 
-- The v1.0 Article and Graph API contracts have been restored, scalable list/query APIs are versioned under `/v1.1`, and identity-preserving Learning JSON/SQLite migration is available. Release readiness remains pending a fresh P2-007 audit; no tag or Release is authorized yet.
+- The v1.0 Article and Graph API contracts have been restored, scalable list/query APIs are versioned under `/v1.1`, and identity-preserving Learning JSON/SQLite migration is available. The fresh P2-007 audit passes and the candidate is ready to tag after the audit commit main CI succeeds.
 
 ## [1.1.0] - Unreleased
 

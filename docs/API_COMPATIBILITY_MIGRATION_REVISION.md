@@ -7,8 +7,9 @@ Audit date: 2026-07-11
 - P2-008 implementation and verification: **PASS**
 - Formal version: `v1.0.0`
 - Candidate version: `v1.1.0`
-- Release readiness: **Pending P2-007 re-audit**
-- Tag/Release action: not authorized by this revision
+- P2-007 re-audit: **PASS** (completed after this revision was merged and its main CI succeeded)
+- Release readiness: **PASS - Ready to tag v1.1.0 after the audit commit main CI**
+- Tag/Release action: not performed by this revision
 
 This revision restores the frozen v1.0 Article and Graph contracts, moves full-corpus extensions to explicit `/v1.1` endpoints, and adds an executable identity-preserving Learning JSON/SQLite migration path.
 
@@ -209,4 +210,4 @@ No Scientific Spaces crawl, Article-page refetch, PDF generation, corpus rebuild
 
 **A: Ready to rerun P2-007**
 
-P2-008 resolves the compatibility and migration blockers. This is not release authorization. P2-007 must run again from a clean, synchronized `main` after this revision is committed, pushed, and its main CI succeeds.
+P2-008 resolves the compatibility and migration blockers. Its recommendation at completion was to rerun P2-007; that clean-main re-audit subsequently passed and is recorded in `docs/V1_1_RELEASE_READINESS_AUDIT.md`.

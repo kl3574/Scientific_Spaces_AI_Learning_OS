@@ -4,11 +4,11 @@
 
 Draft - not yet released.
 
-Release readiness: pending P2-007 re-audit. The P2-008 compatibility and migration revision passed its implementation checks, but the formal project version remains `v1.0.0` and no `v1.1.0` tag target is authorized until the fresh release-readiness audit passes.
+Release readiness: PASS. The fresh P2-007 audit recommends `A: Ready to tag v1.1.0`. The formal project version remains `v1.0.0` until the separate release task creates the tag and GitHub Release.
 
 ## Highlights
 
-`v1.1.0` is an operational-maturity and full-local-corpus candidate. P2-008 restores the frozen Article and Graph contracts, moves scalable list/query behavior to explicit `/v1.1` endpoints, and adds identity-preserving Learning JSON/SQLite migration. A fresh P2-007 audit is still required before release actions.
+`v1.1.0` is an operational-maturity and full-local-corpus candidate. P2-008 restores the frozen Article and Graph contracts, moves scalable list/query behavior to explicit `/v1.1` endpoints, and adds identity-preserving Learning JSON/SQLite migration. The fresh P2-007 audit passes; tag and Release creation remain separate procedural actions.
 
 ## Full Local Corpus
 
@@ -45,7 +45,7 @@ The release baseline uses deterministic fake embeddings. It does not certify rea
 - 82,230 source-grounded edges.
 - Article coverage: 100%; dangling edges, duplicate IDs, missing provenance, and invalid Article references: 0.
 - API summary, pagination, filters, and subgraphs are bounded for full-corpus use under `/v1.1/graph/*`.
-- Current benchmark: 1,347.9 ms cold summary load and 76.3 ms maximum warm query, within the local 5,000/1,000 ms guards.
+- Current re-audit benchmark: 1,333.84 ms cold summary load and 86.18 ms maximum warm query, within the local 5,000/1,000 ms guards.
 
 The legacy full-document, node-search, build, and path-subgraph Graph contracts remain for M6 compatibility. Full-corpus callers should use bounded `/v1.1/graph/nodes` and `/v1.1/graph/subgraph` endpoints.
 
@@ -83,7 +83,7 @@ The verification archive is temporary audit evidence, not a retained user backup
 - CI triggers: pull request, `main` push, `v*` tag push, and manual dispatch.
 - Every run covers backend pytest and frontend build.
 - Tag and manual runs additionally cover Docker compose smoke.
-- Latest pre-audit `main` CI for `f00d596a5ab3ef43a9ef57230ab51eee80fe0d81`: success.
+- P2-008 baseline `main` CI run `29157847470` for `bf6a4515ceb4e7ed6d9bd150a4aaba444b131c73`: success.
 - Deployment profiles cover local development and local production-like use.
 - Tracked-file and finite-history scans found no real secret pattern or runtime/private/large artifact.
 - Fake providers and local JSON persistence remain the safe defaults.
@@ -107,7 +107,7 @@ Fresh release-readiness checks on 2026-07-11:
 - Legacy Article full-corpus smoke: 1,311/1,311 with exact v1.0 response keys; `/v1.1/articles` returned 20 with total 1,311.
 - Learning JSON/SQLite identity round trip, repeated execution, reverse export, and injected-failure atomicity: PASS.
 
-These release-CI steps remain required after a fresh readiness gate passes.
+Main CI for the audit commit and exact-tag CI remain required. Exact-tag CI must include Docker compose smoke.
 
 ## Upgrade Notes
 
@@ -166,4 +166,4 @@ The targeted legacy parser revision adds body selection and page-chrome removal 
 2. Review available capacity before retaining the approximately 830 MB PDF library or creating a complete backup.
 3. Set the full-corpus Reader/RAG/Graph environment variables and run the health checker.
 4. Keep fake providers for deterministic validation; opt into real providers only after reviewing cost and privacy boundaries.
-5. Do not create or publish `v1.1.0` until the fresh P2-007 release-readiness gate passes.
+5. Create and publish `v1.1.0` only from the audited commit after its main CI succeeds; then require exact-tag CI before publishing the GitHub Release.

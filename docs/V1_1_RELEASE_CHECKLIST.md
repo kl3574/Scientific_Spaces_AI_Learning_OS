@@ -6,14 +6,14 @@ Audit date: 2026-07-11
 
 Current formal version: `v1.0.0`
 
-Gate status: **P2-008 PASS; P2-007 RE-AUDIT PENDING**
+Gate status: **PASS - Ready to tag v1.1.0 after the audit commit main CI succeeds**
 
-The prior Article/Graph compatibility and Learning migration blockers are resolved by P2-008. Release actions remain disabled until the P2-008 commit is on `origin/main`, main CI passes, and a fresh P2-007 audit returns recommendation A.
+The prior Article/Graph compatibility and Learning migration blockers are resolved by P2-008. The fresh P2-007 audit returns recommendation A. This task still does not create a tag or Release.
 
 ## Repository
 
-- [x] Pre-audit `main` matched `origin/main` at `f00d596a5ab3ef43a9ef57230ab51eee80fe0d81`.
-- [x] No unrelated working-tree changes were present; `alignment.md` was task-owned and must be restored before commit.
+- [x] Re-audit `main` matched `origin/main` at `bf6a4515ceb4e7ed6d9bd150a4aaba444b131c73`.
+- [x] No unrelated working-tree changes were present; the confirmed task alignment is tracked with P2-008.
 - [x] `v1.0.0` remains an annotated tag whose peeled target is `8e1e5bbbdebb8835c7e1b05a42f69093d43ddee6` locally and remotely.
 - [x] `v1.0.0` and its GitHub Release were not moved or rewritten.
 - [x] `v1.0.0..HEAD` commit and file scope was reviewed.
@@ -28,7 +28,6 @@ The prior Article/Graph compatibility and Learning migration blockers are resolv
 - [x] Learning JSON/SQLite migration and persistence regression: 16 passed.
 - [x] Frontend production build: PASS, 8 routes.
 - [x] Frontend Article API client tests: 3/3 PASS.
-- [x] Frontend Graph tests: 7/7 PASS.
 - [x] Fresh Frontend Graph tests after endpoint versioning: 8/8 PASS.
 - [x] Frontend Tutor tests: 13/13 PASS.
 - [x] Original deterministic RAG/Tutor evaluation: 9/9 PASS.
@@ -54,7 +53,7 @@ The prior Article/Graph compatibility and Learning migration blockers are resolv
 - [x] Workflow supports `workflow_dispatch`.
 - [x] Backend pytest and frontend build run on every supported event.
 - [x] Docker compose smoke runs on tag pushes and manual dispatch.
-- [x] Latest pre-audit `main` run `29154850374` succeeded for commit `f00d596a5ab3ef43a9ef57230ab51eee80fe0d81`.
+- [x] P2-008 `main` run `29157847470` succeeded for commit `bf6a4515ceb4e7ed6d9bd150a4aaba444b131c73`.
 - [x] CI requires no real-provider secret.
 - [ ] Audit-commit `main` CI succeeds.
 - [ ] `v1.1.0` tag CI succeeds, including Docker compose smoke.
@@ -92,7 +91,7 @@ The prior Article/Graph compatibility and Learning migration blockers are resolv
 
 - [x] Resolve/version the M2 Article list compatibility blocker and add a >20-Article regression.
 - [x] Audit M6 default query/build compatibility and verify the Learning migration/rollback contract.
-- [ ] Re-run P2-007 and obtain `A: Ready to release v1.1.0`.
+- [x] Re-run P2-007 and obtain `A: Ready to tag v1.1.0`.
 - [ ] Push the audit commit to `origin/main`.
 - [ ] Wait for main CI and record the successful run URL.
 - [ ] Confirm the working tree is clean and `main` equals `origin/main`.
