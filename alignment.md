@@ -1,80 +1,83 @@
-# P2-004 Tutor Source Selection over Full Corpus Alignment
+# P2-005 Optional Local PDF Export Workflow Alignment
 
 ## 1. 背景
 
-- Scientific Spaces AI Learning OS 已完成 MVP，并进入 Post-MVP 全语料处理阶段。
-- 全语料 RAG index、Knowledge Graph 与 Tutor 基础能力已存在；当前工作是让 Tutor 在全语料规模下稳定、可解释且有界地选择来源。
-- 用户已确认采用方案 A。
-- Graph 上下文只能在请求显式提供 `node_id` 时扩展；禁止根据问题文本自动推断或自动扩展 Graph。
-- 当前 worktree 含 P2-004 的分阶段实现和待集成修改，必须保留已有用户修改并基于当前状态继续。
+- P2-004 Tutor Source Selection over Full Corpus 已完成并提交。
+- 当前任务是 P2-005，为 1,311 篇本地 Article/Markdown 生成可选 PDF 副本。
+- PDF 仅是本地派生阅读格式，不替代 Article.content、RAG、Graph 或 Tutor 数据源。
+- 用户已确认本执行方案。
 
 ## 2. 需求
 
-1. Tutor 复用全语料 RAG index，一次请求只执行一次 Article retrieval。
-2. Explain、Derive、Quiz、Research 保持既有契约和拒答兼容性。
-3. Research 至少需要两个独立 Article 来源；Derive 必须有公式证据；Quiz 必须基于可回答证据并避免重复问题。
-4. 来源、chunk、context、Graph node/edge 都必须有硬上限和明确截断信息。
-5. Graph 仅在请求显式提供 `node_id` 时读取，最多 20 nodes、30 edges；Graph 故障降级为元数据，不改变 Article grounding 主路径。
-6. Zotero 和 Graph 仅作为补充来源，不得替代 Article 支撑；所有补充 payload 必须清洗、限长且不得泄露本地路径。
-7. 提供严格的 42-case 全语料 Tutor 评估，覆盖质量阈值、拒答、来源预算、高度节点和延迟。
-8. 前端显示 selection summary、来源折叠、Research 资料缺口，并提供可运行的 fixture/live smoke。
-9. 保留现有 M1-M7 边界，不抓取新文章、不修改冻结的 source pipeline、不提交 runtime corpus/index/Graph/artifacts。
-10. 使用并发代理处理互不重叠的后端、评估和前端域，再统一验证。
+1. 开始前 push P2-004 并确认 GitHub Actions、分支同步和干净工作区。
+2. 实现默认离线 Mode A，支持单篇、范围、全量、resume、rebuild 和 1-4 workers。
+3. Mode B 明确为默认关闭的 source print-parity probe；只允许显式 opt-in、小样本、单并发和低频访问。
+4. 使用本地 HTML、Playwright Chromium 和本地 KaTeX 或等价能力渲染 PDF。
+5. 远程图片显示占位符；仅嵌入受控根目录中已存在的本地图片，禁止隐式下载。
+6. 生成原子 JSON/CSV manifest、summary、validation 和 failure registry。
+7. 执行 20 篇代表性 pilot、1,311 篇全量导出及幂等复跑。
+8. 所有 PDF、HTML、manifest、cache、profile 和日志保持 Git ignored。
+9. 不修改 Article.content、Markdown library、RAG、Graph、Tutor 或 source pipeline。
 
 ## 3. 目的
 
-使 Tutor 在完整本地语料库上使用可追踪、可预算、可降级的来源选择策略，同时保持 Graph 扩展显式可控，为后续真实 provider 质量评估提供稳定工程基线。
+建立可恢复、可验证、严格离线的本地 PDF 派生资料库，并以全量数据证明完整性、公式保真、零网络访问和幂等性。
 
 ## 4. 计划执行方案
 
-1. 复核当前 worktree、P2-004 设计报告、既有提交和未提交修改。
-2. 并发完成三个独立域：后端 Tutor 编排契约、42-case 评估工具、前端来源呈现与 smoke。
-3. 对每个域先补失败回归测试，再实施最小修复，并进行独立代码审查。
-4. 集成后运行后端定向及全量测试、前端测试与 build、CLI 参数检查、42-case 全语料评估、原有 RAG/Tutor 回归和前端 smoke。
-5. 更新最终 P2-004 报告；只有全部硬门槛通过时才更新项目状态为 PASS。
-6. 执行 artifact/privacy 检查、最终整体验证和代码审查，然后创建一个范围明确的提交。
+1. 检查 Git；临时 stash 本 alignment，并在 `.git/info/exclude` 本地排除 hook 生成的 `AGENTS.md` 与 `roadmap.md`，完成 clean pre-sync。
+2. Push 当前 P2-004 提交到 `origin/main`，等待 backend pytest 和 frontend build CI。
+3. 恢复 alignment，读取所有指定文档及 export/corpus/frontend 现状。
+4. 并发审计本地依赖、输入数据、现有 PDF 能力和测试边界。
+5. 先补失败测试，再实现输入模型、HTML 模板、公式、图片、文件名、manifest、验证、resume 和并发协调器。
+6. 实现 CLI；Mode A 默认离线，Mode B 必须显式授权并强制 `limit<=10`、`workers=1`、`delay>=8`。
+7. 运行 20 篇代表性 pilot，生成临时视觉检查材料，审计后删除。
+8. Pilot 通过后按用户追加要求用 `workers=4` 导出 1,311 篇，并执行 resume 幂等复跑。
+9. 并行运行后端测试、前端 build、RAG/Graph/Tutor 回归；更新报告和状态。
+10. 执行 artifact/privacy 审计并提交。除非另有要求，不 push P2-005 最终提交。
 
 ## 5. 方案选型理由
 
-方案 A 复用现有 RAG/Graph/Zotero 接口，在 Tutor 编排层增加确定性的来源预算和质量门禁，改动范围最小且与已冻结能力兼容。显式 `node_id` 保证 Graph 成本、语义和来源可审计，避免隐式实体识别造成不可预测扩展。
+- Playwright 复用现有 Chromium 能力，可稳定输出 A4 PDF。
+- 本地 KaTeX 资源避免 CDN 和公式静默丢失。
+- 图片采用 A+B：远程占位符，仅嵌入已存在且位于受控根目录的本地图片。
+- 默认两个持久 worker 各自拥有独立 browser context/page；主线程串行原子写 manifest。
+- Reader PDF endpoint 非 PASS 必需，本轮优先保持产品接口不变。
 
 ## 6. 优缺点对比
 
-### 方案 A：有界 Article retrieval + 显式 Graph 扩展（已选）
+### 本地 HTML + KaTeX + Chromium（选定）
 
-- 优点：行为确定、成本可控、可测试、兼容既有 API、不会因自动实体识别误扩展 Graph。
-- 缺点：调用方若不提供 `node_id`，即使问题涉及已知概念也不会获得 Graph 补充。
+- 优点：打印效果稳定、公式可审计、完全离线、可执行视觉检查。
+- 缺点：依赖本地 Chromium/KaTeX 版本，首次全量导出耗时较长。
 
-### 方案 B：根据问题自动识别概念并扩展 Graph（未选）
+### 仅保留 LaTeX 原文（未选）
 
-- 优点：用户无需显式传递 Graph 节点。
-- 缺点：引入实体消歧、误匹配、额外延迟和不可预测上下文，不符合当前明确边界。
+- 优点：实现简单。
+- 缺点：只能标记 CONDITIONAL，不满足公式渲染 PASS。
 
-### 方案 C：预先合并 RAG 与 Graph 为统一检索层（未选）
+### 源站打印（仅可选 probe）
 
-- 优点：检索接口统一。
-- 缺点：改变 M3/M6 已冻结接口和索引生命周期，工程风险与迁移成本明显超出 P2-004。
+- 优点：接近官网版式。
+- 缺点：依赖外部站点，不适合作为 1,311 篇默认流程。
 
 ## 7. 交付件
 
-- 后端 Tutor source selection、orchestration、Graph/Zotero supplement 边界和对应测试。
-- `backend/app/evaluation/tutor_full_corpus.py`
-- `backend/tests/fixtures/evaluation/full_corpus_tutor_cases.json`
-- `backend/tests/test_full_corpus_tutor_evaluation.py`
-- `scripts/eval/run_full_corpus_tutor_eval.py`
-- 前端 Tutor selection summary/source presentation、单元测试和 smoke 脚本。
-- `docs/FULL_CORPUS_TUTOR_SOURCE_SELECTION_REPORT.md`
-- 必要时更新 `docs/00_PROJECT_STATE.md`。
-- 本对齐文件 `alignment.md`。
+- `backend/app/export/local_pdf.py`
+- `scripts/export/export_local_corpus_pdfs.py`
+- backend tests 与小型非运行时 fixtures
+- `docs/LOCAL_PDF_EXPORT_REPORT.md`
+- 更新 `docs/00_PROJECT_STATE.md`、`README.md`、`.env.example`、`.gitignore`
+- ignored runtime PDF library、manifest 和验证报告
+- Git commit：`feat: add offline local PDF export workflow`
 
 ## 8. 交付件验收指标
 
-- Graph 读取只在非空显式 `node_id` 下发生，测试证明无 `node_id` 时零 Graph 调用。
-- 单次 Tutor 请求最多一次 Article retrieval；Research 至少两个 Article，Derive/Quiz 拒答与证据门禁通过回归测试。
-- Article、chunk、context、Graph、Zotero 来源均满足硬预算，截断和降级信息出现在 additive selection summary 中。
-- 42-case fixture 严格为元数据且包含规定模式/拒答分布；评估 CLI 接受 `--rag-index-dir` 与 `--graph-dir`，门槛决定 PASS/CONDITIONAL/BLOCKED。
-- 评估覆盖真实持久化 tiny index/Graph、显式高度 Graph node、全部 42 cases，并报告 expected-article miss 而不将其误作硬失败。
-- 前端类型与后端 schema 一致，来源可展开/收起，路径不泄露，切换模式清理旧状态；fixture 和 live smoke 均可运行。
-- 后端全量 pytest、前端 Tutor/Graph tests 与 production build 通过；原有 RAG/Tutor/Graph 评估无回归。
-- 最终报告记录实测指标；只有所有硬阈值通过才标记 `P2-004 Tutor Source Selection over Full Corpus: PASS`。
-- `git status` 与 artifact 扫描确认未提交 `.env`、runtime corpus/index/Graph、PDF、HTML dump、图片、trace/profile/cache 或 `node_modules`。
+- 输入为 1,311 Articles、1,311 unique URLs、missing content 0、duplicates 0。
+- Pilot 20 篇覆盖公式、长短文、图片、代码、表格和 legacy，并通过结构及视觉审计。
+- 全量覆盖 1,311，validation/formula/empty/corrupt failures 均为 0。
+- 第二次运行：unchanged 1,311、exported 0、regenerated 0、failed 0。
+- external network requests 为 0。
+- Backend tests、frontend build、RAG/Graph/Tutor 回归全部通过。
+- Git 中无 PDF、runtime manifest、HTML、语料、索引、Graph、cache 或本地路径泄露。
+- Mode B 默认关闭且未用于全量导出。

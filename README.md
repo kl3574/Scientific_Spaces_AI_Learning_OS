@@ -388,6 +388,43 @@ uv run --project backend python scripts/eval/run_full_corpus_rag_eval.py \
 
 Both commands use the deterministic fake embedding provider by default, require no API key, and perform no source fetch or web access. The build command's optional real-provider path requires `--provider openai --allow-real-provider`, a local `OPENAI_API_KEY`, and a non-CI environment; it is not part of the P2-001 PASS baseline.
 
+## Offline Local PDF Export
+
+The optional PDF workflow derives A4 PDFs from the existing local Article store. It does not fetch Scientific Spaces pages or remote images, and it never replaces `Article.content` as the Reader/RAG source.
+
+Requirements:
+
+- frontend dependencies installed under `frontend/node_modules`
+- Playwright Chromium installed locally
+- Poppler tools `pdfinfo` and `pdftotext`
+
+Run the deterministic 20-Article representative pilot:
+
+```bash
+uv run --project backend python scripts/export/export_local_corpus_pdfs.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --output-dir .local_data/scientific_spaces/corpus/pdf_library \
+  --mode offline \
+  --limit 20 \
+  --workers 2 \
+  --rebuild
+```
+
+Export or resume the full local corpus:
+
+```bash
+uv run --project backend python scripts/export/export_local_corpus_pdfs.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --output-dir .local_data/scientific_spaces/corpus/pdf_library \
+  --mode offline \
+  --workers 4 \
+  --resume
+```
+
+Offline workers are bounded to `1..4` and default to `2`. Each worker owns a persistent Node renderer and Chromium page; manifest checkpoints are written atomically by the main thread. Resume verifies source/template/renderer identity and the PDF SHA-256 digest. Remote images become local placeholders; displayed HTTP(S) URLs omit credentials, query strings, and fragments, while local or forbidden schemes are redacted. PDFs, manifests, reports, rendered HTML, and browser cache remain under ignored `.local_data/`.
+
+Source print-parity is not part of the batch PASS path. The CLI validates the `source-probe` safety envelope: explicit opt-in, one worker, a maximum of 10 Articles, at least 8 seconds delay, and a separate output directory. P2-005 does not implement the online provider, so the batch command intentionally refuses to execute that optional path.
+
 ## Security and Privacy
 
 Security policy:

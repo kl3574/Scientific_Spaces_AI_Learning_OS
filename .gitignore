@@ -38,10 +38,15 @@ corpus_artifacts/
 runtime_corpus/
 article_corpus/
 pdf_exports/
+pdf_library/
+local_pdf_cache/
 browser_profiles/
 progress.json
 failed_urls.jsonl
 validation_summary.json
+pdf_manifest*.json
+pdf_manifest*.csv
+rendered*.html
 inventory*.json
 year_enrichment*.json
 playwright-report/
