@@ -12,11 +12,12 @@ The prior Article/Graph compatibility and Learning migration blockers are resolv
 
 ## Repository
 
-- [x] Re-audit `main` matched `origin/main` at `bf6a4515ceb4e7ed6d9bd150a4aaba444b131c73`.
+- [x] Re-audit `main` matched `origin/main` at `220f11eee637e19074776f55bb8f0b8bb5b82171`.
 - [x] No unrelated working-tree changes were present; the confirmed task alignment is tracked with P2-008.
 - [x] `v1.0.0` remains an annotated tag whose peeled target is `8e1e5bbbdebb8835c7e1b05a42f69093d43ddee6` locally and remotely.
 - [x] `v1.0.0` and its GitHub Release were not moved or rewritten.
-- [x] `v1.0.0..HEAD` commit and file scope was reviewed.
+- [x] Final pre-release baseline SHA is `220f11eee637e19074776f55bb8f0b8bb5b82171`.
+- [x] `v1.0.0` baseline has not changed and post-release artifacts were reviewed.
 - [ ] Push the audit commit and confirm `main` is synchronized.
 - [ ] Record the final `v1.1.0` target commit after the audit commit is on `origin/main` and main CI passes.
 
@@ -55,7 +56,7 @@ The prior Article/Graph compatibility and Learning migration blockers are resolv
 - [x] Docker compose smoke runs on tag pushes and manual dispatch.
 - [x] P2-008 `main` run `29157847470` succeeded for commit `bf6a4515ceb4e7ed6d9bd150a4aaba444b131c73`.
 - [x] CI requires no real-provider secret.
-- [ ] Audit-commit `main` CI succeeds.
+- [ ] Release metadata commit `main` CI succeeds.
 - [ ] `v1.1.0` tag CI succeeds, including Docker compose smoke.
 
 ## Artifacts
