@@ -8,13 +8,17 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Formal Version: `v1.1.0`
 - Phase: `v1.1 Released`
 - Status: `Published`
-- Candidate: `v1.1.0`
+- Candidate: `None`
 - Release Readiness: `PASS`
-- Latest gate: `P2-007 re-audit PASS`
+- Latest gate: `P3-001 v1.1.0 post-release validation PASS`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
 Release notes: `docs/RELEASE_NOTES_v1.1.0.md` (draft history in `docs/RELEASE_NOTES_v1.1.0_DRAFT.md`).
+
+Post-release validation: `docs/V1_1_POST_RELEASE_VALIDATION.md`.
+
+Proposed v1.2 scope and priorities: `docs/V1_2_ROADMAP.md`.
 
 Post-MVP corpus processing planning is recorded in `docs/FULL_CORPUS_PROCESSING_PLAN.md`.
 
@@ -627,10 +631,25 @@ uv run --project backend python scripts/ops/cleanup_local_data.py \
 Derived artifact rebuild commands are explicit and never run from the health checker:
 
 ```bash
-uv run --project backend python scripts/corpus/materialize_local_library.py
-uv run --project backend python scripts/export/export_local_corpus_pdfs.py
-uv run --project backend python scripts/rag/build_full_corpus_index.py
-uv run --project backend python scripts/graph/build_full_corpus_graph.py
+uv run --project backend python scripts/corpus/materialize_local_library.py \
+  --article-store-path .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --output-dir .local_data/scientific_spaces/corpus/local_library
+
+uv run --project backend python scripts/export/export_local_corpus_pdfs.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --output-dir .local_data/scientific_spaces/corpus/pdf_library \
+  --mode offline \
+  --workers 2 \
+  --resume
+
+uv run --project backend python scripts/rag/build_full_corpus_index.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --output-dir .local_data/scientific_spaces/rag/full_corpus \
+  --provider fake
+
+uv run --project backend python scripts/graph/build_full_corpus_graph.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --output-dir .local_data/scientific_spaces/graph/full_corpus
 ```
 
 Keep at least twice the current local-data size free for a complete backup and isolated restore. PDF rebuilds also require free space comparable to the PDF library.

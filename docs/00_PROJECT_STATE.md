@@ -118,9 +118,17 @@ v1.1.0 Release:
 
 Published
 
+P3-001 v1.1.0 Post-Release Validation:
+
+PASS
+
+v1.1.1 Decision:
+
+No v1.1.1 required
+
 Next Targeted Task:
 
-post-release monitoring / v1.2 planning
+P3-002 v1.2 Product Requirements and Architecture
 
 Post-freeze Change Rule:
 
@@ -257,7 +265,3 @@ PASS
 P2-008 v1.1 API Compatibility and Migration Revision:
 
 PASS
-
-Next Targeted Task:
-
-Tag v1.1.0 and create GitHub Release
