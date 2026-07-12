@@ -1,76 +1,162 @@
-# P3-001 v1.1.0 Post-Release Validation and v1.2 Planning
+# P3-002 v1.2 Product Requirements and Architecture
 
-## 1. 背景
+## 1. Background
 
-Scientific Spaces AI Learning OS `v1.1.0` 已发布。发布 tag 为 annotated tag，预期 peeled target 为 `3efbe2a792a9853f1bac456f0287c3b5b62713ce`；`v1.0.0` 必须保持在 `8e1e5bbbdebb8835c7e1b05a42f69093d43ddee6`。本任务验证发布 tag 的真实用户路径并制定 v1.2 路线，不修改已发布版本或实现新功能。
+Scientific Spaces AI Learning OS `v1.1.0` is released. P3-001 post-release validation passed at commit `fdba4d8759f36704fcc928fff504526d0c5e1781` with no Critical or Important findings and no need for `v1.1.1`. P3-002 approves product requirements and architecture only; it does not implement v1.2 or assign a candidate version.
 
-## 2. 需求
+## 2. Authoritative Inputs
 
-1. 核验当前仓库、tag、GitHub Release 和发布不可变性。
-2. 从远端 fresh clone 并 detached checkout exact `v1.1.0`。
-3. 严格按 tag README 验证 Backend、Frontend、默认运行和 Docker。
-4. 验证 legacy 与 `/v1.1` Article/Graph API 兼容性。
-5. 验证默认 JSON persistence、SQLite migration 和 rollback export。
-6. 使用小型 deterministic fixture 验证 inventory、health、backup、verify、isolated restore 和 cleanup。
-7. 区分 tag-contained 与 post-release 文档并审计声明准确性。
-8. 按 Critical、Important、Minor、Accepted Limitation 分类 findings。
-9. 选择 A/B/C patch release 决策并制定证据驱动的 v1.2 路线图。
-10. 清理临时目录、Docker 资源和后台进程，不提交 runtime/private artifact。
+- Attachment: `/home/lkx/.codex/attachments/334ce5f2-2121-4014-98c7-98ff6100bb9f/pasted-text-1.txt`
+- Attachment SHA-256: `05df8ddbe6e71e19e303e2521951d03b7d49a1bbf7be3c8972ed6a30062fdf8f`
+- Attachment size: 1,371 lines / 24,975 bytes
+- Applicable governance: repository-root `AGENTS.md`
+- Existing project evidence: P3-001 report, v1.2 roadmap, release evidence, compatibility/security/deployment/persistence/corpus reports, current source and tests
+- Starting branch: `main`
+- Starting HEAD and `origin/main`: `fdba4d8759f36704fcc928fff504526d0c5e1781`
+- Starting ahead/behind: `0/0`
+- `v1.1.0` peeled target: `3efbe2a792a9853f1bac456f0287c3b5b62713ce`
+- P3-001 CI run: `29179023882`, Backend and Frontend PASS, Docker skipped by main-push policy
+- `REWORK.md`: absent
+- `.audit`: absent
 
-## 3. 目的
+## 3. Requirements
 
-证明 `v1.1.0` 不依赖开发工作区、私有数据或完整 corpus 即可安装、启动、迁移、备份和恢复，并据实决定是否需要 `v1.1.1` 以及 v1.2 的受限范围。
+1. Decide whether Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance enter v1.2 using Scope Decision A/B/C/D.
+2. Define product problems, users, journeys, goals, non-goals, security/privacy requirements, compatibility, success metrics, release scope, and deferred scope.
+3. Define an independent derived reference pipeline that never modifies `Article.content`, `metadata.references`, or frozen M1 modules.
+4. Define DOI, arXiv, URL, citation-text normalization; deterministic and ambiguous deduplication; complete provenance; and no silent candidate drops.
+5. Define a versioned, fingerprinted, atomic, idempotent, stale-detecting, corruption-detecting Reference Store with rebuild/rollback lifecycle.
+6. Separate deterministic derived reference data from Tier 1 user-reviewed Zotero decisions.
+7. Keep Zotero read-only; never auto-write or auto-confirm ambiguous/title-only matches.
+8. Approve additive, bounded `/v1.2` reference API contracts and minimal Article/Zotero UI states without implementing them.
+9. Define real-provider adapter metadata, explicit operator consent, bounded request/cost budgets, privacy/redaction/retention, case taxonomy, metrics, and ignored outputs. No real call is permitted.
+10. Define immutable GitHub Action pinning, least-privilege permissions, dependency/secret scanning, SBOM, provenance/attestation, branch-protection guidance, and artifact boundaries.
+11. Create a scoped threat model for references, Zotero, real providers, and CI/supply chain.
+12. Freeze v1.0 legacy, `/v1.1`, M3-M7, JSON-default, SQLite-opt-in, and backup/restore contracts; all v1.2 behavior is additive.
+13. Define P3-003 through P3-007 milestones, dependencies, evaluation budgets, and executable PASS/CONDITIONAL/BLOCKED gates.
+14. Run Backend tests, Frontend build, documentation consistency checks, and artifact/secret audit before a local status-dependent commit.
 
-## 4. 计划执行方案
+## 4. Scope
 
-1. 核验主仓库、远端、tag、Release、工作区和 tracked artifact。
-2. 在 `/tmp/scientific-spaces-v1.1.0-validation` fresh clone exact tag，核验隔离性。
-3. 按 tag README 安装依赖，运行 Backend tests 和 Frontend build。
-4. 在隔离 runtime 启动 Backend/Frontend，验证默认离线配置、API 和页面状态。
-5. 在 exact tag 上执行 Docker config/build/up/smoke/log/down。
-6. 使用至少 37 篇 deterministic fixture 验证 Article/Graph legacy 与 versioned API。
-7. 验证 Learning JSON/SQLite migration、rollback、幂等及失败原子性。
-8. 使用小型 fixture 验证运维脚本、权限、hash、隔离恢复及 cleanup 安全边界。
-9. 审计 tag 文档和 main 上的 post-release 文档。
-10. 分类 findings、作出 v1.1.1 决策，按统一公式评分 v1.2 候选并限定范围。
-11. 创建验证报告和路线图；仅在 PASS 且无需 hotfix 时更新项目状态。
-12. 清理全部临时资源，执行最终测试、artifact 审计和 requirement-by-requirement 复核后提交。
+### In Scope
 
-## 5. 方案选型理由
+- Product and architecture documentation
+- Reference/Zotero contracts and persistence lifecycle
+- Real-provider evaluation design and dry-run boundaries
+- CI security and release provenance design
+- Threat model, compatibility matrix, evaluation plan, acceptance gates, and implementation sequencing
+- Scope Decision A/B/C/D
 
-远端 exact-tag 隔离 clone 能排除 main 后续提交、缓存和本地 corpus 干扰。小型 deterministic fixture 可验证冻结契约、迁移和运维行为，同时避免复制真实私有数据。
+### Out of Scope
 
-## 6. 优缺点对比
+- Product implementation or new endpoints/UI
+- Reference extraction or full-corpus reference build
+- Real-provider or paid calls
+- Private Zotero reads/exports or writes
+- M1/frozen API changes
+- Graph storage migration, remote image archive, multi-user/auth
+- Candidate version, tag, Release, push
 
-- 完整 exact-tag 隔离验证（采用）：证据最强，覆盖真实安装、运行、迁移、恢复；代价是耗时较长且依赖 Docker。
-- 仅复用 CI：更快，但无法证明 README、fresh clone 和运维路径，不满足验收。
-- 在当前 main 验证：容易执行，但混入 tag 后提交，不能作为 `v1.1.0` 发布证据。
-
-只有完整 exact-tag 隔离验证符合任务要求。
-
-## 7. 交付件
+## 5. Allowed Changes
 
 - `alignment.md`
-- `docs/V1_1_POST_RELEASE_VALIDATION.md`
+- `docs/V1_2_PRD.md`
+- `docs/V1_2_ARCHITECTURE.md`
+- `docs/V1_2_DATA_MODEL.md`
+- `docs/V1_2_THREAT_MODEL.md`
+- `docs/V1_2_EVALUATION_PLAN.md`
+- `docs/V1_2_ACCEPTANCE.md`
+- `docs/V1_2_EXECUTION_PLAN.md`
+- `docs/ADR/0006-derived-reference-store.md`
+- `docs/ADR/0007-real-provider-evaluation-boundary.md`
+- `docs/ADR/0008-ci-security-and-release-provenance.md`
 - `docs/V1_2_ROADMAP.md`
-- `docs/00_PROJECT_STATE.md`（仅按最终决策更新）
-- 必要的小型 fixture 或 validation script（仅在现有测试不足时）
-- 一个与最终结论匹配的本地 Git commit
-- 最终 22 项证据报告
+- `docs/00_PROJECT_STATE.md`
+- `README.md`, planning links only
 
-## 8. 交付件验收指标
+No other file may be created, deleted, renamed, or modified.
 
-1. `v1.1.0` tag 类型为 `tag`，peeled target 精确匹配发布 commit；`v1.0.0` 未移动。
-2. Fresh clone clean、detached，且无 `.env`、数据库、PDF、corpus、cache 或已有依赖目录。
-3. Backend tests、Frontend build、默认 runtime 和 Docker 均有当前 exact-tag 证据。
-4. 37 篇 fixture 的 Article/Graph legacy 与 versioned 契约通过。
-5. JSON/SQLite migration、rollback、幂等和 failure atomicity 通过。
-6. Backup、verify、isolated restore、cleanup 通过且不含 secret/PDF。
-7. Findings 均有复现、证据、影响和推荐版本；patch 决策严格满足 A/B/C 条件。
-8. v1.2 候选评分有理由，最终最多一个主功能、一个数据质量和一个平台主题。
-9. 临时目录、容器、卷、进程和 archive 全部清理。
-10. 不修改产品实现、冻结契约、已发布 tag 或 GitHub Release；不新增 runtime/private artifact。
+## 6. Prohibited Actions
 
-## Confirmation
+- Modify Article content, M1 parser/converter/validation, legacy APIs, or `/v1.1` APIs
+- Implement reference extraction, API, UI, storage, provider, scanner, SBOM, or provenance functionality
+- Run full-corpus reference processing
+- Call a real provider, make a paid request, or read/export a private Zotero library
+- Auto-write Zotero or assign ambiguous matches
+- Make SQLite the default
+- Modify/create/move tags or GitHub Releases
+- Push the local commit
+- Add runtime/private artifacts, credentials, database, corpus, PDF, Graph, FAISS, backup, raw provider output, profile, trace, or cache
+- Expand to Graph migration, image archiving, multi-user, authentication, or public production deployment
 
-用户已确认：确认执行，方案准确无误。
+## 7. Deliverables
+
+1. Seven v1.2 specification documents: PRD, architecture, data model, threat model, evaluation plan, acceptance, and execution plan.
+2. ADR 0006, 0007, and 0008.
+3. Updated v1.2 roadmap, project state, README planning links, and alignment.
+4. Explicit Scope Decision A/B/C/D and PASS/CONDITIONAL/BLOCKED status.
+5. Test/build, consistency, artifact/secret, Git, and CI evidence.
+6. One local commit matching the final status; no push.
+
+## 8. Acceptance Criteria
+
+P3-002 PASS requires all 15 attachment criteria: each theme is approved or rejected; non-goals are explicit; ReferenceRecord and store lifecycle are complete; provenance/duplicate rules are complete; Zotero never auto-writes; provider consent/data/cost boundaries are complete; CI security policy and threat model are complete; compatibility and migration/rollback are explicit; milestones/dependencies and per-milestone gates are executable; no critical ambiguity remains; no feature implementation or candidate declaration occurs.
+
+## 9. Execution Plan
+
+1. Write this approved alignment.
+2. Fetch tags and verify clean synchronized main, P3-001 CI, and immutable v1.1.0 target.
+3. Read every required project document and inspect each specified source/test boundary.
+4. Build an evidence inventory and compare Scope Options A-D.
+5. Select the scope and lock product, data, security, compatibility, and lifecycle decisions.
+6. Write the seven specifications and three ADRs.
+7. Update roadmap, project state, and README planning links.
+8. Self-review for placeholders, contradictions, nonexistent modules, naming drift, and incomplete gates.
+9. Run Backend tests, Frontend build, consistency checks, and artifact/secret audit.
+10. Commit locally with the status-appropriate message and verify the final branch/worktree state.
+
+## 10. Verification Plan
+
+- `git fetch origin --tags`
+- Required Git status/revision/log/tag and GitHub Actions checks
+- `uv run --project backend --extra dev pytest -q`
+- `npm run build` in `frontend/`
+- Search and inspect every documented path, CLI, endpoint, schema, milestone dependency, version, and tag target
+- Confirm planned modules are described as future work, not existing implementation
+- `git status --short`, `git diff --stat`, staged diff review, tracked artifact scan, bounded secret-pattern scan
+- Verify no push, tag, Release, provider, Zotero, corpus, migration, or implementation action occurred
+
+## 11. Git Plan
+
+- PASS: `docs: approve v1.2 requirements and architecture`
+- CONDITIONAL: `docs: record conditional v1.2 architecture`
+- BLOCKED: `docs: record v1.2 architecture blockers`
+- Push: not authorized
+- Tag/Release: prohibited
+- Candidate version: not assigned
+
+## 12. Risk Controls
+
+- Preserve any user changes and stop on unexpected worktree drift.
+- Use current files and remote read evidence, not prior summaries.
+- Keep M1 and frozen contracts untouched.
+- Separate rebuildable derived data from Tier 1 reviewed decisions.
+- Keep fake-provider defaults and prevent secret/private content capture.
+- Keep all generated runtime data ignored and out of Git.
+- Keep published tags and Release immutable.
+- Do not perform any unapproved external write.
+
+## 13. Stop Conditions
+
+- Unknown worktree change or conflict
+- Missing required source/document evidence
+- Test or build failure
+- Artifact or secret scan hit requiring investigation
+- Need to modify a frozen contract or product code
+- Need for real-provider, paid, private Zotero, corpus, tag, Release, or push action
+- Scope cannot converge on A/B/C/D
+- Unresolved critical architecture ambiguity
+
+## 14. Confirmation
+
+User confirmed this P3-002 Task Alignment and authorized local documentation changes, verification, and one local commit. Push, tag, Release, candidate declaration, product implementation, real-provider calls, private Zotero access, and full-corpus reference processing remain unauthorized.

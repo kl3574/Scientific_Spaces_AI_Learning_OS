@@ -18,7 +18,20 @@ Release notes: `docs/RELEASE_NOTES_v1.1.0.md` (draft history in `docs/RELEASE_NO
 
 Post-release validation: `docs/V1_1_POST_RELEASE_VALIDATION.md`.
 
-Proposed v1.2 scope and priorities: `docs/V1_2_ROADMAP.md`.
+Approved v1.2 planning scope and priorities: `docs/V1_2_ROADMAP.md`.
+
+v1.2 planning specifications:
+
+- Product requirements: `docs/V1_2_PRD.md`
+- Architecture: `docs/V1_2_ARCHITECTURE.md`
+- Data model: `docs/V1_2_DATA_MODEL.md`
+- Threat model: `docs/V1_2_THREAT_MODEL.md`
+- Evaluation plan: `docs/V1_2_EVALUATION_PLAN.md`
+- Acceptance gates: `docs/V1_2_ACCEPTANCE.md`
+- Execution plan: `docs/V1_2_EXECUTION_PLAN.md`
+- Architecture decisions: `docs/ADR/0006-derived-reference-store.md`, `docs/ADR/0007-real-provider-evaluation-boundary.md`, and `docs/ADR/0008-ci-security-and-release-provenance.md`
+
+The formal version remains `v1.1.0`; no v1.2 candidate, tag, or Release is assigned by these planning documents.
 
 Post-MVP corpus processing planning is recorded in `docs/FULL_CORPUS_PROCESSING_PLAN.md`.
 

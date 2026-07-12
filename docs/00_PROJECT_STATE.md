@@ -6,15 +6,15 @@ v1.1.0
 
 Candidate Version:
 
-Released
+Not assigned
 
 Phase:
 
-v1.1 Released
+v1.2 Planning
 
 Status:
 
-Published
+P3-002 Product Requirements and Architecture: PASS
 
 Release Readiness:
 
@@ -122,13 +122,25 @@ P3-001 v1.1.0 Post-Release Validation:
 
 PASS
 
+P3-002 v1.2 Product Requirements and Architecture:
+
+PASS
+
+Approved v1.2 Scope:
+
+Option A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance
+
+v1.2 Candidate Status:
+
+Not assigned
+
 v1.1.1 Decision:
 
 No v1.1.1 required
 
 Next Targeted Task:
 
-P3-002 v1.2 Product Requirements and Architecture
+P3-003 Structured Reference Extraction Pilot
 
 Post-freeze Change Rule:
 

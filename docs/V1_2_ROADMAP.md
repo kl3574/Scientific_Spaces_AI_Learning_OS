@@ -1,16 +1,18 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: Proposed after P3-001; scope is not yet an approved candidate release.
+Status: P3-002 planning scope approved; no candidate version is assigned.
+
+Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
 ## Executive Summary
 
-v1.2 should improve scientific provenance and release trust without changing the local-first default. The recommended scope is:
+v1.2 will improve scientific provenance and release trust without changing the local-first default. The approved planning scope is:
 
 - Main theme: structured reference extraction and Zotero linking.
 - Data-quality/evaluation theme: opt-in real-provider evaluation harness.
 - Platform theme: CI security and release provenance.
 
-Graph storage optimization is the strongest deferred engineering candidate, but its migration and regression cost make it better suited to v1.3 unless P3-002 establishes a blocking performance target. Remote image archiving is deferred, and multi-user architecture remains v2.0 discovery.
+Graph storage optimization is the strongest deferred engineering candidate, but P3-002 found no blocking performance target; its migration and regression cost make it better suited to v1.3. Remote image archiving is deferred, and multi-user architecture remains v2.0 discovery.
 
 ## Evidence Base
 
@@ -35,33 +37,33 @@ Graph storage optimization is the strongest deferred engineering candidate, but 
 - No authentication, authorization, public multi-user deployment, or concurrent-user database architecture.
 - No default real provider, paid CI call, committed credential, or provider-specific product lock-in.
 - No implicit remote-image download during startup, sync, Reader use, PDF export, or CI.
-- No full Graph storage migration unless P3-002 approves a measured performance requirement and rollback design.
+- No full Graph storage migration in v1.2; a future v1.3 architecture task requires a measured performance requirement and rollback design.
 - No change to the frozen M1 source pipeline in ordinary v1.2 work. Any M1 implementation change requires a separate M1.x revision task.
 - No claim that reference extraction or Zotero matching proves scientific correctness.
 
-## Candidate Workstreams
+## Evaluated Workstreams
 
-### Candidate A - Real Provider Quality Evaluation
+### Real Provider Quality Evaluation
 
 Add explicit embedding/chat provider experiments for cost, latency, errors, citation faithfulness, answer quality, privacy, fallback behavior, and rate limits. Credentials remain local; fake providers remain default; CI never calls paid services.
 
-### Candidate B - Structured Reference Extraction
+### Structured Reference Extraction
 
 Extract DOI, arXiv IDs, and URLs from existing `Article.content`; normalize and deduplicate them; preserve exact article/section evidence; and produce candidate Zotero matches with confidence and provenance. Prefer a derived reference store so the frozen M1 parser and Article schema remain untouched.
 
-### Candidate C - Graph Storage and Cold-Start
+### Graph Storage and Cold-Start
 
 Replace repeated large-JSON cold loading with indexed/lazy storage, schema migration, bounded queries, integrity checks, and corruption recovery. This requires careful compatibility and rollback work because legacy Graph routes remain frozen.
 
-### Candidate D - Remote Image Local Archive
+### Remote Image Local Archive
 
 Offer an explicit opt-in archive with bounded source pressure, checksum verification, attribution, resume/retry, local-path rewriting, and Reader/PDF integration. It must never run from ordinary startup or CI.
 
-### Candidate E - CI and Repository Security
+### CI and Repository Security
 
 Add dependency and secret scanning, immutable Action pinning, branch-protection guidance, SBOM generation, release provenance, and artifact attestation. Keep generated evidence bounded and avoid shipping private runtime data.
 
-### Candidate F - User Data and Multi-Profile Architecture
+### User Data and Multi-Profile Architecture
 
 Investigate authentication, authorization, profile isolation, database migration, and concurrent writes. This changes the product trust model and belongs to v2.0 discovery rather than v1.2 implementation.
 
@@ -91,7 +93,33 @@ All dimensions use 1-5 relative engineering scores. They are not economic-value 
 - D improves offline fidelity but adds source pressure, copyright/attribution, storage, retry, and rewrite complexity for a non-core limitation.
 - F has high cost and regression exposure while current evidence does not show a multi-user requirement; it changes the trust and deployment model.
 
-## Recommended Scope
+## Approved Scope
+
+P3-002 selected Scope Decision A. The three included workstreams have independent, additive boundaries. Approval does not assign `v1.2.0` as a candidate and does not authorize implementation, a real-provider call, private Zotero access, or a full-corpus reference build.
+
+Architecture set:
+
+- `docs/V1_2_PRD.md`
+- `docs/V1_2_ARCHITECTURE.md`
+- `docs/V1_2_DATA_MODEL.md`
+- `docs/V1_2_THREAT_MODEL.md`
+- `docs/V1_2_EVALUATION_PLAN.md`
+- `docs/V1_2_ACCEPTANCE.md`
+- `docs/V1_2_EXECUTION_PLAN.md`
+- `docs/ADR/0006-derived-reference-store.md`
+- `docs/ADR/0007-real-provider-evaluation-boundary.md`
+- `docs/ADR/0008-ci-security-and-release-provenance.md`
+
+### P3-002 Approval Evidence
+
+- Starting `main` and `origin/main`: `fdba4d8759f36704fcc928fff504526d0c5e1781`, ahead/behind `0/0`.
+- Published `v1.1.0` peeled target: `3efbe2a792a9853f1bac456f0287c3b5b62713ce`.
+- P3-001 main CI run `29179023882`: Backend PASS, Frontend PASS, Docker correctly skipped for a main push.
+- P3-002 Backend verification: 469 passed, 3 skipped.
+- P3-002 Frontend production build: PASS, static generation 8/8.
+- Existing OpenAPI was inspected; no `/v1.2` implementation exists and all named `/v1.2` contracts remain planned.
+- Changed-path allowlist, Markdown fence, Git diff, tracked large-file, runtime/private artifact, and bounded known-secret-pattern checks passed. `gitleaks` is unavailable locally, consistent with the recorded security-baseline tooling limitation.
+- No product/frozen implementation, real provider, private Zotero library, full corpus, push, tag, or Release operation occurred.
 
 ### Main Theme - Structured Reference Extraction and Zotero Linking
 
@@ -178,7 +206,7 @@ All dimensions use 1-5 relative engineering scores. They are not economic-value 
 
 ### P3-002 - v1.2 Product Requirements and Architecture
 
-Approve contracts, scope boundaries, threat model, data flow, compatibility rules, evaluation budgets, and release criteria. This approval is required before assigning a v1.2 candidate version.
+Status: PASS. Scope Decision A approved contracts, boundaries, threat model, data flow, compatibility rules, evaluation budgets, and release criteria. No candidate version was assigned.
 
 ### P3-003 - Structured Reference Extraction Pilot
 
@@ -186,15 +214,19 @@ Implement deterministic extraction/indexing on fixtures and a bounded Article sa
 
 ### P3-004 - Real Provider Evaluation Design
 
-Specify provider consent, secret handling, case selection, budgets, metrics, failure taxonomy, and report format. A design PASS does not enable a real provider by default.
+Implement and verify provider consent, secret handling, case selection, budgets, metrics, failure taxonomy, redaction/retention, and report format using fake/dry-run only. A design PASS does not authorize a real call or enable a real provider by default.
 
 ### P3-005 - CI Security and Release Provenance
 
 Add immutable pins, scanning, SBOM, provenance, least-privilege workflow permissions, and verification documentation while preserving current CI jobs.
 
-### P3-006 - v1.2 Integration and Release Planning
+### P3-006 - Structured Reference Full-Corpus Build and Zotero Matching
 
-Run compatibility, migration, security, artifact, local runtime, Docker, and documentation gates. Decide the final candidate only from completed evidence.
+After P3-003 PASS and separate full-corpus authorization, build and audit the complete derived Reference Store, prove no-network/no-mutation/idempotency/recovery, and evaluate read-only matching. Private Zotero access remains optional and separately authorized.
+
+### P3-007 - v1.2 Integration and Release Readiness
+
+Integrate additive reference API/UI and operations boundaries, then run compatibility, migration, security, artifact, local runtime, Docker, SBOM/provenance, and documentation gates. Recommend a candidate only from completed evidence and separate user authorization.
 
 ## Release Criteria
 
@@ -226,8 +258,8 @@ Run compatibility, migration, security, artifact, local runtime, Docker, and doc
 - Public deployment, tenant administration, quotas, and abuse controls.
 - Migration of local single-user private data into a hosted service.
 
-## First Recommended Task
+## Next Recommended Task
 
-`P3-002 v1.2 Product Requirements and Architecture`
+`P3-003 Structured Reference Extraction Pilot`
 
-The task should approve or reject the proposed three-theme scope before any implementation or candidate-version declaration.
+The task should implement at least 60 deterministic fixtures and a 50-100 Article offline pilot. It must not run the full 1,311-Article corpus, access a private Zotero library, call a real provider, or modify the frozen Article/M1 contracts.
