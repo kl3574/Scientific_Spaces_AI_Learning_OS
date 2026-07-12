@@ -33,6 +33,15 @@ v1.2 planning specifications:
 
 The formal version remains `v1.1.0`; no v1.2 candidate, tag, or Release is assigned by these planning documents.
 
+## Current Development Task
+
+- Current task: `docs/tasks/CURRENT_TASK.md`
+- Task specifications: `docs/tasks/`
+- v1.2 roadmap: `docs/V1_2_ROADMAP.md`
+- Project state: `docs/00_PROJECT_STATE.md`
+
+Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
+
 Post-MVP corpus processing planning is recorded in `docs/FULL_CORPUS_PROCESSING_PLAN.md`.
 
 Bounded full-corpus pilot evidence is recorded in `docs/FULL_CORPUS_PILOT_REPORT.md`.

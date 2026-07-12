@@ -126,6 +126,18 @@ P3-002 v1.2 Product Requirements and Architecture:
 
 PASS
 
+Current Task:
+
+P3-003 Structured Reference Extraction Pilot
+
+P3-003 Status:
+
+ALIGNMENT REQUIRED
+
+Implementation Authorization:
+
+NOT GRANTED
+
 Approved v1.2 Scope:
 
 Option A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance
@@ -140,7 +152,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-P3-003 Structured Reference Extraction Pilot
+Confirm P3-003 execution alignment
 
 Post-freeze Change Rule:
 
