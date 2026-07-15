@@ -33,6 +33,20 @@ v1.2 planning specifications:
 
 The formal version remains `v1.1.0`; no v1.2 candidate, tag, or Release is assigned by these planning documents.
 
+## Structured Reference Pilot
+
+Run the bounded, deterministic 75-Article pilot against the existing ignored local Article store:
+
+```bash
+uv run --project backend python scripts/references/run_reference_pilot.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --sample-size 75 \
+  --output-dir .local_data/scientific_spaces/references/pilot \
+  --no-network
+```
+
+The command is offline, accepts only 50-100 Articles, leaves the Article store unchanged, and writes its derived store under ignored `.local_data/`. It does not authorize a full-corpus build or private Zotero access.
+
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`

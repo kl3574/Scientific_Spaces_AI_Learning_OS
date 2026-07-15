@@ -10,7 +10,7 @@ P3-003 Structured Reference Extraction Pilot
 
 ## Status
 
-ALIGNMENT REQUIRED
+PASS
 
 ## Formal Version
 
@@ -26,20 +26,20 @@ Not assigned
 
 ## Implementation Authorization
 
-NOT GRANTED
+COMPLETED WITHIN CONFIRMED P3-003 BOUNDED OFFLINE PILOT
 
 ## Allowed Current Action
 
-Prepare and obtain confirmation for the P3-003 execution alignment.
+No further P3-003 implementation action. Push remains separately authorized.
 
 ## Prohibited Current Actions
 
-- Product implementation
-- Pilot execution
-- Commit for P3-003 implementation
-- Push for P3-003 implementation
+- Full-corpus reference processing
+- Network, real-provider, paid, or private-Zotero access
+- Article, M1, legacy API, or `/v1.1` API mutation
+- Push for P3-003 implementation without separate authorization
 - Tag or Release
 
 ## Next Required Decision
 
-User confirmation of the P3-003 execution alignment.
+Confirm a new P3-004 Real Provider Evaluation Design alignment.

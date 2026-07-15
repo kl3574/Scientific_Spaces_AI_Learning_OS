@@ -2,9 +2,9 @@
 
 ## Status
 
-APPROVED FOR ALIGNMENT
+PASS
 
-IMPLEMENTATION NOT YET AUTHORIZED
+BOUNDED OFFLINE PILOT COMPLETED
 
 ## Task Identity
 
@@ -24,7 +24,7 @@ P3-003 Structured Reference Extraction Pilot
 
 The validated local corpus contains 1,311 Articles whose frozen `id`, `title`, `url`, `content`, and `metadata` contracts remain authoritative. Structured references are currently embedded in Markdown while `metadata.references` remains empty. P3-002 approved an independent, deterministic, offline derived-reference architecture that preserves M1, Article content, released APIs, and local-first defaults.
 
-This specification is canonical planning input for a future P3-003 execution alignment. Its presence does not authorize implementation or pilot execution.
+This specification is the canonical contract for the user-confirmed P3-003 execution alignment. Implementation and a 50-100 Article offline pilot are authorized within the listed paths and gates. Push, tag, and Release remain unauthorized.
 
 ## Goal
 
@@ -228,10 +228,16 @@ Never track or attach Article corpus/content exports, full derived stores, priva
 
 ## Completion Evidence
 
-- Commit: pending a separately authorized P3-003 implementation task
+- Commit: local PASS commit with message `feat: add structured reference extraction pilot`; hash is recorded in Git history and the execution report
 - CI: pending an authorized push
-- Report: `docs/STRUCTURED_REFERENCE_PILOT_REPORT.md`, not yet created
+- Report: `docs/STRUCTURED_REFERENCE_PILOT_REPORT.md`
+- Focused tests: 26 passed
+- Frozen API regressions: 45 passed
+- Complete Backend suite: 495 passed, 3 skipped
+- Frontend production build: PASS
+- Pilot: 75 Articles, 1,578/1,578 candidates classified, zero network, zero mutation, 30 human-reviewed cases, strong-identifier precision 1.0
+- Store and artifact/secret audits: PASS
 
 ## Next Task
 
-P3-003 implementation alignment and explicit authorization.
+P3-004 Real Provider Evaluation Design alignment and explicit authorization.
