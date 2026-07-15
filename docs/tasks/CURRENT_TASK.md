@@ -10,7 +10,7 @@ P3-004 Real Provider Evaluation Design
 
 ## Status
 
-ALIGNMENT REQUIRED
+PASS / CLOSED
 
 ## Formal Version
 
@@ -30,15 +30,18 @@ P3-003 Structured Reference Extraction Pilot: PASS / CLOSED
 
 ## Implementation Authorization
 
+COMPLETED UNDER CONFIRMED FAKE/DRY-RUN ALIGNMENT
+
+## Real Provider Authorization
+
 NOT GRANTED
 
 ## Allowed Current Action
 
-Review the canonical task and obtain a complete, explicit P3-004 execution alignment.
+Review the local P3-004 completion evidence. Any push or P3-005 staging requires separate authorization.
 
 ## Prohibited Current Actions
 
-- P3-004 implementation or task-specific dry-run execution before alignment
 - Real or paid provider calls
 - Credentials, private user data, or private Zotero access/export
 - Product default, startup, Article, M1, legacy API, or `/v1.1` API changes
@@ -46,4 +49,4 @@ Review the canonical task and obtain a complete, explicit P3-004 execution align
 
 ## Next Required Decision
 
-Confirm or revise the P3-004 Real Provider Evaluation Design execution alignment.
+Separately authorize canonical staging and alignment for P3-005 CI Security and Release Provenance.

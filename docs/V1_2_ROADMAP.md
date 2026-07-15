@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-003 PASS / CLOSED; P3-004 staged with ALIGNMENT REQUIRED and no implementation authorization; no candidate version is assigned.
+Status: P3-003 PASS / CLOSED; P3-004 PASS / CLOSED under fake/dry-run and zero-network constraints; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -214,7 +214,7 @@ Status: **PASS / CLOSED**. Deterministic extraction/indexing passed on fixtures 
 
 ### P3-004 - Real Provider Evaluation Design
 
-Status: **ALIGNMENT REQUIRED**. Implementation authorization: **NOT GRANTED**. The canonical task is `docs/tasks/P3-004_REAL_PROVIDER_EVALUATION_DESIGN.md`. A future confirmed task may implement and verify provider consent, secret handling, case selection, budgets, metrics, failure taxonomy, redaction/retention, and report format using fake/dry-run only. A design PASS does not authorize a real call or enable a real provider by default.
+Status: **PASS / CLOSED**. The isolated fake/dry-run harness implements provider consent, secret handling, fixed case selection, hard budgets, bounded metrics, terminal failure taxonomy, redaction/retention, and artifact auditing. Focused tests passed 35/35, the full Backend suite passed 530 with 3 skipped, the Frontend build passed, and deterministic evidence recorded zero external network requests. The report is `docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md`. This PASS does not authorize a real call or enable a real provider by default.
 
 ### P3-005 - CI Security and Release Provenance
 
@@ -260,6 +260,6 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 ## Next Recommended Task
 
-`P3-004 Real Provider Evaluation Design`
+`P3-005 CI Security and Release Provenance`
 
-The next action is a complete interactive execution alignment. Staging grants no implementation authority. Any future implementation remains fake/dry-run and zero-network; a real provider call, paid request, credential, or private Zotero/user data requires separate authorization and is not part of P3-004.
+The next action is a separately authorized canonical staging and complete interactive execution alignment for P3-005. P3-004 grants no real-provider, paid-request, credential, or private Zotero/user-data authority.

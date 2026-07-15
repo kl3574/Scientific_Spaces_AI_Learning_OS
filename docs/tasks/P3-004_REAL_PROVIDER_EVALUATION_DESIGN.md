@@ -2,9 +2,11 @@
 
 ## Status
 
-ALIGNMENT REQUIRED
+PASS / CLOSED
 
-IMPLEMENTATION AUTHORIZATION: NOT GRANTED
+IMPLEMENTATION AUTHORIZATION: COMPLETED UNDER CONFIRMED FAKE/DRY-RUN ALIGNMENT
+
+REAL PROVIDER AUTHORIZATION: NOT GRANTED
 
 ## Task Identity
 
@@ -44,7 +46,7 @@ P3-002 approved an operator-only evaluation architecture. P3-004 is limited to i
 - No full prompt or raw provider output by default.
 - No P3-005 CI security implementation, P3-006 full-corpus reference build, candidate assignment, tag, or Release.
 
-## In Scope After Separate Alignment
+## Implemented Scope
 
 - `ProviderEvaluationRun` and `ProviderEvaluationCaseResult` contracts consistent with `docs/V1_2_DATA_MODEL.md`.
 - Evaluation-owned embedding/chat adapter metadata without changing provider defaults.
@@ -64,7 +66,7 @@ P3-002 approved an operator-only evaluation architecture. P3-004 is limited to i
 
 ## Allowed Changes
 
-No implementation change is currently authorized. A future confirmed alignment may authorize only:
+The confirmed execution alignment authorized only:
 
 - evaluation/provider-owned modules under `backend/app/evaluation/`;
 - focused fake/dry-run tests and bounded metadata-only fixtures under `backend/tests/`;
@@ -73,7 +75,7 @@ No implementation change is currently authorized. A future confirmed alignment m
 - `docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md`;
 - task, project-state, README command, and alignment documentation required by the confirmed task.
 
-The exact allowlist must be repeated in and controlled by the future execution alignment.
+The implementation remained within this allowlist. `.gitignore` did not require a change because `.local_data/` was already ignored.
 
 ## Prohibited Actions
 
@@ -167,9 +169,9 @@ Runtime output belongs below `.local_data/scientific_spaces/evaluation/real_prov
 ## Git Plan
 
 - Current staging commit: docs-only P3-003 closure and P3-004 canonical specification
-- Implementation commit: not authorized and must be selected by a future confirmed alignment
+- Local implementation commit: this status-appropriate P3-004 completion commit; final hash is reported after commit creation
 - Push: not authorized for P3-004 implementation
-- CI: required after any separately authorized push
+- CI: not run or claimed; required after any separately authorized push
 - Tag: prohibited
 - Release: prohibited
 
@@ -183,10 +185,16 @@ Runtime output belongs below `.local_data/scientific_spaces/evaluation/real_prov
 
 ## Completion Evidence
 
-- Commit: pending a separately authorized P3-004 implementation task
-- CI: pending
-- Report: `docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md` (not created during staging)
+- Focused tests: 35 passed
+- Frozen compatibility selection: 110 passed
+- Full Backend suite: 530 passed, 3 skipped
+- Frontend production build: PASS, static generation 8/8
+- Fake dry-run: 15 cases, 18 fake attempts, 0 external network requests, raw output disabled
+- Artifact audit: PASS, 0 findings
+- Commit: local status-appropriate completion commit; no push authorized
+- CI: not run; no push authorized
+- Report: `docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md`
 
 ## Next Task
 
-Complete and explicitly confirm the P3-004 execution alignment. Canonical staging alone grants no implementation or real-provider authority.
+Separately stage and align P3-005 CI Security and Release Provenance. P3-004 PASS grants no real-provider request authority.

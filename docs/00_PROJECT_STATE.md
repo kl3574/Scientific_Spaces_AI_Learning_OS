@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-003 Structured Reference Extraction Pilot: PASS / CLOSED; P3-004 Real Provider Evaluation Design: ALIGNMENT REQUIRED
+P3-003 Structured Reference Extraction Pilot: PASS / CLOSED; P3-004 Real Provider Evaluation Design: PASS / CLOSED
 
 Release Readiness:
 
@@ -132,9 +132,13 @@ P3-004 Real Provider Evaluation Design
 
 Current Task Status:
 
-ALIGNMENT REQUIRED
+PASS / CLOSED
 
 Implementation Authorization:
+
+COMPLETED UNDER CONFIRMED FAKE/DRY-RUN ALIGNMENT
+
+Real Provider Authorization:
 
 NOT GRANTED
 
@@ -158,6 +162,14 @@ P3-004 Canonical Task:
 
 docs/tasks/P3-004_REAL_PROVIDER_EVALUATION_DESIGN.md
 
+P3-004 Evidence:
+
+docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md
+
+P3-004 Verification:
+
+35 focused tests passed; 530 Backend tests passed with 3 skipped; Frontend build passed; network_request_count=0
+
 Approved v1.2 Scope:
 
 Option A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance
@@ -172,7 +184,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Confirm P3-004 Real Provider Evaluation Design execution alignment
+Separately stage and align P3-005 CI Security and Release Provenance
 
 Post-freeze Change Rule:
 

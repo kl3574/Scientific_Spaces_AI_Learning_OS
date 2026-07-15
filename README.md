@@ -10,7 +10,7 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Status: `Published`
 - Candidate: `None`
 - Release Readiness: `PASS`
-- Latest gate: `P3-001 v1.1.0 post-release validation PASS`
+- Latest gate: `P3-004 Real Provider Evaluation Design PASS / CLOSED (local evidence)`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -32,6 +32,20 @@ v1.2 planning specifications:
 - Architecture decisions: `docs/ADR/0006-derived-reference-store.md`, `docs/ADR/0007-real-provider-evaluation-boundary.md`, and `docs/ADR/0008-ci-security-and-release-provenance.md`
 
 The formal version remains `v1.1.0`; no v1.2 candidate, tag, or Release is assigned by these planning documents.
+
+## Provider Evaluation Safety Harness
+
+P3-004 provides an offline fake/dry-run harness for validating provider consent, budgets, bounded request envelopes, terminal errors, redaction, retention, and artifact safety:
+
+```bash
+uv run --project backend python scripts/eval/run_real_provider_eval.py \
+  --provider fake \
+  --case-set backend/tests/fixtures/evaluation/provider_cases.json \
+  --dry-run \
+  --output-dir .local_data/scientific_spaces/evaluation/real_provider/dry-run
+```
+
+Generated output remains under ignored `.local_data/`. Audit it with `scripts/eval/audit_real_provider_eval.py`; cleanup is dry-run by default through `scripts/eval/cleanup_real_provider_eval.py`. The harness does not authorize a real request, read credentials, or change fake product defaults. Evidence is recorded in `docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md`.
 
 ## Structured Reference Pilot
 
