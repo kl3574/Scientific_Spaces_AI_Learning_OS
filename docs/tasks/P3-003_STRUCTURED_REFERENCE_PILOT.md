@@ -2,9 +2,9 @@
 
 ## Status
 
-PASS
+PASS / CLOSED
 
-BOUNDED OFFLINE PILOT COMPLETED
+PASS IMPLEMENTATION SYNCHRONIZED AND MAIN CI VALIDATED
 
 ## Task Identity
 
@@ -24,7 +24,7 @@ P3-003 Structured Reference Extraction Pilot
 
 The validated local corpus contains 1,311 Articles whose frozen `id`, `title`, `url`, `content`, and `metadata` contracts remain authoritative. Structured references are currently embedded in Markdown while `metadata.references` remains empty. P3-002 approved an independent, deterministic, offline derived-reference architecture that preserves M1, Article content, released APIs, and local-first defaults.
 
-This specification is the canonical contract for the user-confirmed P3-003 execution alignment. Implementation and a 50-100 Article offline pilot are authorized within the listed paths and gates. Push, tag, and Release remain unauthorized.
+This specification is the historical canonical contract for the user-confirmed P3-003 execution alignment. The bounded implementation, local verification, separately authorized push, and main CI validation are complete. Tag and Release were not authorized or performed.
 
 ## Goal
 
@@ -153,7 +153,7 @@ Committed fixtures must be synthetic or bounded citation metadata and must not c
 - A no-network pilot CLI over 50-100 Articles.
 - Fake/unavailable read-only Zotero matching seam.
 - `docs/STRUCTURED_REFERENCE_PILOT_REPORT.md` with metrics, IDs/strata, review evidence, fingerprints, resource use, and artifact audit.
-- A status-appropriate local commit; push requires separate authorization.
+- A status-appropriate implementation commit and separately authorized main push with CI evidence.
 
 ## Acceptance Criteria
 
@@ -210,11 +210,10 @@ Never track or attach Article corpus/content exports, full derived stores, priva
 
 ## Git Plan
 
-- PASS commit: `feat: add structured reference extraction pilot`
-- CONDITIONAL commit: `docs: record conditional structured reference pilot`
-- BLOCKED commit: `docs: record structured reference pilot blockers`
-- Push: requires separate authorization; default is local commit only
-- CI: required after any separately authorized push
+- PASS implementation commit: `fb5419fc31222be738178a3ed65cf11dfb9192fe` (`feat: add structured reference extraction pilot`)
+- Push: separately authorized and synchronized to `main`
+- CI: PASS, run `29415222974`
+- Closure: independent docs-only commit after implementation CI PASS
 - Tag: prohibited
 - Release: prohibited
 
@@ -228,8 +227,8 @@ Never track or attach Article corpus/content exports, full derived stores, priva
 
 ## Completion Evidence
 
-- Commit: local PASS commit with message `feat: add structured reference extraction pilot`; hash is recorded in Git history and the execution report
-- CI: pending an authorized push
+- Commit: `fb5419fc31222be738178a3ed65cf11dfb9192fe` (`feat: add structured reference extraction pilot`)
+- CI: `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29415222974` - Backend PASS, Frontend PASS, Docker correctly skipped for a normal main push
 - Report: `docs/STRUCTURED_REFERENCE_PILOT_REPORT.md`
 - Focused tests: 26 passed
 - Frozen API regressions: 45 passed
@@ -240,4 +239,4 @@ Never track or attach Article corpus/content exports, full derived stores, priva
 
 ## Next Task
 
-P3-004 Real Provider Evaluation Design alignment and explicit authorization.
+`docs/tasks/P3-004_REAL_PROVIDER_EVALUATION_DESIGN.md` - `ALIGNMENT REQUIRED`; implementation authorization `NOT GRANTED`.

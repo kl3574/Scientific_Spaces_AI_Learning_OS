@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-002 planning scope approved; no candidate version is assigned.
+Status: P3-003 PASS / CLOSED; P3-004 staged with ALIGNMENT REQUIRED and no implementation authorization; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -210,11 +210,11 @@ Status: PASS. Scope Decision A approved contracts, boundaries, threat model, dat
 
 ### P3-003 - Structured Reference Extraction Pilot
 
-Implement deterministic extraction/indexing on fixtures and a bounded Article sample. Produce normalization, provenance, duplicate, and Zotero-match evidence before a full-corpus run.
+Status: **PASS / CLOSED**. Deterministic extraction/indexing passed on fixtures and a bounded 75-Article sample. Implementation commit `fb5419fc31222be738178a3ed65cf11dfb9192fe` passed main CI run `29415222974` for Backend and Frontend; Docker was correctly skipped for the normal main push.
 
 ### P3-004 - Real Provider Evaluation Design
 
-Implement and verify provider consent, secret handling, case selection, budgets, metrics, failure taxonomy, redaction/retention, and report format using fake/dry-run only. A design PASS does not authorize a real call or enable a real provider by default.
+Status: **ALIGNMENT REQUIRED**. Implementation authorization: **NOT GRANTED**. The canonical task is `docs/tasks/P3-004_REAL_PROVIDER_EVALUATION_DESIGN.md`. A future confirmed task may implement and verify provider consent, secret handling, case selection, budgets, metrics, failure taxonomy, redaction/retention, and report format using fake/dry-run only. A design PASS does not authorize a real call or enable a real provider by default.
 
 ### P3-005 - CI Security and Release Provenance
 
@@ -260,6 +260,6 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 ## Next Recommended Task
 
-`P3-003 Structured Reference Extraction Pilot`
+`P3-004 Real Provider Evaluation Design`
 
-The task should implement at least 60 deterministic fixtures and a 50-100 Article offline pilot. It must not run the full 1,311-Article corpus, access a private Zotero library, call a real provider, or modify the frozen Article/M1 contracts.
+The next action is a complete interactive execution alignment. Staging grants no implementation authority. Any future implementation remains fake/dry-run and zero-network; a real provider call, paid request, credential, or private Zotero/user data requires separate authorization and is not part of P3-004.

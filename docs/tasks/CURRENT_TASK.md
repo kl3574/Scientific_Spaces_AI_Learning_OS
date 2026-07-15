@@ -2,15 +2,15 @@
 
 ## Task
 
-P3-003 Structured Reference Extraction Pilot
+P3-004 Real Provider Evaluation Design
 
 ## Canonical Specification
 
-`docs/tasks/P3-003_STRUCTURED_REFERENCE_PILOT.md`
+`docs/tasks/P3-004_REAL_PROVIDER_EVALUATION_DESIGN.md`
 
 ## Status
 
-PASS
+ALIGNMENT REQUIRED
 
 ## Formal Version
 
@@ -24,22 +24,26 @@ Not assigned
 
 `edc6e4a4f619c8b7bc0cd3de480fbd64a463aabf`
 
+## Previous Task
+
+P3-003 Structured Reference Extraction Pilot: PASS / CLOSED
+
 ## Implementation Authorization
 
-COMPLETED WITHIN CONFIRMED P3-003 BOUNDED OFFLINE PILOT
+NOT GRANTED
 
 ## Allowed Current Action
 
-No further P3-003 implementation action. Push remains separately authorized.
+Review the canonical task and obtain a complete, explicit P3-004 execution alignment.
 
 ## Prohibited Current Actions
 
-- Full-corpus reference processing
-- Network, real-provider, paid, or private-Zotero access
-- Article, M1, legacy API, or `/v1.1` API mutation
-- Push for P3-003 implementation without separate authorization
-- Tag or Release
+- P3-004 implementation or task-specific dry-run execution before alignment
+- Real or paid provider calls
+- Credentials, private user data, or private Zotero access/export
+- Product default, startup, Article, M1, legacy API, or `/v1.1` API changes
+- Push, tag, or Release without separate authorization
 
 ## Next Required Decision
 
-Confirm a new P3-004 Real Provider Evaluation Design alignment.
+Confirm or revise the P3-004 Real Provider Evaluation Design execution alignment.

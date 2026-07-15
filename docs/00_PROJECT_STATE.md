@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-003 Structured Reference Extraction Pilot: PASS
+P3-003 Structured Reference Extraction Pilot: PASS / CLOSED; P3-004 Real Provider Evaluation Design: ALIGNMENT REQUIRED
 
 Release Readiness:
 
@@ -128,19 +128,35 @@ PASS
 
 Current Task:
 
-P3-003 Structured Reference Extraction Pilot
+P3-004 Real Provider Evaluation Design
 
-P3-003 Status:
+Current Task Status:
 
-PASS
+ALIGNMENT REQUIRED
 
 Implementation Authorization:
 
-COMPLETED WITHIN CONFIRMED BOUNDED OFFLINE PILOT
+NOT GRANTED
+
+P3-003 Structured Reference Extraction Pilot:
+
+PASS / CLOSED
+
+P3-003 Implementation Commit:
+
+fb5419fc31222be738178a3ed65cf11dfb9192fe
+
+P3-003 Main CI:
+
+PASS - https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29415222974
 
 P3-003 Evidence:
 
 docs/STRUCTURED_REFERENCE_PILOT_REPORT.md
+
+P3-004 Canonical Task:
+
+docs/tasks/P3-004_REAL_PROVIDER_EVALUATION_DESIGN.md
 
 Approved v1.2 Scope:
 
@@ -156,7 +172,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-P3-004 Real Provider Evaluation Design
+Confirm P3-004 Real Provider Evaluation Design execution alignment
 
 Post-freeze Change Rule:
 
