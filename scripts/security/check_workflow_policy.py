@@ -19,6 +19,14 @@ EXTERNAL_ACTION_PATTERN = re.compile(
 )
 FULL_SHA_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 VERSION_COMMENT_PATTERN = re.compile(r"\bv\d+(?:\.\d+){1,2}\b")
+UV_INSTALL_PATTERN = re.compile(
+    r"\bpython\s+-m\s+pip\s+install\s+(?P<package>uv(?:==[^\s;&|]+)?)(?=$|[\s;&|])"
+)
+SAFE_RELEASE_CONDITION = re.compile(
+    r"^github\.event_name==(?P<quote1>['\"])workflow_dispatch(?P=quote1)\|\|"
+    r"\(github\.event_name==(?P<quote2>['\"])push(?P=quote2)&&"
+    r"startsWith\(github\.ref,(?P<quote3>['\"])refs/tags/v(?P=quote3)\)\)$"
+)
 WRITE_PERMISSIONS = {
     "actions",
     "attestations",
@@ -87,12 +95,50 @@ def _jobs(lines: list[str]) -> list[JobBlock]:
     return blocks
 
 
-def inspect_workflow(path: Path, pin_map: dict[str, object]) -> dict[str, object]:
+def _job_condition(job: JobBlock) -> str | None:
+    lines = list(job.lines)
+    for index, line in enumerate(lines):
+        if not re.match(r"^    if:\s*", line):
+            continue
+        value = line.split(":", 1)[1].strip()
+        if value not in {">", ">-", "|", "|-"}:
+            return value
+        parts: list[str] = []
+        for candidate in lines[index + 1 :]:
+            if not candidate.strip():
+                continue
+            indent = len(candidate) - len(candidate.lstrip())
+            if indent <= 4:
+                break
+            parts.append(candidate.strip())
+        return " ".join(parts)
+    return None
+
+
+def _normalized_expression(value: str) -> str:
+    return re.sub(r"\s+", "", value)
+
+
+def inspect_workflow(
+    path: Path,
+    pin_map: dict[str, object],
+    tool_versions: dict[str, object],
+) -> dict[str, object]:
     lines = path.read_text(encoding="utf-8").splitlines()
     findings: list[str] = []
     actions: list[dict[str, str]] = []
 
+    uv_version = tool_versions.get("uv")
+    if not isinstance(uv_version, str) or not uv_version:
+        raise SecurityToolError("tool-versions.json must define uv")
+
     for line_number, line in enumerate(lines, start=1):
+        for uv_match in UV_INSTALL_PATTERN.finditer(line):
+            expected = f"uv=={uv_version}"
+            if uv_match.group("package") != expected:
+                findings.append(
+                    f"{path}:{line_number}: uv install must be exactly pinned to {expected}"
+                )
         match = USES_PATTERN.match(line)
         if not match:
             continue
@@ -142,12 +188,13 @@ def inspect_workflow(path: Path, pin_map: dict[str, object]) -> dict[str, object
 
     release_jobs = [job for job in jobs if job.name == "release_evidence"]
     if release_jobs:
-        condition = "\n".join(release_jobs[0].lines)
-        for required in ("refs/tags/v", "workflow_dispatch", "github.event_name"):
-            if required not in condition:
-                findings.append(
-                    f"{path}: release_evidence condition is missing exact-tag/manual token: {required}"
-                )
+        condition = _job_condition(release_jobs[0])
+        if condition is None or not SAFE_RELEASE_CONDITION.fullmatch(
+            _normalized_expression(condition)
+        ):
+            findings.append(
+                f"{path}: release_evidence condition must allow manual dispatch OR tag push only"
+            )
 
     external_count = sum(1 for action in actions if action.get("kind") != "local")
     immutable_count = sum(
@@ -173,14 +220,21 @@ def inspect_workflow(path: Path, pin_map: dict[str, object]) -> dict[str, object
     }
 
 
-def inspect_all(workflows: Path, pins: Path) -> dict[str, object]:
+def inspect_all(
+    workflows: Path,
+    pins: Path,
+    tool_versions_path: Path,
+) -> dict[str, object]:
     pin_map = load_json(pins)
     if not isinstance(pin_map, dict):
         raise SecurityToolError("action-pins.json must contain an object")
+    tool_versions = load_json(tool_versions_path)
+    if not isinstance(tool_versions, dict):
+        raise SecurityToolError("tool-versions.json must contain an object")
     files = workflow_files(workflows)
     if not files:
         raise SecurityToolError("no workflow files found")
-    results = [inspect_workflow(path, pin_map) for path in files]
+    results = [inspect_workflow(path, pin_map, tool_versions) for path in files]
     findings = [finding for result in results for finding in result["findings"]]
     external_actions = sum(
         sum(1 for action in result["actions"] if action.get("kind") != "local")
@@ -227,10 +281,15 @@ def main() -> int:
         type=Path,
         default=REPO_ROOT / ".github" / "security" / "action-pins.json",
     )
+    parser.add_argument(
+        "--tool-versions",
+        type=Path,
+        default=REPO_ROOT / ".github" / "security" / "tool-versions.json",
+    )
     parser.add_argument("--json", action="store_true", dest="as_json")
     args = parser.parse_args()
     try:
-        result = inspect_all(args.workflows, args.pins)
+        result = inspect_all(args.workflows, args.pins, args.tool_versions)
     except SecurityToolError as exc:
         print(f"workflow_policy=BLOCKED reason={exc}", file=sys.stderr)
         return 2

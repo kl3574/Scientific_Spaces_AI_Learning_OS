@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 
 RELEASE_DIR = Path(__file__).resolve().parents[1]
@@ -46,6 +48,37 @@ class ReleaseEvidenceTests(unittest.TestCase):
             write_canonical_json(path, evidence)
             with self.assertRaises(SecurityToolError):
                 verify(path, no_network=True)
+
+    def test_manual_branch_dry_run_records_non_authorization_reasons(self) -> None:
+        environment = {
+            "GITHUB_EVENT_NAME": "workflow_dispatch",
+            "GITHUB_REF": "refs/heads/validation/p3-005-provenance",
+            "GITHUB_WORKFLOW_REF": "local/ci.yml@refs/heads/validation/p3-005-provenance",
+        }
+        with patch.dict(os.environ, environment, clear=False):
+            with tempfile.TemporaryDirectory() as directory_name:
+                directory = Path(directory_name)
+                build_all(directory)
+                evidence = build_evidence(
+                    tag="v1.1.0", sbom_dir=directory, dry_run=True, no_publish=True
+                )
+                self.assertEqual(evidence["boundary_status"], "PASS")
+                self.assertFalse(evidence["conditions"]["exact_tag_ref"])
+                self.assertFalse(
+                    evidence["conditions"]["sbom_commit_matches_tag_target"]
+                )
+                self.assertFalse(evidence["would_authorize_publish"])
+                self.assertFalse(evidence["publish_authorized"])
+                self.assertTrue(
+                    {
+                        "exact_tag_ref",
+                        "sbom_commit_matches_tag_target",
+                        "p3-005-no-publish-policy",
+                    }.issubset(evidence["non_authorization_reasons"])
+                )
+                path = directory / "release-evidence.json"
+                write_canonical_json(path, evidence)
+                self.assertEqual(verify(path, no_network=True)["status"], "PASS")
 
 
 if __name__ == "__main__":
