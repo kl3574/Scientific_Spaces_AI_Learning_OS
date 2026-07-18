@@ -10,7 +10,7 @@ P3-005 CI Security and Release Provenance
 
 ## Status
 
-BLOCKED - IMPLEMENTATION COMPLETE; DOCKER SMOKE EVIDENCE UNAVAILABLE
+PASS / CLOSED
 
 ## Formal Version
 
@@ -26,7 +26,7 @@ P3-004 Real Provider Evaluation Design: PASS / CLOSED
 
 ## Implementation Authorization
 
-GRANTED UNDER CONFIRMED LOCAL-ONLY ALIGNMENT
+CONSUMED / CLOSED; NO FURTHER IMPLEMENTATION GRANTED
 
 ## Real Provider Authorization
 
@@ -34,11 +34,11 @@ NOT GRANTED
 
 ## Allowed Current Action
 
-Record the authorized local blocker commit. Further execution requires Docker-capable validation evidence or separate authorization for an exact-commit remote manual run.
+Audit the closed P3-005 commit sequence and its exact-commit remote validation evidence. No implementation or publication action is currently authorized.
 
 ## Prohibited Current Actions
 
-- Push of the P3-005 completion commit
+- Push of the P3-005 commit sequence to `main` without separate authorization
 - Formal SBOM or provenance publication
 - Real or paid Provider calls
 - Private Zotero or user-data access/export
@@ -48,4 +48,4 @@ Record the authorized local blocker commit. Further execution requires Docker-ca
 
 ## Next Required Decision
 
-Obtain Docker compose smoke evidence, then close P3-005 and separately audit any push authorization.
+Audit and separately authorize pushing the P3-005 commit sequence to main.

@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-004 Real Provider Evaluation Design: PASS / CLOSED with main CI evidence; P3-005 CI Security and Release Provenance: BLOCKED pending Docker smoke evidence
+P3-004 Real Provider Evaluation Design: PASS / CLOSED with main CI evidence; P3-005 CI Security and Release Provenance: PASS / CLOSED with exact-commit remote validation evidence
 
 Release Readiness:
 
@@ -132,11 +132,11 @@ P3-005 CI Security and Release Provenance
 
 Current Task Status:
 
-BLOCKED - IMPLEMENTATION COMPLETE; DOCKER SMOKE EVIDENCE UNAVAILABLE
+PASS / CLOSED
 
 Implementation Authorization:
 
-GRANTED UNDER CONFIRMED LOCAL-ONLY ALIGNMENT
+CONSUMED / CLOSED; NO FURTHER IMPLEMENTATION GRANTED
 
 Real Provider Authorization:
 
@@ -184,11 +184,23 @@ docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md
 
 P3-005 Status:
 
-BLOCKED - IMPLEMENTATION COMPLETE; DOCKER SMOKE EVIDENCE UNAVAILABLE
+PASS / CLOSED
+
+P3-005 Implementation Commit:
+
+80e8823e2ba8403f347df762de3107298f6bc4b1
+
+P3-005.1 Validation Fix Commit:
+
+666e93f043788e03133c3532e69b9fd2dcfa01ea
+
+P3-005 Final Validation:
+
+PASS - https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29635940873
 
 P3-005 Implementation Authorization:
 
-GRANTED UNDER CONFIRMED LOCAL-ONLY ALIGNMENT
+CONSUMED / CLOSED; NO FURTHER IMPLEMENTATION GRANTED
 
 Approved v1.2 Scope:
 
@@ -204,7 +216,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Provide Docker compose smoke evidence, close P3-005, then separately audit and authorize push
+Audit and separately authorize pushing the P3-005 commit sequence to main
 
 Post-freeze Change Rule:
 

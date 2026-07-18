@@ -2,9 +2,9 @@
 
 ## Status
 
-BLOCKED - IMPLEMENTATION COMPLETE; DOCKER SMOKE EVIDENCE UNAVAILABLE
+PASS / CLOSED
 
-IMPLEMENTATION AUTHORIZATION: GRANTED UNDER CONFIRMED LOCAL-ONLY ALIGNMENT
+IMPLEMENTATION AUTHORIZATION: CONSUMED / CLOSED
 
 ## Task Identity
 
@@ -29,7 +29,7 @@ P3-004 main CI run `29627617727` passed Backend and Frontend; Docker compose smo
 
 The existing CI validates Backend tests, Frontend builds, and Docker smoke under tag or manual conditions. The v1.2 architecture identified remaining supply-chain gaps: mutable third-party Action references, incomplete permission declarations, no unified dependency or secret scanning gate, no validated Backend/Frontend SBOM, and no exact-tag/manual release provenance design.
 
-P3-005 implements bounded repository and release-evidence hardening under the confirmed local-only execution alignment. Workflow modification, scanner execution, temporary SBOM generation, local no-publish provenance verification, testing, and one local commit are authorized. Push, candidate assignment, tag, Release, formal attestation publication, real-provider calls, and private-data access remain prohibited.
+P3-005 implemented bounded repository and release-evidence hardening under the confirmed execution alignments. The original implementation was local-only; P3-005.1 subsequently authorized one exact validation-branch push, one manual workflow dispatch, and one local docs-only closure commit. Push to `main`, candidate assignment, tag, Release, formal attestation publication, real-provider calls, and private-data access remain prohibited.
 
 ## Goals
 
@@ -152,8 +152,9 @@ Do not commit or publish `.env` files, credentials, API keys, auth headers, priv
 
 ## Git Plan
 
-- Implementation authorization: GRANTED UNDER CONFIRMED LOCAL-ONLY ALIGNMENT
-- Push: NOT GRANTED
+- Implementation authorization: CONSUMED / CLOSED
+- Validation-branch push: GRANTED AND PERFORMED for `validation/p3-005-provenance-666e93f`
+- Push to `main`: NOT GRANTED
 - Tag: prohibited
 - Release: prohibited
 
@@ -175,4 +176,16 @@ The default future implementation plan is a local commit only. Push requires sep
 
 ## Next Required Decision
 
-Provide a Docker-capable environment or separately authorize an exact-commit remote manual validation. After Docker compose smoke passes, close P3-005 and separately audit any push authorization.
+Audit and separately authorize pushing the P3-005 commit sequence to main.
+
+## Closure Evidence
+
+- Initial implementation/blocker commit: `80e8823e2ba8403f347df762de3107298f6bc4b1`
+- Initial remote validation: [`29634670103`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29634670103); seven prerequisite jobs passed and the skipped manual release-evidence job exposed the P3-005.1 workflow defect.
+- P3-005.1 fix commit: `666e93f043788e03133c3532e69b9fd2dcfa01ea`
+- Final validation branch: `validation/p3-005-provenance-666e93f`
+- Final remote validation: [`29635940873`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29635940873); all eight jobs passed on the exact fix commit.
+- Release dry-run: `would_authorize_publish=false`; `publish_authorized=false`.
+- Uploaded workflow artifacts: `0`.
+- Candidate, tag, Release, attestation publication, real-provider call, and private-data access: `0`.
+- `main` push: NOT PERFORMED / NOT AUTHORIZED.

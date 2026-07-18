@@ -87,7 +87,7 @@ Extend the existing `ci.yml` so security and SBOM jobs share the same trigger an
 - Product runtime and frozen contract changes equal zero.
 - Candidate, tag, Release, formal attestation publication, real-provider calls, and private-data access equal zero.
 - Generated SBOM, evidence, scanner cache/output, and runtime/private artifacts are not tracked.
-- Final commit parent is `ed5bef2bd8ed3dd8ba9f42e02e7faa3dc0fb81d6`; changed paths remain in the confirmed allowlist; worktree is clean; push is not performed.
+- The original implementation commit parent is `ed5bef2bd8ed3dd8ba9f42e02e7faa3dc0fb81d6`; the P3-005.1 fix parent is the implementation commit; the docs-only closure parent is the fix commit; every commit stays within its confirmed allowlist and the final worktree is clean.
 
 ## Allowed Changes
 
@@ -111,12 +111,14 @@ Extend the existing `ci.yml` so security and SBOM jobs share the same trigger an
 - PASS commit: `feat: add CI security and release provenance`.
 - CONDITIONAL commit: `docs: record conditional CI security hardening`.
 - BLOCKED commit: `docs: record CI security blockers`.
-- One local commit is authorized. Push, force push, rebase, amend, candidate, tag, Release, formal attestation, and branch-protection writes are prohibited.
+- The original alignment authorized one local implementation commit. P3-005.1 separately authorized the exact validation-branch push and a local docs-only closure commit. Push to `main`, force push, rebase, amend, candidate, tag, Release, formal attestation, and branch-protection writes remain prohibited.
 
 ## Execution Result
 
-- Implementation and all locally available security, dependency, secret, SBOM, provenance, Backend, and Frontend checks passed.
-- Docker compose smoke is mandatory but unavailable because the authorized environment has no Docker-compatible runtime.
-- Final task status: `BLOCKED` pending Docker smoke evidence.
-- The authorized local blocker commit may be created with `docs: record CI security blockers`.
-- Push, candidate, tag, Release, formal attestation publication, Provider calls, and private-data access remain prohibited and were not performed.
+- Initial implementation/blocker commit `80e8823e2ba8403f347df762de3107298f6bc4b1` passed seven remote prerequisite jobs in run [`29634670103`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29634670103), which exposed that manual branch validation incorrectly skipped release evidence.
+- P3-005.1 fix commit `666e93f043788e03133c3532e69b9fd2dcfa01ea` corrected the manual release-evidence condition, deterministic tag selection, exact `uv` pin enforcement, and regression coverage.
+- Exact-commit workflow-dispatch run [`29635940873`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29635940873) passed Backend, Frontend, Docker compose smoke, workflow policy, dependency audit, secret audit, SBOM validation, and release-evidence dry-run.
+- The release dry-run recorded `would_authorize_publish=false` and `publish_authorized=false`; uploaded workflow artifacts, candidate assignments, tags, Releases, and published attestations all remained `0`.
+- Final task status: `PASS / CLOSED`.
+- The authorized validation-branch push was performed. Push to `main`, candidate, tag, Release, formal attestation publication, Provider calls, private-data access, and P3-006 execution remain prohibited and were not performed.
+- Next required decision: audit and separately authorize pushing the P3-005 commit sequence to main.

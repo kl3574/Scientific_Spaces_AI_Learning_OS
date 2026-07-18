@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 PASS / CLOSED with main CI evidence; P3-005 implementation complete but BLOCKED pending Docker smoke evidence; no candidate version is assigned.
+Status: P3-004 and P3-005 PASS / CLOSED; P3-005 has exact-commit remote validation evidence; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -218,9 +218,9 @@ Status: **PASS / CLOSED**. The isolated fake/dry-run harness implements provider
 
 ### P3-005 - CI Security and Release Provenance
 
-Status: **BLOCKED**. The local implementation and all available gates pass, but the mandatory Docker compose smoke cannot run because the authorized environment has no Docker-compatible runtime. One local blocker commit is authorized; push remains **NOT GRANTED**. The canonical task is `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`.
+Status: **PASS / CLOSED**. Implementation commit `80e8823e2ba8403f347df762de3107298f6bc4b1` and P3-005.1 fix commit `666e93f043788e03133c3532e69b9fd2dcfa01ea` were validated on the exact fix commit by workflow-dispatch run [`29635940873`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29635940873). All eight jobs passed. The canonical task is `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`.
 
-The implementation adds immutable Action pins, least-privilege workflow permissions, dependency and secret scanning, validated Backend/Frontend/combined CycloneDX 1.6 SBOMs, exact-tag/manual provenance boundaries, branch-protection guidance, and verification documentation while preserving current CI jobs. Security tools, Backend tests, Frontend build, SBOM reproducibility/schema, and local no-publish provenance checks pass. Docker evidence remains the sole blocker. Push, candidate assignment, tag, Release, formal attestation publication, real-provider calls, and private-data access remain prohibited.
+The implementation adds immutable Action pins, least-privilege workflow permissions, dependency and secret scanning, validated Backend/Frontend/combined CycloneDX 1.6 SBOMs, exact-tag/manual provenance boundaries, branch-protection guidance, and verification documentation while preserving current CI jobs. Backend, Frontend, Docker compose smoke, workflow policy, dependency audit, secret audit, SBOM validation, and manual release-evidence dry-run passed. The dry-run recorded `would_authorize_publish=false` and `publish_authorized=false`, uploaded no workflow artifact, and left all tags and Releases unchanged. Push to `main`, candidate assignment, tag, Release, formal attestation publication, real-provider calls, and private-data access remain prohibited without separate authorization.
 
 ### P3-006 - Structured Reference Full-Corpus Build and Zotero Matching
 
@@ -262,6 +262,6 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 ## Next Recommended Task
 
-`P3-005 Docker Smoke Evidence and Closure`
+`P3-005 Main Push Authorization Audit`
 
-The next action is Docker compose smoke validation in a capable environment, followed by P3-005 closure and a separate audit/push-authorization decision. P3-004 and P3-005 grant no real-provider, paid-request, credential, or private Zotero/user-data authority.
+Audit and separately authorize pushing the P3-005 commit sequence to `main`. P3-004 and P3-005 grant no real-provider, paid-request, credential, private Zotero/user-data, candidate, tag, Release, or P3-006 execution authority.
