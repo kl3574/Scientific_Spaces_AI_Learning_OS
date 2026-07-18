@@ -169,9 +169,10 @@ Runtime output belongs below `.local_data/scientific_spaces/evaluation/real_prov
 ## Git Plan
 
 - Current staging commit: docs-only P3-003 closure and P3-004 canonical specification
-- Local implementation commit: this status-appropriate P3-004 completion commit; final hash is reported after commit creation
-- Push: not authorized for P3-004 implementation
-- CI: not run or claimed; required after any separately authorized push
+- Implementation commit: `0bf90e518549bea7549409cde72a3befda0c340d`
+- The original implementation alignment did not authorize push; the commit was subsequently pushed under separate authorization.
+- Main CI: PASS, run `29627617727`
+- Main CI URL: https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29627617727
 - Tag: prohibited
 - Release: prohibited
 
@@ -191,10 +192,15 @@ Runtime output belongs below `.local_data/scientific_spaces/evaluation/real_prov
 - Frontend production build: PASS, static generation 8/8
 - Fake dry-run: 15 cases, 18 fake attempts, 0 external network requests, raw output disabled
 - Artifact audit: PASS, 0 findings
-- Commit: local status-appropriate completion commit; no push authorized
-- CI: not run; no push authorized
+- Implementation commit: `0bf90e518549bea7549409cde72a3befda0c340d`
+- Main CI run: `29627617727`
+- Main CI URL: https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29627617727
+- Backend pytest: PASS
+- Frontend build: PASS
+- Docker compose smoke: SKIPPED by normal main-push policy
 - Report: `docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md`
+- Real-provider authorization: NOT GRANTED
 
 ## Next Task
 
-Separately stage and align P3-005 CI Security and Release Provenance. P3-004 PASS grants no real-provider request authority.
+P3-005 CI Security and Release Provenance is canonically staged with implementation authorization NOT GRANTED. The next decision is confirmation or revision of its execution alignment. P3-004 PASS grants no real-provider request authority.

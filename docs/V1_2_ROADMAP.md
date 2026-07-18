@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-003 PASS / CLOSED; P3-004 PASS / CLOSED under fake/dry-run and zero-network constraints; no candidate version is assigned.
+Status: P3-004 PASS / CLOSED with main CI evidence; P3-005 ALIGNMENT REQUIRED with implementation authorization NOT GRANTED; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -214,11 +214,13 @@ Status: **PASS / CLOSED**. Deterministic extraction/indexing passed on fixtures 
 
 ### P3-004 - Real Provider Evaluation Design
 
-Status: **PASS / CLOSED**. The isolated fake/dry-run harness implements provider consent, secret handling, fixed case selection, hard budgets, bounded metrics, terminal failure taxonomy, redaction/retention, and artifact auditing. Focused tests passed 35/35, the full Backend suite passed 530 with 3 skipped, the Frontend build passed, and deterministic evidence recorded zero external network requests. The report is `docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md`. This PASS does not authorize a real call or enable a real provider by default.
+Status: **PASS / CLOSED**. The isolated fake/dry-run harness implements provider consent, secret handling, fixed case selection, hard budgets, bounded metrics, terminal failure taxonomy, redaction/retention, and artifact auditing. Focused tests passed 35/35, the full Backend suite passed 530 with 3 skipped, the Frontend build passed, and deterministic evidence recorded zero external network requests. Implementation commit `0bf90e518549bea7549409cde72a3befda0c340d` passed main CI run `29627617727`: Backend and Frontend succeeded, and Docker compose smoke was correctly skipped for the normal main push. The report is `docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md`. This PASS does not authorize a real call or enable a real provider by default.
 
 ### P3-005 - CI Security and Release Provenance
 
-Add immutable pins, scanning, SBOM, provenance, least-privilege workflow permissions, and verification documentation while preserving current CI jobs.
+Status: **ALIGNMENT REQUIRED**. Implementation authorization is **NOT GRANTED**. The canonical task is `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`.
+
+The planned task adds immutable Action pins, least-privilege workflow permissions, dependency and secret scanning, validated Backend/Frontend CycloneDX 1.6 SBOMs, exact-tag/manual provenance boundaries, branch-protection guidance, and verification documentation while preserving current CI jobs. Canonical staging does not authorize workflow changes, scanner execution, SBOM/provenance generation, push, candidate assignment, tag, or Release.
 
 ### P3-006 - Structured Reference Full-Corpus Build and Zotero Matching
 
@@ -262,4 +264,4 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 `P3-005 CI Security and Release Provenance`
 
-The next action is a separately authorized canonical staging and complete interactive execution alignment for P3-005. P3-004 grants no real-provider, paid-request, credential, or private Zotero/user-data authority.
+The next action is confirmation or revision of the complete P3-005 execution alignment. P3-005 implementation remains unauthorized, and P3-004 grants no real-provider, paid-request, credential, or private Zotero/user-data authority.

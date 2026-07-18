@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-003 Structured Reference Extraction Pilot: PASS / CLOSED; P3-004 Real Provider Evaluation Design: PASS / CLOSED
+P3-004 Real Provider Evaluation Design: PASS / CLOSED with main CI evidence; P3-005 CI Security and Release Provenance: ALIGNMENT REQUIRED
 
 Release Readiness:
 
@@ -128,15 +128,15 @@ PASS
 
 Current Task:
 
-P3-004 Real Provider Evaluation Design
+P3-005 CI Security and Release Provenance
 
 Current Task Status:
 
-PASS / CLOSED
+ALIGNMENT REQUIRED
 
 Implementation Authorization:
 
-COMPLETED UNDER CONFIRMED FAKE/DRY-RUN ALIGNMENT
+NOT GRANTED
 
 Real Provider Authorization:
 
@@ -162,6 +162,14 @@ P3-004 Canonical Task:
 
 docs/tasks/P3-004_REAL_PROVIDER_EVALUATION_DESIGN.md
 
+P3-004 Implementation Commit:
+
+0bf90e518549bea7549409cde72a3befda0c340d
+
+P3-004 Main CI:
+
+PASS - https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29627617727
+
 P3-004 Evidence:
 
 docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md
@@ -169,6 +177,18 @@ docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md
 P3-004 Verification:
 
 35 focused tests passed; 530 Backend tests passed with 3 skipped; Frontend build passed; network_request_count=0
+
+P3-005 Canonical Task:
+
+docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md
+
+P3-005 Status:
+
+ALIGNMENT REQUIRED
+
+P3-005 Implementation Authorization:
+
+NOT GRANTED
 
 Approved v1.2 Scope:
 
@@ -184,7 +204,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Separately stage and align P3-005 CI Security and Release Provenance
+Confirm P3-005 execution alignment
 
 Post-freeze Change Rule:
 

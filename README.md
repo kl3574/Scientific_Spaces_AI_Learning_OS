@@ -10,7 +10,8 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Status: `Published`
 - Candidate: `None`
 - Release Readiness: `PASS`
-- Latest gate: `P3-004 Real Provider Evaluation Design PASS / CLOSED (local evidence)`
+- Latest gate: `P3-004 Real Provider Evaluation Design PASS / CLOSED (main CI PASS)`
+- Current task: `P3-005 CI Security and Release Provenance - ALIGNMENT REQUIRED / implementation NOT GRANTED`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
