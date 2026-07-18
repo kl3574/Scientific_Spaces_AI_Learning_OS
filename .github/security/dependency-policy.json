@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "severity_order": [
+    "NONE",
+    "LOW",
+    "MEDIUM",
+    "HIGH",
+    "CRITICAL",
+    "UNKNOWN"
+  ],
+  "blocking": {
+    "runtime": [
+      "MEDIUM",
+      "HIGH",
+      "CRITICAL",
+      "UNKNOWN"
+    ],
+    "dev": [
+      "MEDIUM",
+      "HIGH",
+      "CRITICAL",
+      "UNKNOWN"
+    ]
+  },
+  "low_findings_visible": true,
+  "scanner_unavailable": "BLOCKED",
+  "malformed_output": "BLOCKED"
+}

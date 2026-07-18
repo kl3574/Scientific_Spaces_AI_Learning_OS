@@ -2,9 +2,9 @@
 
 ## Status
 
-ALIGNMENT REQUIRED
+BLOCKED - IMPLEMENTATION COMPLETE; DOCKER SMOKE EVIDENCE UNAVAILABLE
 
-IMPLEMENTATION AUTHORIZATION: NOT GRANTED
+IMPLEMENTATION AUTHORIZATION: GRANTED UNDER CONFIRMED LOCAL-ONLY ALIGNMENT
 
 ## Task Identity
 
@@ -21,7 +21,7 @@ P3-004 Real Provider Evaluation Design: PASS / CLOSED
 
 ## Starting Baseline
 
-`0bf90e518549bea7549409cde72a3befda0c340d`
+`ed5bef2bd8ed3dd8ba9f42e02e7faa3dc0fb81d6`
 
 P3-004 main CI run `29627617727` passed Backend and Frontend; Docker compose smoke was correctly skipped for the normal main push.
 
@@ -29,7 +29,7 @@ P3-004 main CI run `29627617727` passed Backend and Frontend; Docker compose smo
 
 The existing CI validates Backend tests, Frontend builds, and Docker smoke under tag or manual conditions. The v1.2 architecture identified remaining supply-chain gaps: mutable third-party Action references, incomplete permission declarations, no unified dependency or secret scanning gate, no validated Backend/Frontend SBOM, and no exact-tag/manual release provenance design.
 
-P3-005 will define and, only after a separately confirmed execution alignment, implement bounded repository and release-evidence hardening. Canonical staging does not authorize workflow modification, scanner execution, SBOM generation, provenance publication, push, tag, or Release operations.
+P3-005 implements bounded repository and release-evidence hardening under the confirmed local-only execution alignment. Workflow modification, scanner execution, temporary SBOM generation, local no-publish provenance verification, testing, and one local commit are authorized. Push, candidate assignment, tag, Release, formal attestation publication, real-provider calls, and private-data access remain prohibited.
 
 ## Goals
 
@@ -152,7 +152,7 @@ Do not commit or publish `.env` files, credentials, API keys, auth headers, priv
 
 ## Git Plan
 
-- Implementation authorization: NOT GRANTED
+- Implementation authorization: GRANTED UNDER CONFIRMED LOCAL-ONLY ALIGNMENT
 - Push: NOT GRANTED
 - Tag: prohibited
 - Release: prohibited
@@ -175,4 +175,4 @@ The default future implementation plan is a local commit only. Push requires sep
 
 ## Next Required Decision
 
-Review this canonical task and confirm or revise a complete P3-005 execution alignment before any implementation, scanner execution, SBOM/provenance generation, testing, file modification, or Git commit.
+Provide a Docker-capable environment or separately authorize an exact-commit remote manual validation. After Docker compose smoke passes, close P3-005 and separately audit any push authorization.

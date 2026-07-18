@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-004 Real Provider Evaluation Design: PASS / CLOSED with main CI evidence; P3-005 CI Security and Release Provenance: ALIGNMENT REQUIRED
+P3-004 Real Provider Evaluation Design: PASS / CLOSED with main CI evidence; P3-005 CI Security and Release Provenance: BLOCKED pending Docker smoke evidence
 
 Release Readiness:
 
@@ -132,11 +132,11 @@ P3-005 CI Security and Release Provenance
 
 Current Task Status:
 
-ALIGNMENT REQUIRED
+BLOCKED - IMPLEMENTATION COMPLETE; DOCKER SMOKE EVIDENCE UNAVAILABLE
 
 Implementation Authorization:
 
-NOT GRANTED
+GRANTED UNDER CONFIRMED LOCAL-ONLY ALIGNMENT
 
 Real Provider Authorization:
 
@@ -184,11 +184,11 @@ docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md
 
 P3-005 Status:
 
-ALIGNMENT REQUIRED
+BLOCKED - IMPLEMENTATION COMPLETE; DOCKER SMOKE EVIDENCE UNAVAILABLE
 
 P3-005 Implementation Authorization:
 
-NOT GRANTED
+GRANTED UNDER CONFIRMED LOCAL-ONLY ALIGNMENT
 
 Approved v1.2 Scope:
 
@@ -204,7 +204,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Confirm P3-005 execution alignment
+Provide Docker compose smoke evidence, close P3-005, then separately audit and authorize push
 
 Post-freeze Change Rule:
 

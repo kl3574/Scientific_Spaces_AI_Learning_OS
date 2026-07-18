@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 PASS / CLOSED with main CI evidence; P3-005 ALIGNMENT REQUIRED with implementation authorization NOT GRANTED; no candidate version is assigned.
+Status: P3-004 PASS / CLOSED with main CI evidence; P3-005 implementation complete but BLOCKED pending Docker smoke evidence; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -218,9 +218,9 @@ Status: **PASS / CLOSED**. The isolated fake/dry-run harness implements provider
 
 ### P3-005 - CI Security and Release Provenance
 
-Status: **ALIGNMENT REQUIRED**. Implementation authorization is **NOT GRANTED**. The canonical task is `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`.
+Status: **BLOCKED**. The local implementation and all available gates pass, but the mandatory Docker compose smoke cannot run because the authorized environment has no Docker-compatible runtime. One local blocker commit is authorized; push remains **NOT GRANTED**. The canonical task is `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`.
 
-The planned task adds immutable Action pins, least-privilege workflow permissions, dependency and secret scanning, validated Backend/Frontend CycloneDX 1.6 SBOMs, exact-tag/manual provenance boundaries, branch-protection guidance, and verification documentation while preserving current CI jobs. Canonical staging does not authorize workflow changes, scanner execution, SBOM/provenance generation, push, candidate assignment, tag, or Release.
+The implementation adds immutable Action pins, least-privilege workflow permissions, dependency and secret scanning, validated Backend/Frontend/combined CycloneDX 1.6 SBOMs, exact-tag/manual provenance boundaries, branch-protection guidance, and verification documentation while preserving current CI jobs. Security tools, Backend tests, Frontend build, SBOM reproducibility/schema, and local no-publish provenance checks pass. Docker evidence remains the sole blocker. Push, candidate assignment, tag, Release, formal attestation publication, real-provider calls, and private-data access remain prohibited.
 
 ### P3-006 - Structured Reference Full-Corpus Build and Zotero Matching
 
@@ -262,6 +262,6 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 ## Next Recommended Task
 
-`P3-005 CI Security and Release Provenance`
+`P3-005 Docker Smoke Evidence and Closure`
 
-The next action is confirmation or revision of the complete P3-005 execution alignment. P3-005 implementation remains unauthorized, and P3-004 grants no real-provider, paid-request, credential, or private Zotero/user-data authority.
+The next action is Docker compose smoke validation in a capable environment, followed by P3-005 closure and a separate audit/push-authorization decision. P3-004 and P3-005 grant no real-provider, paid-request, credential, or private Zotero/user-data authority.

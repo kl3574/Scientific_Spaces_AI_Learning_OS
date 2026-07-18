@@ -508,6 +508,26 @@ Current security/privacy boundary:
 - RAG and tutor answers must be grounded in local article sources; no-source cases refuse.
 - Research mode is local-only and does not perform autonomous web research or paper downloads.
 
+CI security and release provenance:
+
+- Implementation report: `docs/P3_005_CI_SECURITY_PROVENANCE_REPORT.md`
+- Security triage: `docs/CI_SECURITY_TRIAGE_SOP.md`
+- Action pin updates: `docs/ACTION_PIN_UPDATE_SOP.md`
+- SBOM verification: `docs/SBOM_VERIFICATION_SOP.md`
+- Release provenance verification: `docs/RELEASE_PROVENANCE_VERIFICATION_SOP.md`
+- Branch protection guidance: `docs/BRANCH_PROTECTION_GUIDANCE.md`
+
+Run the local policy and scan gates from the repository root:
+
+```bash
+python scripts/security/check_workflow_policy.py
+python scripts/security/validate_suppressions.py
+python scripts/security/run_dependency_audit.py
+python scripts/security/run_secret_audit.py
+```
+
+Dependency scanning uses trusted public advisory services. SBOM and release-evidence output is generated only in temporary storage and is not committed. P3-005 does not grant publish, tag, Release, Provider, or private-data authority.
+
 ## Docker
 
 Docker support is defined in `docker-compose.yml` and service Dockerfiles:

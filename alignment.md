@@ -1,105 +1,122 @@
-# P3-004 Remote CI Closure and P3-005 Canonical Staging - Confirmed Execution Alignment
+# P3-005 CI Security and Release Provenance - Confirmed Execution Alignment
 
 ## 1. Background
 
-- Current canonical task: `P3-004 Real Provider Evaluation Design`.
-- P3-004 implementation commit: `0bf90e518549bea7549409cde72a3befda0c340d`.
-- Expected parent: `d294a447c966ae7b34b06bed9fceee672f26bd30`.
 - Formal version: `v1.1.0`; candidate version: not assigned.
-- P3-004 local implementation evidence is PASS, but remote main CI closure and the transition to P3-005 must be verified and persisted.
-- The user explicitly confirmed this closure/staging alignment before repository or external write actions.
+- Confirmed starting baseline: `ed5bef2bd8ed3dd8ba9f42e02e7faa3dc0fb81d6`.
+- Canonical task: `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`.
+- Previous task: P3-004 Real Provider Evaluation Design, `PASS / CLOSED`.
+- Existing CI has one workflow with Backend pytest, Frontend build, and tag/manual Docker smoke.
+- Existing third-party Actions use mutable major tags and workflow permissions are implicit.
+- The user explicitly confirmed this complete execution alignment. Attachment paths remain transport locators and do not define task identity.
 
 ## 2. Requirements
 
-1. Verify the P3-004 implementation commit identity, parent, subject, and changed paths.
-2. Fetch current remote refs and verify that local `main` and `origin/main` remain synchronized at the expected commit.
-3. Locate the main CI run for `0bf90e5` and require Backend and Frontend success; Docker compose smoke must be skipped under the normal main-push policy.
-4. Close P3-004 only after the remote CI evidence passes.
-5. Create `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md` as the canonical next task.
-6. Set P3-005 to `ALIGNMENT REQUIRED` with implementation authorization `NOT GRANTED`.
-7. Update current-task, project-state, v1.2 roadmap, alignment, P3-004 evidence, and only any necessary README current-task pointer.
-8. Run changed-path, artifact, secret, and Git-state audits before committing.
-9. Create the docs-only commit `docs: close P3-004 and stage P3-005`, push `main`, and verify its main CI.
-10. After staging CI succeeds, provide the complete P3-005 execution alignment without implementing P3-005.
+1. Inventory all workflows, triggers, filters, permissions, Actions, artifacts, secrets, OIDC, release behavior, and external access.
+2. Pin every third-party Action to a verified 40-character immutable SHA with a readable version comment.
+3. Apply explicit least-privilege workflow and job permissions.
+4. Add Python, npm, and independent multi-ecosystem dependency auditing with fail-closed parsing and structured suppressions.
+5. Add bounded secret scanning that never logs matched values and blocks credible findings.
+6. Generate deterministic Backend, Frontend, and combined CycloneDX 1.6 SBOMs in temporary storage.
+7. Validate SBOM schema, lockfile coverage, relationships, reproducibility, size, and forbidden-content policy.
+8. Implement exact-tag/manual-only release-evidence boundaries and local `--dry-run --no-publish` verification.
+9. Configure bounded Dependabot updates without auto-merge or release behavior.
+10. Preserve existing Backend, Frontend, Docker, product runtime, fake-provider, legacy API, and `/v1.1` behavior.
+11. Document triage, Action-pin updates, SBOM verification, release provenance verification, and branch-protection guidance.
+12. Run the complete local verification sequence and create one status-appropriate local commit.
+13. Do not push, create or move a tag, create a Release, publish an attestation, call a real Provider, or access private Zotero/user data.
 
 ## 3. Purpose
 
-Create an auditable transition from the completed P3-004 implementation to a canonical but unimplemented P3-005 task. Remote CI must prove the P3-004 baseline and the docs-only staging commit before P3-005 implementation can be considered for separate authorization.
+Establish an auditable CI security baseline with immutable workflow dependencies, explicit least privilege, bounded scanning, reproducible dependency evidence, and a fail-closed release provenance boundary without changing the product runtime or publishing release evidence.
 
 ## 4. Planned Execution
 
-1. Recheck applicable governance, `REWORK.md`, `.audit`, canonical task state, and the clean Git baseline.
-2. Persist this confirmed alignment.
-3. Fetch `origin`, verify branch synchronization, and verify the published `v1.1.0` tag remains unchanged.
-4. Inspect the P3-004 main CI run and stop if required jobs are missing or unsuccessful.
-5. Record P3-004 remote CI evidence and mark it fully closed.
-6. Create the P3-005 canonical specification with goals, boundaries, acceptance metrics, Git plan, and implementation authorization explicitly not granted.
-7. Update task pointers and planning/state documentation without changing product or workflow implementation.
-8. Audit changed paths, artifacts, secrets, worktree, and staged content.
-9. Create and push the docs-only closure/staging commit.
-10. Verify the staging commit main CI and final branch synchronization.
-11. Deliver the complete P3-005 execution alignment and request separate confirmation.
+1. Revalidate governance, canonical state, Git baseline, REWORK/audit, and workflow inventory.
+2. Persist this alignment and mark P3-005 `IN PROGRESS`.
+3. Resolve current Action releases to official immutable SHAs and record verification evidence.
+4. Implement workflow pin/permission policy checks and update CI without renaming existing jobs.
+5. Implement suppression, dependency, and secret audit tooling plus focused tests.
+6. Implement deterministic CycloneDX generation/validation and no-publish release-evidence tooling plus focused tests.
+7. Add Dependabot configuration, CI integration, SOPs, guidance, and the implementation report.
+8. Run focused tests, policies, live advisory scans, secret audit, two SBOM builds/diff, provenance dry-run, Backend, Frontend, and Docker smoke.
+9. Run changed-path, artifact, secret, local-path, generated-output, Git, and compatibility audits.
+10. Classify PASS, CONDITIONAL, or BLOCKED; update governance documents and create one local commit. Do not push.
 
-Stop on unknown worktree drift, REWORK/FAIL audit, remote divergence, CI failure or missing evidence, artifact/secret findings, tag movement, scope expansion, or any need to implement P3-005.
+Stop on remote drift, unknown worktree changes, REWORK/FAIL audit, unverifiable Action SHA, credible secret, unresolved blocking vulnerability, scanner output ambiguity, SBOM instability, required out-of-scope path, test/build/Docker regression, or any need for credentials, tag, Release, formal attestation, Provider, private data, or repository-setting write.
 
 ## 5. Selection Rationale
 
-Separating implementation, remote CI closure, canonical next-task staging, and next-task authorization preserves an auditable lifecycle. It prevents P3-005 workflow/security changes from being mixed into P3-004 or treated as authorized merely because the next task has been named.
+Extend the existing `ci.yml` so security and SBOM jobs share the same trigger and exact-tag dependency graph as the preserved Backend, Frontend, and Docker jobs. Keep elevated attestation permissions isolated to a strictly gated future publish job while this task executes only local no-publish evidence validation.
 
 ## 6. Alternatives
 
 | Option | Advantages | Disadvantages | Decision |
 | --- | --- | --- | --- |
-| A. Verify CI, close P3-004, stage P3-005, then align separately | Strong evidence chain and explicit authorization boundary | Requires two CI waits | Selected |
-| B. Implement P3-005 in the closure commit | Faster apparent progress | Mixes task ownership and bypasses authorization | Prohibited |
-| C. Close P3-004 from local evidence only | Avoids remote checks | Cannot prove pushed-commit CI status | Rejected |
+| Extend `ci.yml` with isolated security jobs | Direct gate dependencies; preserves current job names and trigger behavior | Larger workflow file | Selected |
+| Separate security/release workflows | Strong file separation | Cross-workflow trust and artifact handoff are harder to prove | Rejected unless the single workflow cannot remain safe |
+| Add scanners as product dependencies | Simple invocation | Changes runtime/lock contracts | Prohibited |
+| Publish a test attestation | Hosted evidence | Requires external write and release identity | Prohibited in P3-005 |
 
 ## 7. Deliverables
 
-- Verified P3-004 commit and remote main CI evidence.
-- Updated `docs/tasks/P3-004_REAL_PROVIDER_EVALUATION_DESIGN.md` closure evidence.
-- New `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`.
-- Updated `docs/tasks/CURRENT_TASK.md` pointing to P3-005.
-- Updated `docs/00_PROJECT_STATE.md` and `docs/V1_2_ROADMAP.md`.
-- Updated `alignment.md`; README only if a current-task pointer requires it.
-- One docs-only commit: `docs: close P3-004 and stage P3-005`.
-- Verified staging-commit main CI evidence.
-- Complete P3-005 execution alignment, with implementation still not granted.
+- Updated `.github/workflows/ci.yml` and `.github/dependabot.yml`.
+- Policy files under `.github/security/`.
+- Security tooling and tests under `scripts/security/`.
+- Release-evidence tooling and tests under `scripts/release/`.
+- `docs/P3_005_CI_SECURITY_PROVENANCE_REPORT.md`.
+- `docs/CI_SECURITY_TRIAGE_SOP.md`.
+- `docs/ACTION_PIN_UPDATE_SOP.md`.
+- `docs/SBOM_VERIFICATION_SOP.md`.
+- `docs/RELEASE_PROVENANCE_VERIFICATION_SOP.md`.
+- `docs/BRANCH_PROTECTION_GUIDANCE.md`.
+- Updated canonical task, current-task pointer, project state, v1.2 roadmap, README, and this alignment.
+- One local status-appropriate commit; no push.
 
 ## 8. Acceptance Criteria
 
-- P3-004 commit is exactly `0bf90e518549bea7549409cde72a3befda0c340d`, with expected parent and subject.
-- Live-fetched `origin/main` contains the P3-004 commit and local `main` has no unexplained divergence.
-- P3-004 main CI overall conclusion is success; Backend and Frontend pass; Docker compose smoke is skipped for the normal main push.
-- P3-004 canonical status is `PASS / CLOSED` with durable remote CI evidence.
-- P3-005 canonical task records `ALIGNMENT REQUIRED` and implementation authorization `NOT GRANTED`.
-- P3-005 defines immutable Action pins, least-privilege permissions, dependency/OSV and secret scanning, CycloneDX 1.6 SBOMs, exact-tag/manual provenance boundaries, branch-protection guidance, and preservation of existing CI behavior.
-- The closure commit modifies only approved documentation/task files, is pushed to `main`, and its Backend and Frontend jobs pass while Docker smoke is skipped.
-- No product/runtime/workflow implementation, real provider call, private Zotero access, candidate assignment, tag, or Release occurs.
-- No secret, runtime/private artifact, generated corpus, PDF, Graph/RAG data, database, archive, trace, profile, or cache is committed.
-- Final `main` is synchronized with `origin/main`, the worktree is clean, and P3-005 implementation remains unauthorized pending separate confirmation.
+- `third_party_action_full_sha_pin_rate = 1.0`.
+- `workflow_permissions_explicit_rate = 1.0`.
+- `credible_secret_findings = 0` and logs contain no matched secret value.
+- Python, npm, and independent multi-ecosystem dependency gates pass under the approved severity/suppression policy.
+- Suppressions are exact, owned, justified, linked, reviewable, unexpired, and matched; fake suppressions are prohibited.
+- Backend, Frontend, and combined SBOMs use CycloneDX 1.6; both lockfiles are covered; repeated builds are byte-identical; combined size is at most 5 MiB.
+- SBOM schema, relationships, hashes where reliable, local-path, secret, and forbidden-runtime-content checks pass.
+- Exact-tag/manual provenance boundary and local no-publish dry-run pass; ordinary PR/main publish capability equals zero.
+- Backend pytest, Frontend `npm ci`/build, and local/manual Docker smoke pass while normal main Docker remains skipped by policy.
+- Product runtime and frozen contract changes equal zero.
+- Candidate, tag, Release, formal attestation publication, real-provider calls, and private-data access equal zero.
+- Generated SBOM, evidence, scanner cache/output, and runtime/private artifacts are not tracked.
+- Final commit parent is `ed5bef2bd8ed3dd8ba9f42e02e7faa3dc0fb81d6`; changed paths remain in the confirmed allowlist; worktree is clean; push is not performed.
 
-## P3-005 Staging Boundary
+## Allowed Changes
 
-- Formal version: `v1.1.0`.
-- Candidate version: not assigned.
-- Previous task: P3-004 `PASS / CLOSED`.
-- Baseline: `0bf90e518549bea7549409cde72a3befda0c340d`.
-- P3-005 implementation authorization: `NOT GRANTED`.
-- Tag and Release operations: prohibited.
-- Real provider and private Zotero operations: prohibited.
+- `.github/workflows/ci.yml`
+- `.github/dependabot.yml`
+- `.github/security/`
+- `scripts/security/` and `scripts/security/tests/`
+- `scripts/release/` and `scripts/release/tests/`
+- The named P3-005 report/SOP/guidance documents
+- `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`
+- `docs/tasks/CURRENT_TASK.md`
+- `docs/00_PROJECT_STATE.md`
+- `docs/V1_2_ROADMAP.md`
+- `alignment.md`
+- `README.md`, limited to security commands and documentation links
 
-## Closure and Staging Evidence
+## Network and Git Boundary
 
-- P3-004 implementation commit: `0bf90e518549bea7549409cde72a3befda0c340d`.
-- P3-004 main CI run: `29627617727`.
-- P3-004 main CI URL: https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29627617727
-- Backend pytest: PASS.
-- Frontend build: PASS.
-- Docker compose smoke: SKIPPED by normal main-push policy.
-- P3-004 remote closure: PASS / CLOSED.
-- Current canonical task: `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`.
-- P3-005 status: `ALIGNMENT REQUIRED`.
-- P3-005 implementation authorization: `NOT GRANTED`.
-- Current authorization covers canonical staging and its CI verification only; it does not authorize P3-005 implementation.
-- Next action after successful staging CI: output the complete P3-005 execution alignment and wait for separate confirmation.
+- Read-only public network access is allowed only for official Action SHA verification, trusted package/advisory data, scanner databases, and CycloneDX specifications.
+- No source, lockfile, SBOM, report, secret, or private data may be uploaded to an unapproved service.
+- PASS commit: `feat: add CI security and release provenance`.
+- CONDITIONAL commit: `docs: record conditional CI security hardening`.
+- BLOCKED commit: `docs: record CI security blockers`.
+- One local commit is authorized. Push, force push, rebase, amend, candidate, tag, Release, formal attestation, and branch-protection writes are prohibited.
+
+## Execution Result
+
+- Implementation and all locally available security, dependency, secret, SBOM, provenance, Backend, and Frontend checks passed.
+- Docker compose smoke is mandatory but unavailable because the authorized environment has no Docker-compatible runtime.
+- Final task status: `BLOCKED` pending Docker smoke evidence.
+- The authorized local blocker commit may be created with `docs: record CI security blockers`.
+- Push, candidate, tag, Release, formal attestation publication, Provider calls, and private-data access remain prohibited and were not performed.

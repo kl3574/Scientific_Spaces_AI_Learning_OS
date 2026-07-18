@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "spec_version": "1.6",
+  "max_combined_bytes": 5242880,
+  "schema_commit": "e833d732337dd33aceb45ff1991f896796f1e5e7",
+  "schema_api_url": "https://api.github.com/repos/CycloneDX/specification/contents/schema/bom-1.6.schema.json?ref=e833d732337dd33aceb45ff1991f896796f1e5e7",
+  "schema_sha256": "18f57f7482593bad9f21b4feed09084640cbeff419d62ad5090c5ceccca5b37d",
+  "schema_url": "https://raw.githubusercontent.com/CycloneDX/specification/e833d732337dd33aceb45ff1991f896796f1e5e7/schema/bom-1.6.schema.json",
+  "schema_validator": "check-jsonschema==0.37.4",
+  "forbidden_path_fragments": [
+    ".local_data/",
+    "local_library/",
+    "pdf_library/",
+    "node_modules/",
+    ".next/"
+  ],
+  "forbidden_file_suffixes": [
+    ".db",
+    ".pdf",
+    ".sqlite",
+    ".sqlite3",
+    ".trace",
+    ".prof"
+  ]
+}
