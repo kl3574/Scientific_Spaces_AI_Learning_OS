@@ -2,11 +2,11 @@
 
 ## Status
 
-ALIGNMENT REQUIRED
+CONDITIONAL / CLOSED
 
-IMPLEMENTATION AUTHORIZATION: NOT GRANTED
+IMPLEMENTATION AUTHORIZATION: CONSUMED / CLOSED
 
-FULL-CORPUS AUTHORIZATION: NOT GRANTED
+FULL-CORPUS AUTHORIZATION: CONSUMED / CLOSED FOR EXACT APPROVED CORPUS
 
 PRIVATE ZOTERO AUTHORIZATION: NOT GRANTED
 
@@ -27,7 +27,7 @@ P3-006 Structured Reference Full-Corpus Build and Zotero Matching
 - Applicable ADR: `docs/ADR/0006-derived-reference-store.md`
 - Applicable governance: root `AGENTS.md`, `docs/tasks/CURRENT_TASK.md`, this canonical task, and a separately confirmed execution alignment
 
-The expected local corpus contains 1,311 Articles. Its exact store path, manifest, Article count, content fingerprint, and read-only identity must be revalidated and recorded in the future execution alignment before any Article-store access or processing occurs.
+The approved read-only corpus path is `.local_data/scientific_spaces/corpus/pilot/article_store/articles.json`. It must contain exactly 1,311 Articles, match store SHA-256 `3b91f22db548373a6c91bb11a5188fb3e388ab9e19c4429e8e8fac918609a505`, and match corpus fingerprint v1 `cc8717db54615bfcc426b64826c8b38565ddba901707582657331ae9772cdf5d` before processing.
 
 ## Background
 
@@ -35,7 +35,7 @@ P3-003 proved deterministic structured-reference extraction, normalization, dedu
 
 P3-006 is the planned scale-up from that bounded pilot to the complete existing local Article corpus. It must preserve the frozen Article source data, build only derived reference data, provide complete input/output accounting, and support deterministic recovery. Zotero matching is a separate read-only boundary and remains optional even after full-corpus processing is approved.
 
-This document stages the task only. It grants no implementation, Article-store access, full-corpus execution, network request, or Zotero access.
+The confirmed execution alignment grants implementation, exact-corpus read/full processing, fake/curated/unavailable Zotero validation, ignored runtime output, testing, and one local commit. It grants no network request, private Zotero access, push, candidate, tag, Release, or attestation publication.
 
 ## Goals
 
@@ -78,19 +78,26 @@ This document stages the task only. It grants no implementation, Article-store a
 
 ## Allowed Changes
 
-No P3-006 implementation path is currently authorized.
+The confirmed allowlist is:
 
-A future execution alignment must define an exact allowlist before modification. Candidate areas may include P3-003-owned reference modules, focused tests and fixtures, offline reference scripts, ignored derived-store output, and named P3-006 reports/governance documents. Candidate areas are planning context, not current authorization.
+- `backend/app/references/`
+- `backend/tests/references/`
+- `backend/tests/fixtures/references/`
+- `scripts/references/`
+- `docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md`
+- this canonical task, `docs/tasks/CURRENT_TASK.md`, `docs/00_PROJECT_STATE.md`, `docs/V1_2_ROADMAP.md`, and `alignment.md`
+- `README.md`, limited to the full-corpus command/report entry
+- `.gitignore`, only if the existing `.local_data/` rule is insufficient
 
 ## Prohibited Actions
 
-- Read or process the Article store before a confirmed execution alignment grants that access.
-- Run a full-corpus, partial-corpus, pilot, migration, matching, checkpoint, or recovery command.
+- Read or process any Article store other than the exact approved corpus.
+- Run commands without `UV_OFFLINE=1` or outside the confirmed execution plan.
 - Access the source website or any other network service.
 - Read, export, match, or modify a private Zotero library.
 - Modify Article source content, metadata, M1 modules, legacy APIs, or `/v1.1` APIs.
-- Create runtime output, derived stores, checkpoints, reports, or test caches for P3-006.
-- Commit, push, tag, release, or publish P3-006 evidence before explicit authorization.
+- Commit runtime output, derived stores, checkpoints, manifests, review payloads, or test caches.
+- Push, tag, release, publish attestation, or assign a candidate.
 - Read credentials, secrets, private user data, Provider data, or paid services.
 
 ## Planned Inputs
@@ -160,7 +167,7 @@ The complete offline derived-store build and all safety gates pass, but optional
 
 ## Verification Commands
 
-No P3-006 command is currently authorized. The future execution alignment must provide exact commands for:
+The confirmed execution alignment authorizes offline commands for:
 
 - corpus identity and fingerprint verification;
 - focused extractor/store/recovery tests;
@@ -179,18 +186,18 @@ Reports and commits may contain only bounded aggregate metrics, irreversible fin
 
 ## Git Plan
 
-- Implementation commit: NOT AUTHORIZED
+- Implementation commit: one status-appropriate local commit authorized
 - Push: NOT AUTHORIZED
 - CI: NOT AUTHORIZED
 - Candidate: prohibited
 - Tag: prohibited
 - Release: prohibited
 
-The future confirmed execution alignment must use a local-commit-only plan unless the user separately authorizes push and CI.
+PASS commit: `feat: build full-corpus reference store`. CONDITIONAL and BLOCKED use the messages defined in `alignment.md`. Push requires separate authorization.
 
 ## Stop Conditions
 
-- The P3-006 execution alignment is absent, incomplete, or unconfirmed.
+- The confirmed execution alignment or authorization state becomes inconsistent.
 - Exact corpus identity, Article count, fingerprint, or read-only path cannot be established.
 - Worktree drift, REWORK/FAIL audit, test/build failure, or artifact/secret finding appears.
 - A required path or command falls outside the confirmed allowlist.
@@ -201,11 +208,16 @@ The future confirmed execution alignment must use a local-commit-only plan unles
 ## Completion Evidence
 
 - Canonical task staged: YES
-- Execution alignment: NOT YET CONFIRMED
-- Implementation: NOT STARTED / NOT AUTHORIZED
-- Full-corpus processing: NOT PERFORMED
+- Execution alignment: CONFIRMED
+- Implementation: COMPLETE / CONDITIONAL
+- Full-corpus processing: COMPLETE - 1,311/1,311 Articles
+- Machine gates: PASS
+- Human review: PENDING - 64 deterministic cases, 0 fabricated reviewers
+- Evidence: `docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md`
 - Private Zotero access: NOT PERFORMED
+- Network access: NOT PERFORMED
+- Push: NOT PERFORMED
 
 ## Next Required Decision
 
-Confirm or revise the complete P3-006 execution alignment before any implementation, Article-store access, full-corpus processing, testing, file modification, Git commit, network access, or Zotero operation.
+Audit and separately authorize any push of the P3-006 completion commit. Close the finite human-review limitation through a separately aligned evidence task when a real reviewer is available.

@@ -10,8 +10,8 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Status: `Published`
 - Candidate: `None`
 - Release Readiness: `PASS`
-- Latest gate: `P3-005 CI Security and Release Provenance PASS / CLOSED (remote validation and main CI PASS)`
-- Current task: `P3-006 Structured Reference Full-Corpus Build and Zotero Matching - ALIGNMENT REQUIRED / implementation NOT GRANTED`
+- Latest gate: `P3-006 Structured Reference Full-Corpus Build - CONDITIONAL / CLOSED (all machine gates PASS; real human review pending)`
+- Current task: `P3-006 completion commit audit and separate push authorization`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -61,6 +61,26 @@ uv run --project backend python scripts/references/run_reference_pilot.py \
 ```
 
 The command is offline, accepts only 50-100 Articles, leaves the Article store unchanged, and writes its derived store under ignored `.local_data/`. It does not authorize a full-corpus build or private Zotero access.
+
+## Structured Reference Full Corpus
+
+P3-006 processed the exact approved 1,311-Article local corpus with checkpoint/resume, atomic installation, deterministic IDs and deduplication, complete provenance, and zero network requests:
+
+```bash
+UV_OFFLINE=1 uv run --project backend python \
+  scripts/references/build_full_corpus_references.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --output-dir .local_data/scientific_spaces/references/full-corpus \
+  --expected-article-count 1311 \
+  --expected-article-store-sha256 \
+    3b91f22db548373a6c91bb11a5188fb3e388ab9e19c4429e8e8fac918609a505 \
+  --expected-corpus-fingerprint \
+    cc8717db54615bfcc426b64826c8b38565ddba901707582657331ae9772cdf5d \
+  --checkpoint-every 50 \
+  --no-network
+```
+
+Runtime output remains under ignored `.local_data/` and is never committed. Only fake-curated and unavailable Zotero modes were validated; private Zotero was not accessed. Machine evidence passed, while 64 generated review cases await a real reviewer, so the task is recorded as CONDITIONAL. See `docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md`.
 
 ## Current Development Task
 

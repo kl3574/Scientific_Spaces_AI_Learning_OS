@@ -3,7 +3,19 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from app.references.audit import audit_repository_artifacts
+from app.references.audit import _runtime_absolute_path_count, audit_repository_artifacts
+
+
+def test_store_path_audit_distinguishes_source_examples_from_runtime_paths(tmp_path: Path) -> None:
+    generic_source_path = "/" + "home/you/python/lib/site-packages"
+    public_url = "https://sites.example" + "/" + "home/blog/article"
+    source_text = (
+        f"{public_url} "
+        f"{generic_source_path}"
+    )
+
+    assert _runtime_absolute_path_count(source_text, roots=(tmp_path,)) == 0
+    assert _runtime_absolute_path_count(f"runtime={tmp_path}/private.json", roots=(tmp_path,)) == 1
 
 
 def test_artifact_audit_separates_legacy_paths_from_current_changes(tmp_path: Path) -> None:

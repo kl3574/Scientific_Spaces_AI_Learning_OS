@@ -58,6 +58,7 @@ def install_reference_store(
     source_asset_id: str,
     network_request_count: int,
     extra_counts: dict[str, Any] | None = None,
+    rebuild_command: str | None = None,
     failure_hook: Callable[[str, Path], None] | None = None,
 ) -> StoreInstallResult:
     target_path = Path(target)
@@ -81,6 +82,7 @@ def install_reference_store(
             source_asset_id=source_asset_id,
             network_request_count=network_request_count,
             extra_counts=extra_counts or {},
+            rebuild_command=rebuild_command,
         )
         audit_reference_store(
             stage,
@@ -232,6 +234,7 @@ def _write_stage(
     source_asset_id: str,
     network_request_count: int,
     extra_counts: dict[str, Any],
+    rebuild_command: str | None,
 ) -> ReferenceManifest:
     records = [item.to_dict() for item in sorted(build_data.records, key=lambda item: item.reference_id)]
     evidence = [item.to_dict() for item in sorted(build_data.evidence, key=lambda item: item.evidence_id)]
@@ -280,7 +283,8 @@ def _write_stage(
         counts=counts,
         files=files,
         source_asset_id=source_asset_id,
-        rebuild_command=(
+        rebuild_command=rebuild_command
+        or (
             "uv run --project backend python scripts/references/run_reference_pilot.py "
             "--article-store <ignored-article-store> --sample-size 75 "
             "--output-dir .local_data/scientific_spaces/references/pilot --no-network"

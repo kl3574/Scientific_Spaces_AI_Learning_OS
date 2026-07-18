@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-005 CI Security and Release Provenance: PASS / CLOSED with exact-commit remote validation and main CI evidence; P3-006 canonical task staged with ALIGNMENT REQUIRED
+P3-006 Structured Reference Full-Corpus Build: CONDITIONAL / CLOSED; all machine gates passed and 64 deterministic human-review cases remain pending
 
 Release Readiness:
 
@@ -132,11 +132,11 @@ P3-006 Structured Reference Full-Corpus Build and Zotero Matching
 
 Current Task Status:
 
-ALIGNMENT REQUIRED
+CONDITIONAL / CLOSED
 
 Implementation Authorization:
 
-NOT GRANTED
+CONSUMED / CLOSED; NO FURTHER IMPLEMENTATION GRANTED
 
 Real Provider Authorization:
 
@@ -216,15 +216,15 @@ docs/tasks/P3-006_STRUCTURED_REFERENCE_FULL_CORPUS.md
 
 P3-006 Status:
 
-ALIGNMENT REQUIRED
+CONDITIONAL / CLOSED
 
 P3-006 Implementation Authorization:
 
-NOT GRANTED
+CONSUMED / CLOSED
 
 P3-006 Full-Corpus Authorization:
 
-NOT GRANTED
+CONSUMED / CLOSED FOR THE EXACT APPROVED CORPUS
 
 P3-006 Private Zotero Authorization:
 
@@ -233,6 +233,18 @@ NOT GRANTED
 P3-006 Network Authorization:
 
 NOT GRANTED
+
+P3-006 Machine Gates:
+
+PASS - 1311/1311 Articles, 24514/24514 candidates classified, provenance/determinism/duplicate consistency 1.0, recovery/integrity/no-network/resource/tests/build/artifact gates passed
+
+P3-006 Human Review:
+
+PENDING - 64 deterministic review cases generated; no reviewer result fabricated
+
+P3-006 Evidence:
+
+docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md
 
 Approved v1.2 Scope:
 
@@ -248,7 +260,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Confirm or revise the P3-006 execution alignment
+Audit and separately authorize pushing the P3-006 completion commit
 
 Post-freeze Change Rule:
 

@@ -10,7 +10,7 @@ P3-006 Structured Reference Full-Corpus Build and Zotero Matching
 
 ## Status
 
-ALIGNMENT REQUIRED
+CONDITIONAL / CLOSED
 
 ## Formal Version
 
@@ -26,11 +26,11 @@ P3-005 CI Security and Release Provenance: PASS / CLOSED
 
 ## Implementation Authorization
 
-NOT GRANTED
+CONSUMED / CLOSED
 
 ## Full-Corpus Authorization
 
-NOT GRANTED
+CONSUMED / CLOSED FOR THE EXACT APPROVED CORPUS
 
 ## Private Zotero Authorization
 
@@ -42,18 +42,17 @@ NOT GRANTED
 
 ## Allowed Current Action
 
-Prepare and obtain confirmation for the P3-006 execution alignment.
+Audit the local P3-006 completion commit and request separate push authorization. No further implementation is granted.
 
 ## Prohibited Current Actions
 
-- Full-corpus reference extraction, classification, matching, or store installation
-- Article-store or corpus access before alignment confirmation
+- Any Article-store path or identity other than the exact approved corpus
 - Source-site or other network access
 - Private Zotero library access, export, matching, or write
 - Article, M1, legacy API, or `/v1.1` API modification
 - Candidate assignment, tag, Release, or attestation publication
-- P3-006 file modification, testing, or Git commit before alignment confirmation
+- Push or more than one status-appropriate local commit
 
 ## Next Required Decision
 
-Confirm or revise the P3-006 execution alignment.
+Audit and separately authorize any push of the P3-006 completion commit. The pending real human review may be closed in a separately aligned evidence task.

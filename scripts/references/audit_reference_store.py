@@ -16,12 +16,17 @@ from app.references.audit import audit_pilot_store  # noqa: E402
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Audit a P3-003 Reference Store without network access.")
+    parser = argparse.ArgumentParser(description="Audit a P3 Reference Store without network access.")
     parser.add_argument("--article-store", type=Path, required=True)
     parser.add_argument("--reference-store", type=Path, required=True)
+    parser.add_argument("--expected-article-count", type=int)
     parser.add_argument("--no-network", action="store_true", required=True)
     args = parser.parse_args()
-    result = audit_pilot_store(args.article_store, args.reference_store)
+    result = audit_pilot_store(
+        args.article_store,
+        args.reference_store,
+        expected_article_count=args.expected_article_count,
+    )
     print(json.dumps(result.to_dict(), ensure_ascii=False, sort_keys=True, indent=2))
     return 0 if result.status == "PASS" else 1
 

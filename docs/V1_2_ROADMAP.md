@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 PASS / CLOSED; P3-005 has exact-commit remote validation and main CI evidence; P3-006 is canonically staged with ALIGNMENT REQUIRED; no candidate version is assigned.
+Status: P3-004 and P3-005 PASS / CLOSED; P3-006 is CONDITIONAL / CLOSED with all machine gates passing and a finite pending human-review limitation; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -224,9 +224,9 @@ The implementation adds immutable Action pins, least-privilege workflow permissi
 
 ### P3-006 - Structured Reference Full-Corpus Build and Zotero Matching
 
-Status: **ALIGNMENT REQUIRED**. The canonical task is `docs/tasks/P3-006_STRUCTURED_REFERENCE_FULL_CORPUS.md`. Implementation, full-corpus, network, and private Zotero authorization are all **NOT GRANTED**.
+Status: **CONDITIONAL / CLOSED**. The exact approved 1,311-Article corpus produced 12,859 deterministic reference records and 24,514 provenance rows with complete accounting, zero silent drops, zero source mutations, and zero network requests. Checkpoint/resume, controlled interruption, atomic install, rollback, corruption/stale detection, no-op reuse, clean byte determinism, fake/unavailable matching, resource budgets, Backend, Frontend, compatibility, artifact, and secret gates passed.
 
-After a separately confirmed execution alignment and explicit data-access boundaries, the planned task may build and audit the complete derived Reference Store, prove no-network/no-mutation/idempotency/recovery, and evaluate read-only matching. Private Zotero access remains optional and separately authorized.
+Sixty-four deterministic review cases remain pending because no real reviewer was available; no reviewer or precision result was fabricated. This finite limitation does not affect machine integrity and is recorded in `docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md`. Implementation and exact-corpus authorization are consumed/closed. Network and private Zotero authorization were not granted or used. Push remains separately gated.
 
 ### P3-007 - v1.2 Integration and Release Readiness
 
@@ -264,6 +264,6 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 ## Next Recommended Task
 
-`P3-006 Execution Alignment Confirmation`
+`P3-006 Completion Commit Audit and Push Authorization`
 
-Confirm or revise the P3-006 execution alignment. Until confirmation, no corpus/Article access, full-corpus processing, network access, private Zotero operation, candidate, tag, Release, or P3-006 implementation is authorized.
+Audit the local status-appropriate P3-006 completion commit and separately authorize any push. A later evidence-only task may complete the pending real human review; no candidate, tag, Release, private Zotero access, or additional implementation is authorized by this roadmap update.
