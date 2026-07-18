@@ -2,15 +2,15 @@
 
 ## Task
 
-P3-005 CI Security and Release Provenance
+P3-006 Structured Reference Full-Corpus Build and Zotero Matching
 
 ## Canonical Specification
 
-`docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`
+`docs/tasks/P3-006_STRUCTURED_REFERENCE_FULL_CORPUS.md`
 
 ## Status
 
-PASS / CLOSED
+ALIGNMENT REQUIRED
 
 ## Formal Version
 
@@ -22,30 +22,38 @@ Not assigned
 
 ## Previous Task
 
-P3-004 Real Provider Evaluation Design: PASS / CLOSED
+P3-005 CI Security and Release Provenance: PASS / CLOSED
 
 ## Implementation Authorization
 
-CONSUMED / CLOSED; NO FURTHER IMPLEMENTATION GRANTED
+NOT GRANTED
 
-## Real Provider Authorization
+## Full-Corpus Authorization
+
+NOT GRANTED
+
+## Private Zotero Authorization
+
+NOT GRANTED
+
+## Network Authorization
 
 NOT GRANTED
 
 ## Allowed Current Action
 
-Audit the closed P3-005 commit sequence and its exact-commit remote validation evidence. No implementation or publication action is currently authorized.
+Prepare and obtain confirmation for the P3-006 execution alignment.
 
 ## Prohibited Current Actions
 
-- Push of the P3-005 commit sequence to `main` without separate authorization
-- Formal SBOM or provenance publication
-- Real or paid Provider calls
-- Private Zotero or user-data access/export
-- Candidate assignment
-- Tag or Release
-- Push without separate authorization
+- Full-corpus reference extraction, classification, matching, or store installation
+- Article-store or corpus access before alignment confirmation
+- Source-site or other network access
+- Private Zotero library access, export, matching, or write
+- Article, M1, legacy API, or `/v1.1` API modification
+- Candidate assignment, tag, Release, or attestation publication
+- P3-006 file modification, testing, or Git commit before alignment confirmation
 
 ## Next Required Decision
 
-Audit and separately authorize pushing the P3-005 commit sequence to main.
+Confirm or revise the P3-006 execution alignment.

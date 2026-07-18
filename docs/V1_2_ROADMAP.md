@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 PASS / CLOSED; P3-005 has exact-commit remote validation evidence; no candidate version is assigned.
+Status: P3-004 and P3-005 PASS / CLOSED; P3-005 has exact-commit remote validation and main CI evidence; P3-006 is canonically staged with ALIGNMENT REQUIRED; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -218,13 +218,15 @@ Status: **PASS / CLOSED**. The isolated fake/dry-run harness implements provider
 
 ### P3-005 - CI Security and Release Provenance
 
-Status: **PASS / CLOSED**. Implementation commit `80e8823e2ba8403f347df762de3107298f6bc4b1` and P3-005.1 fix commit `666e93f043788e03133c3532e69b9fd2dcfa01ea` were validated on the exact fix commit by workflow-dispatch run [`29635940873`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29635940873). All eight jobs passed. The canonical task is `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`.
+Status: **PASS / CLOSED**. Implementation commit `80e8823e2ba8403f347df762de3107298f6bc4b1` and P3-005.1 fix commit `666e93f043788e03133c3532e69b9fd2dcfa01ea` were validated on the exact fix commit by workflow-dispatch run [`29635940873`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29635940873). Local closure commit `ff19c520ac9650a36c5073665864aa4086160565` then passed main CI run [`29637475061`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29637475061). The canonical task is `docs/tasks/P3-005_CI_SECURITY_AND_RELEASE_PROVENANCE.md`.
 
 The implementation adds immutable Action pins, least-privilege workflow permissions, dependency and secret scanning, validated Backend/Frontend/combined CycloneDX 1.6 SBOMs, exact-tag/manual provenance boundaries, branch-protection guidance, and verification documentation while preserving current CI jobs. Backend, Frontend, Docker compose smoke, workflow policy, dependency audit, secret audit, SBOM validation, and manual release-evidence dry-run passed. The dry-run recorded `would_authorize_publish=false` and `publish_authorized=false`, uploaded no workflow artifact, and left all tags and Releases unchanged. Push to `main`, candidate assignment, tag, Release, formal attestation publication, real-provider calls, and private-data access remain prohibited without separate authorization.
 
 ### P3-006 - Structured Reference Full-Corpus Build and Zotero Matching
 
-After P3-003 PASS and separate full-corpus authorization, build and audit the complete derived Reference Store, prove no-network/no-mutation/idempotency/recovery, and evaluate read-only matching. Private Zotero access remains optional and separately authorized.
+Status: **ALIGNMENT REQUIRED**. The canonical task is `docs/tasks/P3-006_STRUCTURED_REFERENCE_FULL_CORPUS.md`. Implementation, full-corpus, network, and private Zotero authorization are all **NOT GRANTED**.
+
+After a separately confirmed execution alignment and explicit data-access boundaries, the planned task may build and audit the complete derived Reference Store, prove no-network/no-mutation/idempotency/recovery, and evaluate read-only matching. Private Zotero access remains optional and separately authorized.
 
 ### P3-007 - v1.2 Integration and Release Readiness
 
@@ -262,6 +264,6 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 ## Next Recommended Task
 
-`P3-005 Main Push Authorization Audit`
+`P3-006 Execution Alignment Confirmation`
 
-Audit and separately authorize pushing the P3-005 commit sequence to `main`. P3-004 and P3-005 grant no real-provider, paid-request, credential, private Zotero/user-data, candidate, tag, Release, or P3-006 execution authority.
+Confirm or revise the P3-006 execution alignment. Until confirmation, no corpus/Article access, full-corpus processing, network access, private Zotero operation, candidate, tag, Release, or P3-006 implementation is authorized.

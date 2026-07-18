@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-004 Real Provider Evaluation Design: PASS / CLOSED with main CI evidence; P3-005 CI Security and Release Provenance: PASS / CLOSED with exact-commit remote validation evidence
+P3-005 CI Security and Release Provenance: PASS / CLOSED with exact-commit remote validation and main CI evidence; P3-006 canonical task staged with ALIGNMENT REQUIRED
 
 Release Readiness:
 
@@ -128,15 +128,15 @@ PASS
 
 Current Task:
 
-P3-005 CI Security and Release Provenance
+P3-006 Structured Reference Full-Corpus Build and Zotero Matching
 
 Current Task Status:
 
-PASS / CLOSED
+ALIGNMENT REQUIRED
 
 Implementation Authorization:
 
-CONSUMED / CLOSED; NO FURTHER IMPLEMENTATION GRANTED
+NOT GRANTED
 
 Real Provider Authorization:
 
@@ -198,9 +198,41 @@ P3-005 Final Validation:
 
 PASS - https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29635940873
 
+P3-005 Local Closure Commit:
+
+ff19c520ac9650a36c5073665864aa4086160565
+
+P3-005 Main CI:
+
+PASS - https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29637475061
+
 P3-005 Implementation Authorization:
 
 CONSUMED / CLOSED; NO FURTHER IMPLEMENTATION GRANTED
+
+P3-006 Canonical Task:
+
+docs/tasks/P3-006_STRUCTURED_REFERENCE_FULL_CORPUS.md
+
+P3-006 Status:
+
+ALIGNMENT REQUIRED
+
+P3-006 Implementation Authorization:
+
+NOT GRANTED
+
+P3-006 Full-Corpus Authorization:
+
+NOT GRANTED
+
+P3-006 Private Zotero Authorization:
+
+NOT GRANTED
+
+P3-006 Network Authorization:
+
+NOT GRANTED
 
 Approved v1.2 Scope:
 
@@ -216,7 +248,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Audit and separately authorize pushing the P3-005 commit sequence to main
+Confirm or revise the P3-006 execution alignment
 
 Post-freeze Change Rule:
 

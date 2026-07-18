@@ -9,7 +9,9 @@
 - Verification status: PASS / CLOSED
 - Implementation commit: `80e8823e2ba8403f347df762de3107298f6bc4b1`
 - Manual-validation fix commit: `666e93f043788e03133c3532e69b9fd2dcfa01ea`
+- Local closure commit: `ff19c520ac9650a36c5073665864aa4086160565`
 - Final validation run: [`29635940873`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29635940873)
+- Main CI run: [`29637475061`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29637475061)
 - Product runtime changes: `0`
 - Candidate, tag, Release, or published attestation created: `0`
 
@@ -139,13 +141,15 @@ The original exact-commit validation run [`29634670103`](https://github.com/kl35
 
 Final run [`29635940873`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29635940873) executed on `validation/p3-005-provenance-666e93f` at the exact fix commit. Backend, Frontend, Docker compose smoke, workflow policy, dependency audit, secret audit, SBOM validation, and release-evidence dry-run all passed. The run uploaded no artifacts; existing tags and Releases remained unchanged; `main` was not pushed.
 
+The exact three-commit sequence was subsequently pushed to `main` without rewriting history. Push-triggered run [`29637475061`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/29637475061) passed Backend, Frontend, workflow policy, dependency audit, secret audit, and SBOM validation at closure commit `ff19c520ac9650a36c5073665864aa4086160565`. Docker compose smoke and release-evidence dry-run were skipped by the normal main-push policy. The run uploaded no artifacts.
+
 GitHub Actions emitted a non-blocking maintenance warning that selected pinned Actions currently declare Node.js 20 runtimes and are being forced to Node.js 24. The Actions remain immutable SHA-pinned and passed this run; future pin maintenance should select upstream releases with native Node.js 24 support when available.
 
 ## Decision
 
 - Status: PASS / CLOSED
-- Reason: all eight required jobs passed in exact-commit remote manual validation
+- Reason: all eight required jobs passed in exact-commit remote manual validation, and the exact closure sequence passed main CI
 - Validation branch push: PERFORMED under explicit authorization
-- Main push: NOT PERFORMED / NOT AUTHORIZED
+- Main push: PERFORMED under explicit authorization without history rewrite
 - Candidate/tag/Release: NOT CREATED
-- Next action: audit and separately authorize pushing the P3-005 commit sequence to main.
+- Next action: confirm or revise the P3-006 execution alignment. P3-006 implementation and data access remain unauthorized.
