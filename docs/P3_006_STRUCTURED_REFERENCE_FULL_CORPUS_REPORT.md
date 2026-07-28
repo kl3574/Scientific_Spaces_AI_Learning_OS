@@ -10,7 +10,8 @@
 - Candidate version: not assigned
 - Network authorization: not granted and not used
 - Private Zotero authorization: not granted and not accessed
-- Push, candidate, tag, Release, and attestation: not performed
+- Completion and dependency-repair commits: pushed after separate authorization
+- Candidate, tag, Release, and attestation: not performed
 
 CONDITIONAL is used because every required machine gate passed while the actual human-review precision gate remains pending. No Article, provenance, accounting, determinism, recovery, integrity, no-network, resource, test, build, or artifact gate is relaxed.
 
@@ -205,6 +206,51 @@ No reviewer or precision result was fabricated. Limitation owner: a project-desi
 
 The artifact audit retained 24 pre-existing baseline local-path findings separately; P3-006 introduced none. Public source evidence containing generic path examples or URL path segments is not a local runtime-path leak, while actual runtime roots remain blocked by the store audit.
 
+## Dependency Audit Repair Closure
+
+The authorized P3-006 completion commit
+`f2496cafa4a54440b19e4491294277b70a1f07cf` reached `main`, where CI run
+[`30320834573`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30320834573)
+failed only Dependency audit job `90156179263`. The complete log and a local
+reproduction reported 11 real blocked runtime npm findings:
+
+- eight advisories affecting direct `next@15.5.20`;
+- two advisories affecting direct `postcss@8.5.10`;
+- one advisory affecting optional transitive `sharp@0.34.5`.
+
+P3-006-CI-001 applied only the minimum aggregate fixed versions:
+
+- `next@15.5.21`;
+- `postcss@8.5.18`;
+- `sharp@0.35.0` through a targeted override of Next's optional transitive
+  dependency.
+
+GitHub Advisory Database and OSV agreed on all affected and fixed ranges.
+Two final local dependency audits were byte-identical and passed with PyPI 40,
+npm 219, findings 0, blocked 0, and suppressed 0. Security tests, workflow
+policy, suppression validation, secret audit, SBOM, Backend, frontend clean
+install/build, Sharp runtime, and Next image-optimizer compatibility passed.
+
+Repair commit `9b0080cbe5c6483de2534ed63f9eeb5c5e5b1dbd`
+passed:
+
+- validation workflow-dispatch run
+  [`30322598783`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322598783),
+  including Backend, Frontend, dependency audit, workflow policy, secret
+  audit, SBOM, Docker compose smoke, and no-publish release evidence;
+- main CI run
+  [`30322723458`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322723458),
+  with Docker and release evidence correctly skipped by main-push policy.
+
+Both runs produced zero workflow artifacts. The validation release evidence
+recorded `publish_authorized=false` and `would_authorize_publish=false`.
+Suppressions added: 0. Dependency policy weakened: no. Scanner removed: no.
+
+The Article Store SHA, corpus fingerprint, and Reference Store build
+fingerprint remained unchanged. No full-corpus build, source mutation,
+Reference Store mutation, source-site/Provider/private-Zotero access,
+candidate, tag, Release, or attestation occurred.
+
 ## Compatibility and Scope
 
 - Article API: unchanged and regression PASS
@@ -223,4 +269,6 @@ All machine acceptance gates passed. The sole finite non-critical limitation is 
 
 ## Next Required Action
 
-Audit this P3-006 completion commit and separately authorize push. Human-review completion can subsequently upgrade the evidence from CONDITIONAL to PASS without changing the frozen extraction or store semantics.
+Prepare and confirm the separate P3-006.1 Human Review Completion task.
+P3-006.1 is not staged and no real-review execution is authorized by this
+report.

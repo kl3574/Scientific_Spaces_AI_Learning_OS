@@ -246,6 +246,38 @@ P3-006 Evidence:
 
 docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md
 
+P3-006 Completion Commit:
+
+f2496cafa4a54440b19e4491294277b70a1f07cf
+
+P3-006-CI-001 Dependency Audit Repair:
+
+PASS / CLOSED
+
+P3-006-CI-001 Root Cause:
+
+B. REAL_DEPENDENCY_VULNERABILITY
+
+P3-006-CI-001 Repair Commit:
+
+9b0080cbe5c6483de2534ed63f9eeb5c5e5b1dbd
+
+P3-006-CI-001 Validation:
+
+PASS - https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322598783
+
+P3-006-CI-001 Main CI:
+
+PASS - https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322723458
+
+P3-006-CI-001 Security Decision:
+
+Minimum fixed dependency versions; 0 suppressions; no policy weakening or scanner removal
+
+P3-006.1 Status:
+
+NOT STAGED; implementation and real human-review execution authorization NOT GRANTED
+
 Approved v1.2 Scope:
 
 Option A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance
@@ -260,7 +292,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Audit and separately authorize pushing the P3-006 completion commit
+Prepare and confirm the separate P3-006.1 Human Review Completion task
 
 Post-freeze Change Rule:
 

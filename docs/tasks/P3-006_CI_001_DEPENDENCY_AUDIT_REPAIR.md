@@ -2,7 +2,7 @@
 
 ## Status
 
-IN PROGRESS
+PASS / CLOSED
 
 ## Task Identity
 
@@ -21,9 +21,9 @@ P3-006-CI-001 Dependency Audit Failure Triage and Repair
 
 ## Authorization
 
-- Implementation authorization: GRANTED FOR THE EXACT DEPENDENCY-AUDIT FAILURE ONLY
-- Dependency update authorization: GRANTED ONLY FOR THE MINIMUM OFFICIALLY FIXED VERSION
-- Scanner/parser repair authorization: GRANTED ONLY IF THE FAILURE IS CAUSED BY THE AUDIT TOOL
+- Implementation authorization: CONSUMED / CLOSED FOR THE EXACT DEPENDENCY-AUDIT FAILURE
+- Dependency update authorization: CONSUMED / CLOSED FOR THE MINIMUM OFFICIALLY FIXED VERSIONS
+- Scanner/parser repair authorization: NOT USED
 - Suppression authorization: NOT GRANTED
 - Full-corpus authorization: NOT GRANTED
 - Private Zotero authorization: NOT GRANTED
@@ -269,11 +269,31 @@ Required evidence:
 
 ## Closure State
 
-On successful closure:
+- Original failed run: `30320834573`
+- Original failed job: `90156179263`
+- Root-cause class: `B. REAL_DEPENDENCY_VULNERABILITY`
+- Repair commit: `9b0080cbe5c6483de2534ed63f9eeb5c5e5b1dbd`
+- Validation branch:
+  `validation/p3-006-ci-dependency-9b0080c`
+- Validation run:
+  [`30322598783`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322598783)
+- Validation result: PASS for Backend, Frontend, workflow policy, dependency
+  audit, secret audit, SBOM, Docker compose smoke, and no-publish release
+  evidence
+- Validation artifacts: 0
+- Validation release evidence:
+  `publish_authorized=false`, `would_authorize_publish=false`
+- Successful repair main CI:
+  [`30322723458`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322723458)
+- Repair main CI result: PASS; Docker and release evidence skipped by the
+  normal main-push policy
+- Repair main CI artifacts: 0
+- Suppression added: 0
+- Dependency policy weakened: no
+- Scanner removed: no
+- Full-corpus rebuild or Reference Store mutation: no
+- Article/source/Provider/private Zotero access: no
 
-- This task becomes `PASS / CLOSED`.
-- `CURRENT_TASK.md` returns to P3-006 `CONDITIONAL / CLOSED`.
-- P3-006 remains `CONDITIONAL / CLOSED`.
-- P3-006.1 remains not staged.
-- The next action is to prepare and confirm a separate P3-006.1 Human Review
-  Completion task.
+This task is `PASS / CLOSED`. `CURRENT_TASK.md` returns to P3-006
+`CONDITIONAL / CLOSED`; P3-006.1 remains not staged. The next action is to
+prepare and confirm a separate P3-006.1 Human Review Completion task.

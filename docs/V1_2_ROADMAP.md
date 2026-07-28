@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 PASS / CLOSED; P3-006 is CONDITIONAL / CLOSED with all machine gates passing and a finite pending human-review limitation; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / CLOSED with all machine gates passing, its dependency-audit repair PASS / CLOSED, and a finite pending human-review limitation; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -226,7 +226,9 @@ The implementation adds immutable Action pins, least-privilege workflow permissi
 
 Status: **CONDITIONAL / CLOSED**. The exact approved 1,311-Article corpus produced 12,859 deterministic reference records and 24,514 provenance rows with complete accounting, zero silent drops, zero source mutations, and zero network requests. Checkpoint/resume, controlled interruption, atomic install, rollback, corruption/stale detection, no-op reuse, clean byte determinism, fake/unavailable matching, resource budgets, Backend, Frontend, compatibility, artifact, and secret gates passed.
 
-Sixty-four deterministic review cases remain pending because no real reviewer was available; no reviewer or precision result was fabricated. This finite limitation does not affect machine integrity and is recorded in `docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md`. Implementation and exact-corpus authorization are consumed/closed. Network and private Zotero authorization were not granted or used. Push remains separately gated.
+Sixty-four deterministic review cases remain pending because no real reviewer was available; no reviewer or precision result was fabricated. This finite limitation does not affect machine integrity and is recorded in `docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md`. Implementation and exact-corpus authorization are consumed/closed. Network and private Zotero authorization were not granted or used.
+
+Completion commit `f2496cafa4a54440b19e4491294277b70a1f07cf` exposed a dependency-audit failure on main. The separately authorized P3-006-CI-001 task classified it as real npm vulnerabilities and applied only minimum fixed versions with zero suppressions and no policy weakening. Repair commit `9b0080cbe5c6483de2534ed63f9eeb5c5e5b1dbd` passed full validation run [`30322598783`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322598783), including Docker and no-publish release evidence, then passed main CI run [`30322723458`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322723458). Both runs produced zero workflow artifacts. P3-006-CI-001 is PASS / CLOSED.
 
 ### P3-007 - v1.2 Integration and Release Readiness
 
@@ -264,6 +266,6 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 ## Next Recommended Task
 
-`P3-006 Completion Commit Audit and Push Authorization`
+`P3-006.1 Human Review Completion Alignment`
 
-Audit the local status-appropriate P3-006 completion commit and separately authorize any push. A later evidence-only task may complete the pending real human review; no candidate, tag, Release, private Zotero access, or additional implementation is authorized by this roadmap update.
+Prepare and confirm a separate P3-006.1 task for real human review of the existing deterministic cases. P3-006.1 is not staged, and no review execution, candidate, tag, Release, private Zotero access, or additional implementation is authorized by this roadmap update.
