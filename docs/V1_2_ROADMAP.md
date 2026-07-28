@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -311,6 +311,29 @@ and no-publish release evidence and produced zero workflow artifacts. No
 candidate was assigned. Evidence is in
 `docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`.
 
+### P3-009 - Full Corpus Acquisition and Zotero PDF Sync
+
+Status: **PASS / CLOSED**.
+
+The user-connected desktop Chrome WebBridge passed a bounded nine-Article
+probe at one worker and 8-, 6-, then 4-second global intervals. Every request
+returned HTTP 200 and every A4/body/Chinese/MathJax PDF gate passed with zero
+retries. The bridge can safely bind exactly one current tab, so one worker is
+the provider concurrency cap and four seconds is the selected interval floor.
+
+The canonical inventory reconciled to 1,326 URLs: 1,311 valid Articles, 15
+classified non-importable URLs, and zero unclassified URLs. The private Zotero
+root collection now has 1,311 provenance-matched parents, 1,311 PDF children,
+zero HTML children, and zero duplicates. The idempotent rerun made zero source
+navigations and zero Zotero writes.
+
+Backend passed 587 tests with 3 skipped; all 27 focused Frontend tests and the
+production build passed. Reader/Search, RAG, Tutor, Graph, Zotero, secret,
+artifact, and changed-path gates passed. Three newer RSS URLs outside the
+frozen inventory remain an explicit M1.x source-delta candidate. Evidence is in
+`docs/P3_009_THROUGHPUT_PROBE_REPORT.md` and
+`docs/P3_009_FULL_CORPUS_RUN_REPORT.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -345,7 +368,6 @@ candidate was assigned. Evidence is in
 
 `P3-008 v1.2 Candidate Decision`
 
-That task is `ALIGNMENT REQUIRED / NOT GRANTED`. It may evaluate whether the
-conditional P3-007 result is suitable for a v1.2 candidate while carrying ADR
-0009's accepted review limitation. Candidate assignment, tag, Release, and
-attestation remain unauthorized until a new alignment explicitly grants them.
+P3-008 remains `ALIGNMENT REQUIRED / NOT GRANTED`. Candidate assignment,
+repository changes for P3-008, push, tag, Release, and attestation remain
+unauthorized.

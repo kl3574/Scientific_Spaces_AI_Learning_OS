@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Integration`
-- Status: `P3-007 CONDITIONAL / RISK ACCEPTED / CLOSED`
+- Status: `P3-009 PASS / CLOSED locally`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-007 exact-implementation main and manual Docker CI PASS`
-- Current task: `P3-008 v1.2 Candidate Decision - ALIGNMENT REQUIRED / NOT GRANTED`
+- Latest gate: `P3-009 full-corpus Zotero PDF synchronization PASS / CLOSED locally`
+- Current task: `P3-009 Full Corpus Acquisition and Zotero PDF Sync - PASS / CLOSED`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -21,6 +21,8 @@ Post-release validation: `docs/V1_1_POST_RELEASE_VALIDATION.md`.
 
 Approved v1.2 planning scope and priorities: `docs/V1_2_ROADMAP.md`.
 P3-007 evidence: `docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`.
+P3-009 throughput evidence: `docs/P3_009_THROUGHPUT_PROBE_REPORT.md`.
+P3-009 full-run status: `docs/P3_009_FULL_CORPUS_RUN_REPORT.md`.
 
 v1.2 planning specifications:
 

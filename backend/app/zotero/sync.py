@@ -441,6 +441,75 @@ class ZoteroArticleSync:
         target, _, _ = self._pdf_state(matches[0], article, canonical_url)
         return target
 
+    def resolve_collection_key(self) -> str:
+        return self._resolve_collection_key()
+
+    def inspect_snapshot(
+        self,
+        article: StoredArticle,
+        *,
+        collection_key: str,
+        items: list[dict[str, Any]],
+        require_pdf: bool = False,
+    ) -> ZoteroSyncResult:
+        canonical_url = canonicalize_article_url(article.url)
+        collection_fingerprint = _fingerprint(collection_key)
+        existing = self._matching_items(
+            items,
+            article_id=article.id,
+            canonical_url=canonical_url,
+        )
+        if len(existing) > 1:
+            raise ZoteroSyncError(
+                "Multiple Zotero items match the same Scientific Spaces article"
+            )
+        if not existing:
+            return self._result(
+                status="dry_run",
+                article=article,
+                canonical_url=canonical_url,
+                collection_fingerprint=collection_fingerprint,
+                pdf_status="pending" if require_pdf else "not_requested",
+            )
+
+        parent = existing[0]
+        self._validate_parent(parent, article, canonical_url)
+        if not require_pdf:
+            return self._result(
+                status="existing",
+                article=article,
+                canonical_url=canonical_url,
+                collection_fingerprint=collection_fingerprint,
+                parent=parent,
+            )
+
+        target, pdf, inspection = self._pdf_state(
+            parent,
+            article,
+            canonical_url,
+        )
+        if pdf is None:
+            return self._result(
+                status="migration_required",
+                article=article,
+                canonical_url=canonical_url,
+                collection_fingerprint=collection_fingerprint,
+                parent=parent,
+                pdf_status="pending",
+                html_attachment_count=target.html_attachment_count,
+            )
+        return self._result(
+            status="existing",
+            article=article,
+            canonical_url=canonical_url,
+            collection_fingerprint=collection_fingerprint,
+            parent=parent,
+            pdf_status="existing",
+            pdf=pdf,
+            inspection=inspection,
+            html_attachment_count=target.html_attachment_count,
+        )
+
     def wait_for_existing_pdf(
         self,
         article: StoredArticle,
