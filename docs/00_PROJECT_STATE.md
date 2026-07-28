@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-007 v1.2 Integration and Release Readiness: CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE
+P3-007 v1.2 Integration and Release Readiness: CONDITIONAL / RISK ACCEPTED / CLOSED
 
 Release Readiness:
 
@@ -128,15 +128,15 @@ PASS
 
 Current Task:
 
-P3-007 v1.2 Integration and Release Readiness
+P3-008 v1.2 Candidate Decision
 
 Current Task Status:
 
-CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE
+ALIGNMENT REQUIRED / NOT GRANTED
 
 Implementation Authorization:
 
-CONSUMED / CLOSED
+NOT GRANTED
 
 P3-006 Human Review Decision:
 
@@ -348,7 +348,7 @@ docs/P3_006_2_REVIEW_UX_ZOTERO_SYNC_REPORT.md
 
 P3-007 Status:
 
-CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE
+CONDITIONAL / RISK ACCEPTED / CLOSED
 
 P3-007 Evidence:
 
@@ -360,11 +360,11 @@ PASS - 573 Backend tests passed with 3 skipped; Frontend focused suites/build, b
 
 P3-007 Local Docker:
 
-NOT RUN - docker executable unavailable
+NOT RUN - docker executable unavailable; exact-implementation remote Docker compose smoke PASS
 
 P3-007 Current-Change GitHub Actions:
 
-PENDING SEPARATE PUSH AUTHORIZATION
+PASS - implementation main run 30341443480 and exact-SHA manual run 30341652046; Backend, Frontend, Docker, workflow policy, dependency, secret, SBOM, and no-publish evidence passed; workflow artifacts 0
 
 Approved v1.2 Scope:
 
@@ -380,7 +380,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-P3-007 GitHub Synchronization and Current-Commit CI Closure - ALIGNMENT REQUIRED / NOT GRANTED
+P3-008 v1.2 Candidate Decision - ALIGNMENT REQUIRED / NOT GRANTED
 
 Post-freeze Change Rule:
 

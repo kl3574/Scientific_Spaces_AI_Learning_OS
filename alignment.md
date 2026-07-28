@@ -1,154 +1,126 @@
-# P3-007 v1.2 Integration and Release Readiness Alignment
+# P3-007 GitHub Synchronization and Current-Commit CI Closure Alignment
 
 Canonical task:
-`docs/tasks/P3-007_V1_2_INTEGRATION_RELEASE_READINESS.md`
+`docs/tasks/P3-007_SYNC_CI_CLOSURE.md`
 
-Status: **CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE**
+Status: **PASS / CLOSED**
 
-IMPLEMENTATION AUTHORIZATION: **CONSUMED / CLOSED**
-
-PUSH AUTHORIZATION: **NOT GRANTED**
+PUSH AUTHORIZATION: **CONSUMED / CLOSED BY THIS CLOSURE SEQUENCE**
 
 CANDIDATE / TAG / RELEASE AUTHORIZATION: **NOT GRANTED**
 
 ## 1. Background
 
+- P3-007 local integration finished as `CONDITIONAL / RISK ACCEPTED`.
+- Local implementation commit:
+  `a88e27e65b1a244f6ca038e1b358ed50b348be17`.
+- Before this task, local `main` was one commit ahead of cached
+  `origin/main`.
+- Backend, Frontend, browser, fake-provider, workflow, dependency, secret,
+  SBOM, and no-publish evidence passed locally.
+- Docker is unavailable on the host, so a same-commit manual GitHub Actions
+  run is required for Docker evidence.
 - Formal version remains `v1.1.0`; no v1.2 candidate is assigned.
-- Baseline commit
-  `d6f6f3eefdf5d54bae93727647cab51a4236a3fb` passed main CI run
-  `30337284957`.
-- P3-003, P3-004, and P3-005 are PASS / CLOSED.
-- P3-006 machine-verifiable extraction, store, and matching gates passed, but
-  its formal 64-case real-human review was not completed.
-- The user reviewed and approved the three Zotero pilot cases on 2026-07-28
-  and explicitly accepted the risk of skipping the remaining 61 cases.
-- The three reviewed cases are evidence of a bounded usability decision, not
-  evidence that 64/64 cases or precision >=0.95 were achieved.
-- P3-006.3 proved that Scientific Spaces full-text Zotero attachments must be
-  browser-printed PDFs. HTML snapshots are not an accepted final attachment
-  representation.
 
 ## 2. Requirements
 
-1. Record the explicit review-scope waiver and risk acceptance without
-   fabricating a reviewer count or statistical precision.
-2. Keep P3-006 transparent as `CONDITIONAL / RISK ACCEPTED`.
-3. Freeze browser-printed PDF as the Scientific Spaces Zotero full-text
-   attachment representation; final live HTML snapshot children are
-   prohibited.
-4. Permit P3-007 to proceed through the documented release-board exception.
-5. Finish additive `/v1.2` reference APIs and Reader/Zotero UI states.
-6. Integrate the Reference Store as Tier 2 and review decisions as Tier 1 in
-   inventory, backup, restore, health, and cleanup safety.
-7. Preserve legacy, `/v1.1`, M1, and M3-M7 contracts and safe defaults.
-8. Run Backend, Frontend, Docker, compatibility, security, SBOM/provenance,
-   documentation, artifact, secret, and Git gates.
-9. Produce an evidence-based P3-007 report and local status-appropriate
-   commit. Do not push.
+1. Revalidate Git state, exact implementation commit, authentication, and
+   workflow availability.
+2. Push the existing P3-007 implementation commit to `origin/main`.
+3. Wait for and verify its normal main-push CI.
+4. Trigger `ci.yml` through `workflow_dispatch` on the same implementation
+   commit and verify Backend, Frontend, Docker, security, SBOM, and
+   no-publish release-evidence jobs.
+5. Stop without closure if any mandatory job fails or the run does not target
+   the expected commit.
+6. After successful evidence, update only P3-007 governance/report files.
+7. Create and push one docs-only closure commit.
+8. Verify closure-commit main CI and final branch synchronization.
+9. Stage P3-008 Candidate Decision only as
+   `ALIGNMENT REQUIRED / NOT GRANTED`.
 
 ## 3. Purpose
 
-Complete v1.2 product integration and release-readiness evidence without
-weakening frozen contracts or misrepresenting the incomplete human-review
-sample. The highest successful result for this task is
-`CONDITIONAL / RISK ACCEPTED`; candidate assignment remains a separate user
-decision.
+Close the remote evidence gap for P3-007 while preserving its explicit
+`CONDITIONAL / RISK ACCEPTED` classification and keeping candidate, tag, and
+Release actions outside this authorization.
 
 ## 4. Planned Execution
 
-1. Verify governance, Git state, REWORK/audit, current contracts, and existing
-   uncommitted P3-007 evidence.
-2. Persist this alignment, the canonical task, ADR 0009, and the explicit
-   acceptance/execution exception.
-3. Implement a validated, bounded, read-only Reference Store adapter and
-   additive `/v1.2` endpoints.
-4. Add Structured References to Article Detail and read-only candidate states
-   to the Zotero view.
-5. Add Reference Store Tier 2 and review-decision Tier 1 operations coverage.
-6. Add focused Backend and Frontend regression tests.
-7. Run all mandatory release-readiness gates without real Provider, private
-   Zotero, source-site, paid, or full-corpus operations.
-8. Update the report, project state, roadmap, and current task.
-9. Create one local status-appropriate commit without push.
+1. Inspect Git, `gh auth`, tags, workflow definition, and artifacts.
+2. Push `a88e27e65b1a244f6ca038e1b358ed50b348be17`.
+3. Locate and watch the corresponding main-push CI run.
+4. Trigger and watch `ci.yml` with `workflow_dispatch` on the exact
+   implementation SHA.
+5. Record run IDs, URLs, job conclusions, Docker evidence, and unchanged tag
+   evidence.
+6. Update `alignment.md`, the canonical sync task, P3-007 report, project
+   state, v1.2 roadmap, README status, and current task.
+7. Create `docs: close P3-007 CI validation`.
+8. Push the closure commit and verify its main-push CI.
+9. Confirm clean synchronized `main` and no forbidden artifact.
 
 ## 5. Selection Rationale
 
-An explicit risk-acceptance exception lets the approved integration proceed
-while preserving the distinction between three reviewed cases and the
-uncompleted 64-case statistical gate. It is more honest than declaring the
-original gate passed and more useful than keeping all integration blocked
-after the product owner accepted the bounded risk.
+The two-run sequence separates product implementation evidence from
+documentation closure. A manual run is necessary because Docker is
+intentionally skipped on normal main pushes.
 
 ## 6. Alternatives
 
 | Option | Decision |
 | --- | --- |
-| Accept the bounded review risk and continue P3-007 | Selected |
-| Complete all 64 human-review cases before P3-007 | Valid but explicitly waived |
-| Treat three cases as 64/64 and precision >=0.95 | Rejected as false evidence |
-| Keep P3-007 blocked despite explicit risk acceptance | Rejected |
+| Push, verify normal and manual CI, then create a docs closure | Selected |
+| Push and verify only normal CI | Rejected because Docker remains unverified |
+| Keep the implementation local | Rejected because remote closure is requested |
+| Assign a candidate or create a release | Prohibited without separate authorization |
 
 ## 7. Deliverables
 
-- `alignment.md`
-- `docs/tasks/P3-007_V1_2_INTEGRATION_RELEASE_READINESS.md`
-- `docs/ADR/0009-p3-007-review-risk-and-zotero-pdf-policy.md`
-- revised `docs/V1_2_ACCEPTANCE.md`
-- revised `docs/V1_2_EXECUTION_PLAN.md`
-- additive v1.2 Backend API/service code and tests
-- additive Frontend reference UI/client code and tests
-- required operations integration and tests
-- `docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`
-- updated `docs/tasks/CURRENT_TASK.md`
+- pushed implementation commit `a88e27e65b1a244f6ca038e1b358ed50b348be17`
+- implementation main-push CI evidence
+- same-commit manual Docker/security/release-evidence CI
+- updated `alignment.md`
+- `docs/tasks/P3-007_SYNC_CI_CLOSURE.md`
+- updated `docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`
 - updated `docs/00_PROJECT_STATE.md`
 - updated `docs/V1_2_ROADMAP.md`
-- one local status-appropriate commit
-- no push
+- updated `README.md`
+- updated `docs/tasks/CURRENT_TASK.md`
+- staged `docs/tasks/P3-008_V1_2_CANDIDATE_DECISION.md`
+- docs-only closure commit and its main CI evidence
 
 ## 8. Acceptance Criteria
 
-- Governance records exactly 3 reviewed/approved cases and 61 waived cases.
-- No document claims 64/64 completion or measured precision >=0.95.
-- Scientific Spaces Zotero full-text policy requires browser-printed PDF and
-  rejects HTML as the final live attachment format.
-- All five planned `/v1.2` endpoints are implemented, bounded, read-only, and
-  fail closed for missing, stale, or corrupt stores.
-- UI covers loading, empty, error, stale, ambiguity, pagination, and safe-link
-  states without writing Zotero or review decisions.
-- Reference Store is Tier 2; review decisions are Tier 1, backup-protected,
-  restore-verified, health-checked, and cleanup-protected.
-- Full Backend tests and focused compatibility tests pass.
-- Frontend reference tests and production build pass.
-- Docker smoke and security/SBOM/provenance dry-run gates pass when the local
-  environment supports them.
-- No M1, Article Store, Reference Store payload, legacy API, `/v1.1`, provider
-  default, or M3-M7 contract changes.
-- No real Provider, paid request, source access, private Zotero read/write, or
-  full-corpus operation occurs.
-- Artifact and secret audits are clean.
-- Final successful status is `CONDITIONAL / RISK ACCEPTED`; no candidate,
-  push, tag, Release, or attestation publication occurs.
+- Implementation commit is pushed without history rewrite.
+- Main-push CI for the implementation commit is SUCCESS.
+- Manual `workflow_dispatch` targets the exact implementation SHA.
+- Manual Backend, Frontend, Docker, workflow policy, dependency audit, secret
+  audit, SBOM validation, and release-evidence dry-run are successful.
+- Closure commit changes documentation only.
+- Closure main-push CI is SUCCESS; Docker/release evidence are correctly
+  skipped by policy on that push.
+- `main` and `origin/main` are synchronized and the worktree/index are clean.
+- No runtime/private artifact, secret, candidate, tag, Release, or product
+  implementation change occurs.
+- P3-007 remains `CONDITIONAL / RISK ACCEPTED / CLOSED`.
+- P3-008 is only staged as `ALIGNMENT REQUIRED / NOT GRANTED`.
 
-## Risk Decision
+## Closure Evidence
 
-- Owner: repository product owner.
-- Accepted limitation: 61 of the formal 64 review cases remain unreviewed.
-- Evidence retained: three user-approved Zotero pilot cases; machine gates
-  remain unchanged.
-- Remediation option: complete P3-006.1 if stronger statistical evidence is
-  later required.
-- Decision gate: any future candidate task must carry this accepted risk
-  explicitly; it must not silently convert it into measured precision.
-
-## Execution Result
-
-- Additive `/v1.2` Reference API, Reader/Zotero UI, and Tier 1/Tier 2
-  operations integration are complete.
-- Backend: 573 passed, 3 skipped.
-- Frontend focused suites and production build: PASS.
-- Browser runtime, security, dependency, secret, SBOM, fake-provider, and
-  no-publish release-evidence gates: PASS.
-- Local Docker: not run because `docker` is unavailable.
-- No push occurred, so current-change GitHub Actions remain for a separately
-  aligned synchronization task.
-- Final status: `CONDITIONAL / RISK ACCEPTED`; no candidate was assigned.
+- Implementation commit:
+  `a88e27e65b1a244f6ca038e1b358ed50b348be17`
+- Main-push CI:
+  [`30341443480`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30341443480),
+  SUCCESS
+- Exact-implementation manual CI:
+  [`30341652046`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30341652046),
+  SUCCESS
+- Manual Backend, Frontend, Docker compose smoke, workflow policy, dependency
+  audit, secret audit, SBOM validation, and no-publish release-evidence
+  dry-run: PASS
+- Workflow artifacts: 0
+- Existing `v1.0.0` and `v1.1.0` peeled targets: unchanged
+- Candidate, tag, GitHub Release, and attestation actions: not performed
+- Closure-commit main CI is a required post-push confirmation and does not
+  authorize any additional repository change.

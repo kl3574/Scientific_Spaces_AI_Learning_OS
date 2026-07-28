@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED with local integration complete; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -294,7 +294,7 @@ consumed/closed; push was not performed.
 
 ### P3-007 - v1.2 Integration and Release Readiness
 
-Status: **CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE**.
+Status: **CONDITIONAL / RISK ACCEPTED / CLOSED**.
 
 ADR 0009 records exactly three reviewed and approved pilot cases, 61 waived
 formal cases, no measured precision, and the browser-printed PDF-only Zotero
@@ -304,9 +304,10 @@ not as a claim that the original human-review gate passed.
 Additive bounded `/v1.2` Reference APIs, Article Detail references, read-only
 Zotero candidate states, and Tier 1/Tier 2 operations integration are complete.
 Backend, Frontend, browser, fake-provider, workflow, dependency, secret, SBOM,
-and no-publish release-evidence gates passed locally. Docker was unavailable
-on the host, and the change has not been pushed, so current-change GitHub
-Actions and manual Docker CI remain pending separate authorization. No
+and no-publish release-evidence gates passed locally. The implementation commit
+was pushed and exact-implementation GitHub Actions runs `30341443480` and
+`30341652046` passed. The manual run additionally passed Docker compose smoke
+and no-publish release evidence and produced zero workflow artifacts. No
 candidate was assigned. Evidence is in
 `docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`.
 
@@ -342,8 +343,9 @@ candidate was assigned. Evidence is in
 
 ## Next Recommended Task
 
-`P3-007 GitHub Synchronization and Current-Commit CI Closure`
+`P3-008 v1.2 Candidate Decision`
 
-That task is `ALIGNMENT REQUIRED / NOT GRANTED`. It may push the local P3-007
-commit and validate main/manual Docker CI. Candidate assignment, tag, Release,
-and attestation remain separately authorized.
+That task is `ALIGNMENT REQUIRED / NOT GRANTED`. It may evaluate whether the
+conditional P3-007 result is suitable for a v1.2 candidate while carrying ADR
+0009's accepted review limitation. Candidate assignment, tag, Release, and
+attestation remain unauthorized until a new alignment explicitly grants them.

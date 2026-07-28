@@ -2,11 +2,12 @@
 
 ## Status
 
-- P3-007: **CONDITIONAL / RISK ACCEPTED**
+- P3-007: **CONDITIONAL / RISK ACCEPTED / CLOSED**
 - Formal version: `v1.1.0`
 - Candidate version: Not assigned
-- Product integration: Complete locally
-- Push, tag, Release, or attestation publication: Not performed
+- Product integration: Complete and pushed
+- GitHub Actions validation: Complete
+- Tag, Release, or attestation publication: Not performed
 
 The highest permitted result is conditional because the product owner reviewed
 three pilot cases and explicitly waived the remaining 61 formal review cases.
@@ -27,6 +28,36 @@ greater than or equal to 0.95.
 The baseline CI passed Backend pytest, Frontend build, dependency audit,
 secret audit, workflow policy, and SBOM validation. Docker and release
 evidence were correctly skipped for that normal `main` push.
+
+## Remote CI Closure Evidence
+
+Implementation commit:
+`a88e27e65b1a244f6ca038e1b358ed50b348be17`.
+
+| Run | Trigger | Exact SHA | Result |
+| --- | --- | --- | --- |
+| [`30341443480`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30341443480) | `push` on `main` | `a88e27e65b1a244f6ca038e1b358ed50b348be17` | SUCCESS |
+| [`30341652046`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30341652046) | `workflow_dispatch` on `main` | `a88e27e65b1a244f6ca038e1b358ed50b348be17` | SUCCESS |
+
+The normal push run passed Backend pytest, Frontend build, workflow policy,
+dependency audit, secret audit, and SBOM validation. Docker compose smoke and
+release-evidence dry-run were skipped by the intended push policy.
+
+The manual run passed all of those checks plus Docker compose build/start,
+Backend health, Frontend home-page smoke, service cleanup, and the no-publish
+release-evidence dry-run. It produced zero workflow artifacts.
+
+GitHub Actions emitted a non-blocking maintenance warning that selected pinned
+versions of `actions/checkout` and `actions/setup-python` target Node.js 20 and
+are currently forced to Node.js 24. The actions remained immutable-pinned and
+all jobs passed.
+
+Remote tag evidence remained unchanged:
+
+- `v1.0.0` peeled target:
+  `8e1e5bbbdebb8835c7e1b05a42f69093d43ddee6`
+- `v1.1.0` peeled target:
+  `3efbe2a792a9853f1bac456f0287c3b5b62713ce`
 
 ## Risk Decision
 
@@ -128,6 +159,11 @@ bounded 503 response.
 | No-publish release-evidence dry-run | PASS |
 | Offline release-evidence verification | PASS |
 | Local Docker compose smoke | NOT RUN, `docker` is unavailable |
+| Implementation main-push CI | PASS, run `30341443480` |
+| Exact-SHA manual CI | PASS, run `30341652046` |
+| Remote Docker compose smoke | PASS |
+| Remote no-publish release-evidence dry-run | PASS |
+| Workflow artifact count | PASS, 0 |
 
 Commands:
 
@@ -164,9 +200,10 @@ uv run --project backend python scripts/eval/run_real_provider_eval.py \
 uv run --project backend python scripts/eval/audit_real_provider_eval.py
 ```
 
-The Docker limitation is environmental. No current-change Docker result or
-remote CI result is claimed. A separately authorized push/CI task must validate
-the committed change on GitHub before any candidate decision.
+The local Docker limitation was closed by exact-implementation remote CI.
+Current-change GitHub Actions and Docker evidence are now available. The
+closure documentation commit still requires its normal post-push CI
+confirmation.
 
 ## Artifact and Privacy Evidence
 
@@ -189,25 +226,26 @@ the committed change on GitHub before any candidate decision.
   human-verified.
 - The derived Reference Store must be rebuilt when its corpus or configuration
   fingerprint changes.
-- Local Docker was unavailable, and the unpushed commit has no current-commit
-  GitHub Actions evidence.
+- Local Docker remains unavailable; exact-implementation Docker evidence comes
+  from the successful manual GitHub Actions run.
+- Pinned third-party Actions currently produce a Node.js 20 deprecation
+  warning while GitHub forces execution on Node.js 24.
 
 ## Candidate Recommendation
 
 **CONDITIONAL - no candidate is assigned.**
 
-A future candidate decision may be considered only after:
-
-1. the local commit is separately authorized for push;
-2. current-commit GitHub Actions, including a manual Docker smoke, pass; and
-3. the decision explicitly carries ADR 0009's accepted review limitation.
+The push and current-commit CI prerequisites are complete. Candidate selection
+remains a separate P3-008 decision and must explicitly carry ADR 0009's
+accepted review limitation.
 
 ## Final Decision
 
-P3-007 local implementation and deterministic gates are complete.
+P3-007 implementation, remote synchronization, exact-commit CI, and Docker
+evidence are complete.
 
-Status: **CONDITIONAL / RISK ACCEPTED**
+Status: **CONDITIONAL / RISK ACCEPTED / CLOSED**
 
 Next recommended task:
-`P3-007 GitHub Synchronization and Current-Commit CI Closure`
+`P3-008 v1.2 Candidate Decision`
 with `ALIGNMENT REQUIRED / NOT GRANTED`.

@@ -2,64 +2,33 @@
 
 ## Task
 
-P3-007 v1.2 Integration and Release Readiness
+P3-008 v1.2 Candidate Decision
 
 ## Canonical Specification
 
-`docs/tasks/P3-007_V1_2_INTEGRATION_RELEASE_READINESS.md`
+`docs/tasks/P3-008_V1_2_CANDIDATE_DECISION.md`
 
 ## Status
 
-CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE
+ALIGNMENT REQUIRED / NOT GRANTED
 
-## Formal Version
+## Entry State
 
-v1.1.0
+- P3-007: `CONDITIONAL / RISK ACCEPTED / CLOSED`
+- Formal version: `v1.1.0`
+- v1.2 candidate: Not assigned
+- P3-007 implementation main CI: PASS
+- P3-007 exact-implementation manual Docker CI: PASS
 
-## Candidate Version
+## Authorization
 
-Not assigned
+- P3-008 execution: NOT GRANTED
+- Candidate assignment: NOT GRANTED
+- Product or documentation modification: NOT GRANTED
+- Commit / push: NOT GRANTED
+- Tag / GitHub Release / attestation: NOT GRANTED
 
-## Risk Decision
+## Required Next Action
 
-- Exactly 3 Zotero pilot cases were reviewed and approved.
-- The remaining 61 formal cases were explicitly waived by the product owner.
-- No 64/64 completion or precision >=0.95 result is claimed.
-- Scientific Spaces Zotero full-text attachments use browser-printed PDF, not
-  HTML, as recorded in ADR 0009.
-
-## Implementation Authorization
-
-CONSUMED / CLOSED
-
-## Push Authorization
-
-NOT GRANTED
-
-## Candidate / Tag / Release Authorization
-
-NOT GRANTED
-
-## Local Evidence
-
-- Reference API/UI and operations integration: complete
-- Backend: 573 passed, 3 skipped
-- Frontend focused tests and production build: PASS
-- Runtime browser smoke: PASS
-- Security, dependency, secret, SBOM, and no-publish evidence: PASS
-- Local Docker: unavailable
-- Current-change GitHub Actions: pending push authorization
-
-## Evidence
-
-`docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`
-
-## Next Targeted Task
-
-P3-007 GitHub Synchronization and Current-Commit CI Closure
-
-Status: `ALIGNMENT REQUIRED / NOT GRANTED`
-
-That task may push the local commit and validate current-commit main CI and a
-manual Docker workflow. It may not assign a candidate, tag, or Release without
-another explicit decision.
+Create and confirm a complete P3-008 task alignment before any candidate
+decision or repository/external write action.

@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Integration`
-- Status: `P3-007 CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE`
+- Status: `P3-007 CONDITIONAL / RISK ACCEPTED / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-007 local integration and deterministic gates complete; Docker/current-commit CI pending separate push authorization`
-- Current task: `P3-007 Integration and Release Readiness - CONDITIONAL / RISK ACCEPTED`
+- Latest gate: `P3-007 exact-implementation main and manual Docker CI PASS`
+- Current task: `P3-008 v1.2 Candidate Decision - ALIGNMENT REQUIRED / NOT GRANTED`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
