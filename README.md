@@ -10,8 +10,8 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Status: `Published`
 - Candidate: `None`
 - Release Readiness: `PASS`
-- Latest gate: `P3-006 Structured Reference Full-Corpus Build - CONDITIONAL / CLOSED (all machine gates PASS; real human review pending)`
-- Current task: `P3-006 completion commit audit and separate push authorization`
+- Latest gate: `P3-006-CI-001 Dependency Audit Repair - PASS / CLOSED; P3-006 remains CONDITIONAL / CLOSED`
+- Current task: `P3-006.1 Human Review Completion - ALIGNMENT REQUIRED`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -81,6 +81,11 @@ UV_OFFLINE=1 uv run --project backend python \
 ```
 
 Runtime output remains under ignored `.local_data/` and is never committed. Only fake-curated and unavailable Zotero modes were validated; private Zotero was not accessed. Machine evidence passed, while 64 generated review cases await a real reviewer, so the task is recorded as CONDITIONAL. See `docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md`.
+
+P3-006.1 is staged only as a canonical human-review task. Packet access,
+worksheet creation, completed-decision access, real human-review execution,
+private Zotero access, and network access remain not granted. See
+`docs/tasks/P3-006_1_HUMAN_REVIEW_COMPLETION.md`.
 
 ## Current Development Task
 

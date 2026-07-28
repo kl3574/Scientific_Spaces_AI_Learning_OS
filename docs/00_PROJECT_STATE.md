@@ -128,15 +128,15 @@ PASS
 
 Current Task:
 
-P3-006 Structured Reference Full-Corpus Build and Zotero Matching
+P3-006.1 Human Review Completion
 
 Current Task Status:
 
-CONDITIONAL / CLOSED
+ALIGNMENT REQUIRED
 
 Implementation Authorization:
 
-CONSUMED / CLOSED; NO FURTHER IMPLEMENTATION GRANTED
+NOT GRANTED
 
 Real Provider Authorization:
 
@@ -276,7 +276,43 @@ Minimum fixed dependency versions; 0 suppressions; no policy weakening or scanne
 
 P3-006.1 Status:
 
-NOT STAGED; implementation and real human-review execution authorization NOT GRANTED
+ALIGNMENT REQUIRED
+
+P3-006.1 Canonical Task:
+
+docs/tasks/P3-006_1_HUMAN_REVIEW_COMPLETION.md
+
+P3-006.1 Implementation Authorization:
+
+NOT GRANTED
+
+P3-006.1 Human Review Packet Access Authorization:
+
+NOT GRANTED
+
+P3-006.1 Human Review Worksheet Creation Authorization:
+
+NOT GRANTED
+
+P3-006.1 Completed Review Decision Access Authorization:
+
+NOT GRANTED
+
+P3-006.1 Real Human Review Execution Authorization:
+
+NOT GRANTED
+
+P3-006.1 Private Zotero Authorization:
+
+NOT GRANTED
+
+P3-006.1 Network Authorization:
+
+NOT GRANTED
+
+P3-007 Status:
+
+NOT STAGED
 
 Approved v1.2 Scope:
 
@@ -292,7 +328,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Prepare and confirm the separate P3-006.1 Human Review Completion task
+Confirm or revise the complete P3-006.1 Human Review Completion execution alignment
 
 Post-freeze Change Rule:
 

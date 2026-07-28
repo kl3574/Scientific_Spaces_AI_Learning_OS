@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / CLOSED with all machine gates passing, its dependency-audit repair PASS / CLOSED, and a finite pending human-review limitation; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1 Human Review Completion is staged as ALIGNMENT REQUIRED with all implementation and review-data permissions NOT GRANTED; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -230,6 +230,22 @@ Sixty-four deterministic review cases remain pending because no real reviewer wa
 
 Completion commit `f2496cafa4a54440b19e4491294277b70a1f07cf` exposed a dependency-audit failure on main. The separately authorized P3-006-CI-001 task classified it as real npm vulnerabilities and applied only minimum fixed versions with zero suppressions and no policy weakening. Repair commit `9b0080cbe5c6483de2534ed63f9eeb5c5e5b1dbd` passed full validation run [`30322598783`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322598783), including Docker and no-publish release evidence, then passed main CI run [`30322723458`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322723458). Both runs produced zero workflow artifacts. P3-006-CI-001 is PASS / CLOSED.
 
+### P3-006.1 - Human Review Completion
+
+Status: **ALIGNMENT REQUIRED**. The canonical task is
+`docs/tasks/P3-006_1_HUMAN_REVIEW_COMPLETION.md`.
+
+P3-006.1 defines a future two-stage process for validating the existing
+64-case packet, preparing an ignored worksheet, waiting for at least one real
+natural-person reviewer, validating completed decisions, and reporting only
+aggregate metrics and irreversible fingerprints.
+
+This staging does not authorize packet access, worksheet creation, completed
+decision access, human-review execution, private Zotero access, network
+access, implementation, P3-007, a candidate, tag, Release, or attestation.
+Codex, ChatGPT, any LLM, fixture expectation, script, or automated rule cannot
+count as a real reviewer or human correctness evidence.
+
 ### P3-007 - v1.2 Integration and Release Readiness
 
 Integrate additive reference API/UI and operations boundaries, then run compatibility, migration, security, artifact, local runtime, Docker, SBOM/provenance, and documentation gates. Recommend a candidate only from completed evidence and separate user authorization.
@@ -266,6 +282,9 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 ## Next Recommended Task
 
-`P3-006.1 Human Review Completion Alignment`
+`Confirm P3-006.1 Human Review Completion Execution Alignment`
 
-Prepare and confirm a separate P3-006.1 task for real human review of the existing deterministic cases. P3-006.1 is not staged, and no review execution, candidate, tag, Release, private Zotero access, or additional implementation is authorized by this roadmap update.
+Review and confirm the complete two-stage P3-006.1 execution alignment.
+P3-006 remains CONDITIONAL / CLOSED. No packet access, worksheet creation,
+review execution, private Zotero access, additional implementation, P3-007,
+candidate, tag, Release, or attestation is authorized by this staging update.
