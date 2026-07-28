@@ -1,149 +1,102 @@
-# P3-006.1 Human Review Completion - Canonical Staging Alignment
+# P3-006.2 Review UX Pilot and Zotero Collection Sync Alignment
 
 Canonical task:
-`docs/tasks/P3-006_1_HUMAN_REVIEW_COMPLETION.md`
+`docs/tasks/P3-006_2_REVIEW_UX_ZOTERO_COLLECTION_SYNC.md`
 
 ## 1. Background
 
-- P3-006 is `CONDITIONAL / CLOSED`; all machine gates passed.
-- The exact corpus contains 1,311 Articles and produced 12,859 reference
-  records from 24,514 fully classified candidates.
-- The Article Store SHA, corpus fingerprint, and Reference Store build
-  fingerprint are frozen in the canonical task.
-- Sixty-four deterministic human-review cases exist, but there are zero real
-  reviewer results and no human correctness metric.
-- P3-006-CI-001 is `PASS / CLOSED`; its closure commit
-  `df521b9e9d5a39c82f843c4708c4b337f4f48f3e` passed main CI run
-  `30322970832` with zero artifacts.
-- The user explicitly confirmed this staging alignment and authorized one
-  docs-only commit, ordinary main push, and exact-SHA main CI validation.
-- The current task stages governance only. It does not authorize P3-006.1
-  implementation or human-review execution.
-
-Authorization state:
-
-- Implementation: NOT GRANTED.
-- Review packet access: NOT GRANTED.
-- Worksheet creation: NOT GRANTED.
-- Completed decision access: NOT GRANTED.
-- Real human-review execution: NOT GRANTED.
-- Private Zotero: NOT GRANTED.
-- Product/source/Provider network: NOT GRANTED.
-- P3-007, candidate, tag, Release, and attestation: NOT GRANTED.
+- P3-006 remains `CONDITIONAL / CLOSED`.
+- P3-006.1 Stage A produced a 64-case bounded worksheet, but Stage B remains
+  `HUMAN_REVIEW_INCOMPLETE`.
+- The bounded excerpts are not ergonomic enough for the operator's intended
+  review.
+- The user requested a separate three-case full-context pilot and explicitly
+  authorized creating the private local Zotero collection `苏剑林博客` plus
+  one controlled test item.
+- This task must not redefine the 64-case P3-006.1 closure gate.
 
 ## 2. Requirements
 
-1. Prove the clean synchronized baseline at
-   `df521b9e9d5a39c82f843c4708c4b337f4f48f3e`.
-2. Reverify P3-006-CI-001 closure CI run `30322970832` and zero artifacts.
-3. Create the durable P3-006.1 canonical task with status
-   `ALIGNMENT REQUIRED`.
-4. Define exact corpus/store identities, the 64-case expectation, reviewer
-   definition, privacy boundary, immutable fields, human fields, metrics,
-   status gates, runtime policy, and future Git plan.
-5. Define future execution as Stage A worksheet preparation followed by a
-   stop for real human input, then separately authorized Stage B validation
-   and closure.
-6. Switch `CURRENT_TASK.md` and project/roadmap/README pointers to P3-006.1
-   without changing P3-006 from `CONDITIONAL / CLOSED`.
-7. Keep every implementation and review-data authorization `NOT GRANTED`.
-8. Modify only approved documentation paths.
-9. Pass diff, changed-path, artifact, secret, and Git audits.
-10. Create `docs: stage P3-006.1 human review completion`, push it normally
-    to main, and require exact-SHA main CI success with zero artifacts.
-11. After CI, output the complete future execution alignment and stop for
-    confirmation.
+1. Create or reuse exactly one root Zotero collection named `苏剑林博客`.
+2. Verify the collection through Zotero Desktop readback.
+3. Add at most one controlled real Scientific Spaces article item.
+4. Add an idempotent downstream Zotero sync adapter for Article metadata.
+5. Sync Web Page metadata first; a PDF attachment is optional and must not
+   block metadata synchronization.
+6. Match by Article ID and canonical URL so repeat synchronization does not
+   create duplicates.
+7. Do not modify the frozen crawler or source pipeline.
+8. Create a separate three-case pilot using authoritative full Article content.
+9. Keep full content, worksheets, collection keys, private metadata, and all
+   runtime output outside Git.
+10. Run focused tests, the Backend suite, security/artifact checks, and create
+    one local commit. Do not push.
 
 ## 3. Purpose
 
-Create durable, fail-closed governance for completing the finite P3-006 human
-review limitation while preventing automated verdict fabrication, review-data
-leakage, Reference Store mutation, private Zotero access, or premature P3-007
-progression.
+Provide an ergonomic, local full-context review pilot while establishing a
+safe, opt-in Zotero archive destination for future Scientific Spaces articles.
 
 ## 4. Planned Execution
 
-1. Read governance, P3-006 evidence, v1.2 evaluation/acceptance contracts, and
-   ADR 0006.
-2. Check REWORK/audit, fetch tags, and prove the exact clean baseline.
-3. Reverify the P3-006-CI-001 closure run and artifact count.
-4. Create `docs/tasks/P3-006_1_HUMAN_REVIEW_COMPLETION.md`.
-5. Update `CURRENT_TASK.md`, project state, v1.2 roadmap, this alignment, and
-   the README current-task pointer.
-6. Do not modify `docs/tasks/README.md` unless its generic index requires a
-   task-specific entry.
-7. Run docs-only changed-path, diff, artifact, secret, and Git checks.
-8. Create the authorized staging commit without amend/rebase.
-9. Refresh remote state, push main normally, and verify synchronization.
-10. Locate the exact staging-SHA push CI; require Backend, Frontend, workflow
-    policy, dependency audit, secret audit, and SBOM success, policy-correct
-    Docker/release skips, overall SUCCESS, and zero artifacts.
-11. Audit the final clean state, output the complete P3-006.1 execution
-    alignment, and stop before packet or worksheet access.
-
-Stop immediately if the Git/governance baseline changes, a REWORK/FAIL audit
-exists, an out-of-allowlist file is required, an audit or CI gate fails, or
-work would require review data, Reference Store mutation, private Zotero,
-Provider/source access, P3-007, candidate, tag, Release, attestation, or
-history rewrite.
+1. Recheck governance, Git, Article identity, current Zotero integration, and
+   Zotero Desktop readiness.
+2. Persist this alignment and the P3-006.2 canonical task.
+3. Start Zotero Desktop if necessary.
+4. Create or reuse `苏剑林博客`, then verify its unique collection identity.
+5. Implement a downstream collection sync client and CLI without touching M1.
+6. Test idempotency, collection targeting, unavailable-Zotero behavior, and
+   metadata mapping with fixtures.
+7. Synchronize one controlled real Article and verify collection membership.
+8. Generate an ignored three-case full-context pilot package.
+9. Run tests, secret/artifact audits, changed-path checks, and confirm source
+   stores are unchanged.
+10. Update aggregate governance/report files and create one local commit.
 
 ## 5. Selection Rationale
 
-A docs-only canonical staging commit gives the future review task a durable
-identity and explicit permission boundaries before any sensitive runtime
-review data is touched. Separating Stage A from Stage B prevents Codex from
-creating a worksheet and then treating automated or incomplete values as
-human evidence. Exact-SHA CI ensures the governance transition does not
-weaken repository security or build gates.
+A downstream adapter preserves the frozen acquisition pipeline and makes
+external Zotero writes explicit, restartable, and independently testable.
+The three-case pilot improves review ergonomics without weakening the existing
+64-case formal evidence contract.
 
 ## 6. Alternatives
 
-| Option | Result |
+| Option | Decision |
 | --- | --- |
-| Execute review immediately | Prohibited; packet, worksheet, and real-review permissions are not granted |
-| Keep P3-006 as the current task | Rejected; the finite limitation now has a separately authorized canonical staging task |
-| Store review rows in Git | Prohibited by privacy and runtime-artifact policy |
-| Use Codex, fixtures, or LLM judgments as reviewers | Prohibited; not human correctness evidence |
-| One combined worksheet-and-closure stage | Rejected; it removes the mandatory stop for real human input |
-| Canonical docs-only staging plus later two-stage confirmation | Selected |
+| Write to Zotero directly from the crawler | Rejected: violates M1 freeze and couples acquisition to a private application |
+| Manual Zotero import only | Rejected as the long-term path: not idempotent automation |
+| Replace the formal 64 cases with 3 | Rejected: insufficient evidence for the existing precision gate |
+| Downstream sync plus separate 3-case pilot | Selected |
 
 ## 7. Deliverables
 
-- `docs/tasks/P3-006_1_HUMAN_REVIEW_COMPLETION.md`
-- Updated `docs/tasks/CURRENT_TASK.md`
-- Updated `docs/00_PROJECT_STATE.md`
-- Updated `docs/V1_2_ROADMAP.md`
-- Updated `alignment.md`
-- Updated README current-task/status pointer
-- One docs-only staging commit
-- Exact staging-SHA main CI evidence with zero artifacts
-- A complete future P3-006.1 execution alignment in the final response only
-
-`docs/tasks/README.md` is unchanged because it maintains a generic canonical
-task index and has no per-task listing.
+- `docs/tasks/P3-006_2_REVIEW_UX_ZOTERO_COLLECTION_SYNC.md`
+- `backend/app/zotero/sync.py`
+- `backend/tests/test_zotero_sync.py`
+- `scripts/zotero/sync_scientific_spaces.py`
+- `docs/P3_006_2_REVIEW_UX_ZOTERO_SYNC_REPORT.md`
+- Updated current-task, project-state, and v1.2-roadmap pointers
+- Private local Zotero collection `苏剑林博客`
+- One controlled real test item at most
+- Ignored three-case full-context pilot package
+- One local commit; no push
 
 ## 8. Acceptance Criteria
 
-- Starting and final main are synchronized; worktree, index, and untracked
-  files are clean.
-- P3-006 remains `CONDITIONAL / CLOSED`.
-- P3-006-CI-001 remains `PASS / CLOSED`.
-- P3-006.1 is the current canonical task with status `ALIGNMENT REQUIRED`.
-- Every P3-006.1 implementation, packet, worksheet, completed-decision,
-  real-review, private-Zotero, and network permission remains `NOT GRANTED`.
-- The canonical task defines all identities, fields, reviewer/privacy rules,
-  Stage A/Stage B boundaries, formulas, status gates, artifact rules, future
-  Git plan, and stop conditions required by the confirmed attachment.
-- No review packet, worksheet, human decision, comment, metric, Article body,
-  private Zotero data, runtime artifact, secret, or local absolute path enters
-  Git.
-- Changed paths are limited to the approved documentation allowlist.
-- Staging commit message is exactly
-  `docs: stage P3-006.1 human review completion`.
-- Exact staging-SHA main CI succeeds for Backend, Frontend, workflow policy,
-  dependency audit, secret audit, and SBOM; Docker and release dry-run are
-  skipped by normal main-push policy; artifacts equal zero.
-- P3-007 remains not staged; candidate stays unassigned; published tags and
-  Releases remain unchanged; attestation publication remains zero.
-- Final output presents the complete future execution alignment and requests
-  confirmation. No P3-006.1 execution begins automatically.
+- The target collection exists exactly once and readback succeeds.
+- Repeating sync for the same Article returns a no-op and creates no duplicate.
+- The item is a Web Page with title, URL, date, category, and Article ID
+  provenance.
+- No unrelated Zotero item or collection is changed or deleted.
+- The three pilot cases cover strong identifier, duplicate, and ambiguous or
+  Zotero strata and expose authoritative full Article content locally.
+- The pilot is marked `PILOT ONLY` and cannot close P3-006.1.
+- M1 crawler, Article Store, Reference Store, and the existing 64-case
+  worksheet remain byte-unchanged.
+- No private Zotero data, collection key, full Article content, runtime file,
+  local path, or secret is tracked.
+- Focused and full Backend tests pass; secret and artifact audits pass.
+- Commit message is exactly
+  `feat: add Scientific Spaces Zotero collection sync`.
+- Push, P3-007, candidate, tag, Release, and attestation remain not performed.

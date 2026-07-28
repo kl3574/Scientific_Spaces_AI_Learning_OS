@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-006 Structured Reference Full-Corpus Build: CONDITIONAL / CLOSED; all machine gates passed and 64 deterministic human-review cases remain pending
+P3-006.2 Review UX Pilot and Zotero Collection Sync: PASS / CLOSED; P3-006 formal 64-case human review remains pending
 
 Release Readiness:
 
@@ -128,15 +128,23 @@ PASS
 
 Current Task:
 
-P3-006.1 Human Review Completion
+P3-006.2 Review UX Pilot and Zotero Collection Sync
 
 Current Task Status:
 
-ALIGNMENT REQUIRED
+PASS / CLOSED
 
 Implementation Authorization:
 
-NOT GRANTED
+CONSUMED / CLOSED
+
+P3-006.1 Human Review Completion:
+
+HUMAN_REVIEW_INCOMPLETE / PAUSED
+
+Private Zotero Authorization:
+
+CONSUMED / CLOSED FOR COLLECTION `苏剑林博客` AND ONE CONTROLLED TEST ITEM
 
 Real Provider Authorization:
 
@@ -310,6 +318,26 @@ P3-006.1 Network Authorization:
 
 NOT GRANTED
 
+P3-006.2 Status:
+
+PASS / CLOSED
+
+P3-006.2 Zotero Result:
+
+Unique root collection `苏剑林博客`; one controlled Web Page created and repeated sync returned existing/no-op
+
+P3-006.2 Review Pilot:
+
+PASS / PILOT ONLY - three deterministic full-context cases; does not replace P3-006.1
+
+P3-006.2 Verification:
+
+9 focused tests passed; 549 Backend tests passed with 3 skipped; secret/artifact/store-integrity gates passed
+
+P3-006.2 Evidence:
+
+docs/P3_006_2_REVIEW_UX_ZOTERO_SYNC_REPORT.md
+
 P3-007 Status:
 
 NOT STAGED
@@ -328,7 +356,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Confirm or revise the complete P3-006.1 Human Review Completion execution alignment
+Manually review the local P3-006.2 three-case pilot; separately authorize push or align P3-006.1 Stage B
 
 Post-freeze Change Rule:
 
