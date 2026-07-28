@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1 is HUMAN_REVIEW_INCOMPLETE / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED with local integration complete; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -224,15 +224,20 @@ The implementation adds immutable Action pins, least-privilege workflow permissi
 
 ### P3-006 - Structured Reference Full-Corpus Build and Zotero Matching
 
-Status: **CONDITIONAL / CLOSED**. The exact approved 1,311-Article corpus produced 12,859 deterministic reference records and 24,514 provenance rows with complete accounting, zero silent drops, zero source mutations, and zero network requests. Checkpoint/resume, controlled interruption, atomic install, rollback, corruption/stale detection, no-op reuse, clean byte determinism, fake/unavailable matching, resource budgets, Backend, Frontend, compatibility, artifact, and secret gates passed.
+Status: **CONDITIONAL / RISK ACCEPTED / CLOSED**. The exact approved 1,311-Article corpus produced 12,859 deterministic reference records and 24,514 provenance rows with complete accounting, zero silent drops, zero source mutations, and zero network requests. Checkpoint/resume, controlled interruption, atomic install, rollback, corruption/stale detection, no-op reuse, clean byte determinism, fake/unavailable matching, resource budgets, Backend, Frontend, compatibility, artifact, and secret gates passed.
 
-Sixty-four deterministic review cases remain pending because no real reviewer was available; no reviewer or precision result was fabricated. This finite limitation does not affect machine integrity and is recorded in `docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md`. Implementation and exact-corpus authorization are consumed/closed. Network and private Zotero authorization were not granted or used.
+The product owner reviewed and approved exactly three pilot cases and explicitly
+waived the remaining 61 formal cases. Human-review precision remains
+unmeasured; no 64/64 or precision result is claimed. This accepted limitation
+does not change the machine evidence and is recorded in ADR 0009 and
+`docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md`. Implementation and
+exact-corpus authorization are consumed/closed.
 
 Completion commit `f2496cafa4a54440b19e4491294277b70a1f07cf` exposed a dependency-audit failure on main. The separately authorized P3-006-CI-001 task classified it as real npm vulnerabilities and applied only minimum fixed versions with zero suppressions and no policy weakening. Repair commit `9b0080cbe5c6483de2534ed63f9eeb5c5e5b1dbd` passed full validation run [`30322598783`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322598783), including Docker and no-publish release evidence, then passed main CI run [`30322723458`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30322723458). Both runs produced zero workflow artifacts. P3-006-CI-001 is PASS / CLOSED.
 
 ### P3-006.1 - Human Review Completion
 
-Status: **ALIGNMENT REQUIRED**. The canonical task is
+Status: **REMAINDER WAIVED / PAUSED**. The canonical task is
 `docs/tasks/P3-006_1_HUMAN_REVIEW_COMPLETION.md`.
 
 P3-006.1 defines a future two-stage process for validating the existing
@@ -240,11 +245,10 @@ P3-006.1 defines a future two-stage process for validating the existing
 natural-person reviewer, validating completed decisions, and reporting only
 aggregate metrics and irreversible fingerprints.
 
-This staging does not authorize packet access, worksheet creation, completed
-decision access, human-review execution, private Zotero access, network
-access, implementation, P3-007, a candidate, tag, Release, or attestation.
-Codex, ChatGPT, any LLM, fixture expectation, script, or automated rule cannot
-count as a real reviewer or human correctness evidence.
+The product owner elected not to execute this larger review and accepted the
+resulting risk after approving three pilot cases. This does not mark the
+remaining cases complete and does not produce a precision metric. The task
+remains available as a remediation path if stronger human evidence is needed.
 
 ### P3-006.2 - Review UX Pilot and Zotero Collection Sync
 
@@ -290,7 +294,21 @@ consumed/closed; push was not performed.
 
 ### P3-007 - v1.2 Integration and Release Readiness
 
-Integrate additive reference API/UI and operations boundaries, then run compatibility, migration, security, artifact, local runtime, Docker, SBOM/provenance, and documentation gates. Recommend a candidate only from completed evidence and separate user authorization.
+Status: **CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE**.
+
+ADR 0009 records exactly three reviewed and approved pilot cases, 61 waived
+formal cases, no measured precision, and the browser-printed PDF-only Zotero
+full-text policy. P3-007 therefore proceeds as an explicit risk exception,
+not as a claim that the original human-review gate passed.
+
+Additive bounded `/v1.2` Reference APIs, Article Detail references, read-only
+Zotero candidate states, and Tier 1/Tier 2 operations integration are complete.
+Backend, Frontend, browser, fake-provider, workflow, dependency, secret, SBOM,
+and no-publish release-evidence gates passed locally. Docker was unavailable
+on the host, and the change has not been pushed, so current-change GitHub
+Actions and manual Docker CI remain pending separate authorization. No
+candidate was assigned. Evidence is in
+`docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`.
 
 ## Release Criteria
 
@@ -324,8 +342,8 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 ## Next Recommended Task
 
-`Authorize synchronization of the completed local P3-006.2 and P3-006.3 commits`
+`P3-007 GitHub Synchronization and Current-Commit CI Closure`
 
-Both tasks remain local until the user grants push authorization. Any
-additional private Zotero write, P3-007 staging, candidate assignment, tag,
-Release, or attestation requires separate authorization.
+That task is `ALIGNMENT REQUIRED / NOT GRANTED`. It may push the local P3-007
+commit and validate main/manual Docker CI. Candidate assignment, tag, Release,
+and attestation remain separately authorized.

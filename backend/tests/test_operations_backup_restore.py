@@ -46,6 +46,8 @@ def test_essential_backup_contains_only_tier_one_and_manifest(tmp_path: Path) ->
     assert ARTICLE_MEMBER in names
     assert "data/corpus/pilot/completion_classifications.json" in names
     assert "data/learning.json" in names
+    assert "data/references/reviewed/decisions.json" in names
+    assert not any("references/full-corpus" in name for name in names)
     assert not any("local_library" in name for name in names)
     assert not any(name.endswith(".pdf") for name in names)
     assert not any("rag/full_corpus" in name for name in names)
@@ -70,6 +72,7 @@ def test_complete_backup_pdf_policy_is_explicit(tmp_path: Path, include_pdf: boo
     assert any("local_library" in name for name in names)
     assert any("rag/full_corpus" in name for name in names)
     assert any("graph/full_corpus" in name for name in names)
+    assert any("references/full-corpus/current" in name for name in names)
     assert any(name.endswith(".pdf") for name in names) is expected
 
 
@@ -177,6 +180,7 @@ def test_restore_to_isolated_directory_preserves_hashes_and_counts(tmp_path: Pat
     assert result.status == "PASS"
     assert json.loads((target / "corpus/pilot/article_store/articles.json").read_text())[0]["id"] == "a1"
     assert result.restored_asset_counts["article_store"] == 2
+    assert result.restored_asset_counts["reference_review_decisions"] == 1
     assert result.restored_fingerprints["article_store"] == backup.asset_fingerprints["article_store"]
 
 

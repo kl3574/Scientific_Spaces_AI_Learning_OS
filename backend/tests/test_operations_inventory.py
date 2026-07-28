@@ -35,10 +35,12 @@ def test_inventory_covers_source_derived_and_user_assets(tmp_path: Path) -> None
         "learning_json",
         "zotero_links",
         "tutor_sessions",
+        "reference_review_decisions",
         "markdown_library",
         "pdf_library",
         "rag_index",
         "knowledge_graph",
+        "reference_store",
         "evaluation_outputs",
         "runtime_cache",
     } <= set(by_type)
@@ -48,6 +50,11 @@ def test_inventory_covers_source_derived_and_user_assets(tmp_path: Path) -> None
     assert by_type["learning_json"].record_count == 4
     assert by_type["learning_json"].contains_user_data is True
     assert by_type["pdf_library"].tier == "Tier 2"
+    assert by_type["reference_store"].tier == "Tier 2"
+    assert by_type["reference_store"].record_count is not None
+    assert by_type["reference_review_decisions"].tier == "Tier 1"
+    assert by_type["reference_review_decisions"].record_count == 1
+    assert by_type["reference_review_decisions"].contains_user_data is True
     assert by_type["runtime_cache"].tier == "Tier 3"
 
 

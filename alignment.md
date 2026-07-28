@@ -1,158 +1,154 @@
-# P3-006.3 Zotero Printed PDF Attachment Correction Alignment
+# P3-007 v1.2 Integration and Release Readiness Alignment
 
 Canonical task:
-`docs/tasks/P3-006_3_ZOTERO_FULL_TEXT_SNAPSHOT_SYNC.md`
+`docs/tasks/P3-007_V1_2_INTEGRATION_RELEASE_READINESS.md`
 
-Status: **PASS / CLOSED**
+Status: **CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE**
 
-PDF IMPORT AUTHORIZATION: **CONSUMED / CLOSED**
-
-HTML ATTACHMENT DELETION AUTHORIZATION:
-**CONSUMED / CLOSED AFTER ALL THREE PDF ATTACHMENTS PASSED READBACK**
+IMPLEMENTATION AUTHORIZATION: **CONSUMED / CLOSED**
 
 PUSH AUTHORIZATION: **NOT GRANTED**
 
+CANDIDATE / TAG / RELEASE AUTHORIZATION: **NOT GRANTED**
+
 ## 1. Background
 
-- P3-006.2 remains `PASS / CLOSED`.
-- The private root collection `苏剑林博客` exists uniquely.
-- The previous P3-006.3 run created three approved Web Page parents and three
-  imported HTML snapshot children.
-- The user corrected the required attachment format: each Article must use a
-  browser-printed PDF rather than an HTML snapshot.
-- The P3-006.3 implementation and report are uncommitted and must be revised.
-- M1, P3-006, and P3-006.1 status and acceptance remain unchanged.
+- Formal version remains `v1.1.0`; no v1.2 candidate is assigned.
+- Baseline commit
+  `d6f6f3eefdf5d54bae93727647cab51a4236a3fb` passed main CI run
+  `30337284957`.
+- P3-003, P3-004, and P3-005 are PASS / CLOSED.
+- P3-006 machine-verifiable extraction, store, and matching gates passed, but
+  its formal 64-case real-human review was not completed.
+- The user reviewed and approved the three Zotero pilot cases on 2026-07-28
+  and explicitly accepted the risk of skipping the remaining 61 cases.
+- The three reviewed cases are evidence of a bounded usability decision, not
+  evidence that 64/64 cases or precision >=0.95 were achieved.
+- P3-006.3 proved that Scientific Spaces full-text Zotero attachments must be
+  browser-printed PDFs. HTML snapshots are not an accepted final attachment
+  representation.
 
 ## 2. Requirements
 
-1. Process exactly these three approved Articles:
-   - `68441d48f88c5de6`, `https://spaces.ac.cn/archives/8512`
-   - `573354a74b26d9a3`, `https://spaces.ac.cn/archives/138`
-   - `d3b2db76b2e5a2dd`, `https://spaces.ac.cn/archives/1850`
-2. Reuse the existing metadata-complete Zotero Web Page parents.
-3. Generate one A4 PDF per Article using Playwright Chromium page printing.
-4. Wait for the article body and MathJax v2/v3 before printing.
-5. Generate PDFs only in a temporary directory.
-6. Validate every PDF before any HTML deletion:
-   - file exists;
-   - file size is greater than zero;
-   - header is a valid PDF signature;
-   - the PDF is readable;
-   - rendered article and formula evidence are present.
-7. Attach exactly one `application/pdf` child to each approved parent.
-8. Read back and validate all three Zotero PDF attachments.
-9. Only after all three PDF attachments pass, delete the three corresponding
-   HTML snapshot children.
-10. Verify the final state is exactly one parent and one PDF child per approved
-    Article, with zero HTML children.
-11. Repeated synchronization must perform zero browser fetches and create no
-    duplicate parent or PDF attachment.
-12. Delete all temporary PDF files after verification.
+1. Record the explicit review-scope waiver and risk acceptance without
+   fabricating a reviewer count or statistical precision.
+2. Keep P3-006 transparent as `CONDITIONAL / RISK ACCEPTED`.
+3. Freeze browser-printed PDF as the Scientific Spaces Zotero full-text
+   attachment representation; final live HTML snapshot children are
+   prohibited.
+4. Permit P3-007 to proceed through the documented release-board exception.
+5. Finish additive `/v1.2` reference APIs and Reader/Zotero UI states.
+6. Integrate the Reference Store as Tier 2 and review decisions as Tier 1 in
+   inventory, backup, restore, health, and cleanup safety.
+7. Preserve legacy, `/v1.1`, M1, and M3-M7 contracts and safe defaults.
+8. Run Backend, Frontend, Docker, compatibility, security, SBOM/provenance,
+   documentation, artifact, secret, and Git gates.
+9. Produce an evidence-based P3-007 report and local status-appropriate
+   commit. Do not push.
 
 ## 3. Purpose
 
-Make the three approved Scientific Spaces Articles available in Zotero as
-browser-printed, formula-rendered PDF documents rather than HTML snapshots or
-link-only records.
+Complete v1.2 product integration and release-readiness evidence without
+weakening frozen contracts or misrepresenting the incomplete human-review
+sample. The highest successful result for this task is
+`CONDITIONAL / RISK ACCEPTED`; candidate assignment remains a separate user
+decision.
 
 ## 4. Planned Execution
 
-1. Persist this revised alignment and mark P3-006.3 as rework in progress.
-2. Recheck `REWORK.md`, `.audit`, roadmap, Git drift, and current Zotero state.
-3. Inspect the existing frozen PDF exporter and local Zotero Desktop Connector
-   contract for safely attaching a PDF to an existing parent.
-4. Revise only the downstream Zotero adapter, CLI, tests, and P3-006.3 docs.
-5. Add regression tests for PDF attachment creation, readback, idempotency,
-   partial failure, and deletion ordering.
-6. Generate all three PDFs in one temporary directory and validate them before
-   Zotero mutation.
-7. Attach and read back all three PDFs while preserving the existing parents
-   and HTML safety copies.
-8. After 3/3 PDF readback passes, delete only the three attributable HTML
-   children and verify the final child cardinality.
-9. Repeat synchronization and require a no-op result for all three.
-10. Run focused and full Backend tests, source/store integrity checks, changed-
-    path, secret, artifact, and Git audits.
-11. Update aggregate evidence and create one local commit without push.
+1. Verify governance, Git state, REWORK/audit, current contracts, and existing
+   uncommitted P3-007 evidence.
+2. Persist this alignment, the canonical task, ADR 0009, and the explicit
+   acceptance/execution exception.
+3. Implement a validated, bounded, read-only Reference Store adapter and
+   additive `/v1.2` endpoints.
+4. Add Structured References to Article Detail and read-only candidate states
+   to the Zotero view.
+5. Add Reference Store Tier 2 and review-decision Tier 1 operations coverage.
+6. Add focused Backend and Frontend regression tests.
+7. Run all mandatory release-readiness gates without real Provider, private
+   Zotero, source-site, paid, or full-corpus operations.
+8. Update the report, project state, roadmap, and current task.
+9. Create one local status-appropriate commit without push.
 
 ## 5. Selection Rationale
 
-Reusing the existing parents preserves metadata and provenance. Generating
-PDFs through the established Playwright print path preserves rendered MathJax.
-The PDF-first, delete-HTML-last sequence prevents loss of the only local
-full-text copy if PDF generation or attachment import fails.
+An explicit risk-acceptance exception lets the approved integration proceed
+while preserving the distinction between three reviewed cases and the
+uncompleted 64-case statistical gate. It is more honest than declaring the
+original gate passed and more useful than keeping all integration blocked
+after the product owner accepted the bounded risk.
 
 ## 6. Alternatives
 
 | Option | Decision |
 | --- | --- |
-| Attach validated PDF, then delete HTML | Selected: matches the corrected format and protects full text during migration |
-| Keep both HTML and PDF | Rejected: does not satisfy the requested final format |
-| Delete HTML before PDF import | Rejected: creates an avoidable data-loss window |
-| Delete and recreate parent items | Rejected: unnecessary destructive metadata churn |
+| Accept the bounded review risk and continue P3-007 | Selected |
+| Complete all 64 human-review cases before P3-007 | Valid but explicitly waived |
+| Treat three cases as 64/64 and precision >=0.95 | Rejected as false evidence |
+| Keep P3-007 blocked despite explicit risk acceptance | Rejected |
 
 ## 7. Deliverables
 
-- Revised `alignment.md`
-- Revised `docs/tasks/P3-006_3_ZOTERO_FULL_TEXT_SNAPSHOT_SYNC.md`
-- Updated `backend/app/zotero/sync.py`
-- Updated `backend/tests/test_zotero_sync.py`
-- Updated `scripts/zotero/sync_scientific_spaces.py`
-- Revised `docs/P3_006_3_ZOTERO_FULL_TEXT_SNAPSHOT_REPORT.md`
-- Updated current-task, project-state, and v1.2-roadmap pointers
-- Three private Zotero Web Page parents, each with exactly one PDF child and no
-  HTML child
-- One local commit:
-  `fix: replace Zotero HTML snapshots with PDF attachments`
-- No push
+- `alignment.md`
+- `docs/tasks/P3-007_V1_2_INTEGRATION_RELEASE_READINESS.md`
+- `docs/ADR/0009-p3-007-review-risk-and-zotero-pdf-policy.md`
+- revised `docs/V1_2_ACCEPTANCE.md`
+- revised `docs/V1_2_EXECUTION_PLAN.md`
+- additive v1.2 Backend API/service code and tests
+- additive Frontend reference UI/client code and tests
+- required operations integration and tests
+- `docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`
+- updated `docs/tasks/CURRENT_TASK.md`
+- updated `docs/00_PROJECT_STATE.md`
+- updated `docs/V1_2_ROADMAP.md`
+- one local status-appropriate commit
+- no push
 
 ## 8. Acceptance Criteria
 
-- Exactly three approved parents remain; no parent is deleted or duplicated.
-- Each approved parent has exactly one `application/pdf` child.
-- Each approved parent has zero `text/html` children after migration.
-- All three PDFs are nonempty, valid, readable, formula-rendered, and available
-  from Zotero local storage.
-- HTML deletion occurs only after all three PDFs pass Zotero readback.
-- A repeated run creates zero parents and zero attachments and performs zero
-  browser fetches.
-- All temporary PDFs are removed at the end of the run.
-- No unrelated Zotero item or collection is read broadly, changed, deleted, or
-  exported.
-- Browser access remains limited to the exact three approved Article URLs.
-- M1, Article Store, Reference Store, and the formal 64-case packet remain
-  unchanged.
-- Focused and full Backend tests, secret audit, tracked-artifact audit,
-  changed-path check, and `git diff --check` pass.
-- No PDF, HTML, full text, image, profile, trace, cache, Zotero key, private
-  metadata, or secret is tracked.
-- Push, P3-007, candidate, tag, Release, and attestation are not performed.
+- Governance records exactly 3 reviewed/approved cases and 61 waived cases.
+- No document claims 64/64 completion or measured precision >=0.95.
+- Scientific Spaces Zotero full-text policy requires browser-printed PDF and
+  rejects HTML as the final live attachment format.
+- All five planned `/v1.2` endpoints are implemented, bounded, read-only, and
+  fail closed for missing, stale, or corrupt stores.
+- UI covers loading, empty, error, stale, ambiguity, pagination, and safe-link
+  states without writing Zotero or review decisions.
+- Reference Store is Tier 2; review decisions are Tier 1, backup-protected,
+  restore-verified, health-checked, and cleanup-protected.
+- Full Backend tests and focused compatibility tests pass.
+- Frontend reference tests and production build pass.
+- Docker smoke and security/SBOM/provenance dry-run gates pass when the local
+  environment supports them.
+- No M1, Article Store, Reference Store payload, legacy API, `/v1.1`, provider
+  default, or M3-M7 contract changes.
+- No real Provider, paid request, source access, private Zotero read/write, or
+  full-corpus operation occurs.
+- Artifact and secret audits are clean.
+- Final successful status is `CONDITIONAL / RISK ACCEPTED`; no candidate,
+  push, tag, Release, or attestation publication occurs.
 
-## Stop Conditions
+## Risk Decision
 
-- No supported Zotero Desktop path can attach a generated PDF to an existing
-  parent without recreating it.
-- Any PDF fails generation, format, formula, or Zotero readback validation.
-- All three PDFs cannot be verified before HTML deletion.
-- Any unrelated private Zotero item would need to be changed.
-- Source/store drift, unknown worktree drift, REWORK/FAIL audit, test failure,
-  secret/artifact finding, or scope expansion occurs.
+- Owner: repository product owner.
+- Accepted limitation: 61 of the formal 64 review cases remain unreviewed.
+- Evidence retained: three user-approved Zotero pilot cases; machine gates
+  remain unchanged.
+- Remediation option: complete P3-006.1 if stronger statistical evidence is
+  later required.
+- Decision gate: any future candidate task must carry this accepted risk
+  explicitly; it must not silently convert it into measured precision.
 
-## Completion Evidence
+## Execution Result
 
-- Existing approved parents reused: 3/3
-- Browser-printed A4 PDFs imported and read back: 3/3
-- PDF sizes: 971,286; 550,679; and 713,184 bytes
-- PDF pages: 11; 2; and 3
-- Title, Chinese, distributed Article content, and MathJax checks: 3/3
-- HTML replacement ordering: first deletion occurred only after 3/3 PDF
-  readback
-- Final live child state: PDF 3, HTML 0
-- Repeated run: zero browser fetches, zero duplicate writes, zero additional
-  trash operations
-- Focused tests: 21 passed
-- Full Backend suite: 561 passed, 3 skipped
-- Article Store, Reference Store, and formal review packet: unchanged
-- Temporary PDFs, debugger listener, preference backups, and diagnostic
-  profiles: removed or restored
-- Local commit only; push remains unauthorized
+- Additive `/v1.2` Reference API, Reader/Zotero UI, and Tier 1/Tier 2
+  operations integration are complete.
+- Backend: 573 passed, 3 skipped.
+- Frontend focused suites and production build: PASS.
+- Browser runtime, security, dependency, secret, SBOM, fake-provider, and
+  no-publish release-evidence gates: PASS.
+- Local Docker: not run because `docker` is unavailable.
+- No push occurred, so current-change GitHub Actions remain for a separately
+  aligned synchronization task.
+- Final status: `CONDITIONAL / RISK ACCEPTED`; no candidate was assigned.

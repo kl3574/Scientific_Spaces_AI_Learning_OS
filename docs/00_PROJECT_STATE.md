@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-006.3 Zotero Printed PDF Attachment Sync: PASS / CLOSED
+P3-007 v1.2 Integration and Release Readiness: CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE
 
 Release Readiness:
 
@@ -128,19 +128,19 @@ PASS
 
 Current Task:
 
-P3-006.3 Zotero Printed PDF Attachment Sync
+P3-007 v1.2 Integration and Release Readiness
 
 Current Task Status:
 
-PASS / CLOSED
+CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE
 
 Implementation Authorization:
 
 CONSUMED / CLOSED
 
-P3-006.1 Human Review Completion:
+P3-006 Human Review Decision:
 
-HUMAN_REVIEW_INCOMPLETE / PAUSED
+3 REVIEWED AND APPROVED; 61 WAIVED BY PRODUCT OWNER; PRECISION NOT MEASURED
 
 Private Zotero Authorization:
 
@@ -232,7 +232,7 @@ docs/tasks/P3-006_STRUCTURED_REFERENCE_FULL_CORPUS.md
 
 P3-006 Status:
 
-CONDITIONAL / CLOSED
+CONDITIONAL / RISK ACCEPTED / CLOSED
 
 P3-006 Implementation Authorization:
 
@@ -256,7 +256,7 @@ PASS - 1311/1311 Articles, 24514/24514 candidates classified, provenance/determi
 
 P3-006 Human Review:
 
-PENDING - 64 deterministic review cases generated; no reviewer result fabricated
+RISK ACCEPTED - exactly 3 cases reviewed and approved; remaining 61 cases waived; no 64/64 or precision claim
 
 P3-006 Evidence:
 
@@ -292,7 +292,7 @@ Minimum fixed dependency versions; 0 suppressions; no policy weakening or scanne
 
 P3-006.1 Status:
 
-ALIGNMENT REQUIRED
+REMAINDER WAIVED / PAUSED
 
 P3-006.1 Canonical Task:
 
@@ -348,7 +348,23 @@ docs/P3_006_2_REVIEW_UX_ZOTERO_SYNC_REPORT.md
 
 P3-007 Status:
 
-NOT STAGED
+CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE
+
+P3-007 Evidence:
+
+docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md
+
+P3-007 Local Verification:
+
+PASS - 573 Backend tests passed with 3 skipped; Frontend focused suites/build, browser runtime, fake-provider, workflow, dependency, secret, SBOM, and no-publish evidence passed
+
+P3-007 Local Docker:
+
+NOT RUN - docker executable unavailable
+
+P3-007 Current-Change GitHub Actions:
+
+PENDING SEPARATE PUSH AUTHORIZATION
 
 Approved v1.2 Scope:
 
@@ -364,7 +380,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Authorize synchronization of the completed local P3-006.2 and P3-006.3 commits
+P3-007 GitHub Synchronization and Current-Commit CI Closure - ALIGNMENT REQUIRED / NOT GRANTED
 
 Post-freeze Change Rule:
 

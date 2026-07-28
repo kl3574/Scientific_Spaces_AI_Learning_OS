@@ -9,6 +9,7 @@ import {
   fetchZoteroStatus,
   searchZoteroItems,
 } from "@/lib/zotero";
+import { ZoteroReferenceReview } from "@/components/ZoteroReferenceReview";
 
 export function ZoteroLibraryView() {
   const [status, setStatus] = useState<ZoteroStatus | null>(null);
@@ -78,6 +79,8 @@ export function ZoteroLibraryView() {
         </dl>
         {status?.error ? <p className="mt-3 text-sm text-slate-600">{status.error}</p> : null}
       </section>
+
+      <ZoteroReferenceReview />
 
       <section className="rounded border border-slate-200 bg-white p-4">
         <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSearch}>

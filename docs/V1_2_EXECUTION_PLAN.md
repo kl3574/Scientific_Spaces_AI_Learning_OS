@@ -12,6 +12,9 @@ Formal version remains `v1.1.0`. No v1.2 candidate is assigned by this plan.
 - Frozen M1 and released v1.0/`/v1.1` contracts are never changed opportunistically.
 - Planned modules, commands, APIs, and UI below do not exist merely because they are named here.
 - Reference processing is offline and derived. Real providers are default-off. CI security does not add a product runtime dependency.
+- A predecessor `CONDITIONAL` can be crossed only by an Accepted ADR that
+  records an explicit product-owner risk decision without weakening machine
+  integrity, compatibility, security, consent, artifact, or secret gates.
 - A milestone stops on test/build failure, unknown worktree drift, forbidden artifacts/secrets, scope expansion, or unresolved critical ambiguity.
 
 ## Dependency Graph
@@ -28,7 +31,7 @@ flowchart LR
     E --> F
 ```
 
-P3-003, P3-004, and P3-005 may be implemented in parallel only in isolated task scopes after P3-002 commits. P3-006 cannot begin before P3-003 PASS. P3-007 requires all predecessor evidence.
+P3-003, P3-004, and P3-005 may be implemented in parallel only in isolated task scopes after P3-002 commits. P3-006 cannot begin before P3-003 PASS. P3-007 requires all predecessor evidence or an explicit Accepted-ADR risk exception. ADR 0009 supplies the bounded P3-006 review exception without converting three reviewed cases into the original 64-case precision gate.
 
 ## P3-002 Product Requirements and Architecture
 
@@ -176,6 +179,9 @@ Build and audit the complete derived Reference Store from the then-current valid
 ### Exit Decision
 
 - Extraction can PASS with fake/unavailable Zotero. A private local match run is optional evidence and separately authorized.
+- ADR 0009 records the product owner's decision to accept three reviewed cases,
+  waive the remaining 61, and carry P3-006 as
+  `CONDITIONAL / RISK ACCEPTED`.
 
 ## P3-007 v1.2 Integration and Release Readiness
 
@@ -193,6 +199,8 @@ Integrate approved reference API/UI surfaces, reconcile operations and compatibi
 6. Audit migration/rollback/corruption recovery for every new persisted format.
 7. Classify findings and produce the release-readiness report.
 8. Recommend candidate assignment only if all mandatory evidence passes.
+9. Carry ADR 0009's 3-reviewed/61-waived limitation and browser-printed
+   PDF-only Zotero full-text policy without invoking private Zotero access.
 
 ### Explicitly Excluded
 
@@ -201,6 +209,9 @@ Integrate approved reference API/UI surfaces, reconcile operations and compatibi
 ### Exit Decision
 
 - PASS permits a separate release-metadata/tag/Release task to be proposed. It does not itself authorize those writes.
+- While ADR 0009 remains the human-quality evidence, the highest P3-007 result
+  is `CONDITIONAL / RISK ACCEPTED`; a separate candidate task must acknowledge
+  that limitation explicitly.
 
 ## Cross-Milestone Traceability
 

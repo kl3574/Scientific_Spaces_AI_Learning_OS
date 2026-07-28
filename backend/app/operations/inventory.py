@@ -42,10 +42,12 @@ ASSET_SPECS: tuple[AssetSpec, ...] = (
     AssetSpec("learning_sqlite", "scientific_spaces.db", "Tier 1", "learning-sqlite-v1", None, False, True, 1, "sqlite-learning"),
     AssetSpec("zotero_links", "zotero_links.json", "Tier 1", "zotero-links-v1", None, False, True, 1, "zotero"),
     AssetSpec("tutor_sessions", "tutor_sessions.json", "Tier 1", "tutor-sessions-v1", None, False, True, 2, "json-root"),
+    AssetSpec("reference_review_decisions", "references/reviewed/decisions.json", "Tier 1", "reference-review-decision/v1", None, False, True, 1, "reference-decisions"),
     AssetSpec("markdown_library", "corpus/local_library", "Tier 2", "local-markdown-v1", "uv run --project backend python scripts/corpus/materialize_local_library.py", False, False, 20, "markdown"),
     AssetSpec("pdf_library", "corpus/pdf_library", "Tier 2", "local-pdf-v5", "uv run --project backend python scripts/export/export_local_corpus_pdfs.py", False, False, 30, "pdf"),
     AssetSpec("rag_index", "rag/full_corpus", "Tier 2", "full-corpus-rag-v2", "uv run --project backend python scripts/rag/build_full_corpus_index.py", False, False, 20, "rag"),
     AssetSpec("knowledge_graph", "graph/full_corpus", "Tier 2", "full-corpus-graph-v1", "uv run --project backend python scripts/graph/build_full_corpus_graph.py", False, False, 20, "graph"),
+    AssetSpec("reference_store", "references/full-corpus/current", "Tier 2", "reference-manifest/v1", "uv run --project backend python scripts/references/build_full_corpus_references.py --no-network", False, False, 20, "reference-store"),
     AssetSpec("evaluation_outputs", "evaluation", "Tier 2", "evaluation-output-v1", None, False, False, 40, "files"),
     AssetSpec("corpus_inventory", "corpus/inventory", "Tier 2", "corpus-inventory-v1", None, False, False, 40, "files"),
     AssetSpec("corpus_validation", "corpus/pilot/validation_summary.json", "Tier 2", "corpus-validation-v1", None, False, False, 40, "json-root"),
@@ -225,6 +227,7 @@ def _source_fingerprint(path: Path, spec: AssetSpec, article_fingerprint: str | 
         "pdf_library": path / "manifest/pdf_manifest.json",
         "rag_index": path / "index/manifest.json",
         "knowledge_graph": path / "manifest.json",
+        "reference_store": path / "manifest.json",
     }
     manifest_path = manifest_candidates.get(spec.asset_type)
     if manifest_path and manifest_path.is_file():
@@ -254,6 +257,10 @@ def _record_count(path: Path, strategy: str) -> int:
     if strategy == "graph":
         manifest = _read_json(path / "manifest.json")
         return int(manifest.get("node_count", 0)) + int(manifest.get("edge_count", 0))
+    if strategy == "reference-store":
+        manifest = _read_json(path / "manifest.json")
+        counts = manifest.get("counts", {}) if isinstance(manifest, dict) else {}
+        return int(counts.get("records", 0)) if isinstance(counts, dict) else 0
     payload = json.loads(path.read_text(encoding="utf-8"))
     if strategy == "articles":
         return len(payload) if isinstance(payload, list) else 0
@@ -268,6 +275,8 @@ def _record_count(path: Path, strategy: str) -> int:
         if not isinstance(payload, dict):
             return 0
         return sum(len(value) for value in payload.values() if isinstance(value, dict))
+    if strategy == "reference-decisions":
+        return len(payload) if isinstance(payload, dict) else 0
     if strategy == "json-root":
         return len(payload) if isinstance(payload, (dict, list)) else 0
     return 0

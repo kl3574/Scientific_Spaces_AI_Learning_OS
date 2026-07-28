@@ -399,8 +399,10 @@ def _archive_asset_record_count(path: Path, asset_type: str, records: list[dict[
         "learning_sqlite": "scientific_spaces.db",
         "zotero_links": "zotero_links.json",
         "tutor_sessions": "tutor_sessions.json",
+        "reference_review_decisions": "references/reviewed/decisions.json",
         "rag_index": "rag/full_corpus/index/manifest.json",
         "knowledge_graph": "graph/full_corpus/manifest.json",
+        "reference_store": "references/full-corpus/current/manifest.json",
         "corpus_validation": "corpus/pilot/validation_summary.json",
         "corpus_failures": "corpus/pilot/failed_urls.jsonl",
     }
@@ -427,10 +429,15 @@ def _archive_asset_record_count(path: Path, asset_type: str, records: list[dict[
         return sum(len(data.get(key, {})) for key in ("states", "bookmarks", "notes", "sessions") if isinstance(data, dict) and isinstance(data.get(key, {}), (dict, list)))
     if asset_type == "zotero_links":
         return sum(len(value) for value in data.values() if isinstance(value, dict)) if isinstance(data, dict) else 0
+    if asset_type == "reference_review_decisions":
+        return len(data) if isinstance(data, dict) else 0
     if asset_type == "rag_index":
         return int(data.get("chunk_count", 0)) if isinstance(data, dict) else 0
     if asset_type == "knowledge_graph":
         return int(data.get("node_count", 0)) + int(data.get("edge_count", 0)) if isinstance(data, dict) else 0
+    if asset_type == "reference_store":
+        counts = data.get("counts", {}) if isinstance(data, dict) else {}
+        return int(counts.get("records", 0)) if isinstance(counts, dict) else 0
     return len(data) if isinstance(data, (dict, list)) else 0
 
 

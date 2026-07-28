@@ -24,6 +24,7 @@ TIER_ONE_PATHS = (
     Path("scientific_spaces.db"),
     Path("zotero_links.json"),
     Path("tutor_sessions.json"),
+    Path("references/reviewed/decisions.json"),
 )
 
 DERIVED_PATHS = (
@@ -31,6 +32,7 @@ DERIVED_PATHS = (
     Path("corpus/pdf_library"),
     Path("rag/full_corpus"),
     Path("graph/full_corpus"),
+    Path("references/full-corpus"),
     Path("evaluation"),
     Path("corpus/inventory"),
 )
@@ -123,6 +125,7 @@ def _stale_derived_paths(root: Path) -> set[Path]:
         "STALE_PDF_LIBRARY": root / "corpus/pdf_library",
         "STALE_RAG_INDEX": root / "rag/full_corpus",
         "STALE_KNOWLEDGE_GRAPH": root / "graph/full_corpus",
+        "STALE_REFERENCE_STORE": root / "references/full-corpus",
     }
     return {
         code_to_path[issue.issue_code]

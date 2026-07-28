@@ -18,6 +18,7 @@ from app.operations.inventory import (
 )
 from app.operations.models import CapacityReport, HealthIssue, HealthReport
 from app.rag.full_corpus import compute_corpus_fingerprint, load_full_corpus_articles
+from app.references.store import ReferenceStoreError, audit_reference_store
 
 
 def audit_storage_capacity(
@@ -44,9 +45,20 @@ def audit_storage_capacity(
         "scientific_spaces.db",
         "zotero_links.json",
         "tutor_sessions.json",
+        "references/reviewed/decisions.json",
     )
     essential = sum(path_size(root / relative) for relative in essential_paths)
-    complete = max(essential + sizes["markdown"] + sizes["pdf"] + sizes["rag"] + sizes["graph"] + path_size(root / "evaluation") + path_size(root / "corpus/inventory"), total - logs_temp)
+    complete = max(
+        essential
+        + sizes["markdown"]
+        + sizes["pdf"]
+        + sizes["rag"]
+        + sizes["graph"]
+        + path_size(root / "references/full-corpus")
+        + path_size(root / "evaluation")
+        + path_size(root / "corpus/inventory"),
+        total - logs_temp,
+    )
     available = int(free_bytes) if free_bytes is not None else int(shutil.disk_usage(root).free)
     issue_codes: list[str] = []
     if available < total * 2:
@@ -125,6 +137,7 @@ def check_local_system(
     _check_reader_configuration(root, article_path, checks, issues)
     _check_tutor_configuration(root, checks, issues)
     _check_user_persistence(root, checks, issues)
+    _check_references(root, corpus_fingerprint, checks, issues)
 
     capacity = audit_storage_capacity(root, free_bytes=free_bytes)
     checks["storage_capacity"] = capacity.status
@@ -294,6 +307,93 @@ def _check_user_persistence(root: Path, checks: dict[str, str], issues: list[Hea
         issues.append(_health_issue("TUTOR_SESSION_STORE_CORRUPT", "tutor_sessions", "restore an essential backup", False, True, "BLOCKED"))
     else:
         checks["tutor_sessions"] = "PASS"
+
+
+def _check_references(
+    root: Path,
+    corpus_fingerprint: str | None,
+    checks: dict[str, str],
+    issues: list[HealthIssue],
+) -> None:
+    decisions = root / "references/reviewed/decisions.json"
+    if decisions.exists() and not _valid_reference_decisions(decisions):
+        checks["reference_review_decisions"] = "BLOCKED"
+        issues.append(
+            _health_issue(
+                "REFERENCE_REVIEW_DECISIONS_CORRUPT",
+                "reference_review_decisions",
+                "restore an essential backup",
+                False,
+                True,
+                "BLOCKED",
+            )
+        )
+    else:
+        checks["reference_review_decisions"] = "PASS"
+
+    store = root / "references/full-corpus/current"
+    if not store.exists():
+        checks["reference_store"] = "WARN"
+        issues.append(
+            _health_issue(
+                "REFERENCE_STORE_MISSING",
+                "reference_store",
+                "uv run --project backend python scripts/references/build_full_corpus_references.py --no-network",
+                True,
+                False,
+            )
+        )
+        return
+    try:
+        audit_reference_store(store, expected_corpus_fingerprint=corpus_fingerprint)
+    except ReferenceStoreError as exc:
+        stale = "stale:" in str(exc)
+        checks["reference_store"] = "WARN"
+        issues.append(
+            _health_issue(
+                "STALE_REFERENCE_STORE" if stale else "CORRUPT_REFERENCE_STORE",
+                "reference_store",
+                "uv run --project backend python scripts/references/build_full_corpus_references.py --no-network",
+                True,
+                False,
+                detail=str(exc),
+            )
+        )
+    else:
+        checks["reference_store"] = "PASS"
+
+
+def _valid_reference_decisions(path: Path) -> bool:
+    required = {
+        "schema_version",
+        "decision_id",
+        "reference_id",
+        "reference_canonical_key",
+        "candidate_id",
+        "zotero_item_key",
+        "decision",
+        "manual_identifier",
+        "reason_code",
+        "annotation",
+        "reviewer",
+        "created_at",
+        "updated_at",
+        "source_build_fingerprint",
+        "decision_fingerprint",
+    }
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return isinstance(payload, dict) and all(
+        isinstance(decision_id, str)
+        and decision_id
+        and isinstance(value, dict)
+        and required <= set(value)
+        and value.get("decision_id") == decision_id
+        and value.get("schema_version") == "reference-review-decision/v1"
+        for decision_id, value in payload.items()
+    )
 
 
 def _validate_pdf_record(root: Path, record: Any) -> bool:

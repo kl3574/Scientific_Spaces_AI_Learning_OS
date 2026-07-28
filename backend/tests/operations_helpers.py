@@ -5,6 +5,11 @@ import json
 from pathlib import Path
 
 from app.rag.full_corpus import compute_corpus_fingerprint, load_full_corpus_articles
+from app.references.deduplication import build_reference_data
+from app.references.extraction import extract_article_references
+from app.references.matching import match_reference_records
+from app.references.store import install_reference_store
+from app.storage.article_store import StoredArticle
 
 
 def write_json(path: Path, payload: object) -> None:
@@ -17,14 +22,14 @@ def sha256_bytes(payload: bytes) -> str:
 
 
 def make_local_data_root(tmp_path: Path) -> tuple[Path, str]:
-    root = tmp_path / "scientific_spaces"
+    root = tmp_path / ".local_data" / "scientific_spaces"
     article_path = root / "corpus/pilot/article_store/articles.json"
     articles = [
         {
             "id": "a1",
             "title": "Attention 入门",
             "url": "https://spaces.ac.cn/archives/1",
-            "content": "# Attention\n\n正文 $qk^T$。",
+            "content": "# Attention\n\n正文 $qk^T$。\n\nReference DOI:10.1000/operations-fixture",
             "metadata": {
                 "date": "2025-01-01",
                 "category": "机器学习",
@@ -152,6 +157,52 @@ def make_local_data_root(tmp_path: Path) -> tuple[Path, str]:
     )
 
     write_json(root / "evaluation/result.json", {"status": "PASS"})
+
+    stored_articles = [StoredArticle(**item) for item in articles]
+    reference_data = build_reference_data(
+        [extract_article_references(item) for item in stored_articles],
+        corpus_fingerprint=corpus_fingerprint,
+        build_id="operations-fixture-reference-build",
+    )
+    reference_matches = match_reference_records(
+        reference_data.records,
+        [],
+        provider_available=False,
+    )
+    install_reference_store(
+        root / "references/full-corpus/current",
+        build_data=reference_data,
+        zotero_candidates=reference_matches.candidates,
+        article_ids=[item.id for item in stored_articles],
+        corpus_fingerprint=corpus_fingerprint,
+        configuration_fingerprint="operations-fixture-reference-config",
+        build_fingerprint="operations-fixture-reference-build",
+        source_asset_id="article-store:operations-fixture",
+        network_request_count=0,
+        extra_counts={"silent_drops": 0},
+    )
+    write_json(
+        root / "references/reviewed/decisions.json",
+        {
+            "decision-fixture": {
+                "schema_version": "reference-review-decision/v1",
+                "decision_id": "decision-fixture",
+                "reference_id": reference_data.records[0].reference_id,
+                "reference_canonical_key": reference_data.records[0].canonical_key,
+                "candidate_id": reference_matches.candidates[0].candidate_id,
+                "zotero_item_key": None,
+                "decision": "rejected",
+                "manual_identifier": None,
+                "reason_code": "fixture",
+                "annotation": "private-reference-review",
+                "reviewer": "local-user",
+                "created_at": "2026-07-28T00:00:00Z",
+                "updated_at": "2026-07-28T00:00:00Z",
+                "source_build_fingerprint": "operations-fixture-reference-build",
+                "decision_fingerprint": "fixture-decision-fingerprint",
+            }
+        },
+    )
     (root / "cache").mkdir()
     (root / "cache/transient.cache").write_text("discard", encoding="utf-8")
     return root, corpus_fingerprint

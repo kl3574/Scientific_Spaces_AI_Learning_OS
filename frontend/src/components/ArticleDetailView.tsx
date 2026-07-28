@@ -27,6 +27,7 @@ import {
   updateNote,
 } from "@/lib/learning";
 import { ReadingHistoryItem, loadReadingHistory, recordReading } from "@/lib/readingHistory";
+import { StructuredReferencesPanel } from "@/components/StructuredReferencesPanel";
 import { ZoteroLinksPanel } from "@/components/ZoteroLinksPanel";
 
 export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>) {
@@ -197,6 +198,7 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
             {renderedContent}
           </ReactMarkdown>
         </div>
+        <StructuredReferencesPanel articleId={article.id} />
       </article>
 
       <aside className="space-y-4">

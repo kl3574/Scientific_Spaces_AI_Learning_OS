@@ -6,12 +6,12 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
-- Phase: `v1.1 Released`
-- Status: `Published`
+- Phase: `v1.2 Integration`
+- Status: `P3-007 CONDITIONAL / RISK ACCEPTED / LOCAL IMPLEMENTATION COMPLETE`
 - Candidate: `None`
-- Release Readiness: `PASS`
-- Latest gate: `P3-006-CI-001 Dependency Audit Repair - PASS / CLOSED; P3-006 remains CONDITIONAL / CLOSED`
-- Current task: `P3-006.1 Human Review Completion - ALIGNMENT REQUIRED`
+- Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
+- Latest gate: `P3-007 local integration and deterministic gates complete; Docker/current-commit CI pending separate push authorization`
+- Current task: `P3-007 Integration and Release Readiness - CONDITIONAL / RISK ACCEPTED`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -20,6 +20,7 @@ Release notes: `docs/RELEASE_NOTES_v1.1.0.md` (draft history in `docs/RELEASE_NO
 Post-release validation: `docs/V1_1_POST_RELEASE_VALIDATION.md`.
 
 Approved v1.2 planning scope and priorities: `docs/V1_2_ROADMAP.md`.
+P3-007 evidence: `docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`.
 
 v1.2 planning specifications:
 
@@ -30,7 +31,7 @@ v1.2 planning specifications:
 - Evaluation plan: `docs/V1_2_EVALUATION_PLAN.md`
 - Acceptance gates: `docs/V1_2_ACCEPTANCE.md`
 - Execution plan: `docs/V1_2_EXECUTION_PLAN.md`
-- Architecture decisions: `docs/ADR/0006-derived-reference-store.md`, `docs/ADR/0007-real-provider-evaluation-boundary.md`, and `docs/ADR/0008-ci-security-and-release-provenance.md`
+- Architecture decisions: `docs/ADR/0006-derived-reference-store.md`, `docs/ADR/0007-real-provider-evaluation-boundary.md`, `docs/ADR/0008-ci-security-and-release-provenance.md`, and `docs/ADR/0009-p3-007-review-risk-and-zotero-pdf-policy.md`
 
 The formal version remains `v1.1.0`; no v1.2 candidate, tag, or Release is assigned by these planning documents.
 
@@ -80,12 +81,34 @@ UV_OFFLINE=1 uv run --project backend python \
   --no-network
 ```
 
-Runtime output remains under ignored `.local_data/` and is never committed. Only fake-curated and unavailable Zotero modes were validated; private Zotero was not accessed. Machine evidence passed, while 64 generated review cases await a real reviewer, so the task is recorded as CONDITIONAL. See `docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md`.
+Runtime output remains under ignored `.local_data/` and is never committed.
+Only fake-curated and unavailable Zotero modes were used for the full-corpus
+machine run. The product owner later reviewed and approved exactly three
+Zotero pilot cases and accepted the risk of waiving the remaining 61 formal
+review cases. P3-006 is therefore `CONDITIONAL / RISK ACCEPTED`, not 64/64
+complete, and no human-review precision is claimed. See
+`docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md` and
+`docs/ADR/0009-p3-007-review-risk-and-zotero-pdf-policy.md`.
 
-P3-006.1 is staged only as a canonical human-review task. Packet access,
-worksheet creation, completed-decision access, real human-review execution,
-private Zotero access, and network access remain not granted. See
-`docs/tasks/P3-006_1_HUMAN_REVIEW_COMPLETION.md`.
+Scientific Spaces full-text attachments synchronized to the private
+`苏剑林博客` collection use browser-printed PDFs. HTML snapshots are not an
+accepted final live attachment representation. PDFs and private Zotero
+identifiers remain local runtime data.
+
+## Structured Reference API
+
+P3-007 serves the validated derived store through additive, bounded, read-only
+endpoints:
+
+- `GET /v1.2/references`
+- `GET /v1.2/references/{reference_id}`
+- `GET /v1.2/articles/{article_id}/references`
+- `GET /v1.2/references/{reference_id}/zotero-candidates`
+- `GET /v1.2/reference-summary`
+
+The API never rebuilds on request. Missing, stale, or corrupt stores return a
+bounded HTTP 503 state. Existing `/articles` and `/v1.1` contracts are
+unchanged.
 
 ## Current Development Task
 
@@ -236,6 +259,8 @@ Important variables:
 - `SCIENTIFIC_SPACES_DB_FILE`: optional SQLite database path. Defaults to `.local_data/scientific_spaces/scientific_spaces.db`.
 - `SCIENTIFIC_SPACES_LEARNING_BACKEND`: `json` by default; set `sqlite` to opt into the v1.1 Learning SQLite persistence slice.
 - `SCIENTIFIC_SPACES_ARTICLE_STORE`: preferred full-corpus Reader override for an existing Article JSON store.
+- `SCIENTIFIC_SPACES_REFERENCE_STORE`: validated Reference Store directory. Defaults to `.local_data/scientific_spaces/references/full-corpus/current`.
+- `SCIENTIFIC_SPACES_REFERENCE_CONFIGURATION_FINGERPRINT`: optional secret-free expected build configuration fingerprint.
 - `SCIENTIFIC_SPACES_ARTICLES_FILE`: override Article storage file.
 - `SCIENTIFIC_SPACES_LEARNING_FILE`: override learning-state storage file.
 - `SCIENTIFIC_SPACES_ZOTERO_FILE`: override Zotero link storage file.
@@ -262,6 +287,7 @@ Run the Reader against the completed local corpus without copying or modifying i
 
 ```bash
 SCIENTIFIC_SPACES_ARTICLE_STORE=.local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+SCIENTIFIC_SPACES_REFERENCE_STORE=.local_data/scientific_spaces/references/full-corpus/current \
   uv run --project backend uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 

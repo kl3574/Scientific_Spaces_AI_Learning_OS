@@ -20,6 +20,11 @@ Commands marked **planned** are contracts for future milestones and are not curr
 - Core evidence is valid, but one or more explicit, bounded non-critical decisions or accepted limitations remain.
 - Every condition has owner, remediation, expiry/decision gate, and affected milestone.
 - No dependent implementation milestone may begin when its required predecessor is CONDITIONAL.
+- Exception: a dependent milestone may begin only when the product owner
+  explicitly accepts a bounded predecessor risk in an Accepted ADR, the
+  predecessor and dependent milestone both retain `RISK ACCEPTED`, and no
+  failed integrity, compatibility, security, consent, artifact, or secret
+  gate is waived.
 - CONDITIONAL cannot hide failed data integrity, compatibility, security, consent, artifact, or release identity checks.
 
 ### BLOCKED
@@ -302,6 +307,9 @@ cd frontend && npm run build
 ### CONDITIONAL
 
 - Extraction store passes, but optional private Zotero matching was not authorized/available. This is an accepted local integration limitation, not extraction failure; P3-007 must state whether fake matching is sufficient for release scope.
+- A bounded human-review shortfall may remain only through an explicit
+  product-owner risk decision that records reviewed and waived counts without
+  inventing precision. ADR 0009 records 3 reviewed and 61 waived cases.
 
 ### BLOCKED
 
@@ -323,7 +331,10 @@ cd frontend && npm run build
 
 ### Entry Criteria
 
-- P3-003, P3-004, P3-005, and P3-006 are PASS, or the release board explicitly resolves an allowed P3-006 optional-Zotero CONDITIONAL without weakening mandatory gates.
+- P3-003, P3-004, P3-005, and P3-006 are PASS, or the release board explicitly resolves a bounded P3-006 CONDITIONAL in an Accepted ADR without weakening machine integrity, compatibility, security, consent, artifact, or secret gates.
+- ADR 0009 permits P3-007 to proceed with P3-006 recorded as
+  `CONDITIONAL / RISK ACCEPTED`: 3 cases were reviewed and approved, 61 were
+  waived, and no precision result is claimed.
 - All required reports, migrations, rollback evidence, and artifact policies are current.
 - Candidate version remains unassigned until this gate passes and the user separately authorizes release metadata.
 
@@ -344,6 +355,9 @@ cd frontend && npm run build
 ### CONDITIONAL
 
 - Only an explicit non-critical external availability limitation remains, with release action blocked until exact evidence is obtained.
+- An explicit product-owner review-scope risk remains under ADR 0009, with
+  reviewed/waived counts, owner, remediation option, and candidate decision
+  gate recorded. It cannot be restated as measured precision.
 
 ### BLOCKED
 
@@ -356,6 +370,9 @@ cd frontend && npm run build
 ### Forbidden Artifacts/Actions
 
 - Tag/Release without separate authorization; moved prior tag; runtime/private artifact; silent gate waiver.
+- Scientific Spaces Zotero full-text HTML snapshots as the accepted final live
+  attachment representation. The approved representation is browser-printed
+  PDF under ADR 0009.
 
 ### Regression Requirements
 

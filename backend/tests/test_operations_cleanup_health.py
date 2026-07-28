@@ -37,6 +37,7 @@ def test_cleanup_is_dry_run_by_default(tmp_path: Path) -> None:
 def test_cleanup_never_deletes_tier_one_and_requires_derived_confirmation(tmp_path: Path) -> None:
     root, _ = make_local_data_root(tmp_path)
     article_store = root / "corpus/pilot/article_store/articles.json"
+    decisions = root / "references/reviewed/decisions.json"
 
     with pytest.raises(CleanupSafetyError, match="confirm-derived-delete"):
         cleanup_local_data(root, categories=("all-derived",), execute=True)
@@ -50,6 +51,8 @@ def test_cleanup_never_deletes_tier_one_and_requires_derived_confirmation(tmp_pa
 
     assert result.status == "PASS"
     assert article_store.exists()
+    assert decisions.exists()
+    assert not (root / "references/full-corpus").exists()
     assert not (root / "corpus/local_library").exists()
     assert not (root / "rag/full_corpus").exists()
     assert not (root / "graph/full_corpus").exists()
@@ -95,6 +98,7 @@ def test_health_check_warns_for_stale_rag_and_graph(
     assert report.status == "WARN"
     assert "STALE_RAG_INDEX" in codes
     assert "STALE_KNOWLEDGE_GRAPH" in codes
+    assert "STALE_REFERENCE_STORE" in codes
     assert "STALE_MARKDOWN_LIBRARY" in codes
     assert all(issue.remediation_command for issue in report.issues)
     assert all(isinstance(issue.rebuildable, bool) for issue in report.issues)
@@ -155,6 +159,42 @@ def test_health_check_blocks_corrupt_tutor_session_store(
 
     assert report.status == "BLOCKED"
     assert "TUTOR_SESSION_STORE_CORRUPT" in {issue.issue_code for issue in report.issues}
+
+
+def test_health_check_blocks_corrupt_reference_review_decisions(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, _ = make_local_data_root(tmp_path)
+    _configure_runtime(monkeypatch, root)
+    build_local_data_manifest(root, write=True)
+    (root / "references/reviewed/decisions.json").write_text("not-json", encoding="utf-8")
+
+    report = check_local_system(root, free_bytes=10_000_000)
+
+    assert report.status == "BLOCKED"
+    assert "REFERENCE_REVIEW_DECISIONS_CORRUPT" in {
+        issue.issue_code for issue in report.issues
+    }
+
+
+def test_health_check_warns_for_corrupt_reference_store(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    root, _ = make_local_data_root(tmp_path)
+    _configure_runtime(monkeypatch, root)
+    build_local_data_manifest(root, write=True)
+    with (root / "references/full-corpus/current/records.jsonl").open(
+        "a",
+        encoding="utf-8",
+    ) as handle:
+        handle.write("{}\n")
+
+    report = check_local_system(root, free_bytes=10_000_000)
+
+    assert report.status == "WARN"
+    assert "CORRUPT_REFERENCE_STORE" in {issue.issue_code for issue in report.issues}
 
 
 def test_capacity_warns_when_free_space_is_below_two_times_data_size(tmp_path: Path) -> None:

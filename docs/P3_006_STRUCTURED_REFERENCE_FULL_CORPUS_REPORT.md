@@ -3,9 +3,9 @@
 ## Status
 
 - Task: P3-006 Structured Reference Full-Corpus Build and Offline Zotero-Matching Validation
-- Result: **CONDITIONAL / CLOSED**
+- Result: **CONDITIONAL / RISK ACCEPTED / CLOSED**
 - Machine integrity and compatibility gates: **PASS**
-- Finite limitation: 64 deterministic human-review cases are generated, but no real reviewer was available during this task
+- Finite limitation: 3 cases were later reviewed and approved; the product owner waived the remaining 61 cases; precision remains unmeasured
 - Formal version: `v1.1.0`
 - Candidate version: not assigned
 - Network authorization: not granted and not used
@@ -13,7 +13,11 @@
 - Completion and dependency-repair commits: pushed after separate authorization
 - Candidate, tag, Release, and attestation: not performed
 
-CONDITIONAL is used because every required machine gate passed while the actual human-review precision gate remains pending. No Article, provenance, accounting, determinism, recovery, integrity, no-network, resource, test, build, or artifact gate is relaxed.
+CONDITIONAL is used because every required machine gate passed while the
+formal human-review precision gate was not completed. The later product-owner
+risk decision does not convert three reviews into 64/64 evidence or a measured
+precision result. No Article, provenance, accounting, determinism, recovery,
+integrity, no-network, resource, test, build, or artifact gate is relaxed.
 
 ## Approved Boundary
 
@@ -263,12 +267,18 @@ candidate, tag, Release, or attestation occurred.
 
 ## Decision
 
-**P3-006 Status: CONDITIONAL / CLOSED**
+**P3-006 Status: CONDITIONAL / RISK ACCEPTED / CLOSED**
 
-All machine acceptance gates passed. The sole finite non-critical limitation is pending real human review, which is explicitly allowed for CONDITIONAL status and does not affect Article immutability, complete accounting, provenance, deterministic IDs, duplicate consistency, recovery, store integrity, no-network behavior, resource budgets, regressions, or artifact safety.
+All machine acceptance gates passed. Exactly three pilot cases were later
+reviewed and approved; the product owner waived the remaining 61 formal cases.
+No human-review precision was measured. ADR 0009 records the owner, remediation
+path, and candidate decision gate. This accepted limitation does not affect
+Article immutability, complete accounting, provenance, deterministic IDs,
+duplicate consistency, recovery, store integrity, no-network behavior,
+resource budgets, regressions, or artifact safety.
 
 ## Next Required Action
 
-Prepare and confirm the separate P3-006.1 Human Review Completion task.
-P3-006.1 is not staged and no real-review execution is authorized by this
-report.
+P3-006.1 is paused as an optional remediation path if stronger statistical
+human evidence is later required. P3-007 may proceed only under ADR 0009's
+explicit `CONDITIONAL / RISK ACCEPTED` exception.
