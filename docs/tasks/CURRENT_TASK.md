@@ -2,11 +2,11 @@
 
 ## Task
 
-P3-006.2 Review UX Pilot and Zotero Collection Sync
+P3-006.3 Zotero Printed PDF Attachment Sync
 
 ## Canonical Specification
 
-`docs/tasks/P3-006_2_REVIEW_UX_ZOTERO_COLLECTION_SYNC.md`
+`docs/tasks/P3-006_3_ZOTERO_FULL_TEXT_SNAPSHOT_SYNC.md`
 
 ## Status
 
@@ -22,8 +22,8 @@ Not assigned
 
 ## Previous Task
 
-P3-006.1 Human Review Completion:
-HUMAN_REVIEW_INCOMPLETE / PAUSED
+P3-006.2 Review UX Pilot and Zotero Collection Sync:
+PASS / CLOSED
 
 ## Implementation Authorization
 
@@ -31,11 +31,13 @@ CONSUMED / CLOSED
 
 ## Private Zotero Authorization
 
-CONSUMED / CLOSED FOR COLLECTION `苏剑林博客` AND ONE CONTROLLED TEST ITEM
+CONSUMED / CLOSED AFTER THREE PDF ATTACHMENTS PASSED READBACK AND THREE
+REPLACED HTML CHILDREN WERE MOVED TO ZOTERO TRASH
 
 ## Network Authorization
 
-LOCALHOST ZOTERO API/CONNECTOR ONLY
+CONSUMED / CLOSED AFTER LOCALHOST ZOTERO API/CONNECTOR AND BOUNDED PLAYWRIGHT
+ACCESS TO THE THREE APPROVED SCIENTIFIC SPACES ARTICLE URLS
 
 ## Push Authorization
 
@@ -43,20 +45,19 @@ NOT GRANTED
 
 ## Allowed Current Action
 
-Inspect the ignored three-case pilot locally. Any further implementation or
-private Zotero write requires a new task authorization.
+Create the already authorized local P3-006.3 PDF-correction commit only.
 
 ## Prohibited Current Actions
 
 - Modify M1 or the Article/Reference Stores
+- Access any Scientific Spaces URL outside the approved three
 - Modify the P3-006.1 64-case packet or completed worksheet
 - Read/export unrelated private Zotero data
-- Delete or merge Zotero items
-- Use external network services
+- Delete or merge additional Zotero items
+- Generate additional PDFs or save runtime/browser artifacts in Git
 - Push, stage P3-007, assign a candidate, or create tag/Release/attestation
 
 ## Next Required Decision
 
-Complete the three pilot judgments manually and separately decide whether to
-authorize pushing the local P3-006.2 commit. P3-006.1 remains a distinct
-formal 64-case gate.
+Separately authorize a push if the local P3-006.2 and P3-006.3 commits should
+be synchronized.

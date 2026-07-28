@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-P3-006.2 Review UX Pilot and Zotero Collection Sync: PASS / CLOSED; P3-006 formal 64-case human review remains pending
+P3-006.3 Zotero Printed PDF Attachment Sync: PASS / CLOSED
 
 Release Readiness:
 
@@ -128,7 +128,7 @@ PASS
 
 Current Task:
 
-P3-006.2 Review UX Pilot and Zotero Collection Sync
+P3-006.3 Zotero Printed PDF Attachment Sync
 
 Current Task Status:
 
@@ -144,11 +144,19 @@ HUMAN_REVIEW_INCOMPLETE / PAUSED
 
 Private Zotero Authorization:
 
-CONSUMED / CLOSED FOR COLLECTION `苏剑林博客` AND ONE CONTROLLED TEST ITEM
+CONSUMED / CLOSED AFTER THREE PDF ATTACHMENTS PASSED READBACK AND THREE REPLACED HTML CHILDREN WERE MOVED TO ZOTERO TRASH
 
 Real Provider Authorization:
 
 NOT GRANTED
+
+P3-006.3 Network Authorization:
+
+CONSUMED / CLOSED AFTER THE THREE APPROVED SCIENTIFIC SPACES ARTICLE URLS THROUGH PLAYWRIGHT
+
+P3-006.3 Evidence:
+
+docs/P3_006_3_ZOTERO_FULL_TEXT_SNAPSHOT_REPORT.md
 
 P3-003 Structured Reference Extraction Pilot:
 
@@ -356,7 +364,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-Manually review the local P3-006.2 three-case pilot; separately authorize push or align P3-006.1 Stage B
+Authorize synchronization of the completed local P3-006.2 and P3-006.3 commits
 
 Post-freeze Change Rule:
 

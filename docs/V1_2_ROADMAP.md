@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1 is HUMAN_REVIEW_INCOMPLETE / PAUSED; P3-006.2 Review UX Pilot and Zotero Collection Sync is PASS / CLOSED; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1 is HUMAN_REVIEW_INCOMPLETE / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -266,6 +266,28 @@ passed 9/9, the Backend suite passed 549 tests with 3 skipped, and source/store,
 secret, artifact, and browser checks passed. Evidence is in
 `docs/P3_006_2_REVIEW_UX_ZOTERO_SYNC_REPORT.md`.
 
+### P3-006.3 - Zotero Printed PDF Attachment Sync
+
+Status: **PASS / CLOSED**.
+
+P3-006.3 corrected the downstream representation from HTML snapshots to
+browser-printed PDF attachments for only the three P3-006.2 pilot Articles.
+The existing metadata-complete Web Page parents were preserved. Each approved
+parent now has exactly one local PDF child and zero live HTML children in
+`苏剑林博客`.
+
+All three A4 PDFs passed local format, page, title, Chinese, distributed
+Article-content, MathJax, and Zotero byte-readback checks. The three replaced
+HTML children were moved to Zotero Trash only after joint 3/3 PDF readback.
+The repeated three-Article command returned `existing` with zero browser
+fetches, zero duplicate writes, and zero additional trash operations. Focused
+tests passed 21/21 and the Backend suite passed 561 tests with 3 skipped.
+Source/store integrity remained unchanged; the temporary localhost Zotero
+debugger was disabled and normal API/Connector readiness was restored.
+Evidence is in `docs/P3_006_3_ZOTERO_FULL_TEXT_SNAPSHOT_REPORT.md`.
+Implementation, private Zotero, and bounded network authorizations are
+consumed/closed; push was not performed.
+
 ### P3-007 - v1.2 Integration and Release Readiness
 
 Integrate additive reference API/UI and operations boundaries, then run compatibility, migration, security, artifact, local runtime, Docker, SBOM/provenance, and documentation gates. Recommend a candidate only from completed evidence and separate user authorization.
@@ -302,8 +324,8 @@ Integrate additive reference API/UI and operations boundaries, then run compatib
 
 ## Next Recommended Task
 
-`Manually review the P3-006.2 three-case full-context pilot`
+`Authorize synchronization of the completed local P3-006.2 and P3-006.3 commits`
 
-The pilot remains local and `PILOT ONLY`; it does not close the formal
-P3-006.1 64-case gate. Any push, P3-006.1 Stage B action, or additional private
-Zotero write requires separate authorization.
+Both tasks remain local until the user grants push authorization. Any
+additional private Zotero write, P3-007 staging, candidate assignment, tag,
+Release, or attestation requires separate authorization.

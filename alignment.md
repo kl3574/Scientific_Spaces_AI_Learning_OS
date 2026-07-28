@@ -1,102 +1,158 @@
-# P3-006.2 Review UX Pilot and Zotero Collection Sync Alignment
+# P3-006.3 Zotero Printed PDF Attachment Correction Alignment
 
 Canonical task:
-`docs/tasks/P3-006_2_REVIEW_UX_ZOTERO_COLLECTION_SYNC.md`
+`docs/tasks/P3-006_3_ZOTERO_FULL_TEXT_SNAPSHOT_SYNC.md`
+
+Status: **PASS / CLOSED**
+
+PDF IMPORT AUTHORIZATION: **CONSUMED / CLOSED**
+
+HTML ATTACHMENT DELETION AUTHORIZATION:
+**CONSUMED / CLOSED AFTER ALL THREE PDF ATTACHMENTS PASSED READBACK**
+
+PUSH AUTHORIZATION: **NOT GRANTED**
 
 ## 1. Background
 
-- P3-006 remains `CONDITIONAL / CLOSED`.
-- P3-006.1 Stage A produced a 64-case bounded worksheet, but Stage B remains
-  `HUMAN_REVIEW_INCOMPLETE`.
-- The bounded excerpts are not ergonomic enough for the operator's intended
-  review.
-- The user requested a separate three-case full-context pilot and explicitly
-  authorized creating the private local Zotero collection `苏剑林博客` plus
-  one controlled test item.
-- This task must not redefine the 64-case P3-006.1 closure gate.
+- P3-006.2 remains `PASS / CLOSED`.
+- The private root collection `苏剑林博客` exists uniquely.
+- The previous P3-006.3 run created three approved Web Page parents and three
+  imported HTML snapshot children.
+- The user corrected the required attachment format: each Article must use a
+  browser-printed PDF rather than an HTML snapshot.
+- The P3-006.3 implementation and report are uncommitted and must be revised.
+- M1, P3-006, and P3-006.1 status and acceptance remain unchanged.
 
 ## 2. Requirements
 
-1. Create or reuse exactly one root Zotero collection named `苏剑林博客`.
-2. Verify the collection through Zotero Desktop readback.
-3. Add at most one controlled real Scientific Spaces article item.
-4. Add an idempotent downstream Zotero sync adapter for Article metadata.
-5. Sync Web Page metadata first; a PDF attachment is optional and must not
-   block metadata synchronization.
-6. Match by Article ID and canonical URL so repeat synchronization does not
-   create duplicates.
-7. Do not modify the frozen crawler or source pipeline.
-8. Create a separate three-case pilot using authoritative full Article content.
-9. Keep full content, worksheets, collection keys, private metadata, and all
-   runtime output outside Git.
-10. Run focused tests, the Backend suite, security/artifact checks, and create
-    one local commit. Do not push.
+1. Process exactly these three approved Articles:
+   - `68441d48f88c5de6`, `https://spaces.ac.cn/archives/8512`
+   - `573354a74b26d9a3`, `https://spaces.ac.cn/archives/138`
+   - `d3b2db76b2e5a2dd`, `https://spaces.ac.cn/archives/1850`
+2. Reuse the existing metadata-complete Zotero Web Page parents.
+3. Generate one A4 PDF per Article using Playwright Chromium page printing.
+4. Wait for the article body and MathJax v2/v3 before printing.
+5. Generate PDFs only in a temporary directory.
+6. Validate every PDF before any HTML deletion:
+   - file exists;
+   - file size is greater than zero;
+   - header is a valid PDF signature;
+   - the PDF is readable;
+   - rendered article and formula evidence are present.
+7. Attach exactly one `application/pdf` child to each approved parent.
+8. Read back and validate all three Zotero PDF attachments.
+9. Only after all three PDF attachments pass, delete the three corresponding
+   HTML snapshot children.
+10. Verify the final state is exactly one parent and one PDF child per approved
+    Article, with zero HTML children.
+11. Repeated synchronization must perform zero browser fetches and create no
+    duplicate parent or PDF attachment.
+12. Delete all temporary PDF files after verification.
 
 ## 3. Purpose
 
-Provide an ergonomic, local full-context review pilot while establishing a
-safe, opt-in Zotero archive destination for future Scientific Spaces articles.
+Make the three approved Scientific Spaces Articles available in Zotero as
+browser-printed, formula-rendered PDF documents rather than HTML snapshots or
+link-only records.
 
 ## 4. Planned Execution
 
-1. Recheck governance, Git, Article identity, current Zotero integration, and
-   Zotero Desktop readiness.
-2. Persist this alignment and the P3-006.2 canonical task.
-3. Start Zotero Desktop if necessary.
-4. Create or reuse `苏剑林博客`, then verify its unique collection identity.
-5. Implement a downstream collection sync client and CLI without touching M1.
-6. Test idempotency, collection targeting, unavailable-Zotero behavior, and
-   metadata mapping with fixtures.
-7. Synchronize one controlled real Article and verify collection membership.
-8. Generate an ignored three-case full-context pilot package.
-9. Run tests, secret/artifact audits, changed-path checks, and confirm source
-   stores are unchanged.
-10. Update aggregate governance/report files and create one local commit.
+1. Persist this revised alignment and mark P3-006.3 as rework in progress.
+2. Recheck `REWORK.md`, `.audit`, roadmap, Git drift, and current Zotero state.
+3. Inspect the existing frozen PDF exporter and local Zotero Desktop Connector
+   contract for safely attaching a PDF to an existing parent.
+4. Revise only the downstream Zotero adapter, CLI, tests, and P3-006.3 docs.
+5. Add regression tests for PDF attachment creation, readback, idempotency,
+   partial failure, and deletion ordering.
+6. Generate all three PDFs in one temporary directory and validate them before
+   Zotero mutation.
+7. Attach and read back all three PDFs while preserving the existing parents
+   and HTML safety copies.
+8. After 3/3 PDF readback passes, delete only the three attributable HTML
+   children and verify the final child cardinality.
+9. Repeat synchronization and require a no-op result for all three.
+10. Run focused and full Backend tests, source/store integrity checks, changed-
+    path, secret, artifact, and Git audits.
+11. Update aggregate evidence and create one local commit without push.
 
 ## 5. Selection Rationale
 
-A downstream adapter preserves the frozen acquisition pipeline and makes
-external Zotero writes explicit, restartable, and independently testable.
-The three-case pilot improves review ergonomics without weakening the existing
-64-case formal evidence contract.
+Reusing the existing parents preserves metadata and provenance. Generating
+PDFs through the established Playwright print path preserves rendered MathJax.
+The PDF-first, delete-HTML-last sequence prevents loss of the only local
+full-text copy if PDF generation or attachment import fails.
 
 ## 6. Alternatives
 
 | Option | Decision |
 | --- | --- |
-| Write to Zotero directly from the crawler | Rejected: violates M1 freeze and couples acquisition to a private application |
-| Manual Zotero import only | Rejected as the long-term path: not idempotent automation |
-| Replace the formal 64 cases with 3 | Rejected: insufficient evidence for the existing precision gate |
-| Downstream sync plus separate 3-case pilot | Selected |
+| Attach validated PDF, then delete HTML | Selected: matches the corrected format and protects full text during migration |
+| Keep both HTML and PDF | Rejected: does not satisfy the requested final format |
+| Delete HTML before PDF import | Rejected: creates an avoidable data-loss window |
+| Delete and recreate parent items | Rejected: unnecessary destructive metadata churn |
 
 ## 7. Deliverables
 
-- `docs/tasks/P3-006_2_REVIEW_UX_ZOTERO_COLLECTION_SYNC.md`
-- `backend/app/zotero/sync.py`
-- `backend/tests/test_zotero_sync.py`
-- `scripts/zotero/sync_scientific_spaces.py`
-- `docs/P3_006_2_REVIEW_UX_ZOTERO_SYNC_REPORT.md`
+- Revised `alignment.md`
+- Revised `docs/tasks/P3-006_3_ZOTERO_FULL_TEXT_SNAPSHOT_SYNC.md`
+- Updated `backend/app/zotero/sync.py`
+- Updated `backend/tests/test_zotero_sync.py`
+- Updated `scripts/zotero/sync_scientific_spaces.py`
+- Revised `docs/P3_006_3_ZOTERO_FULL_TEXT_SNAPSHOT_REPORT.md`
 - Updated current-task, project-state, and v1.2-roadmap pointers
-- Private local Zotero collection `苏剑林博客`
-- One controlled real test item at most
-- Ignored three-case full-context pilot package
-- One local commit; no push
+- Three private Zotero Web Page parents, each with exactly one PDF child and no
+  HTML child
+- One local commit:
+  `fix: replace Zotero HTML snapshots with PDF attachments`
+- No push
 
 ## 8. Acceptance Criteria
 
-- The target collection exists exactly once and readback succeeds.
-- Repeating sync for the same Article returns a no-op and creates no duplicate.
-- The item is a Web Page with title, URL, date, category, and Article ID
-  provenance.
-- No unrelated Zotero item or collection is changed or deleted.
-- The three pilot cases cover strong identifier, duplicate, and ambiguous or
-  Zotero strata and expose authoritative full Article content locally.
-- The pilot is marked `PILOT ONLY` and cannot close P3-006.1.
-- M1 crawler, Article Store, Reference Store, and the existing 64-case
-  worksheet remain byte-unchanged.
-- No private Zotero data, collection key, full Article content, runtime file,
-  local path, or secret is tracked.
-- Focused and full Backend tests pass; secret and artifact audits pass.
-- Commit message is exactly
-  `feat: add Scientific Spaces Zotero collection sync`.
-- Push, P3-007, candidate, tag, Release, and attestation remain not performed.
+- Exactly three approved parents remain; no parent is deleted or duplicated.
+- Each approved parent has exactly one `application/pdf` child.
+- Each approved parent has zero `text/html` children after migration.
+- All three PDFs are nonempty, valid, readable, formula-rendered, and available
+  from Zotero local storage.
+- HTML deletion occurs only after all three PDFs pass Zotero readback.
+- A repeated run creates zero parents and zero attachments and performs zero
+  browser fetches.
+- All temporary PDFs are removed at the end of the run.
+- No unrelated Zotero item or collection is read broadly, changed, deleted, or
+  exported.
+- Browser access remains limited to the exact three approved Article URLs.
+- M1, Article Store, Reference Store, and the formal 64-case packet remain
+  unchanged.
+- Focused and full Backend tests, secret audit, tracked-artifact audit,
+  changed-path check, and `git diff --check` pass.
+- No PDF, HTML, full text, image, profile, trace, cache, Zotero key, private
+  metadata, or secret is tracked.
+- Push, P3-007, candidate, tag, Release, and attestation are not performed.
+
+## Stop Conditions
+
+- No supported Zotero Desktop path can attach a generated PDF to an existing
+  parent without recreating it.
+- Any PDF fails generation, format, formula, or Zotero readback validation.
+- All three PDFs cannot be verified before HTML deletion.
+- Any unrelated private Zotero item would need to be changed.
+- Source/store drift, unknown worktree drift, REWORK/FAIL audit, test failure,
+  secret/artifact finding, or scope expansion occurs.
+
+## Completion Evidence
+
+- Existing approved parents reused: 3/3
+- Browser-printed A4 PDFs imported and read back: 3/3
+- PDF sizes: 971,286; 550,679; and 713,184 bytes
+- PDF pages: 11; 2; and 3
+- Title, Chinese, distributed Article content, and MathJax checks: 3/3
+- HTML replacement ordering: first deletion occurred only after 3/3 PDF
+  readback
+- Final live child state: PDF 3, HTML 0
+- Repeated run: zero browser fetches, zero duplicate writes, zero additional
+  trash operations
+- Focused tests: 21 passed
+- Full Backend suite: 561 passed, 3 skipped
+- Article Store, Reference Store, and formal review packet: unchanged
+- Temporary PDFs, debugger listener, preference backups, and diagnostic
+  profiles: removed or restored
+- Local commit only; push remains unauthorized
