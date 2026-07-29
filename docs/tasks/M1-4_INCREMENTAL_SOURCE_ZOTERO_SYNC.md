@@ -2,7 +2,7 @@
 
 ## Status
 
-LOCAL PASS / AWAITING MAIN CI
+PASS / CLOSED
 
 ## Objective
 
@@ -30,7 +30,7 @@ PDF collection.
 
 - Bounded official RSS and missing-Article source access: CONSUMED / CLOSED
 - Private Zotero read/write in `苏剑林博客`: CONSUMED / CLOSED
-- Local file modification, tests, commit, push, and CI inspection: GRANTED THROUGH MAIN CI CLOSURE
+- Local file modification, tests, commit, push, and CI inspection: CONSUMED / CLOSED
 - Real/paid AI Provider calls: NOT GRANTED
 - Candidate, tag, GitHub Release, or attestation: NOT GRANTED
 

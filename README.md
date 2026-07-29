@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Integration`
-- Status: `M1.4 incremental Article/PDF/Zotero sync LOCAL PASS; main CI pending`
+- Status: `M1.4 incremental Article/PDF/Zotero sync PASS / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `M1.4 live delta, PDF fidelity, Zotero readback, and idempotency PASS locally`
-- Current task: `M1.4 Incremental Source and Zotero PDF Sync - awaiting main CI`
+- Latest gate: `M1.4 exact-implementation main CI PASS`
+- Current task: `M1.4 Incremental Source and Zotero PDF Sync - PASS / CLOSED`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.

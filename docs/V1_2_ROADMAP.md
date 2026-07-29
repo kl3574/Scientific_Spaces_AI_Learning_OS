@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is LOCAL PASS / AWAITING MAIN CI at 1,314 Articles; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -336,7 +336,7 @@ frozen inventory remain an explicit M1.x source-delta candidate. Evidence is in
 
 ### M1.4 - Incremental Source and Zotero PDF Sync
 
-Status: **LOCAL PASS / AWAITING MAIN CI**.
+Status: **PASS / CLOSED**.
 
 This separately authorized M1.x revision leaves frozen M1 modules and existing
 Article records unchanged. It adds a read-only-by-default command that reads
@@ -358,6 +358,11 @@ RAG, Graph, and structured Reference Store outputs remain explicit immutable
 fingerprint against the new Article Store; no derived rebuild is implicit in
 M1.4. Evidence is in
 `docs/M1_4_INCREMENTAL_SOURCE_ZOTERO_SYNC_REPORT.md`.
+Implementation commit `2fbed9c566dd92cd4b97b1222869fde19251cfe0`
+passed main CI run
+[`30414826425`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30414826425),
+including Backend, Frontend, workflow policy, dependency, secret, and SBOM
+jobs. Docker and release evidence were correctly skipped for the normal push.
 
 ## Release Criteria
 
@@ -391,8 +396,9 @@ M1.4. Evidence is in
 
 ## Next Recommended Task
 
-`P3-008 v1.2 Candidate Decision`
+`P3-010 Incremental Derived Asset Refresh`
 
-P3-008 remains `ALIGNMENT REQUIRED / NOT GRANTED`. Candidate assignment,
-repository changes for P3-008, push, tag, Release, and attestation remain
-unauthorized.
+P3-010 remains `ALIGNMENT REQUIRED / NOT GRANTED`. It should refresh the
+RAG, Graph, and structured Reference Store snapshots for the 1,314-Article
+corpus without making rebuilds implicit in M1.4. Candidate assignment, push,
+tag, Release, and attestation remain unauthorized for that future task.

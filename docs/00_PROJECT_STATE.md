@@ -14,7 +14,7 @@ v1.2 Implementation
 
 Status:
 
-M1.4 Incremental Source and Zotero PDF Sync: LOCAL PASS / AWAITING MAIN CI
+M1.4 Incremental Source and Zotero PDF Sync: PASS / CLOSED
 
 Release Readiness:
 
@@ -132,11 +132,11 @@ M1.4 Incremental Source and Zotero PDF Sync
 
 Current Task Status:
 
-LOCAL PASS / AWAITING MAIN CI
+PASS / CLOSED
 
 Implementation Authorization:
 
-GRANTED THROUGH M1.4 MAIN CI CLOSURE
+CONSUMED / CLOSED
 
 P3-009 Source Access:
 
@@ -187,6 +187,14 @@ STALE BY DESIGN - READER/SEARCH AND ZOTERO USE 1,314 ARTICLES; RAG, GRAPH, AND R
 M1.4 Local Verification:
 
 PASS - 592 BACKEND TESTS PASSED WITH 4 SKIPPED; 27/27 FOCUSED FRONTEND TESTS AND PRODUCTION BUILD PASSED; LIVE BROWSER TEST, READER/SEARCH, ZOTERO, CONTENT, PDF, AND IDEMPOTENCY GATES PASSED
+
+M1.4 Implementation Commit:
+
+2fbed9c566dd92cd4b97b1222869fde19251cfe0
+
+M1.4 Main CI:
+
+PASS - https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30414826425
 
 M1.4 Evidence:
 
@@ -434,7 +442,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-P3-008 v1.2 Candidate Decision - ALIGNMENT REQUIRED / NOT GRANTED
+P3-010 Incremental Derived Asset Refresh - ALIGNMENT REQUIRED / NOT GRANTED
 
 Post-freeze Change Rule:
 

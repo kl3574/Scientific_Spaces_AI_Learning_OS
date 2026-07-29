@@ -10,13 +10,13 @@ M1.4 Incremental Source and Zotero PDF Sync
 
 ## Status
 
-LOCAL PASS / AWAITING MAIN CI
+PASS / CLOSED
 
 ## Authorization
 
 - Official RSS and bounded missing-Article source access: CONSUMED / CLOSED
 - Private Zotero Desktop read/write in `苏剑林博客`: CONSUMED / CLOSED
-- Local changes, tests, commit, push, and CI inspection: GRANTED THROUGH MAIN CI CLOSURE
+- Local changes, tests, commit, push, and CI inspection: CONSUMED / CLOSED
 - Real/paid Provider calls: NOT GRANTED
 - Candidate / tag / Release / attestation: NOT GRANTED
 
@@ -29,3 +29,8 @@ LOCAL PASS / AWAITING MAIN CI
 - runtime/private artifacts remain untracked;
 - implementation commit pushed and main CI passed; and
 - branch/worktree synchronized and clean.
+
+## Next Task
+
+`P3-010 Incremental Derived Asset Refresh` is
+`ALIGNMENT REQUIRED / NOT GRANTED`.

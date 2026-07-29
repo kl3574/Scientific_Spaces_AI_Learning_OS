@@ -2,7 +2,7 @@
 
 Date: 2026-07-29
 
-Status: **LOCAL PASS / AWAITING MAIN CI**
+Status: **PASS / CLOSED**
 
 ## 1. Scope
 
@@ -184,7 +184,17 @@ Local implementation, live import, PDF fidelity, Zotero cardinality,
 idempotency, Backend tests, Frontend tests/build, and compatibility checks:
 **PASS**.
 
-Main CI for the M1.4 implementation commit: **PENDING**.
+Implementation commit:
+`2fbed9c566dd92cd4b97b1222869fde19251cfe0`.
 
-Final M1.4 state remains **LOCAL PASS / AWAITING MAIN CI** until that exact
-commit passes required GitHub Actions.
+Main CI:
+[`30414826425`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30414826425)
+**PASS**.
+
+The exact implementation commit passed Backend pytest, Frontend build,
+workflow policy, dependency audit, secret audit, and SBOM validation. Docker
+compose smoke and release evidence were correctly skipped for this ordinary
+main push. The only annotations were the existing non-blocking GitHub Actions
+Node 20 deprecation notices.
+
+Final M1.4 state: **PASS / CLOSED**.
