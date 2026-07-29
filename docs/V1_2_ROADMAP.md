@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is LOCAL PASS / AWAITING MAIN CI at 1,314 Articles; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -333,6 +333,31 @@ artifact, and changed-path gates passed. Three newer RSS URLs outside the
 frozen inventory remain an explicit M1.x source-delta candidate. Evidence is in
 `docs/P3_009_THROUGHPUT_PROBE_REPORT.md` and
 `docs/P3_009_FULL_CORPUS_RUN_REPORT.md`.
+
+### M1.4 - Incremental Source and Zotero PDF Sync
+
+Status: **LOCAL PASS / AWAITING MAIN CI**.
+
+This separately authorized M1.x revision leaves frozen M1 modules and existing
+Article records unchanged. It adds a read-only-by-default command that reads
+the official RSS feed, acquires only missing canonical Article URLs through
+the validated one-tab/four-second WebBridge tier, validates all source content
+before an atomic append, and then reuses the established browser-printed PDF
+and Zotero readback contracts.
+
+The live delta discovered 10 feed URLs and imported three missing Articles.
+The Article Store grew from 1,311 to 1,314 with all existing records unchanged.
+The private `苏剑林博客` collection completed at 1,314 parents, 1,314 PDFs,
+zero HTML children, and zero duplicates. The immediate rerun made zero source
+or PDF navigations and zero Article or Zotero writes. Local Backend,
+Frontend, Reader/Search, content, formula, PDF, Zotero, and artifact gates
+passed.
+
+RAG, Graph, and structured Reference Store outputs remain explicit immutable
+1,311-Article snapshots. The Reference API correctly reports a stale corpus
+fingerprint against the new Article Store; no derived rebuild is implicit in
+M1.4. Evidence is in
+`docs/M1_4_INCREMENTAL_SOURCE_ZOTERO_SYNC_REPORT.md`.
 
 ## Release Criteria
 

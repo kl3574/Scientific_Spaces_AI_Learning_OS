@@ -1,167 +1,142 @@
-# P3-009 Full Corpus Acquisition and Zotero PDF Sync Alignment
+# M1.4 Incremental Source and Zotero PDF Sync Alignment
 
 Canonical task:
-`docs/tasks/P3-009_FULL_CORPUS_ACQUISITION_ZOTERO_PDF_SYNC.md`
+`docs/tasks/M1-4_INCREMENTAL_SOURCE_ZOTERO_SYNC.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL PASS / AWAITING MAIN CI**
 
 NETWORK / PRIVATE ZOTERO WRITE AUTHORIZATION: **CONSUMED / CLOSED**
 
-LOCAL FILE MODIFICATION / LOCAL COMMIT AUTHORIZATION: **CONSUMED BY THE P3-009 CLOSURE COMMIT**
+LOCAL FILE MODIFICATION / COMMIT / PUSH AUTHORIZATION: **GRANTED THROUGH MAIN CI CLOSURE**
 
-PUSH / CANDIDATE / TAG / RELEASE AUTHORIZATION: **NOT GRANTED**
+CANDIDATE / TAG / RELEASE AUTHORIZATION: **NOT GRANTED**
 
 ## 1. Background
 
-- P3-007 is `CONDITIONAL / RISK ACCEPTED / CLOSED`.
-- The accepted private Zotero representation is one browser-printed PDF child
-  per Scientific Spaces parent; HTML is not an accepted final attachment.
-- Three approved Articles already passed PDF import and idempotency checks.
-- Existing runtime evidence contains 1,326 canonical URLs, 1,311 valid stored
-  Articles, 15 classified non-importable candidates, and no unclassified URL.
-- Existing offline PDFs cover 1,311 Articles, but they are local Markdown
-  renders rather than source-page browser prints.
-- P3-008 Candidate Decision is deferred. No v1.2 candidate is assigned.
+- P3-009 completed the frozen 1,311-Article corpus and private Zotero
+  browser-printed PDF synchronization in local commit
+  `048a0f9d1e9b0162e1d020a7c6a98ed4e961e27a`.
+- That commit was one commit ahead of cached `origin/main` when P3-009 closed
+  and has not yet been synchronized to GitHub.
+- A low-frequency RSS check observed at least three newer Scientific Spaces
+  Article URLs outside the frozen 1,326-URL inventory.
+- M1 is frozen. This separately authorized M1.4 task adds an incremental
+  orchestration path without mutating existing Article content, schemas, or
+  legacy/API contracts.
+- The accepted private Zotero representation remains one browser-printed A4
+  PDF child and zero live HTML children per Article parent.
+
+All repository, remote, feed, browser, and Zotero facts must be revalidated
+before use.
 
 ## 2. Requirements
 
-1. Revalidate the current corpus, source delta, disk capacity, Chromium,
-   Zotero Desktop, collection identity, and checkpoint state.
-2. Measure a bounded, compliant browser-print operating envelope rather than
-   stress-testing the source.
-3. Start from one worker and an eight-second global navigation interval.
-4. Test at most four browser workers, no interval below four seconds, and no
-   more than 25 known Article URLs across the probe.
-5. Change one pressure dimension at a time and stop at the first HTTP 403,
-   HTTP 429, source-quality failure, retry spike, or material latency/resource
-   degradation.
-6. Select the previous stable tier and retain adaptive backoff for the full
-   run.
-7. Fetch only source pages needed for incremental Article ingestion or
-   browser-printed PDFs. Do not repeat the completed body crawl without a
-   source-delta reason.
-8. Generate A4 PDFs after MathJax settles, validate them, and import them into
-   the private Zotero root collection `Su Jianlin Blog` (`苏剑林博客`).
-9. Keep Zotero writes idempotent and sequential even when browser rendering is
-   parallel.
-10. Do not retain HTML children as the final representation.
-11. Skip per-Article human review, but retain automated content, PDF,
-    attachment-cardinality, duplicate, and readback gates.
-12. Validate Reader, Search, RAG citations, Graph, Tutor, and Zotero behavior
-    against the completed local corpus using fake/offline providers.
-13. Do not call a real or paid AI provider.
-14. Do not commit runtime corpus data, PDFs, Zotero data, browser artifacts,
-    credentials, or secrets.
+1. Revalidate Git state and confirm the P3-009 commit is the only unpushed
+   commit.
+2. Push the P3-009 commit to `origin/main` and verify its main CI.
+3. Add a local CLI that reads the official Scientific Spaces RSS feed and
+   discovers only Article URLs missing from the configured Article Store.
+4. Fetch only missing canonical Articles through the authorized desktop
+   browser path; do not scan archive IDs or crawl archive/search pages.
+5. Reuse existing parser, converter, Article Store, PDF validator, and Zotero
+   contracts without changing existing stored `Article.content`.
+6. Generate browser-printed A4 PDFs after MathJax settles and synchronize them
+   into the private Zotero root collection `苏剑林博客`.
+7. Persist resumable runtime checkpoints and make repeated runs idempotent.
+8. Keep Zotero writes sequential and require exactly one PDF and zero HTML
+   children per new parent.
+9. Add unit, integration, and separately marked live tests.
+10. Run full Backend, Frontend, feature, secret, artifact, and changed-path
+    validation.
+11. Create and push one implementation commit, then verify main CI.
+12. Do not call a real or paid AI Provider or commit private/runtime data.
 
 ## 3. Purpose
 
-Complete the real private-data production path as quickly as the measured safe
-source-access envelope permits, while preserving source-site policy, PDF
-fidelity, Zotero integrity, resumability, and honest failure accounting.
+Provide a repeatable incremental update command that safely carries newly
+published Scientific Spaces Articles into the local Article Store and private
+Zotero PDF collection without reprocessing the completed corpus.
 
 ## 4. Planned Execution
 
-1. Persist this alignment and the canonical P3-009 task.
-2. Audit current runtime corpus, source delta, browser/PDF dependencies,
-   Zotero readiness, and existing three-item state.
-3. Add only non-frozen operational orchestration and focused tests needed for
-   a resumable throughput probe and bulk PDF/Zotero sync.
-4. Run a small browser-print probe with a global start-rate limiter, bounded
-   concurrency, quality validation, and immediate stop conditions.
-5. Record every tested tier and choose the fastest stable tier.
-6. Discover and ingest only new canonical source Articles under the existing
-   frozen source pipeline constraints.
-7. Resume through all valid stored Articles, printing source-page PDFs,
-   validating them, writing Zotero sequentially, and checkpointing every
-   terminal result.
-8. Re-run the bulk command to prove zero duplicate parents/attachments and
-   zero unnecessary browser fetches.
-9. Run focused and full Backend tests, Frontend tests/build, full-corpus
-   feature smoke, secret audit, and artifact audit.
-10. Write throughput and full-run reports, update project governance, and
-    create the authorized local commit.
+1. Persist this alignment and canonical M1.4 task.
+2. Verify the local branch, commit, remote, authentication, and CI workflow.
+3. Push and validate the existing P3-009 commit.
+4. Inspect current RSS, browser acquisition, parser, storage, PDF, Zotero, and
+   checkpoint interfaces.
+5. Implement additive incremental discovery and orchestration under non-frozen
+   paths.
+6. Add deterministic fixture tests and isolated live markers.
+7. Run a read-only delta preview, then a bounded authorized live update for
+   missing RSS Articles.
+8. Validate Article content, metadata, formulas, PDF fidelity, Zotero
+   cardinality, and readback.
+9. Rerun the command to prove zero unnecessary fetches and zero writes.
+10. Run complete local validation and repository audits.
+11. Update governance/report files, commit, push, and verify main CI.
 
 ## 5. Selection Rationale
 
-A global navigation limiter controls actual source pressure while multiple
-browser workers can overlap rendering and MathJax wait time. This improves
-throughput more safely than reducing delay alone. Sequential Zotero writes
-retain deterministic parent/attachment cardinality and simple recovery.
+An additive CLI keeps source discovery, browser acquisition, parsing, PDF
+printing, and Zotero writes explicit and recoverable. RSS provides a bounded
+official discovery surface. Reusing existing contracts avoids destabilizing
+the frozen full-corpus pipeline.
 
 ## 6. Alternatives
 
 | Option | Decision |
 | --- | --- |
-| Keep one worker and eight seconds permanently | Safe but unnecessarily slow if bounded evidence supports more |
-| Run an unbounded stress or capacity test | Prohibited because it could burden the source |
-| Bounded adaptive probe plus global rate limiting | Selected |
-| Use offline rendered PDFs instead of source-page prints | Rejected by the accepted Zotero policy |
+| Add an explicit incremental CLI | Selected: bounded, testable, and resumable |
+| Modify the original full-corpus sync directly | Rejected: unnecessary frozen-path risk |
+| Reprocess all 1,311 Articles on every update | Rejected: slow and creates needless source access |
+| Install a background scheduler immediately | Deferred until the manual incremental path has live evidence |
 
 ## 7. Deliverables
 
 - updated `alignment.md`
-- `docs/tasks/P3-009_FULL_CORPUS_ACQUISITION_ZOTERO_PDF_SYNC.md`
+- `docs/tasks/M1-4_INCREMENTAL_SOURCE_ZOTERO_SYNC.md`
 - updated `docs/tasks/CURRENT_TASK.md`
-- `docs/P3_009_THROUGHPUT_PROBE_REPORT.md`
-- `docs/P3_009_FULL_CORPUS_RUN_REPORT.md`
-- necessary non-frozen operational scripts and focused tests
-- ignored private runtime checkpoint, temporary PDFs, and Zotero attachments
-- updated `docs/00_PROJECT_STATE.md`, `docs/V1_2_ROADMAP.md`, and `README.md`
-- local commit:
-  `ops: complete P3-009 full corpus Zotero PDF sync`
+- `backend/app/zotero/incremental_sync.py`
+- `scripts/zotero/update_latest_blog_pdfs.py`
+- focused Backend tests and separately marked live tests
+- `docs/M1_4_INCREMENTAL_SOURCE_ZOTERO_SYNC_REPORT.md`
+- updated `README.md`, `docs/00_PROJECT_STATE.md`, and
+  `docs/V1_2_ROADMAP.md`
+- implementation commit:
+  `feat: add incremental blog Zotero PDF sync`
+- main-push CI evidence for P3-009 and M1.4
 
 ## 8. Acceptance Criteria
 
-- Probe evidence records tested workers, global interval, URL count, HTTP
-  status, latency, retries, content/PDF quality, and the selected stable tier.
-- The probe never exceeds four workers, a four-second global interval, or 25
-  known Article URLs and does not scan archive IDs or search pages.
-- Source inventory reconciles to 100%; `unclassified=0`.
-- Every accessible, safely importable Article has valid stored content.
-- Every target Zotero parent has exactly one valid browser-printed PDF child
-  and zero live HTML children.
-- Every PDF exists during staging, is non-empty, starts with `%PDF-`, has at
-  least one readable A4 page, contains title/Chinese/body evidence, and
-  preserves MathJax evidence when formulas are expected.
-- A repeated sync produces zero duplicate parents, zero duplicate PDF
-  attachments, and zero unnecessary source fetches.
-- All terminal failures are explicitly classified and resumable; no failure is
-  silently dropped.
-- Backend, Frontend, full-corpus feature smoke, secret, artifact, and
-  changed-path checks pass.
-- No frozen M1 module, Article schema/content, legacy API, candidate, tag,
-  Release, real Provider, private export, or tracked runtime artifact changes.
-- Final status and counts are based on live evidence, not inferred from the
-  three-item pilot.
+- P3-009 commit is pushed without history rewrite and its required main CI
+  jobs pass.
+- Official RSS discovery deterministically identifies existing versus missing
+  canonical Article URLs without archive scanning.
+- Every imported Article has valid title, content, metadata, balanced formula
+  delimiters, and preserved references/images.
+- Existing Article records and content remain byte-for-byte unchanged.
+- Every new Zotero parent has exactly one validated browser-printed A4 PDF and
+  zero live HTML children.
+- The immediate rerun produces zero Article fetches, zero Zotero writes, and
+  zero duplicate parent/PDF records.
+- Unit and integration tests pass; live tests are separately marked and do not
+  affect default CI.
+- Full Backend tests, Frontend focused tests/build, Reader/Search and relevant
+  offline feature smokes pass.
+- Secret and artifact audits report no credible secret or tracked
+  runtime/private artifact.
+- No frozen M1 module, Article schema, legacy/API contract, candidate, tag,
+  Release, real Provider, or paid request change occurs.
+- The M1.4 implementation commit is pushed, required GitHub Actions pass, and
+  final `main` is clean and synchronized with `origin/main`.
 
 ## Stop Conditions
 
-- The work requires a frozen M1 implementation or contract change.
-- Robots/site policy forbids the requested access.
-- HTTP 403/429, source-quality failures, or retry clusters persist after
-  immediate backoff.
-- Zotero collection identity or parent provenance is ambiguous.
-- Disk, browser, or Zotero runtime becomes unsafe or unstable.
-- A secret/private artifact would enter Git.
-- A real Provider, paid request, push, candidate, tag, or Release becomes
-  necessary.
-
-## Completion Evidence
-
-- The user-connected desktop Chrome session passed all nine bounded probe
-  Articles at 8-, 6-, and 4-second intervals with zero retries.
-- WebBridge's reliable current-tab identity limits safe concurrency to one;
-  `1 worker / 4 seconds` is the selected stable tier.
-- The canonical inventory reconciled to 1,311 valid Articles, 15 classified
-  non-importable URLs, and zero unclassified URLs.
-- Zotero final audit: 1,311 parents, 1,311 PDF children, zero HTML children,
-  zero duplicates, and zero unresolved failures.
-- Idempotent rerun: zero browser renders, zero network navigations, and zero
-  Zotero writes.
-- Backend, Frontend, full-corpus feature, secret, artifact, and changed-path
-  gates passed.
-- Three newer RSS URLs outside the frozen inventory remain an explicit M1.x
-  source-delta candidate; no frozen M1 code or Article content changed.
-
-No push, candidate assignment, tag, Release, attestation, real Provider, or
-paid request occurred.
+- The task requires changing frozen crawler/parser/converter/storage code or a
+  published contract.
+- The working tree contains unknown changes or conflicts.
+- Source policy, HTTP, content, browser, PDF, or Zotero quality gates fail
+  after bounded retry/backoff.
+- Existing Article content would need mutation.
+- A secret or private/runtime artifact would enter Git.
+- A real/paid Provider, candidate, tag, or Release action becomes necessary.

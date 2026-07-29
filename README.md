@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Integration`
-- Status: `P3-009 PASS / CLOSED locally`
+- Status: `M1.4 incremental Article/PDF/Zotero sync LOCAL PASS; main CI pending`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-009 full-corpus Zotero PDF synchronization PASS / CLOSED locally`
-- Current task: `P3-009 Full Corpus Acquisition and Zotero PDF Sync - PASS / CLOSED`
+- Latest gate: `M1.4 live delta, PDF fidelity, Zotero readback, and idempotency PASS locally`
+- Current task: `M1.4 Incremental Source and Zotero PDF Sync - awaiting main CI`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -23,6 +23,7 @@ Approved v1.2 planning scope and priorities: `docs/V1_2_ROADMAP.md`.
 P3-007 evidence: `docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`.
 P3-009 throughput evidence: `docs/P3_009_THROUGHPUT_PROBE_REPORT.md`.
 P3-009 full-run status: `docs/P3_009_FULL_CORPUS_RUN_REPORT.md`.
+M1.4 incremental sync evidence: `docs/M1_4_INCREMENTAL_SOURCE_ZOTERO_SYNC_REPORT.md`.
 
 v1.2 planning specifications:
 
@@ -111,6 +112,31 @@ endpoints:
 The API never rebuilds on request. Missing, stale, or corrupt stores return a
 bounded HTTP 503 state. Existing `/articles` and `/v1.1` contracts are
 unchanged.
+
+## Incremental Blog PDF Sync
+
+Preview the latest official RSS delta without fetching Articles or writing
+Zotero:
+
+```bash
+uv run --project backend python \
+  scripts/zotero/update_latest_blog_pdfs.py
+```
+
+After Zotero Desktop and the validated WebBridge session are connected, apply
+the delta explicitly:
+
+```bash
+uv run --project backend python \
+  scripts/zotero/update_latest_blog_pdfs.py --write
+```
+
+The command fetches only canonical RSS URLs absent from the Article Store,
+validates content before an atomic append, prints A4 PDFs after MathJax
+settles, and synchronizes one PDF/zero HTML children into `苏剑林博客`.
+Runtime checkpoints, backups, summaries, and temporary PDFs remain under
+ignored `.local_data/`. RAG, Graph, and Reference Store artifacts are not
+rebuilt implicitly; they require a separate derived-asset refresh.
 
 ## Current Development Task
 
