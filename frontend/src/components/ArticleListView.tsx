@@ -93,14 +93,14 @@ export function ArticleListView() {
   }
 
   return (
-    <section className="space-y-5">
-      <div className="flex flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
-        <div>
+    <section className="min-w-0 max-w-full space-y-5">
+      <div className="flex min-w-0 max-w-full flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">Article List</h1>
           <p className="mt-1 text-sm text-slate-600">Search Scientific Spaces articles by title or keyword.</p>
           <p className="mt-2 text-xs text-slate-500">{status === "loaded" ? getRangeLabel() : ""}</p>
         </div>
-        <form className="flex w-full max-w-xl gap-2" onSubmit={handleSubmit}>
+        <form className="flex w-full min-w-0 max-w-xl gap-2" onSubmit={handleSubmit}>
           <input
             className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-950"
             name="q"
@@ -145,10 +145,10 @@ export function ArticleListView() {
 
       {status === "loaded" && total === 0 ? <p className="text-sm text-slate-600">No articles found.</p> : null}
 
-      <div className="grid gap-3">
+      <div className="grid min-w-0 max-w-full gap-3">
         {articles.map((article) => (
-          <article key={article.id} className="rounded border border-slate-200 bg-white p-4">
-            <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
+          <article key={article.id} className="min-w-0 max-w-full overflow-hidden rounded border border-slate-200 bg-white p-4">
+            <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
                 <Link
                   className="break-words text-base font-semibold text-slate-950 hover:underline"

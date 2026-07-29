@@ -6,12 +6,12 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
-- Phase: `v1.2 Integration`
-- Status: `P3-010 derived asset refresh PASS / CLOSED`
+- Phase: `v1.2 Product Convergence`
+- Status: `P3-011 local implementation PASS / exact-SHA CI pending`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-010 exact implementation main CI PASS`
-- Current task: `None assigned; alignment required`
+- Latest gate: `P3-011 local E2E 3/3 PASS`
+- Current task: `P3-011 End-to-End Product Convergence`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -25,6 +25,7 @@ P3-009 throughput evidence: `docs/P3_009_THROUGHPUT_PROBE_REPORT.md`.
 P3-009 full-run status: `docs/P3_009_FULL_CORPUS_RUN_REPORT.md`.
 M1.4 incremental sync evidence: `docs/M1_4_INCREMENTAL_SOURCE_ZOTERO_SYNC_REPORT.md`.
 P3-010 derived refresh evidence: `docs/P3_010_INCREMENTAL_DERIVED_ASSET_REFRESH_REPORT.md`.
+P3-011 product convergence evidence: `docs/P3_011_END_TO_END_PRODUCT_CONVERGENCE_REPORT.md`.
 
 v1.2 planning specifications:
 
@@ -165,6 +166,7 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
+- P3-011 specification: `docs/tasks/P3-011_END_TO_END_PRODUCT_CONVERGENCE.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
@@ -273,6 +275,17 @@ Build:
 ```bash
 npm run build
 ```
+
+Run the local-only product E2E suite after the production build:
+
+```bash
+cd ..
+uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3
+```
+
+The E2E command uses temporary fixture stores, fake providers, real local
+FastAPI/Next.js processes, and Chromium. It blocks non-loopback requests and
+removes the temporary runtime after completion.
 
 Run the frontend:
 

@@ -9,6 +9,8 @@
 html,
 body {
   min-height: 100%;
+  max-width: 100%;
+  overflow-x: clip;
 }
 
 body {
@@ -19,6 +21,8 @@ body {
 }
 
 .reader-markdown {
+  min-width: 0;
+  max-width: 100%;
   color: #1f2937;
   font-size: 1rem;
   line-height: 1.8;
@@ -99,11 +103,19 @@ body {
 }
 
 .reader-markdown .katex {
+  display: inline-block;
+  max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
+  vertical-align: middle;
 }
 
 .reader-markdown .katex-display {
+  contain: inline-size;
+  width: 100%;
+  max-width: 100%;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .reader-markdown table {

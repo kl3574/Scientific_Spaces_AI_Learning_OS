@@ -1,109 +1,102 @@
-# P3-010 Incremental Derived Asset Refresh Alignment
+# P3-011 End-to-End Product Convergence Alignment
 
 Canonical task:
-`docs/tasks/P3-010_INCREMENTAL_DERIVED_ASSET_REFRESH.md`
+`docs/tasks/P3-011_END_TO_END_PRODUCT_CONVERGENCE.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL PASS / EXACT-SHA CI PENDING**
 
-LOCAL DERIVED DATA READ / WRITE AUTHORIZATION: **CONSUMED / CLOSED**
+LOCAL DATA READ / APPLICATION RUNTIME AUTHORIZATION: **GRANTED**
 
 LOCAL FILE MODIFICATION / TEST / COMMIT / PUSH / CI AUTHORIZATION:
-**CONSUMED / CLOSED**
+**GRANTED**
 
-SOURCE NETWORK / PRIVATE ZOTERO / REAL PROVIDER AUTHORIZATION:
+SOURCE NETWORK / PRIVATE ZOTERO WRITE / REAL PROVIDER AUTHORIZATION:
 **NOT GRANTED**
 
 CANDIDATE / TAG / RELEASE AUTHORIZATION: **NOT GRANTED**
 
 ## 1. Background
 
-- M1.4 is PASS / CLOSED at 1,314 Articles.
-- Reader/Search and the private Zotero PDF collection already use the current
-  Article Store.
-- RAG, Knowledge Graph, and structured Reference Store remain immutable
-  1,311-Article snapshots.
-- The Reference API correctly reports `reference_store_stale` rather than
-  serving mismatched provenance.
-- M1 is frozen. P3-010 must not modify source discovery, browser acquisition,
-  parsing, conversion, Article storage, PDF export, or Zotero synchronization.
-- The expected entry Article Store SHA-256 is
-  `852ea18fd0f01781d0f8fdb7a4cf5d0ba5c4b9fb161e680a0f56455c03f11846`;
-  it must be revalidated before use.
+- P3-010 is PASS / CLOSED at the exact 1,314-Article corpus fingerprint.
+- RAG, Graph, and structured Reference assets match the current Article Store.
+- The product now needs a real local runtime and browser acceptance cycle that
+  proves complete user workflows rather than relying only on component tests.
+- M1 frozen modules, existing Article records, and published legacy, `/v1.1`,
+  and `/v1.2` API contracts remain protected.
+- The entry commit is
+  `380f79804fbbde6795a7532f00a9be79b02b3bc0`; entry `main` and
+  `origin/main` are synchronized and the worktree is clean.
 
 ## 2. Requirements
 
-1. Use the exact current 1,314-Article Store as the sole source input.
-2. Refresh the persisted RAG index, Knowledge Graph, and structured Reference
-   Store with matching corpus fingerprints.
-3. Preserve recoverable copies of the existing 1,311-Article snapshots.
-4. Build in staging and install only after every integrity and compatibility
-   gate passes.
-5. Use deterministic offline providers and perform zero external requests.
-6. Prove Articles `/archives/11814`, `/archives/11818`, and `/archives/11823`
-   are represented by the refreshed derived assets.
-7. Preserve Reader/Search, Tutor, legacy API, `/v1.1`, and `/v1.2` contracts.
-8. Add dry-run, failure rollback, atomic install, determinism, and idempotency
-   tests.
-9. Run full Backend, Frontend, feature, secret, artifact, and changed-path
-   validation.
-10. Create implementation and closure commits, push both, and verify exact
-    main CI runs.
-11. Do not access the source site, write Zotero, call a real/paid Provider, or
-    assign a candidate/tag/Release.
+1. Start the Backend, Frontend, and required local runtime dependencies.
+2. Use the existing exact 1,314-Article local corpus and matching derived
+   assets.
+3. Exercise Reader, Search, Reading History, Learning, Tutor, References, and
+   Knowledge Graph through real APIs and browser UI.
+4. Add repeatable browser automation instead of relying only on unit tests.
+5. Diagnose and fix in-scope defects, then add focused regression coverage.
+6. Repeat the complete E2E flow at least three times without flaky failures,
+   duplicate writes, or state leakage.
+7. Verify desktop and mobile rendering, Markdown, Chinese text, formulas,
+   citations, deep links, empty/error states, and restart persistence.
+8. Run full Backend, Frontend, Docker, compatibility, secret, artifact, and
+   changed-path gates.
+9. Create an implementation commit and a docs-only closure commit, push both,
+   and verify each exact-SHA main CI run.
+10. Do not access the source site, write private Zotero, call a real/paid
+    Provider, or assign/create a candidate, tag, or Release.
 
 ## 3. Purpose
 
-Bring all persisted derived capabilities into fingerprint-consistent alignment
-with the 1,314-Article source of truth so the three newly imported Articles can
-participate in retrieval, graph, structured-reference, and Tutor workflows.
+Converge the current product into a repeatably runnable local system with
+evidence that its core user journey works from browser interaction through
+Backend persistence and derived knowledge services.
 
 ## 4. Planned Execution
 
 1. Persist this alignment and canonical task.
-2. Revalidate Git state, Article count/SHA/fingerprint, and current derived
-   manifests.
-3. Audit existing RAG, Graph, Reference, operations, backup, and rollback
-   interfaces without modifying frozen contracts.
-4. Implement an additive read-only-by-default orchestration module and CLI.
-5. Add deterministic fixture tests for preflight, staging, rollback, atomic
-   installation, idempotency, and failure handling.
-6. Run a dry-run against the local 1,314-Article source.
-7. Create recoverable snapshot backups and build all three derived stores in
-   isolated staging directories.
-8. Validate counts, fingerprints, integrity, compatibility, and explicit
-   representation of the three new Articles.
-9. Atomically install the validated bundle; roll back the complete bundle on
-   any installation or post-install failure.
-10. Rerun to prove deterministic no-op/idempotent behavior.
-11. Run API, Reader/Search, RAG, Tutor, Graph, Reference, full test/build,
-    secret, artifact, and frozen-path gates.
-12. Update governance and evidence, commit, push, verify main CI, close the
-    task with a docs-only commit, and verify the second CI.
+2. Revalidate Git, Article Store identity, derived manifests, runtime
+   dependencies, and current test inventory.
+3. Build a requirement-to-evidence E2E acceptance matrix.
+4. Start Backend and Frontend locally and run API smoke checks.
+5. Exercise desktop and mobile browser journeys with Playwright.
+6. Verify Reader/Search, History, Learning, Tutor, Reference, and Graph
+   behavior, including negative and persistence cases.
+7. Classify failures by product defect, test defect, environment limitation,
+   or external boundary.
+8. Fix only in-scope product/test defects and add regression coverage.
+9. Repeat the complete E2E suite three times and verify clean isolation.
+10. Run full Backend, Frontend, Docker, API compatibility, secret, artifact,
+    and changed-path gates.
+11. Update governance and the P3-011 evidence report.
+12. Commit and push implementation, verify exact main CI, create and push a
+    docs-only closure commit, verify its exact main CI, and finish clean and
+    synchronized.
 
 ## 5. Selection Rationale
 
-Reference deduplication, graph relationships, and vector indexing contain
-global corpus relationships. A deterministic full rebuild in staging is safer
-than appending three records into independently persisted structures. Atomic
-bundle installation prevents mixed 1,311/1,314 runtime state and provides a
-clear rollback boundary.
+A deterministic local E2E baseline separates application defects from source,
+private-library, and paid-provider variability. It provides repeatable browser
+evidence while preserving the existing external-side-effect boundaries.
 
 ## 6. Alternatives
 
 | Option | Decision |
 | --- | --- |
-| Offline full rebuild in staging, then atomic bundle install | Selected: strongest consistency and rollback evidence |
-| Direct incremental append into each store | Rejected: global deduplication, graph, and index consistency risk |
-| Leave existing snapshots stale | Rejected: new Articles remain unavailable to derived capabilities |
+| Existing corpus, fake Provider, real local APIs/UI, automated browser E2E | Selected: complete deterministic product validation |
+| Include source crawling, private Zotero writes, and real Provider calls | Rejected for this task: separate authorization and side effects required |
+| Run only existing unit/build checks | Rejected: cannot prove user workflows |
 
 ## 7. Deliverables
 
 - updated `alignment.md`
-- `docs/tasks/P3-010_INCREMENTAL_DERIVED_ASSET_REFRESH.md`
+- `docs/tasks/P3-011_END_TO_END_PRODUCT_CONVERGENCE.md`
 - updated `docs/tasks/CURRENT_TASK.md`
-- additive derived-refresh orchestration module and CLI
-- focused tests for refresh, rollback, determinism, and idempotency
-- `docs/P3_010_INCREMENTAL_DERIVED_ASSET_REFRESH_REPORT.md`
+- an explicit E2E acceptance matrix
+- repeatable browser E2E tests and runtime configuration
+- in-scope Backend/Frontend fixes and regression tests, if required
+- `docs/P3_011_END_TO_END_PRODUCT_CONVERGENCE_REPORT.md`
 - updated `README.md`, `docs/00_PROJECT_STATE.md`, and
   `docs/V1_2_ROADMAP.md`
 - implementation commit and exact main CI evidence
@@ -111,35 +104,34 @@ clear rollback boundary.
 
 ## 8. Acceptance Criteria
 
-- Input is exactly 1,314 Articles and its SHA-256/fingerprint is recorded.
-- The original 1,311-Article RAG, Graph, and Reference snapshots have
-  recoverable ignored backups and are not edited in place.
-- Refreshed RAG, Graph, and Reference manifests match the current Article
-  corpus fingerprint.
-- Articles 11814, 11818, and 11823 are present in relevant derived indexes;
-  RAG can retrieve their content and Graph/Reference APIs can account for them
-  without stale-state errors.
-- Reference API no longer returns `reference_store_stale`.
-- Reader/Search, Tutor, legacy API, `/v1.1`, and `/v1.2` compatibility checks
-  pass.
-- A repeated refresh is deterministic and performs no unnecessary install.
-- Injected build/install/post-install failures leave or restore the complete
-  prior bundle.
-- Full Backend tests and Frontend focused tests/build pass.
+- Backend full tests pass.
+- Frontend tests and production build pass.
+- Docker compose smoke passes.
+- Desktop and mobile core browser journeys pass.
+- Reader/Search, Article detail, Reading History, Learning, Tutor, References,
+  and Graph have direct runtime evidence.
+- Tutor evidence contains valid source citations and does not substitute an
+  ungrounded answer.
+- The complete E2E suite passes three consecutive isolated runs.
+- Required state survives application restart; test-only state does not leak
+  across runs.
+- Empty, not-found, and Backend-unavailable states are controlled.
 - Secret and artifact audits report no credible secret or tracked
   runtime/private artifact.
-- Frozen M1 modules, Article records, published API contracts, source site,
-  Zotero, real Providers, candidate, tag, and Release remain untouched.
-- Implementation and closure commits are pushed; both required main CI runs
-  pass; final `main` is clean and synchronized.
+- Frozen M1 paths, Article source records, and published API contracts remain
+  unchanged.
+- Source access, private Zotero writes, real Providers, candidate, tag, and
+  Release remain untouched.
+- Implementation and closure commits are pushed; both exact main CI runs pass;
+  final `main` is clean and synchronized.
 
 ## Stop Conditions
 
-- The Article Store count or SHA differs from the approved entry state.
+- The current corpus or derived assets are missing or inconsistent.
 - The worktree develops unknown changes or conflicts.
-- A frozen contract or existing Article content would need modification.
-- A source network request, private Zotero access, or real/paid Provider is
-  required.
-- Any staging, integrity, compatibility, rollback, test, artifact, or secret
-  gate fails without an in-scope deterministic fix.
+- Completion requires a frozen M1 or published API contract change.
+- Completion requires source access, a private Zotero write, or a real/paid
+  Provider call.
+- A critical test, runtime, Docker, secret, or artifact gate fails without an
+  in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.

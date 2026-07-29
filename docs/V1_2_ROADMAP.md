@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 product convergence is LOCAL PASS / EXACT-SHA CI PENDING; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -394,6 +394,30 @@ Backend, Frontend, workflow policy, dependency audit, secret audit, and SBOM
 validation succeeded; Docker and release evidence were correctly skipped for
 the normal main push.
 
+### P3-011 - End-to-End Product Convergence
+
+Status: **LOCAL PASS / EXACT-SHA CI PENDING**.
+
+P3-011 runs the real FastAPI and built Next.js applications against both the
+exact 1,314-Article local runtime and a deterministic isolated three-Article
+E2E fixture. It validates Dashboard, Reader/Search, Article Markdown and
+formulas, Reading History, Learning state, Structured References, Knowledge
+Graph, Tutor Explain/Derive/Quiz/Research modes, local deep links, controlled
+errors, mobile layout, and persistence after Backend restart.
+
+The implementation fixes duplicate Reader sessions caused by repeated
+development effects and mobile overflow in Article List and KaTeX content.
+The complete automated suite passed three consecutive runs with 16 checks per
+run, zero external requests, zero unexpected console/page errors, and 390 px
+document widths at a 390 px viewport. Backend passed 600 tests with 4 skipped;
+all 27 focused Frontend tests, production build, dependency, secret, workflow
+policy, and SBOM gates passed.
+
+The local host has no Docker executable. P3-011 remains open until the
+implementation commit passes normal main CI and exact-SHA `workflow_dispatch`
+Docker smoke, then a docs-only closure commit passes exact main CI. Evidence
+is in `docs/P3_011_END_TO_END_PRODUCT_CONVERGENCE_REPORT.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -426,6 +450,7 @@ the normal main push.
 
 ## Next Recommended Task
 
-No subsequent product task or v1.2 candidate assignment is granted. A new task
-requires alignment and explicit authorization. Tag, Release, attestation, real
-Provider, source access, and private Zotero actions remain unauthorized.
+Complete P3-011 implementation and closure CI evidence. No subsequent product
+task or v1.2 candidate assignment is granted. A new task requires alignment
+and explicit authorization. Tag, Release, attestation, real Provider, source
+access, and private Zotero actions remain unauthorized.

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ComponentPropsWithoutRef, FormEvent, ReactNode, useEffect, useMemo, useState } from "react";
+import { ComponentPropsWithoutRef, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import { Components } from "react-markdown";
@@ -42,6 +42,7 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
   const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [learningError, setLearningError] = useState<string | null>(null);
+  const learningLoadArticleRef = useRef<string | null>(null);
 
   useEffect(() => {
     setHistory(loadReadingHistory());
@@ -55,6 +56,10 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
   }, [articleId]);
 
   async function loadLearningContext(nextArticleId: string) {
+    if (learningLoadArticleRef.current === nextArticleId) {
+      return;
+    }
+    learningLoadArticleRef.current = nextArticleId;
     setLearningError(null);
     try {
       const [state, bookmarkResponse, noteResponse] = await Promise.all([
@@ -68,6 +73,9 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
       setNotes(noteResponse.items);
       setActiveSession(session);
     } catch (err) {
+      if (learningLoadArticleRef.current === nextArticleId) {
+        learningLoadArticleRef.current = null;
+      }
       setLearningError(err instanceof Error ? err.message : "Failed to load learning state");
     }
   }

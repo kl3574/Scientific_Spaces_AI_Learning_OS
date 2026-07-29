@@ -2,38 +2,32 @@
 
 ## Task
 
-P3-010 Incremental Derived Asset Refresh (closed)
+P3-011 End-to-End Product Convergence
 
 ## Canonical Specification
 
-`docs/tasks/P3-010_INCREMENTAL_DERIVED_ASSET_REFRESH.md`
+`docs/tasks/P3-011_END_TO_END_PRODUCT_CONVERGENCE.md`
 
 ## Status
 
-PASS / CLOSED
+LOCAL PASS / EXACT-SHA CI PENDING
 
 ## Authorization
 
-- Exact local Article Store read: CONSUMED / CLOSED
-- Ignored local derived-data staging, backup, install, and rollback:
-  CONSUMED / CLOSED
-- Local changes, tests, commit, push, and CI inspection: CONSUMED / CLOSED
-- Source network/browser access: NOT GRANTED
-- Private Zotero read/write: NOT GRANTED
+- Existing local corpus and derived-asset reads: GRANTED
+- Local Backend/Frontend runtime and browser automation: GRANTED
+- Local changes, tests, commit, push, and CI inspection: GRANTED
+- Source network/browser acquisition: NOT GRANTED
+- Private Zotero writes: NOT GRANTED
 - Real/paid Provider calls: NOT GRANTED
 - Candidate / tag / Release / attestation: NOT GRANTED
 
 ## Required Exit
 
-- RAG, Graph, and Reference stores match the 1,314-Article corpus;
-- new Articles 11814, 11818, and 11823 are represented;
-- stale Reference API state is resolved;
-- rollback and idempotency are proven;
-- runtime/private artifacts remain untracked;
-- implementation and closure commits pass main CI; and
+- the complete local user journey has direct API and browser evidence;
+- desktop/mobile, error, persistence, and grounded-citation behavior pass;
+- three consecutive isolated E2E runs pass;
+- full Backend, Frontend, Docker, compatibility, secret, and artifact gates
+  pass;
+- implementation and closure commits pass exact main CI; and
 - final branch/worktree are synchronized and clean.
-
-## Next Task
-
-Not assigned. Any subsequent task requires a new alignment and explicit
-authorization. No v1.2 candidate, tag, or Release is granted.
