@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is LOCAL PASS / IMPLEMENTATION CI PENDING at the same 1,314-Article fingerprint; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -366,7 +366,7 @@ jobs. Docker and release evidence were correctly skipped for the normal push.
 
 ### P3-010 - Incremental Derived Asset Refresh
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-010 adds an offline, read-only-by-default operations command over the exact
 1,314-Article Store. RAG, Graph, and structured Reference assets are built in
@@ -387,6 +387,12 @@ Reference snapshots remain recoverable under ignored local data. No source
 network, browser, private Zotero, real Provider, candidate, tag, or Release
 action occurred. Evidence is in
 `docs/P3_010_INCREMENTAL_DERIVED_ASSET_REFRESH_REPORT.md`.
+Implementation commit
+`e66d9f32358ba09b6d89fce5e86877a80a52f032` passed exact main CI run
+[`30452018708`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30452018708):
+Backend, Frontend, workflow policy, dependency audit, secret audit, and SBOM
+validation succeeded; Docker and release evidence were correctly skipped for
+the normal main push.
 
 ## Release Criteria
 
@@ -420,7 +426,6 @@ action occurred. Evidence is in
 
 ## Next Recommended Task
 
-Complete P3-010 implementation and closure CI validation. No subsequent
-product task or v1.2 candidate assignment is granted. Tag, Release,
-attestation, real Provider, source access, and private Zotero actions remain
-unauthorized.
+No subsequent product task or v1.2 candidate assignment is granted. A new task
+requires alignment and explicit authorization. Tag, Release, attestation, real
+Provider, source access, and private Zotero actions remain unauthorized.

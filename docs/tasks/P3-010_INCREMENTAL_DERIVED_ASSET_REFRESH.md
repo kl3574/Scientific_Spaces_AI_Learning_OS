@@ -2,7 +2,7 @@
 
 ## Status
 
-LOCAL PASS / IMPLEMENTATION CI PENDING
+PASS / CLOSED
 
 ## Objective
 
@@ -28,9 +28,10 @@ offline, recoverable bundle operation.
 
 ## Authorized Actions
 
-- local Article Store read: GRANTED
-- ignored local derived-data staging, backup, install, and rollback: GRANTED
-- local code/docs/tests, commit, push, and CI inspection: GRANTED
+- local Article Store read: CONSUMED / CLOSED
+- ignored local derived-data staging, backup, install, and rollback:
+  CONSUMED / CLOSED
+- local code/docs/tests, commit, push, and CI inspection: CONSUMED / CLOSED
 - source network or browser acquisition: NOT GRANTED
 - private Zotero read/write: NOT GRANTED
 - real/paid Provider: NOT GRANTED
@@ -79,6 +80,18 @@ exact 1,314-Article Store
 - stale Reference API state is resolved
 - full regression, secret, artifact, and frozen-path gates pass
 - final branch is clean and synchronized
+
+## Closure Evidence
+
+- implementation commit:
+  `e66d9f32358ba09b6d89fce5e86877a80a52f032`
+- exact implementation main CI:
+  [`30452018708`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30452018708)
+- implementation CI result: PASS for Backend, Frontend, workflow policy,
+  dependency audit, secret audit, and SBOM validation; Docker and release
+  evidence were correctly skipped for the normal main push
+- task state after exact implementation CI: PASS / CLOSED
+- subsequent product work: NOT ASSIGNED / ALIGNMENT REQUIRED
 
 ## Stop Rule
 

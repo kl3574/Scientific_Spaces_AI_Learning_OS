@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Integration`
-- Status: `P3-010 derived asset refresh local PASS; implementation CI pending`
+- Status: `P3-010 derived asset refresh PASS / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-010 local refresh and compatibility gates PASS`
-- Current task: `P3-010 Incremental Derived Asset Refresh - implementation CI pending`
+- Latest gate: `P3-010 exact implementation main CI PASS`
+- Current task: `None assigned; alignment required`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.

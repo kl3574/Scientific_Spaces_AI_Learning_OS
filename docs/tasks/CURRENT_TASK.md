@@ -2,7 +2,7 @@
 
 ## Task
 
-P3-010 Incremental Derived Asset Refresh
+P3-010 Incremental Derived Asset Refresh (closed)
 
 ## Canonical Specification
 
@@ -10,13 +10,14 @@ P3-010 Incremental Derived Asset Refresh
 
 ## Status
 
-LOCAL PASS / IMPLEMENTATION CI PENDING
+PASS / CLOSED
 
 ## Authorization
 
-- Exact local Article Store read: GRANTED
-- Ignored local derived-data staging, backup, install, and rollback: GRANTED
-- Local changes, tests, commit, push, and CI inspection: GRANTED
+- Exact local Article Store read: CONSUMED / CLOSED
+- Ignored local derived-data staging, backup, install, and rollback:
+  CONSUMED / CLOSED
+- Local changes, tests, commit, push, and CI inspection: CONSUMED / CLOSED
 - Source network/browser access: NOT GRANTED
 - Private Zotero read/write: NOT GRANTED
 - Real/paid Provider calls: NOT GRANTED
@@ -31,3 +32,8 @@ LOCAL PASS / IMPLEMENTATION CI PENDING
 - runtime/private artifacts remain untracked;
 - implementation and closure commits pass main CI; and
 - final branch/worktree are synchronized and clean.
+
+## Next Task
+
+Not assigned. Any subsequent task requires a new alignment and explicit
+authorization. No v1.2 candidate, tag, or Release is granted.
