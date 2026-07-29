@@ -2,7 +2,7 @@
 
 Date: 2026-07-29
 
-Status: **LOCAL PASS / EXACT-SHA CI PENDING**
+Status: **PASS / CLOSED**
 
 ## 1. Scope
 
@@ -188,9 +188,9 @@ The browser did not open external source links.
 - temporary SBOM build/validation: PASS, 261 combined components, zero
   forbidden values
 
-The local host does not provide a Docker executable. Docker compose smoke is
-therefore a required exact-implementation `workflow_dispatch` CI gate before
-P3-011 can be closed.
+The local host does not provide a Docker executable. Exact-implementation
+`workflow_dispatch` CI supplied the required Docker compose smoke evidence and
+passed.
 
 ## 9. Compatibility and Protected Boundaries
 
@@ -211,16 +211,41 @@ changing a route.
 
 ## 10. CI Evidence
 
-Implementation commit and exact-SHA CI evidence are pending at this report
-stage. Closure requires:
+Implementation commit:
+`579c90252bc6fa594905491646ec07e296340043`.
 
-1. push the implementation commit to `main`;
-2. pass its normal main CI, including Backend, Frontend, Product E2E,
-   workflow policy, dependency audit, secret audit, and SBOM validation;
-3. run exact-implementation `workflow_dispatch`;
-4. pass Docker compose smoke and no-publish release evidence;
-5. create a docs-only closure commit; and
-6. pass the closure commit's exact main CI.
+Normal main push CI:
+
+- run:
+  [`30456388891`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30456388891)
+- event: `push`
+- head SHA: exact implementation commit
+- conclusion: `success`
+- Backend, Frontend, Product E2E, workflow policy, dependency audit, secret
+  audit, and SBOM validation: PASS
+- Docker and release evidence: correctly skipped for an ordinary push
+- uploaded artifacts: 0
+
+Exact-implementation manual CI:
+
+- run:
+  [`30456541072`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30456541072)
+- event: `workflow_dispatch`
+- head SHA: exact implementation commit
+- conclusion: `success`
+- Backend, Frontend, Product E2E, workflow policy, dependency audit, secret
+  audit, and SBOM validation: PASS
+- Docker compose smoke: PASS
+- no-publish/no-network release-evidence dry-run: PASS
+- uploaded artifacts: 0
+
+GitHub reported Node 20 action-runtime deprecation annotations. They are
+non-blocking platform warnings; no job failed and no product or release
+boundary changed.
+
+The docs-only closure commit is intentionally non-self-referential. Its exact
+main push CI is verified after push before the final execution response claims
+synchronized completion.
 
 No tag, Release, candidate, or attestation action is authorized.
 
@@ -241,13 +266,11 @@ No tag, Release, candidate, or attestation action is authorized.
 ## 12. Current Decision
 
 Local implementation, exact-corpus runtime, three-run E2E, persistence,
-Frontend, Backend, compatibility, network-boundary, dependency, secret, and
-SBOM gates: **PASS**.
+Frontend, Backend, compatibility, network-boundary, dependency, secret, SBOM,
+exact-SHA GitHub Actions, and Docker compose smoke gates: **PASS**.
 
-Docker and exact-SHA GitHub Actions evidence: **PENDING**.
+Current P3-011 status: **PASS / CLOSED**.
 
-Current P3-011 status: **LOCAL PASS / EXACT-SHA CI PENDING**.
-
-P3-011 must not be marked `PASS / CLOSED` until both the implementation and
-docs-only closure commits have successful exact main CI evidence and the
-manual Docker compose smoke passes.
+No subsequent product task or v1.2 candidate is assigned. P3-011 authorization
+is consumed and closed after the docs-only closure commit; any next task
+requires new alignment and explicit authorization.

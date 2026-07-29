@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-011 local implementation PASS / exact-SHA CI pending`
+- Status: `P3-011 PASS / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-011 local E2E 3/3 PASS`
-- Current task: `P3-011 End-to-End Product Convergence`
+- Latest gate: `P3-011 exact-implementation CI and Docker smoke PASS`
+- Current task: `None; alignment required`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -166,10 +166,14 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- P3-011 specification: `docs/tasks/P3-011_END_TO_END_PRODUCT_CONVERGENCE.md`
+- Last closed task: `docs/tasks/P3-011_END_TO_END_PRODUCT_CONVERGENCE.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
+
+P3-011 is `PASS / CLOSED`. No subsequent implementation task or v1.2
+candidate is assigned; a new task requires alignment and explicit
+authorization.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
 
