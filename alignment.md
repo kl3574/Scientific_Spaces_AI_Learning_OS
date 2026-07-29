@@ -1,142 +1,145 @@
-# M1.4 Incremental Source and Zotero PDF Sync Alignment
+# P3-010 Incremental Derived Asset Refresh Alignment
 
 Canonical task:
-`docs/tasks/M1-4_INCREMENTAL_SOURCE_ZOTERO_SYNC.md`
+`docs/tasks/P3-010_INCREMENTAL_DERIVED_ASSET_REFRESH.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
 
-NETWORK / PRIVATE ZOTERO WRITE AUTHORIZATION: **CONSUMED / CLOSED**
+LOCAL DERIVED DATA READ / WRITE AUTHORIZATION: **GRANTED**
 
-LOCAL FILE MODIFICATION / COMMIT / PUSH AUTHORIZATION: **CONSUMED / CLOSED**
+LOCAL FILE MODIFICATION / TEST / COMMIT / PUSH / CI AUTHORIZATION:
+**GRANTED**
+
+SOURCE NETWORK / PRIVATE ZOTERO / REAL PROVIDER AUTHORIZATION:
+**NOT GRANTED**
 
 CANDIDATE / TAG / RELEASE AUTHORIZATION: **NOT GRANTED**
 
 ## 1. Background
 
-- P3-009 completed the frozen 1,311-Article corpus and private Zotero
-  browser-printed PDF synchronization in local commit
-  `048a0f9d1e9b0162e1d020a7c6a98ed4e961e27a`.
-- That commit was one commit ahead of cached `origin/main` when P3-009 closed
-  and has not yet been synchronized to GitHub.
-- A low-frequency RSS check observed at least three newer Scientific Spaces
-  Article URLs outside the frozen 1,326-URL inventory.
-- M1 is frozen. This separately authorized M1.4 task adds an incremental
-  orchestration path without mutating existing Article content, schemas, or
-  legacy/API contracts.
-- The accepted private Zotero representation remains one browser-printed A4
-  PDF child and zero live HTML children per Article parent.
-
-All repository, remote, feed, browser, and Zotero facts must be revalidated
-before use.
+- M1.4 is PASS / CLOSED at 1,314 Articles.
+- Reader/Search and the private Zotero PDF collection already use the current
+  Article Store.
+- RAG, Knowledge Graph, and structured Reference Store remain immutable
+  1,311-Article snapshots.
+- The Reference API correctly reports `reference_store_stale` rather than
+  serving mismatched provenance.
+- M1 is frozen. P3-010 must not modify source discovery, browser acquisition,
+  parsing, conversion, Article storage, PDF export, or Zotero synchronization.
+- The expected entry Article Store SHA-256 is
+  `852ea18fd0f01781d0f8fdb7a4cf5d0ba5c4b9fb161e680a0f56455c03f11846`;
+  it must be revalidated before use.
 
 ## 2. Requirements
 
-1. Revalidate Git state and confirm the P3-009 commit is the only unpushed
-   commit.
-2. Push the P3-009 commit to `origin/main` and verify its main CI.
-3. Add a local CLI that reads the official Scientific Spaces RSS feed and
-   discovers only Article URLs missing from the configured Article Store.
-4. Fetch only missing canonical Articles through the authorized desktop
-   browser path; do not scan archive IDs or crawl archive/search pages.
-5. Reuse existing parser, converter, Article Store, PDF validator, and Zotero
-   contracts without changing existing stored `Article.content`.
-6. Generate browser-printed A4 PDFs after MathJax settles and synchronize them
-   into the private Zotero root collection `苏剑林博客`.
-7. Persist resumable runtime checkpoints and make repeated runs idempotent.
-8. Keep Zotero writes sequential and require exactly one PDF and zero HTML
-   children per new parent.
-9. Add unit, integration, and separately marked live tests.
-10. Run full Backend, Frontend, feature, secret, artifact, and changed-path
-    validation.
-11. Create and push one implementation commit, then verify main CI.
-12. Do not call a real or paid AI Provider or commit private/runtime data.
+1. Use the exact current 1,314-Article Store as the sole source input.
+2. Refresh the persisted RAG index, Knowledge Graph, and structured Reference
+   Store with matching corpus fingerprints.
+3. Preserve recoverable copies of the existing 1,311-Article snapshots.
+4. Build in staging and install only after every integrity and compatibility
+   gate passes.
+5. Use deterministic offline providers and perform zero external requests.
+6. Prove Articles `/archives/11814`, `/archives/11818`, and `/archives/11823`
+   are represented by the refreshed derived assets.
+7. Preserve Reader/Search, Tutor, legacy API, `/v1.1`, and `/v1.2` contracts.
+8. Add dry-run, failure rollback, atomic install, determinism, and idempotency
+   tests.
+9. Run full Backend, Frontend, feature, secret, artifact, and changed-path
+   validation.
+10. Create implementation and closure commits, push both, and verify exact
+    main CI runs.
+11. Do not access the source site, write Zotero, call a real/paid Provider, or
+    assign a candidate/tag/Release.
 
 ## 3. Purpose
 
-Provide a repeatable incremental update command that safely carries newly
-published Scientific Spaces Articles into the local Article Store and private
-Zotero PDF collection without reprocessing the completed corpus.
+Bring all persisted derived capabilities into fingerprint-consistent alignment
+with the 1,314-Article source of truth so the three newly imported Articles can
+participate in retrieval, graph, structured-reference, and Tutor workflows.
 
 ## 4. Planned Execution
 
-1. Persist this alignment and canonical M1.4 task.
-2. Verify the local branch, commit, remote, authentication, and CI workflow.
-3. Push and validate the existing P3-009 commit.
-4. Inspect current RSS, browser acquisition, parser, storage, PDF, Zotero, and
-   checkpoint interfaces.
-5. Implement additive incremental discovery and orchestration under non-frozen
-   paths.
-6. Add deterministic fixture tests and isolated live markers.
-7. Run a read-only delta preview, then a bounded authorized live update for
-   missing RSS Articles.
-8. Validate Article content, metadata, formulas, PDF fidelity, Zotero
-   cardinality, and readback.
-9. Rerun the command to prove zero unnecessary fetches and zero writes.
-10. Run complete local validation and repository audits.
-11. Update governance/report files, commit, push, and verify main CI.
+1. Persist this alignment and canonical task.
+2. Revalidate Git state, Article count/SHA/fingerprint, and current derived
+   manifests.
+3. Audit existing RAG, Graph, Reference, operations, backup, and rollback
+   interfaces without modifying frozen contracts.
+4. Implement an additive read-only-by-default orchestration module and CLI.
+5. Add deterministic fixture tests for preflight, staging, rollback, atomic
+   installation, idempotency, and failure handling.
+6. Run a dry-run against the local 1,314-Article source.
+7. Create recoverable snapshot backups and build all three derived stores in
+   isolated staging directories.
+8. Validate counts, fingerprints, integrity, compatibility, and explicit
+   representation of the three new Articles.
+9. Atomically install the validated bundle; roll back the complete bundle on
+   any installation or post-install failure.
+10. Rerun to prove deterministic no-op/idempotent behavior.
+11. Run API, Reader/Search, RAG, Tutor, Graph, Reference, full test/build,
+    secret, artifact, and frozen-path gates.
+12. Update governance and evidence, commit, push, verify main CI, close the
+    task with a docs-only commit, and verify the second CI.
 
 ## 5. Selection Rationale
 
-An additive CLI keeps source discovery, browser acquisition, parsing, PDF
-printing, and Zotero writes explicit and recoverable. RSS provides a bounded
-official discovery surface. Reusing existing contracts avoids destabilizing
-the frozen full-corpus pipeline.
+Reference deduplication, graph relationships, and vector indexing contain
+global corpus relationships. A deterministic full rebuild in staging is safer
+than appending three records into independently persisted structures. Atomic
+bundle installation prevents mixed 1,311/1,314 runtime state and provides a
+clear rollback boundary.
 
 ## 6. Alternatives
 
 | Option | Decision |
 | --- | --- |
-| Add an explicit incremental CLI | Selected: bounded, testable, and resumable |
-| Modify the original full-corpus sync directly | Rejected: unnecessary frozen-path risk |
-| Reprocess all 1,311 Articles on every update | Rejected: slow and creates needless source access |
-| Install a background scheduler immediately | Deferred until the manual incremental path has live evidence |
+| Offline full rebuild in staging, then atomic bundle install | Selected: strongest consistency and rollback evidence |
+| Direct incremental append into each store | Rejected: global deduplication, graph, and index consistency risk |
+| Leave existing snapshots stale | Rejected: new Articles remain unavailable to derived capabilities |
 
 ## 7. Deliverables
 
 - updated `alignment.md`
-- `docs/tasks/M1-4_INCREMENTAL_SOURCE_ZOTERO_SYNC.md`
+- `docs/tasks/P3-010_INCREMENTAL_DERIVED_ASSET_REFRESH.md`
 - updated `docs/tasks/CURRENT_TASK.md`
-- `backend/app/zotero/incremental_sync.py`
-- `scripts/zotero/update_latest_blog_pdfs.py`
-- focused Backend tests and separately marked live tests
-- `docs/M1_4_INCREMENTAL_SOURCE_ZOTERO_SYNC_REPORT.md`
+- additive derived-refresh orchestration module and CLI
+- focused tests for refresh, rollback, determinism, and idempotency
+- `docs/P3_010_INCREMENTAL_DERIVED_ASSET_REFRESH_REPORT.md`
 - updated `README.md`, `docs/00_PROJECT_STATE.md`, and
   `docs/V1_2_ROADMAP.md`
-- implementation commit:
-  `feat: add incremental blog Zotero PDF sync`
-- main-push CI evidence for P3-009 and M1.4
+- implementation commit and exact main CI evidence
+- docs-only closure commit and exact main CI evidence
 
 ## 8. Acceptance Criteria
 
-- P3-009 commit is pushed without history rewrite and its required main CI
-  jobs pass.
-- Official RSS discovery deterministically identifies existing versus missing
-  canonical Article URLs without archive scanning.
-- Every imported Article has valid title, content, metadata, balanced formula
-  delimiters, and preserved references/images.
-- Existing Article records and content remain byte-for-byte unchanged.
-- Every new Zotero parent has exactly one validated browser-printed A4 PDF and
-  zero live HTML children.
-- The immediate rerun produces zero Article fetches, zero Zotero writes, and
-  zero duplicate parent/PDF records.
-- Unit and integration tests pass; live tests are separately marked and do not
-  affect default CI.
-- Full Backend tests, Frontend focused tests/build, Reader/Search and relevant
-  offline feature smokes pass.
+- Input is exactly 1,314 Articles and its SHA-256/fingerprint is recorded.
+- The original 1,311-Article RAG, Graph, and Reference snapshots have
+  recoverable ignored backups and are not edited in place.
+- Refreshed RAG, Graph, and Reference manifests match the current Article
+  corpus fingerprint.
+- Articles 11814, 11818, and 11823 are present in relevant derived indexes;
+  RAG can retrieve their content and Graph/Reference APIs can account for them
+  without stale-state errors.
+- Reference API no longer returns `reference_store_stale`.
+- Reader/Search, Tutor, legacy API, `/v1.1`, and `/v1.2` compatibility checks
+  pass.
+- A repeated refresh is deterministic and performs no unnecessary install.
+- Injected build/install/post-install failures leave or restore the complete
+  prior bundle.
+- Full Backend tests and Frontend focused tests/build pass.
 - Secret and artifact audits report no credible secret or tracked
   runtime/private artifact.
-- No frozen M1 module, Article schema, legacy/API contract, candidate, tag,
-  Release, real Provider, or paid request change occurs.
-- The M1.4 implementation commit is pushed, required GitHub Actions pass, and
-  final `main` is clean and synchronized with `origin/main`.
+- Frozen M1 modules, Article records, published API contracts, source site,
+  Zotero, real Providers, candidate, tag, and Release remain untouched.
+- Implementation and closure commits are pushed; both required main CI runs
+  pass; final `main` is clean and synchronized.
 
 ## Stop Conditions
 
-- The task requires changing frozen crawler/parser/converter/storage code or a
-  published contract.
-- The working tree contains unknown changes or conflicts.
-- Source policy, HTTP, content, browser, PDF, or Zotero quality gates fail
-  after bounded retry/backoff.
-- Existing Article content would need mutation.
-- A secret or private/runtime artifact would enter Git.
-- A real/paid Provider, candidate, tag, or Release action becomes necessary.
+- The Article Store count or SHA differs from the approved entry state.
+- The worktree develops unknown changes or conflicts.
+- A frozen contract or existing Article content would need modification.
+- A source network request, private Zotero access, or real/paid Provider is
+  required.
+- Any staging, integrity, compatibility, rollback, test, artifact, or secret
+  gate fails without an in-scope deterministic fix.
+- A candidate, tag, Release, or attestation action becomes necessary.

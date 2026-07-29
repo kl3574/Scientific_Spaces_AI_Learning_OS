@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is LOCAL PASS / IMPLEMENTATION CI PENDING at the same 1,314-Article fingerprint; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -364,6 +364,30 @@ passed main CI run
 including Backend, Frontend, workflow policy, dependency, secret, and SBOM
 jobs. Docker and release evidence were correctly skipped for the normal push.
 
+### P3-010 - Incremental Derived Asset Refresh
+
+Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+
+P3-010 adds an offline, read-only-by-default operations command over the exact
+1,314-Article Store. RAG, Graph, and structured Reference assets are built in
+isolated staging directories using deterministic fake providers, jointly
+validated, backed up, and installed through a coordinated transaction with
+complete-bundle rollback.
+
+The local refresh produced 5,570 RAG chunks, 53,046 Graph nodes, 82,584 Graph
+edges, 12,904 Reference records, and 24,598 Reference evidence rows. Archives
+11814, 11818, and 11823 are represented in all relevant stores and each was
+retrieved at RAG rank 1 by an evidence-bearing query. The Reference API now
+reports a valid 1,314-Article store instead of `reference_store_stale`.
+
+The immediate execute rerun was a no-op with no new backup or manifest
+replacement. Injected build, install, and post-install failures preserve or
+restore the prior complete bundle. The exact 1,311-Article RAG, Graph, and
+Reference snapshots remain recoverable under ignored local data. No source
+network, browser, private Zotero, real Provider, candidate, tag, or Release
+action occurred. Evidence is in
+`docs/P3_010_INCREMENTAL_DERIVED_ASSET_REFRESH_REPORT.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -396,9 +420,7 @@ jobs. Docker and release evidence were correctly skipped for the normal push.
 
 ## Next Recommended Task
 
-`P3-010 Incremental Derived Asset Refresh`
-
-P3-010 remains `ALIGNMENT REQUIRED / NOT GRANTED`. It should refresh the
-RAG, Graph, and structured Reference Store snapshots for the 1,314-Article
-corpus without making rebuilds implicit in M1.4. Candidate assignment, push,
-tag, Release, and attestation remain unauthorized for that future task.
+Complete P3-010 implementation and closure CI validation. No subsequent
+product task or v1.2 candidate assignment is granted. Tag, Release,
+attestation, real Provider, source access, and private Zotero actions remain
+unauthorized.

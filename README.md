@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Integration`
-- Status: `M1.4 incremental Article/PDF/Zotero sync PASS / CLOSED`
+- Status: `P3-010 derived asset refresh local PASS; implementation CI pending`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `M1.4 exact-implementation main CI PASS`
-- Current task: `M1.4 Incremental Source and Zotero PDF Sync - PASS / CLOSED`
+- Latest gate: `P3-010 local refresh and compatibility gates PASS`
+- Current task: `P3-010 Incremental Derived Asset Refresh - implementation CI pending`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -24,6 +24,7 @@ P3-007 evidence: `docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`.
 P3-009 throughput evidence: `docs/P3_009_THROUGHPUT_PROBE_REPORT.md`.
 P3-009 full-run status: `docs/P3_009_FULL_CORPUS_RUN_REPORT.md`.
 M1.4 incremental sync evidence: `docs/M1_4_INCREMENTAL_SOURCE_ZOTERO_SYNC_REPORT.md`.
+P3-010 derived refresh evidence: `docs/P3_010_INCREMENTAL_DERIVED_ASSET_REFRESH_REPORT.md`.
 
 v1.2 planning specifications:
 
@@ -137,6 +138,29 @@ settles, and synchronizes one PDF/zero HTML children into `苏剑林博客`.
 Runtime checkpoints, backups, summaries, and temporary PDFs remain under
 ignored `.local_data/`. RAG, Graph, and Reference Store artifacts are not
 rebuilt implicitly; they require a separate derived-asset refresh.
+
+## Incremental Derived Asset Refresh
+
+Preview whether RAG, Graph, and Reference assets match the exact local Article
+Store without writing:
+
+```bash
+UV_OFFLINE=1 uv run --project backend python \
+  scripts/ops/refresh_derived_assets.py \
+  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
+  --data-root .local_data/scientific_spaces \
+  --expected-article-count 1314 \
+  --expected-article-store-sha256 \
+    852ea18fd0f01781d0f8fdb7a4cf5d0ba5c4b9fb161e680a0f56455c03f11846 \
+  --expected-corpus-fingerprint \
+    ff2824ca675ee0f7b6d82d8a3c63a08c5d3f6df99f5b79495c896367c8afbce6
+```
+
+Add `--execute` to build all three assets offline in staging, validate them,
+create a recoverable ignored backup, and perform a coordinated transactional
+install. The command uses fake deterministic providers, preserves the Article
+Store, never accesses Scientific Spaces or private Zotero, and returns
+`no_op` when the installed bundle already matches.
 
 ## Current Development Task
 
