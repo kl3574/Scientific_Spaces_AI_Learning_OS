@@ -3,13 +3,13 @@
 Canonical task:
 `docs/tasks/P3-013_READER_WORKSPACE_AND_LEARNING_CONTINUITY.md`
 
-Status: **LOCAL GATES PASS / EXACT-SHA CI PENDING**
+Status: **PASS / CLOSED**
 
 LOCAL DATA READ / APPLICATION RUNTIME / COMPUTER USE AUTHORIZATION:
-**GRANTED**
+**CONSUMED / CLOSED**
 
 LOCAL FILE MODIFICATION / TEST / COMMIT / PUSH / CI AUTHORIZATION:
-**GRANTED**
+**CONSUMED / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT**
 
 SOURCE NETWORK / PRIVATE ZOTERO READ-WRITE / REAL PROVIDER AUTHORIZATION:
 **NOT GRANTED**
@@ -142,3 +142,16 @@ and published API contracts.
 - A required test, build, browser, secret, artifact, or CI gate fails without
   an in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.
+
+## Closure Evidence
+
+- implementation commit: `f0d9a04c71efa503fa74ff45af4d26484cadb55e`
+- initial main CI: `33325284156` exposed a Product E2E resume race
+- repair commit: `1d5606c4db1cc1c3177f404652788269f66cdc61`
+- repair exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33325595191`
+- Backend, Frontend, Product E2E, workflow policy, dependency, secret, and
+  SBOM jobs: PASS
+- Docker compose smoke and release evidence: correctly skipped for normal
+  `main` push
+- next task: ALIGNMENT REQUIRED / NOT GRANTED

@@ -2,7 +2,7 @@
 
 ## Status
 
-LOCAL GATES PASS / EXACT-SHA CI PENDING
+PASS / CLOSED
 
 ## Objective
 
@@ -77,5 +77,10 @@ critical regression.
 - isolated product E2E: 10/10 stress runs, 19 checks per run, 0 external requests
 - workflow, suppression, dependency, secret, artifact, and SBOM gates: PASS
 - report: `docs/P3_013_READER_WORKSPACE_REPORT.md`
+- initial implementation commit: `f0d9a04c71efa503fa74ff45af4d26484cadb55e`
 - initial implementation exact-SHA main CI: Product E2E failed on a resume race
-- repair exact-SHA main CI: pending
+- repair commit: `1d5606c4db1cc1c3177f404652788269f66cdc61`
+- repair exact-SHA main CI: PASS,
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33325595191`
+- task closure: PASS / CLOSED; the docs-only closure commit must pass its own
+  exact-SHA main CI before final synchronized completion is reported

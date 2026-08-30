@@ -2,39 +2,36 @@
 
 ## Task
 
-P3-013 Reader Workspace and Learning Continuity
+No active implementation task
 
-## Canonical Specification
+## Last Closed Task
 
 `docs/tasks/P3-013_READER_WORKSPACE_AND_LEARNING_CONTINUITY.md`
 
 ## Status
 
-LOCAL GATES PASS / EXACT-SHA CI PENDING
+P3-013 PASS / CLOSED
 
-## Entry State
-
-- branch: `main`
-- entry commit: `6b297d8ae21b1b43ef2e6e7a1b0bef51e5d71b83`
-- cached `origin/main`: exact match
-- worktree: clean
-- previous task: P3-012 PASS / CLOSED
+Next task: ALIGNMENT REQUIRED / NOT GRANTED
 
 ## Authorization
 
-- Existing local corpus and derived-asset reads: GRANTED
-- Local Backend/Frontend runtime and Computer Use: GRANTED
-- Frontend/docs/tests changes, commit, push, and CI inspection: GRANTED
+- P3-013 local corpus and derived-asset reads: CONSUMED / CLOSED
+- P3-013 local runtime and Computer Use: CONSUMED / CLOSED
+- P3-013 changes, tests, commit, push, and CI inspection: CONSUMED / CLOSED
 - Source network/browser acquisition: NOT GRANTED
 - Private Zotero reads or writes: NOT GRANTED
 - Real/paid Provider calls: NOT GRANTED
 - Candidate / tag / Release / attestation: NOT GRANTED
 
-## Required Exit
+## Closure Evidence
 
-- Article outline, progress, resume, and display preferences pass;
-- Dashboard Continue Reading behavior passes;
-- desktop/mobile content and accessibility gates pass;
-- three isolated product E2E runs and all repository quality gates pass;
-- implementation and closure commits pass exact main CI; and
-- final branch/worktree are synchronized and clean.
+- local implementation and 10-run resume stress evidence: PASS
+- Backend, Frontend, Product E2E, dependency, secret, workflow, and SBOM gates:
+  PASS
+- implementation commit: `f0d9a04c71efa503fa74ff45af4d26484cadb55e`
+- repair commit: `1d5606c4db1cc1c3177f404652788269f66cdc61`
+- repair exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33325595191`
+- docs-only closure commit: must pass exact main CI before final completion is
+  reported

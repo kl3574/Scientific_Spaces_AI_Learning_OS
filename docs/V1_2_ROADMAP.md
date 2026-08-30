@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 and P3-012 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; P3-013 reader workspace and learning continuity has passed local gates and is waiting for exact-SHA main CI; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011, P3-012, and P3-013 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; no candidate version or subsequent task is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -444,7 +444,7 @@ with zero uploaded artifacts. Evidence is in
 
 ### P3-013 - Reader Workspace and Learning Continuity
 
-Status: **LOCAL GATES PASS / EXACT-SHA CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-013 extends the existing Article Detail presentation with deterministic
 section anchors, an accessible outline, current-section and progress feedback,
@@ -455,9 +455,14 @@ private Zotero, or Provider behavior.
 
 The canonical task is
 `docs/tasks/P3-013_READER_WORKSPACE_AND_LEARNING_CONTINUITY.md`. Real-corpus
-browser checks, 35 focused Frontend tests, 600 Backend tests, production build,
-three isolated E2E runs, and security/supply-chain gates pass. Evidence is in
-`docs/P3_013_READER_WORKSPACE_REPORT.md`; exact-SHA main CI is pending.
+browser checks, 36 focused Frontend tests, 600 Backend tests, production build,
+10 isolated E2E stress runs, and security/supply-chain gates pass. Initial
+implementation commit `f0d9a04c71efa503fa74ff45af4d26484cadb55e`
+exposed a remote resume race. Repair commit
+`1d5606c4db1cc1c3177f404652788269f66cdc61` passed exact-SHA main CI run
+[`33325595191`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33325595191),
+including Backend, Frontend, and three Product E2E runs. Evidence is in
+`docs/P3_013_READER_WORKSPACE_REPORT.md`.
 
 ## Release Criteria
 
@@ -491,7 +496,7 @@ three isolated E2E runs, and security/supply-chain gates pass. Evidence is in
 
 ## Next Recommended Task
 
-P3-013 local reader-workspace gates are PASS. Complete implementation exact-SHA
-main CI and docs-only closure CI before assigning a
-subsequent task. No v1.2 candidate is assigned. Tag, Release, attestation, real
-Provider, source access, and private Zotero actions remain unauthorized.
+P3-013 is PASS / CLOSED after local stress evidence and repair exact-SHA main
+CI. No subsequent task or v1.2 candidate is assigned; the next task requires
+fresh alignment and authorization. Tag, Release, attestation, real Provider,
+source access, and private Zotero actions remain unauthorized.

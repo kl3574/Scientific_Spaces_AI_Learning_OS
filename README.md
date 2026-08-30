@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-013 LOCAL GATES PASS / EXACT-SHA CI PENDING`
+- Status: `P3-013 PASS / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-013 local implementation gates PASS; exact-SHA main CI pending`
-- Current task: `P3-013 Reader Workspace and Learning Continuity`
+- Latest gate: `P3-013 repair exact-SHA main CI PASS`
+- Current task: `None; next task alignment required`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -27,7 +27,7 @@ M1.4 incremental sync evidence: `docs/M1_4_INCREMENTAL_SOURCE_ZOTERO_SYNC_REPORT
 P3-010 derived refresh evidence: `docs/P3_010_INCREMENTAL_DERIVED_ASSET_REFRESH_REPORT.md`.
 P3-011 product convergence evidence: `docs/P3_011_END_TO_END_PRODUCT_CONVERGENCE_REPORT.md`.
 P3-012 learning experience and GUI evidence: `docs/P3_012_LEARNING_EXPERIENCE_GUI_REFINEMENT_REPORT.md`.
-P3-013 reader workspace evidence: `docs/P3_013_READER_WORKSPACE_REPORT.md` (local gates pass; exact-SHA CI pending).
+P3-013 reader workspace evidence: `docs/P3_013_READER_WORKSPACE_REPORT.md` (PASS / CLOSED).
 
 v1.2 planning specifications:
 
@@ -168,16 +168,17 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `docs/tasks/P3-013_READER_WORKSPACE_AND_LEARNING_CONTINUITY.md`
-- Last closed task: `docs/tasks/P3-012_LEARNING_EXPERIENCE_GUI_REFINEMENT.md`
+- Active task: `None; alignment required`
+- Last closed task: `docs/tasks/P3-013_READER_WORKSPACE_AND_LEARNING_CONTINUITY.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
 
-P3-013 local gates are `PASS` and exact-SHA main CI is pending. It adds a local-only Article outline,
+P3-013 is `PASS / CLOSED`. Its repair commit passed exact-SHA main CI after
+local 10-run resume stress evidence. It adds a local-only Article outline,
 reading progress, resume behavior, display controls, and Dashboard Continue
 Reading flow without changing source data or published API contracts. No v1.2
-candidate is assigned.
+candidate or subsequent task is assigned.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
 

@@ -6,8 +6,9 @@
 - local implementation: **PASS**
 - initial implementation commit: `f0d9a04c71efa503fa74ff45af4d26484cadb55e`
 - initial exact-SHA main CI: **FAILED** (`33325284156`, Product E2E only)
-- repair exact-SHA main CI: **PENDING**
-- task closure: **PENDING**
+- repair commit: `1d5606c4db1cc1c3177f404652788269f66cdc61`
+- repair exact-SHA main CI: **PASS** ([run 33325595191](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33325595191))
+- task closure: **PASS / CLOSED**
 - entry commit: `6b297d8ae21b1b43ef2e6e7a1b0bef51e5d71b83`
 - candidate version: not assigned
 
@@ -191,7 +192,7 @@ were created outside the repository and removed after evidence extraction.
    `null`. The current visible section and last meaningful persisted section
    are now tracked separately, and E2E verifies the stored section immediately
    before Dashboard navigation. The repair passed a 10-iteration local stress
-   run; its exact-SHA main CI remains pending.
+   run and exact-SHA main CI, including three remote Product E2E runs.
 
 ## 9. Known Risks
 
@@ -206,7 +207,14 @@ were created outside the repository and removed after evidence extraction.
 ## 10. Closure State
 
 Local implementation and all authorized local gates are **PASS**. The initial
-implementation commit exposed a remote timing defect, which has been repaired
-and stress-tested without weakening the E2E assertion. P3-013 remains open
-until the repair commit passes exact-SHA main CI and a separate docs-only
-closure commit also passes exact-SHA main CI.
+implementation commit exposed a remote timing defect, which was repaired and
+stress-tested without weakening the E2E assertion. Repair commit
+`1d5606c4db1cc1c3177f404652788269f66cdc61` passed exact-SHA main CI run
+[`33325595191`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33325595191):
+Backend, Frontend, Product E2E, workflow policy, dependency, secret, and SBOM
+jobs passed; Docker and release evidence were correctly skipped for a normal
+`main` push.
+
+Current task state: **PASS / CLOSED**. The docs-only closure commit must pass
+its own exact-SHA main CI before the final execution response claims
+synchronized completion. No subsequent task or v1.2 candidate is assigned.
