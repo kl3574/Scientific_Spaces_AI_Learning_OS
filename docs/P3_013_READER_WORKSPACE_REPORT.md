@@ -4,7 +4,9 @@
 
 - task: P3-013 Reader Workspace and Learning Continuity
 - local implementation: **PASS**
-- implementation exact-SHA main CI: **PENDING**
+- initial implementation commit: `f0d9a04c71efa503fa74ff45af4d26484cadb55e`
+- initial exact-SHA main CI: **FAILED** (`33325284156`, Product E2E only)
+- repair exact-SHA main CI: **PENDING**
 - task closure: **PENDING**
 - entry commit: `6b297d8ae21b1b43ef2e6e7a1b0bef51e5d71b83`
 - candidate version: not assigned
@@ -118,11 +120,11 @@ uv run --project backend --extra dev pytest -q
 
 ### Frontend
 
-- Article, presentation, and Reader workspace: 11 passed
+- Article, presentation, and Reader workspace: 12 passed
 - Structured References: 3 passed
 - Graph: 8 passed
 - Tutor: 13 passed
-- focused total: 35 passed
+- focused total: 36 passed
 - production build: PASS, 9 routes generated
 
 ### Product E2E
@@ -142,6 +144,10 @@ uv run --project backend --extra dev python \
 - unexpected console errors: 0
 - page errors: 0
 - Backend restart persistence: PASS
+
+A post-CI stress run completed 10/10 isolated iterations with all 19 checks
+passing in every iteration. It recorded zero external requests, unexpected
+console errors, and page errors.
 
 ## 6. Security and Supply Chain
 
@@ -179,7 +185,13 @@ were created outside the repository and removed after evidence extraction.
    could preserve progress without a section. The product behavior was changed
    to deterministic immediate positioning plus immediate explicit-section
    persistence. This was treated as a product defect, not a test relaxation.
-3. Three consecutive final runs passed after the fix.
+3. Three consecutive local final runs passed after the fix. The first remote
+   exact-SHA run then reproduced a faster sidebar-interaction race in which a
+   temporary scroll above the first heading replaced the saved section with
+   `null`. The current visible section and last meaningful persisted section
+   are now tracked separately, and E2E verifies the stored section immediately
+   before Dashboard navigation. The repair passed a 10-iteration local stress
+   run; its exact-SHA main CI remains pending.
 
 ## 9. Known Risks
 
@@ -193,6 +205,8 @@ were created outside the repository and removed after evidence extraction.
 
 ## 10. Closure State
 
-Local implementation and all authorized local gates are **PASS**. P3-013
-remains open until the implementation commit is pushed, its exact-SHA main CI
-passes, and a separate docs-only closure commit also passes exact-SHA main CI.
+Local implementation and all authorized local gates are **PASS**. The initial
+implementation commit exposed a remote timing defect, which has been repaired
+and stress-tested without weakening the E2E assertion. P3-013 remains open
+until the repair commit passes exact-SHA main CI and a separate docs-only
+closure commit also passes exact-SHA main CI.

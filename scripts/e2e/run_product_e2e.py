@@ -429,6 +429,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     checks["learning_state_bookmark_note_and_session"] = True
 
+    persisted_reader_state = page.evaluate(
+        "() => JSON.parse(localStorage.getItem('scientific-spaces-reader-progress-v1') || '{\"items\":[]}').items[0] || null"
+    )
+    _require(
+        persisted_reader_state is not None
+        and persisted_reader_state.get("section_id") == target_section_id,
+        f"reader state lost the last meaningful section: {persisted_reader_state}",
+    )
     page.get_by_role("link", name="Dashboard", exact=True).click()
     expect(page.get_by_role("heading", name="Continue Reading", exact=True)).to_be_visible()
     continue_link = page.get_by_role("link", name=re.compile(r"^Continue reading CRB"))

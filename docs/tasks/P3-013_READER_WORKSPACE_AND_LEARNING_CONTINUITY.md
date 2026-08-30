@@ -72,9 +72,10 @@ critical regression.
 - real-corpus Chromium: 5 Articles, 74/74 unique anchors, desktop/mobile PASS
 - resume closure: saved and restored the same meaningful section
 - Backend: 600 passed, 4 skipped
-- focused Frontend: 35 passed
+- focused Frontend: 36 passed
 - production build: PASS
-- isolated product E2E: 3/3 runs, 19 checks per run, 0 external requests
+- isolated product E2E: 10/10 stress runs, 19 checks per run, 0 external requests
 - workflow, suppression, dependency, secret, artifact, and SBOM gates: PASS
 - report: `docs/P3_013_READER_WORKSPACE_REPORT.md`
-- implementation exact-SHA main CI: pending
+- initial implementation exact-SHA main CI: Product E2E failed on a resume race
+- repair exact-SHA main CI: pending

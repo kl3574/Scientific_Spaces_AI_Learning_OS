@@ -9,6 +9,7 @@ import {
   parseReaderPreferences,
   parseReaderProgressStore,
   prepareArticleMarkdown,
+  updateLastMeaningfulPosition,
 } from "../src/lib/articleWorkspace";
 
 test("extractArticleOutline creates stable Unicode anchors and resolves duplicates", () => {
@@ -59,6 +60,40 @@ test("reading progress is integer bounded from zero through one hundred", () => 
   assert.equal(clampReadingProgress(-12), 0);
   assert.equal(clampReadingProgress(42.6), 43);
   assert.equal(clampReadingProgress(140), 100);
+});
+
+test("last meaningful section survives a temporary scroll above the first heading", () => {
+  const previous = {
+    article_id: "article-1",
+    section_id: "formula",
+    section_title: "Formula",
+    progress: 45,
+    updated_at: "2026-08-31T08:00:00.000Z",
+  };
+
+  assert.deepEqual(
+    updateLastMeaningfulPosition(previous, null, 0, "2026-08-31T08:01:00.000Z"),
+    {
+      ...previous,
+      progress: 0,
+      updated_at: "2026-08-31T08:01:00.000Z",
+    },
+  );
+  assert.deepEqual(
+    updateLastMeaningfulPosition(
+      previous,
+      { id: "references", label: "References", level: 2, line: 20 },
+      72.4,
+      "2026-08-31T08:02:00.000Z",
+    ),
+    {
+      article_id: "article-1",
+      section_id: "references",
+      section_title: "References",
+      progress: 72,
+      updated_at: "2026-08-31T08:02:00.000Z",
+    },
+  );
 });
 
 test("reader progress parsing is fail-closed and normalizes unsafe fields", () => {

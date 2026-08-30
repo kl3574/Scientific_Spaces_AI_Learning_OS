@@ -121,6 +121,21 @@ export function clampReadingProgress(value: number): number {
   return Math.min(100, Math.max(0, Math.round(value)));
 }
 
+export function updateLastMeaningfulPosition(
+  previous: ReaderProgressState,
+  visibleSection: ArticleOutlineItem | null,
+  progress: number,
+  updatedAt: string,
+): ReaderProgressState {
+  return {
+    article_id: previous.article_id,
+    section_id: visibleSection?.id ?? previous.section_id,
+    section_title: visibleSection?.label ?? previous.section_title,
+    progress: clampReadingProgress(progress),
+    updated_at: updatedAt,
+  };
+}
+
 export function loadReaderProgress(articleId: string): ReaderProgressState | null {
   return loadReaderProgressItems().find((item) => item.article_id === articleId) ?? null;
 }

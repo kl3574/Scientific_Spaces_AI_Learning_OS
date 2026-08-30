@@ -25,6 +25,7 @@ import {
   prepareArticleMarkdown,
   saveReaderPreferences,
   saveReaderProgress,
+  updateLastMeaningfulPosition,
 } from "@/lib/articleWorkspace";
 import {
   LearningNote,
@@ -275,13 +276,12 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
       const nextProgress = clampReadingProgress(((window.scrollY - articleTop) / readableDistance) * 100);
       setActiveSectionId(nextSection?.id ?? null);
       setReadingProgress(nextProgress);
-      pendingState = {
-        article_id: currentArticleId,
-        section_id: nextSection?.id ?? null,
-        section_title: nextSection?.label ?? null,
-        progress: nextProgress,
-        updated_at: new Date().toISOString(),
-      };
+      pendingState = updateLastMeaningfulPosition(
+        pendingState,
+        nextSection,
+        nextProgress,
+        new Date().toISOString(),
+      );
       if (explicitSectionRef.current?.id === nextSection?.id) {
         explicitSectionRef.current = null;
       }
