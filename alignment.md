@@ -3,13 +3,13 @@
 Canonical task:
 `docs/tasks/P3-012_LEARNING_EXPERIENCE_GUI_REFINEMENT.md`
 
-Status: **AUTHORIZED / LOCAL PASS / CI PENDING**
+Status: **PASS / CLOSED**
 
 LOCAL DATA READ / APPLICATION RUNTIME / COMPUTER USE AUTHORIZATION:
-**GRANTED**
+**CONSUMED / CLOSED**
 
 LOCAL FILE MODIFICATION / TEST / COMMIT / PUSH / CI AUTHORIZATION:
-**GRANTED**
+**CONSUMED / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT**
 
 SOURCE NETWORK / PRIVATE ZOTERO READ-WRITE / REAL PROVIDER AUTHORIZATION:
 **NOT GRANTED**
@@ -127,6 +127,25 @@ turning the task into an unbounded aesthetic rewrite.
   tag, Release, or attestation action occurs.
 - Implementation and closure commits pass exact-SHA main CI; final `main` is
   clean and synchronized.
+
+## Closure Evidence
+
+- implementation commit:
+  `75652e3d7a6a43d5b92f56d06aface7a7fc19d85`
+- implementation main CI:
+  [`33322848683`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33322848683),
+  `success`
+- Backend, Frontend, Product E2E, workflow policy, dependency, secret, and
+  SBOM jobs: PASS
+- Docker compose smoke and release evidence: correctly skipped for a normal
+  `main` push
+- uploaded workflow artifacts: 0
+- source access, private Zotero, real Provider, candidate, tag, Release, and
+  attestation actions: 0
+
+The docs-only closure commit must pass its own exact-SHA main CI before the
+final execution response claims synchronized completion. No subsequent task is
+authorized by this closed alignment.
 
 ## Stop Conditions
 

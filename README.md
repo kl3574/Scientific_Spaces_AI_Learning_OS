@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-012 LOCAL PASS / CI PENDING`
+- Status: `P3-012 PASS / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-012 local browser, Backend, Frontend, E2E, and security gates PASS`
-- Current task: `P3-012 exact-SHA main CI pending`
+- Latest gate: `P3-012 exact-implementation main CI PASS`
+- Current task: `None; alignment required`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -167,15 +167,14 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `docs/tasks/P3-012_LEARNING_EXPERIENCE_GUI_REFINEMENT.md`
-- Last closed task: `docs/tasks/P3-011_END_TO_END_PRODUCT_CONVERGENCE.md`
+- Last closed task: `docs/tasks/P3-012_LEARNING_EXPERIENCE_GUI_REFINEMENT.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
 
-P3-012 is `LOCAL PASS / CI PENDING`. It remains active until the implementation
-and docs-only closure commits pass exact-SHA main CI. No v1.2 candidate is
-assigned.
+P3-012 is `PASS / CLOSED`. The implementation commit passed exact-SHA main CI;
+the docs-only closure commit receives its final exact-SHA readback after push.
+No subsequent task or v1.2 candidate is assigned.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
 

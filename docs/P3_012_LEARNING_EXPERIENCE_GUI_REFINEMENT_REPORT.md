@@ -5,8 +5,9 @@
 - Task: P3-012 Learning Experience and GUI Refinement
 - Entry commit: `5933c17481a98db4b296eabac3a9d8947cd06704`
 - Local implementation: **PASS**
-- Exact-SHA main CI: **PENDING**
-- Task status: **LOCAL PASS / CI PENDING**
+- Implementation commit: `75652e3d7a6a43d5b92f56d06aface7a7fc19d85`
+- Exact-SHA main CI: **PASS**
+- Task status: **PASS / CLOSED**
 - Candidate version: not assigned
 
 This task refines the existing local learning product. It does not change any
@@ -188,6 +189,24 @@ advisory chain. Exact patch upgrades from `postcss 8.5.18` to `8.5.23` and
 `nanoid 3.3.16` to `3.3.18` removed all findings without a Next.js major
 upgrade. All Frontend build and E2E gates were rerun after the lockfile change.
 
+### Exact-SHA Main CI
+
+- implementation commit:
+  `75652e3d7a6a43d5b92f56d06aface7a7fc19d85`
+- run:
+  [`33322848683`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33322848683)
+- conclusion: **success**
+- Backend pytest: PASS
+- Frontend build: PASS
+- Product E2E, three repeats: PASS
+- workflow and suppression policy: PASS
+- dependency audit: PASS
+- secret audit: PASS
+- SBOM validation: PASS
+- Docker compose smoke and release evidence: correctly skipped for a normal
+  `main` push
+- uploaded workflow artifacts: 0
+
 ## 9. Protected Boundary Evidence
 
 - Backend implementation changes: 0
@@ -216,6 +235,10 @@ zero tracked runtime/private artifacts.
 3. The product remains a local, single-user application.
 4. External images are intentionally not loaded automatically; users must
    explicitly open an image at its source.
+5. GitHub reports that pinned `actions/checkout` and `actions/setup-python`
+   currently target the deprecated Node.js 20 Action runtime and are being
+   forced onto Node.js 24 by the runner. This is a future CI maintenance item,
+   not a P3-012 product failure.
 
 ## 11. Decision
 
@@ -223,7 +246,9 @@ Local implementation, real-browser convergence, responsive behavior,
 accessibility, negative states, full Backend, Frontend, E2E, dependency,
 secret, workflow, SBOM, and protected-boundary gates: **PASS**.
 
-Current task state: **LOCAL PASS / CI PENDING**.
+Current task state: **PASS / CLOSED**.
 
-P3-012 may be marked **PASS / CLOSED** only after the implementation commit and
-the subsequent docs-only closure commit both pass exact-SHA main CI.
+The implementation commit passed exact-SHA main CI. The docs-only closure
+commit must pass its own exact-SHA main CI before the final execution response
+claims synchronized completion. No subsequent task or v1.2 candidate is
+assigned.

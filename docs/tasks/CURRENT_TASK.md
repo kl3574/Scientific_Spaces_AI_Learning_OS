@@ -2,48 +2,37 @@
 
 ## Task
 
-P3-012 Learning Experience and GUI Refinement
+No active implementation task
 
-## Canonical Specification
+## Last Closed Task
 
 `docs/tasks/P3-012_LEARNING_EXPERIENCE_GUI_REFINEMENT.md`
 
 ## Status
 
-LOCAL PASS / CI PENDING
+P3-012 PASS / CLOSED
 
-## Entry State
-
-- branch: `main`
-- entry commit: `5933c17481a98db4b296eabac3a9d8947cd06704`
-- cached `origin/main`: exact match
-- worktree: clean
-- previous task: P3-011 PASS / CLOSED
+Next task: ALIGNMENT REQUIRED / NOT GRANTED
 
 ## Authorization
 
-- Existing local corpus and derived-asset reads: GRANTED
-- Local Backend/Frontend runtime and Computer Use: GRANTED
-- Frontend/docs/tests changes, commit, push, and CI inspection: GRANTED
+- P3-012 local corpus and derived-asset reads: CONSUMED / CLOSED
+- P3-012 local runtime and Computer Use: CONSUMED / CLOSED
+- P3-012 changes, tests, commit, push, and CI inspection: CONSUMED / CLOSED
 - Source network/browser acquisition: NOT GRANTED
 - Private Zotero reads or writes: NOT GRANTED
 - Real/paid Provider calls: NOT GRANTED
 - Candidate / tag / Release / attestation: NOT GRANTED
 
-## Required Exit
-
-- desktop and mobile GUI acceptance passes;
-- the complete learning workflow remains connected and usable;
-- loading, empty, error, accessibility, and responsive gates pass;
-- three evidence-driven convergence passes complete without unresolved
-  high-severity defects;
-- full Backend, Frontend, E2E, compatibility, secret, and artifact gates pass;
-- implementation and closure commits pass exact main CI; and
-- final branch/worktree are synchronized and clean.
-
-## Current Evidence
+## Closure Evidence
 
 - local implementation and three-pass browser convergence: PASS
 - full Backend, Frontend, E2E, dependency, secret, workflow, and SBOM gates:
   PASS
-- implementation commit and exact-SHA main CI: pending
+- implementation commit:
+  `75652e3d7a6a43d5b92f56d06aface7a7fc19d85`
+- implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33322848683`
+- implementation CI: SUCCESS
+- docs-only closure commit: must pass exact main CI before final completion is
+  reported

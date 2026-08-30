@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 product convergence is PASS / CLOSED with exact-implementation main and manual Docker CI passing; P3-012 learning experience and GUI refinement is LOCAL PASS / CI PENDING; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 product convergence is PASS / CLOSED with exact-implementation main and manual Docker CI passing; P3-012 learning experience and GUI refinement is PASS / CLOSED with exact-implementation main CI passing; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -424,7 +424,7 @@ reported zero uploaded artifacts. Evidence is in
 
 ### P3-012 - Learning Experience and GUI Refinement
 
-Status: **LOCAL PASS / CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-012 applies three evidence-driven real-browser passes to the exact local
 1,314-Article product. It improves route-aware navigation, Dashboard density,
@@ -436,8 +436,10 @@ contracts or frozen Article data.
 Local evidence passed 600 Backend tests with 4 skipped, all 30 focused
 Frontend tests, the production build, three complete isolated E2E runs with 17
 checks each, workflow and suppression policy, dependency and secret audits,
-and temporary SBOM validation. Exact-SHA main CI and docs-only closure remain
-pending. Evidence is in
+and temporary SBOM validation. Implementation commit
+`75652e3d7a6a43d5b92f56d06aface7a7fc19d85` passed exact-SHA main CI run
+[`33322848683`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33322848683)
+with zero uploaded artifacts. Evidence is in
 `docs/P3_012_LEARNING_EXPERIENCE_GUI_REFINEMENT_REPORT.md`.
 
 ## Release Criteria
@@ -472,7 +474,7 @@ pending. Evidence is in
 
 ## Next Recommended Task
 
-P3-012 is LOCAL PASS / CI PENDING. Close it only after implementation and
-docs-only closure commits pass exact-SHA main CI. No subsequent task or v1.2
-candidate assignment is granted. Tag, Release, attestation, real Provider,
-source access, and private Zotero actions remain unauthorized.
+P3-012 is PASS / CLOSED. No subsequent product task or v1.2 candidate
+assignment is granted. A new task requires alignment and explicit
+authorization. Tag, Release, attestation, real Provider, source access, and
+private Zotero actions remain unauthorized.
