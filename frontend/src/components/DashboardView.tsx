@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 
 import { ArticleListResponse, ArticleSummary, fetchArticles } from "@/lib/articles";
+import { ReaderProgressState, createResumeHref, loadReaderProgress } from "@/lib/articleWorkspace";
 import { LearningStats, fetchLearningStats } from "@/lib/learning";
 import { ReadingHistoryItem, loadReadingHistory } from "@/lib/readingHistory";
 
@@ -12,11 +13,14 @@ export function DashboardView() {
   const [articleQuery, setArticleQuery] = useState<ArticleListResponse | null>(null);
   const [stats, setStats] = useState<LearningStats | null>(null);
   const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
+  const [continueState, setContinueState] = useState<ReaderProgressState | null>(null);
   const [status, setStatus] = useState<"loading" | "loaded" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    setHistory(loadReadingHistory());
+    const localHistory = loadReadingHistory();
+    setHistory(localHistory);
+    setContinueState(localHistory[0] ? loadReaderProgress(localHistory[0].id) : null);
     void loadDashboard();
   }, []);
 
@@ -83,6 +87,29 @@ export function DashboardView() {
           </div>
         ))}
       </dl>
+
+      <section className="border-t-2 border-amber-500 pt-4" data-testid="continue-reading">
+        <h2 className="text-base font-semibold">Continue Reading</h2>
+        {history[0] ? (
+          <div className="mt-3 flex flex-col gap-3 border-y border-slate-200 py-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="break-words font-medium text-slate-950">{history[0].title}</p>
+              <p className="mt-1 text-xs text-slate-500">
+                {continueState?.section_title ?? "Article start"} · {continueState?.progress ?? 0}% read
+              </p>
+            </div>
+            <Link
+              aria-label={`Continue reading ${history[0].title}`}
+              className="w-fit rounded bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              href={createResumeHref(history[0].id, continueState)}
+            >
+              Continue reading
+            </Link>
+          </div>
+        ) : (
+          <p className="mt-3 border-y border-slate-200 py-4 text-sm text-slate-600">No article in progress.</p>
+        )}
+      </section>
 
       <section className="border-t-2 border-emerald-700 pt-4">
         <div className="flex items-end justify-between gap-3">

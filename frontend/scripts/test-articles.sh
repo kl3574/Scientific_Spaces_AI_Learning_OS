@@ -13,7 +13,12 @@ trap 'rm -rf "$test_dir"' EXIT
   --outDir "$test_dir" \
   tests/articles.test.ts \
   tests/articlePresentation.test.ts \
+  tests/articleWorkspace.test.ts \
   src/lib/articles.ts \
-  src/lib/articlePresentation.ts
+  src/lib/articlePresentation.ts \
+  src/lib/articleWorkspace.ts
 
-node --test "$test_dir/tests/articles.test.js" "$test_dir/tests/articlePresentation.test.js"
+node --test \
+  "$test_dir/tests/articles.test.js" \
+  "$test_dir/tests/articlePresentation.test.js" \
+  "$test_dir/tests/articleWorkspace.test.js"

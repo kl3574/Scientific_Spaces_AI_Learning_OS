@@ -8,7 +8,24 @@ import { Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 
-import { ArticleDetail, ArticleMetadata, fetchArticle, formatMetadata } from "@/lib/articles";
+import {
+  ArticleOutline,
+  ReaderDisplayControls,
+  ReadingProgress,
+} from "@/components/ReaderWorkspaceControls";
+import { ArticleDetail, fetchArticle, formatMetadata } from "@/lib/articles";
+import {
+  ArticleOutlineItem,
+  DEFAULT_READER_PREFERENCES,
+  ReaderPreferences,
+  clampReadingProgress,
+  extractArticleOutline,
+  loadReaderPreferences,
+  loadReaderProgress,
+  prepareArticleMarkdown,
+  saveReaderPreferences,
+  saveReaderProgress,
+} from "@/lib/articleWorkspace";
 import {
   LearningNote,
   LearningSession,
@@ -42,9 +59,25 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
   const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [learningError, setLearningError] = useState<string | null>(null);
+  const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
+  const [readingProgress, setReadingProgress] = useState(0);
+  const [readerPreferences, setReaderPreferences] = useState<ReaderPreferences>(DEFAULT_READER_PREFERENCES);
   const learningLoadArticleRef = useRef<string | null>(null);
+  const articleRootRef = useRef<HTMLElement | null>(null);
+  const explicitSectionRef = useRef<ArticleOutlineItem | null>(null);
 
   useEffect(() => {
+    setArticle(null);
+    setError(null);
+    setActiveSectionId(null);
+    setReadingProgress(0);
+    setLearningState(null);
+    setIsBookmarked(false);
+    setNotes([]);
+    setActiveSession(null);
+    setLearningError(null);
+    learningLoadArticleRef.current = null;
+    explicitSectionRef.current = null;
     setHistory(loadReadingHistory());
     fetchArticle(articleId)
       .then((loadedArticle) => {
@@ -54,6 +87,10 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
       })
       .catch((err) => setError(err instanceof Error ? err.message : "Failed to load article"));
   }, [articleId]);
+
+  useEffect(() => {
+    setReaderPreferences(loadReaderPreferences());
+  }, []);
 
   async function loadLearningContext(nextArticleId: string) {
     if (learningLoadArticleRef.current === nextArticleId) {
@@ -164,7 +201,170 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
 
   const metadataImages = useMemo(() => parseMetadataItems(article?.metadata.images), [article?.metadata.images]);
   const metadataReferences = useMemo(() => parseMetadataItems(article?.metadata.references), [article?.metadata.references]);
-  const renderedContent = useMemo(() => prepareMarkdownForMath(article?.content ?? ""), [article?.content]);
+  const renderedContent = useMemo(() => prepareArticleMarkdown(article?.content ?? ""), [article?.content]);
+  const outline = useMemo(() => extractArticleOutline(renderedContent), [renderedContent]);
+  const markdownComponents = useMemo(() => createMarkdownComponents(outline), [outline]);
+  const activeSection = useMemo(
+    () => outline.find((item) => item.id === activeSectionId) ?? null,
+    [activeSectionId, outline],
+  );
+
+  useEffect(() => {
+    const currentArticleId = article?.id;
+    const articleRoot = articleRootRef.current;
+    if (!currentArticleId || !articleRoot) {
+      return;
+    }
+
+    let restored = false;
+    let frame = 0;
+    let restoreFrame = 0;
+    let persistenceTimer: ReturnType<typeof setTimeout> | null = null;
+    let pendingState = {
+      article_id: currentArticleId,
+      section_id: null as string | null,
+      section_title: null as string | null,
+      progress: 0,
+      updated_at: new Date().toISOString(),
+    };
+
+    const persist = () => {
+      if (!restored) {
+        return;
+      }
+      if (persistenceTimer) {
+        clearTimeout(persistenceTimer);
+        persistenceTimer = null;
+      }
+      const explicitSection = explicitSectionRef.current;
+      saveReaderProgress({
+        ...pendingState,
+        section_id: explicitSection?.id ?? pendingState.section_id,
+        section_title: explicitSection?.label ?? pendingState.section_title,
+        updated_at: new Date().toISOString(),
+      });
+    };
+
+    const schedulePersist = () => {
+      if (persistenceTimer) {
+        clearTimeout(persistenceTimer);
+      }
+      persistenceTimer = setTimeout(persist, 300);
+    };
+
+    const updateReadingPosition = () => {
+      frame = 0;
+      if (!restored) {
+        return;
+      }
+
+      const readingLine = Math.min(180, Math.max(96, window.innerHeight * 0.2));
+      let nextSection: ArticleOutlineItem | null = null;
+      for (const item of outline) {
+        const heading = document.getElementById(item.id);
+        if (heading && heading.getBoundingClientRect().top <= readingLine) {
+          nextSection = item;
+        } else if (heading) {
+          break;
+        }
+      }
+
+      const articleRect = articleRoot.getBoundingClientRect();
+      const articleTop = window.scrollY + articleRect.top;
+      const readableDistance = Math.max(1, articleRoot.scrollHeight - window.innerHeight);
+      const nextProgress = clampReadingProgress(((window.scrollY - articleTop) / readableDistance) * 100);
+      setActiveSectionId(nextSection?.id ?? null);
+      setReadingProgress(nextProgress);
+      pendingState = {
+        article_id: currentArticleId,
+        section_id: nextSection?.id ?? null,
+        section_title: nextSection?.label ?? null,
+        progress: nextProgress,
+        updated_at: new Date().toISOString(),
+      };
+      if (explicitSectionRef.current?.id === nextSection?.id) {
+        explicitSectionRef.current = null;
+      }
+      schedulePersist();
+    };
+
+    const schedulePositionUpdate = () => {
+      if (!frame) {
+        frame = window.requestAnimationFrame(updateReadingPosition);
+      }
+    };
+
+    const restorePosition = () => {
+      const saved = loadReaderProgress(currentArticleId);
+      const hashSection = decodeHash(window.location.hash);
+      const targetSection = hashSection && outline.some((item) => item.id === hashSection)
+        ? hashSection
+        : saved?.section_id;
+      const target = targetSection ? document.getElementById(targetSection) : null;
+      if (target) {
+        target.scrollIntoView({ behavior: "auto", block: "start" });
+        setActiveSectionId(targetSection ?? null);
+      }
+      if (saved) {
+        setReadingProgress(saved.progress);
+      }
+      restored = true;
+      updateReadingPosition();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        persist();
+      }
+    };
+
+    window.addEventListener("scroll", schedulePositionUpdate, { passive: true });
+    window.addEventListener("resize", schedulePositionUpdate);
+    window.addEventListener("pagehide", persist);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    restoreFrame = window.requestAnimationFrame(() => {
+      restoreFrame = window.requestAnimationFrame(restorePosition);
+    });
+
+    return () => {
+      window.removeEventListener("scroll", schedulePositionUpdate);
+      window.removeEventListener("resize", schedulePositionUpdate);
+      window.removeEventListener("pagehide", persist);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+      }
+      if (restoreFrame) {
+        window.cancelAnimationFrame(restoreFrame);
+      }
+      persist();
+    };
+  }, [article?.id, outline]);
+
+  function handleOutlineNavigate(sectionId: string) {
+    const target = document.getElementById(sectionId);
+    const section = outline.find((item) => item.id === sectionId);
+    if (!target || !article || !section) {
+      return;
+    }
+    window.history.replaceState(null, "", `#${encodeURIComponent(sectionId)}`);
+    explicitSectionRef.current = section;
+    target.scrollIntoView({ behavior: "auto", block: "start" });
+    target.focus({ preventScroll: true });
+    setActiveSectionId(sectionId);
+    saveReaderProgress({
+      article_id: article.id,
+      section_id: section.id,
+      section_title: section.label,
+      progress: readingProgress,
+      updated_at: new Date().toISOString(),
+    });
+  }
+
+  function handleReaderPreferences(nextPreferences: ReaderPreferences) {
+    const saved = saveReaderPreferences(nextPreferences);
+    setReaderPreferences(saved);
+  }
 
   if (error) {
     return (
@@ -183,7 +383,13 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
 
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
-      <article id="article-start" className="min-w-0 rounded border border-slate-200 bg-white p-5">
+      <article
+        ref={articleRootRef}
+        id="article-start"
+        className="reader-workspace min-w-0 rounded border border-slate-200 bg-white p-5"
+        data-reader-size={readerPreferences.textSize}
+        data-reader-width={readerPreferences.width}
+      >
         <Link className="text-sm text-slate-600 hover:text-slate-950" href="/articles">
           Back to articles
         </Link>
@@ -201,19 +407,28 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
           <span aria-hidden="true" className="text-slate-300">/</span>
           <a
             className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 lg:hidden"
+            href="#article-outline"
+          >
+            Outline
+          </a>
+          <a
+            className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 lg:hidden"
             href="#reading-tools"
           >
             Reading tools
           </a>
         </div>
-        <div className="reader-markdown mt-6">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[[rehypeKatex, { strict: false, throwOnError: false }]]}
-            components={markdownComponents}
-          >
-            {renderedContent}
-          </ReactMarkdown>
+        <ReadingProgress activeSection={activeSection} progress={readingProgress} />
+        <div className="reader-content mt-6">
+          <div className="reader-markdown">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[[rehypeKatex, { strict: false, throwOnError: false }]]}
+              components={markdownComponents}
+            >
+              {renderedContent}
+            </ReactMarkdown>
+          </div>
         </div>
         <StructuredReferencesPanel articleId={article.id} />
       </article>
@@ -230,6 +445,14 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
             Back to article
           </a>
         </div>
+        <section id="article-outline" className="scroll-mt-24 rounded border border-slate-200 bg-white p-4">
+          <ArticleOutline activeSectionId={activeSectionId} items={outline} onNavigate={handleOutlineNavigate} />
+        </section>
+
+        <section className="rounded border border-slate-200 bg-white p-4">
+          <ReaderDisplayControls preferences={readerPreferences} onChange={handleReaderPreferences} />
+        </section>
+
         <section className="rounded border border-slate-200 bg-white p-4">
           <h2 className="text-base font-semibold">Learning State</h2>
           {learningError ? <p className="mt-3 text-sm text-red-700">{learningError}</p> : null}
@@ -536,7 +759,7 @@ function renderMetadataList(values: MarkdownItem[], emptyLabel: string): ReactNo
   );
 }
 
-const markdownComponents: Components = {
+const baseMarkdownComponents: Components = {
   a: ({ node: _node, href, ...props }) => {
     const normalizedHref = normalizeContentUrl(href);
     const isExternal = typeof normalizedHref === "string" && isExternalUrl(normalizedHref);
@@ -563,6 +786,28 @@ const markdownComponents: Components = {
   },
   img: (props) => <MarkdownImage {...props} />,
 };
+
+function createMarkdownComponents(outline: ArticleOutlineItem[]): Components {
+  const headingIdsByLine = new Map(outline.map((item) => [item.line, item.id]));
+  return {
+    ...baseMarkdownComponents,
+    h2: ({ node, ...props }) => (
+      <h2 {...props} id={headingIdForNode(node, headingIdsByLine)} className="scroll-mt-24" tabIndex={-1} />
+    ),
+    h3: ({ node, ...props }) => (
+      <h3 {...props} id={headingIdForNode(node, headingIdsByLine)} className="scroll-mt-24" tabIndex={-1} />
+    ),
+    h4: ({ node, ...props }) => (
+      <h4 {...props} id={headingIdForNode(node, headingIdsByLine)} className="scroll-mt-24" tabIndex={-1} />
+    ),
+  };
+}
+
+function headingIdForNode(node: unknown, headingIdsByLine: Map<number, string>): string | undefined {
+  const candidate = node as { position?: { start?: { line?: number } } } | undefined;
+  const line = candidate?.position?.start?.line;
+  return typeof line === "number" ? headingIdsByLine.get(line) : undefined;
+}
 
 function MarkdownImage({ node: _node, src: rawSrc, alt: rawAlt, ...props }: ComponentPropsWithoutRef<"img"> & { node?: unknown }) {
   const src = normalizeContentUrl(typeof rawSrc === "string" ? rawSrc : "") ?? "";
@@ -620,34 +865,13 @@ function normalizeContentUrl(value: string | undefined): string | undefined {
   }
 }
 
-function prepareMarkdownForMath(content: string): string {
-  return content
-    .split(/(```[\s\S]*?```|~~~[\s\S]*?~~~)/g)
-    .map((segment, index) => {
-      if (index % 2 === 1) {
-        return segment;
-      }
-      const normalizedCommands = segment
-        .replace(
-          /(\\newcommand\{([A-Za-z][A-Za-z0-9]*)\}[^\n$]*?\\\2)\$\1\$/g,
-          (_match, formula: string) => `$${normalizeNewcommand(formula)}$`,
-        )
-        .replace(/\\newcommand\{([A-Za-z][A-Za-z0-9]*)\}/g, (_match, name: string) => `\\newcommand{\\${name}}`);
-
-      const normalizedDisplayMath = normalizedCommands.replace(
-        /\$\$([\s\S]*?)\$\$/g,
-        (_match, formula: string) => `\n\n$$\n${formula.trim()}\n$$\n\n`,
-      );
-
-      return normalizedDisplayMath
-        .replace(/(?<!\\)\\\[/g, () => "$$")
-        .replace(/(?<!\\)\\\]/g, () => "$$")
-        .replace(/(?<!\\)\\\(/g, () => "$")
-        .replace(/(?<!\\)\\\)/g, () => "$");
-    })
-    .join("");
-}
-
-function normalizeNewcommand(value: string): string {
-  return value.replace(/\\newcommand\{([A-Za-z][A-Za-z0-9]*)\}/g, (_match, name: string) => `\\newcommand{\\${name}}`);
+function decodeHash(hash: string): string | null {
+  if (!hash.startsWith("#") || hash.length <= 1) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(hash.slice(1));
+  } catch {
+    return null;
+  }
 }

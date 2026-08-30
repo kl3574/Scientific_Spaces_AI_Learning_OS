@@ -2,37 +2,39 @@
 
 ## Task
 
-No active implementation task
+P3-013 Reader Workspace and Learning Continuity
 
-## Last Closed Task
+## Canonical Specification
 
-`docs/tasks/P3-012_LEARNING_EXPERIENCE_GUI_REFINEMENT.md`
+`docs/tasks/P3-013_READER_WORKSPACE_AND_LEARNING_CONTINUITY.md`
 
 ## Status
 
-P3-012 PASS / CLOSED
+LOCAL GATES PASS / EXACT-SHA CI PENDING
 
-Next task: ALIGNMENT REQUIRED / NOT GRANTED
+## Entry State
+
+- branch: `main`
+- entry commit: `6b297d8ae21b1b43ef2e6e7a1b0bef51e5d71b83`
+- cached `origin/main`: exact match
+- worktree: clean
+- previous task: P3-012 PASS / CLOSED
 
 ## Authorization
 
-- P3-012 local corpus and derived-asset reads: CONSUMED / CLOSED
-- P3-012 local runtime and Computer Use: CONSUMED / CLOSED
-- P3-012 changes, tests, commit, push, and CI inspection: CONSUMED / CLOSED
+- Existing local corpus and derived-asset reads: GRANTED
+- Local Backend/Frontend runtime and Computer Use: GRANTED
+- Frontend/docs/tests changes, commit, push, and CI inspection: GRANTED
 - Source network/browser acquisition: NOT GRANTED
 - Private Zotero reads or writes: NOT GRANTED
 - Real/paid Provider calls: NOT GRANTED
 - Candidate / tag / Release / attestation: NOT GRANTED
 
-## Closure Evidence
+## Required Exit
 
-- local implementation and three-pass browser convergence: PASS
-- full Backend, Frontend, E2E, dependency, secret, workflow, and SBOM gates:
-  PASS
-- implementation commit:
-  `75652e3d7a6a43d5b92f56d06aface7a7fc19d85`
-- implementation main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33322848683`
-- implementation CI: SUCCESS
-- docs-only closure commit: must pass exact main CI before final completion is
-  reported
+- Article outline, progress, resume, and display preferences pass;
+- Dashboard Continue Reading behavior passes;
+- desktop/mobile content and accessibility gates pass;
+- three isolated product E2E runs and all repository quality gates pass;
+- implementation and closure commits pass exact main CI; and
+- final branch/worktree are synchronized and clean.

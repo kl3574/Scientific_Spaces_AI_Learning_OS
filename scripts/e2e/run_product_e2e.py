@@ -14,7 +14,7 @@ import time
 import traceback
 from typing import Iterator
 from urllib.error import URLError
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -174,7 +174,16 @@ def _load_fixture_articles() -> list[StoredArticle]:
         metadata = dict(item["metadata"])
         if item["id"] == CRB_ARTICLE_ID:
             item["content"] = (
-                f"{item['content']}\n\n## References\n\n"
+                f"{item['content']}\n\n"
+                "## 推导步骤\n\n"
+                "在正则条件下，信息矩阵给出参数不确定性的局部尺度。\n\n"
+                "### 正则条件\n\n"
+                "分数函数的期望为零，且 Fisher 信息有限。\n\n"
+                "## 数值检查\n\n"
+                "| quantity | value |\n| --- | ---: |\n| dimension | 1 |\n\n"
+                "```python\nvariance_bound = 1 / fisher_information\n```\n\n"
+                "## 数值检查\n\n重复标题用于验证唯一锚点。\n\n"
+                "## References\n\n"
                 "DOI: 10.1000/example\n\n"
                 "https://arxiv.org/abs/1706.03762\n\n"
                 "![External payment image](https://spaces.ac.cn/usr/themes/geekg/payment/wx.png)\n"
@@ -331,6 +340,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
     ).to_be_visible(timeout=30_000)
     expect(page.get_by_text(str(EXPECTED_ARTICLE_COUNT), exact=True).first).to_be_visible()
+    expect(page.get_by_text("No article in progress.", exact=True)).to_be_visible()
     _require(
         page.locator('nav[aria-label="Primary"] [aria-current="page"]').get_attribute("href") == "/",
         "Dashboard navigation item is not marked as current",
@@ -366,6 +376,33 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_text("10.1000/example", exact=False).first).to_be_visible(timeout=30_000)
     checks["article_markdown_formula_and_reference"] = True
 
+    outline = page.get_by_test_id("article-outline")
+    expect(outline).to_be_visible()
+    heading_ids = page.locator(".reader-markdown h2, .reader-markdown h3, .reader-markdown h4").evaluate_all(
+        "nodes => nodes.map(node => node.id)"
+    )
+    _require(heading_ids and all(heading_ids), "reader headings are missing anchors")
+    _require(len(heading_ids) == len(set(heading_ids)), "reader heading anchors are not unique")
+    target_outline_link = outline.get_by_role("link", name="数值检查", exact=True).first
+    target_section_id = unquote((target_outline_link.get_attribute("href") or "").lstrip("#"))
+    target_outline_link.click()
+    _require(
+        page.evaluate("() => document.activeElement?.id") == target_section_id,
+        "outline navigation did not move focus to the target heading",
+    )
+    page.wait_for_function("() => window.scrollY > 0")
+    page.wait_for_function(
+        "() => Number(document.querySelector('[data-testid=reading-progress]')?.getAttribute('aria-valuenow') || 0) > 0"
+    )
+    expect(outline.locator('[aria-current="location"]')).to_have_text("数值检查")
+    progress_value = int(page.get_by_test_id("reading-progress").get_attribute("aria-valuenow") or "0")
+    _require(0 < progress_value <= 100, f"reader progress is out of bounds: {progress_value}")
+    page.get_by_role("button", name="Large text", exact=True).click()
+    page.get_by_role("button", name="Wide", exact=True).click()
+    expect(page.locator("article.reader-workspace")).to_have_attribute("data-reader-size", "large")
+    expect(page.locator("article.reader-workspace")).to_have_attribute("data-reader-width", "wide")
+    checks["reader_outline_progress_and_preferences"] = True
+
     end_session_button = page.get_by_role("button", name="End session", exact=True)
     expect(end_session_button).to_be_enabled(timeout=30_000)
     sessions = _api_json(context, "GET", "/learning/sessions")
@@ -393,10 +430,26 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["learning_state_bookmark_note_and_session"] = True
 
     page.get_by_role("link", name="Dashboard", exact=True).click()
+    expect(page.get_by_role("heading", name="Continue Reading", exact=True)).to_be_visible()
+    continue_link = page.get_by_role("link", name=re.compile(r"^Continue reading CRB"))
+    continue_href = continue_link.get_attribute("href") or ""
+    _require("#" in continue_href, "Continue Reading does not retain a section anchor")
     expect(page.get_by_role("heading", name="Recent Learning", exact=True)).to_be_visible()
     expect(page.get_by_role("heading", name="Reading History", exact=True)).to_be_visible()
     _require(page.get_by_role("link", name=re.compile(CRB_TITLE)).count() >= 2, "dashboard history is missing")
     checks["dashboard_history"] = True
+
+    continue_link.click()
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    page.wait_for_function("() => window.scrollY > 0")
+    expect(page.locator("article.reader-workspace")).to_have_attribute("data-reader-size", "large")
+    expect(page.locator("article.reader-workspace")).to_have_attribute("data-reader-width", "wide")
+    expect(page.get_by_test_id("article-outline").locator('[aria-current="location"]')).to_be_visible()
+    resumed_end_session = page.get_by_role("button", name="End session", exact=True)
+    expect(resumed_end_session).to_be_enabled(timeout=30_000)
+    resumed_end_session.click()
+    expect(resumed_end_session).to_be_disabled()
+    checks["continue_reading_resume"] = True
 
     page.get_by_role("link", name="Graph", exact=True).click()
     expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
@@ -476,6 +529,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         viewport={"width": 390, "height": 844},
         locale="zh-CN",
         is_mobile=True,
+        reduced_motion="reduce",
     )
     _install_network_guard(mobile_context, blocked_external)
     mobile_page = mobile_context.new_page()
@@ -514,7 +568,9 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(mobile_page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     expect(mobile_page.locator(".reader-markdown .katex").first).to_be_visible()
     reading_tools_link = mobile_page.get_by_role("link", name="Reading tools", exact=True)
+    outline_link = mobile_page.get_by_role("link", name="Outline", exact=True)
     expect(reading_tools_link).to_be_visible()
+    expect(outline_link).to_be_visible()
     reading_tools_box = reading_tools_link.bounding_box()
     _require(
         reading_tools_box is not None and reading_tools_box["y"] < 844,
@@ -527,6 +583,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     _require(list_width <= 390, f"mobile Article List overflowed to {list_width}px")
     _require(detail_width <= 390, f"mobile Article Detail overflowed to {detail_width}px")
     _require(formula_overflow == "auto", "display formula does not retain local horizontal scrolling")
+    _require(
+        mobile_page.evaluate("() => matchMedia('(prefers-reduced-motion: reduce)').matches"),
+        "reduced-motion browser preference is not active",
+    )
+    outline_link.click()
+    expect(mobile_page.get_by_test_id("article-outline")).to_be_visible()
     reading_tools_link.click()
     mobile_end_button = mobile_page.get_by_role("button", name="End session", exact=True)
     expect(mobile_end_button).to_be_enabled(timeout=30_000)
@@ -606,7 +668,7 @@ def verify_backend_restart_persistence(
             "completed_state": stats.get("completed_count") == 1,
             "bookmark": stats.get("bookmark_count") == 1,
             "note": stats.get("note_count") == 1,
-            "ended_sessions": sessions.get("total") == 2
+            "ended_sessions": sessions.get("total") == 3
             and all(item.get("ended_at") for item in sessions.get("items", [])),
         }
         _require(all(checks.values()), f"restart persistence checks failed: {checks}")

@@ -58,9 +58,31 @@ body {
   overflow-wrap: anywhere;
 }
 
+.reader-content {
+  min-width: 0;
+  width: 100%;
+  max-width: 46rem;
+  margin-inline: auto;
+}
+
+.reader-workspace[data-reader-width="wide"] .reader-content {
+  max-width: 100%;
+}
+
+.reader-workspace[data-reader-size="compact"] .reader-markdown {
+  font-size: 0.94rem;
+  line-height: 1.7;
+}
+
+.reader-workspace[data-reader-size="large"] .reader-markdown {
+  font-size: 1.125rem;
+  line-height: 1.9;
+}
+
 .reader-markdown h1,
 .reader-markdown h2,
-.reader-markdown h3 {
+.reader-markdown h3,
+.reader-markdown h4 {
   color: #0f172a;
   font-weight: 700;
   line-height: 1.35;
@@ -77,6 +99,10 @@ body {
 
 .reader-markdown h3 {
   font-size: 1.1rem;
+}
+
+.reader-markdown h4 {
+  font-size: 1rem;
 }
 
 .reader-markdown p,
@@ -159,4 +185,15 @@ body {
   border: 1px solid #cbd5e1;
   padding: 0.5rem;
   text-align: left;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
