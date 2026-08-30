@@ -159,15 +159,16 @@ export function TutorView() {
       <form className="grid gap-4 rounded border border-slate-200 bg-white p-4" onSubmit={runTutorQuery}>
         <fieldset className="space-y-2">
           <legend className="text-sm font-medium">Mode</legend>
-          <div className="inline-flex w-full flex-wrap gap-2 rounded border border-slate-300 p-1" role="tablist" aria-label="Tutor mode">
+          <div className="grid w-full grid-cols-5 gap-1 rounded border border-slate-300 p-1" role="tablist" aria-label="Tutor mode">
             {modes.map((item) => {
               const active = mode === item;
               return (
                 <button
                   key={item}
-                  className={`rounded border px-3 py-2 text-sm capitalize transition ${
+                  aria-pressed={active}
+                  className={`min-w-0 rounded border px-1 py-2 text-xs capitalize transition sm:px-3 sm:text-sm ${
                     active
-                      ? "border-slate-900 bg-slate-950 text-white"
+                      ? "border-emerald-700 bg-emerald-700 text-white"
                       : "border-slate-200 bg-white text-slate-700 hover:border-slate-900"
                   }`}
                   type="button"

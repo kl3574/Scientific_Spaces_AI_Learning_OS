@@ -12,6 +12,8 @@ trap 'rm -rf "$test_dir"' EXIT
   --skipLibCheck \
   --outDir "$test_dir" \
   tests/articles.test.ts \
-  src/lib/articles.ts
+  tests/articlePresentation.test.ts \
+  src/lib/articles.ts \
+  src/lib/articlePresentation.ts
 
-node --test "$test_dir/tests/articles.test.js"
+node --test "$test_dir/tests/articles.test.js" "$test_dir/tests/articlePresentation.test.js"

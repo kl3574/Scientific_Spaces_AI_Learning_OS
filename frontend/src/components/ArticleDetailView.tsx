@@ -182,21 +182,30 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
   }
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_280px]">
-      <article className="min-w-0 rounded border border-slate-200 bg-white p-5">
+    <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+      <article id="article-start" className="min-w-0 rounded border border-slate-200 bg-white p-5">
         <Link className="text-sm text-slate-600 hover:text-slate-950" href="/articles">
           Back to articles
         </Link>
         <h1 className="mt-4 break-words text-2xl font-semibold leading-tight">{article.title}</h1>
         <p className="mt-2 text-sm text-slate-500">{formatMetadata(article.metadata)}</p>
-        <a
-          className="mt-2 inline-block text-sm text-slate-600 hover:text-slate-950"
-          href={article.url}
-          rel="noreferrer"
-          target="_blank"
-        >
-          Source article
-        </a>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <a
+            className="inline-block text-sm font-medium text-emerald-800 hover:text-emerald-950"
+            href={article.url}
+            rel="noreferrer"
+            target="_blank"
+          >
+            Source article
+          </a>
+          <span aria-hidden="true" className="text-slate-300">/</span>
+          <a
+            className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 lg:hidden"
+            href="#reading-tools"
+          >
+            Reading tools
+          </a>
+        </div>
         <div className="reader-markdown mt-6">
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
@@ -209,7 +218,18 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
         <StructuredReferencesPanel articleId={article.id} />
       </article>
 
-      <aside className="space-y-4">
+      <aside
+        id="reading-tools"
+        aria-label="Reading tools"
+        className="scroll-mt-24 space-y-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1"
+        tabIndex={-1}
+      >
+        <div className="flex items-center justify-between gap-3 border-b border-slate-300 pb-2">
+          <h2 className="text-base font-semibold">Reading tools</h2>
+          <a className="text-xs font-medium text-emerald-800 hover:text-emerald-950 lg:hidden" href="#article-start">
+            Back to article
+          </a>
+        </div>
         <section className="rounded border border-slate-200 bg-white p-4">
           <h2 className="text-base font-semibold">Learning State</h2>
           {learningError ? <p className="mt-3 text-sm text-red-700">{learningError}</p> : null}
@@ -545,14 +565,25 @@ const markdownComponents: Components = {
 };
 
 function MarkdownImage({ node: _node, src: rawSrc, alt: rawAlt, ...props }: ComponentPropsWithoutRef<"img"> & { node?: unknown }) {
-  const [hasError, setHasError] = useState(false);
   const src = normalizeContentUrl(typeof rawSrc === "string" ? rawSrc : "") ?? "";
   const alt = typeof rawAlt === "string" && rawAlt.trim() ? rawAlt : "Article image";
 
-  if (!src || hasError) {
+  if (!src) {
     return (
       <span className="mt-1 inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
         <span>{`${alt} unavailable`}</span>
+      </span>
+    );
+  }
+
+  if (!isInlineImageUrl(src)) {
+    return (
+      <span className="my-2 block border-l-2 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+        <span className="font-medium">{alt}</span>
+        <span className="block text-xs leading-5 text-amber-800">External image not loaded automatically.</span>
+        <a className="mt-1 inline-block text-xs font-semibold underline underline-offset-2" href={src} rel="noopener noreferrer" target="_blank">
+          Open image at source
+        </a>
       </span>
     );
   }
@@ -563,9 +594,13 @@ function MarkdownImage({ node: _node, src: rawSrc, alt: rawAlt, ...props }: Comp
       src={src}
       alt={alt}
       className="max-w-full rounded border border-slate-200"
-      onError={() => setHasError(true)}
+      loading="lazy"
     />
   );
+}
+
+function isInlineImageUrl(value: string): boolean {
+  return value.startsWith("data:") || value.startsWith("blob:");
 }
 
 function normalizeContentUrl(value: string | undefined): string | undefined {

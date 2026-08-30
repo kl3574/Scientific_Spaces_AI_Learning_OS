@@ -176,7 +176,8 @@ def _load_fixture_articles() -> list[StoredArticle]:
             item["content"] = (
                 f"{item['content']}\n\n## References\n\n"
                 "DOI: 10.1000/example\n\n"
-                "https://arxiv.org/abs/1706.03762\n"
+                "https://arxiv.org/abs/1706.03762\n\n"
+                "![External payment image](https://spaces.ac.cn/usr/themes/geekg/payment/wx.png)\n"
             )
             metadata["references"] = [
                 *list(metadata.get("references") or []),
@@ -330,14 +331,21 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
     ).to_be_visible(timeout=30_000)
     expect(page.get_by_text(str(EXPECTED_ARTICLE_COUNT), exact=True).first).to_be_visible()
+    _require(
+        page.locator('nav[aria-label="Primary"] [aria-current="page"]').get_attribute("href") == "/",
+        "Dashboard navigation item is not marked as current",
+    )
     checks["dashboard"] = True
 
     page.get_by_role("link", name="Articles", exact=True).click()
     expect(page.get_by_role("heading", name="Article List", exact=True)).to_be_visible()
+    expect(page.locator('nav[aria-label="Primary"] [aria-current="page"]')).to_have_text("Articles")
     page.get_by_placeholder("Search title or keyword").fill("CRB")
     page.get_by_role("button", name="Search", exact=True).click()
     article_link = page.get_by_role("link", name=CRB_TITLE, exact=True)
     expect(article_link).to_be_visible(timeout=30_000)
+    preview_text = article_link.locator("xpath=ancestor::article[1]").get_by_test_id("article-preview").inner_text()
+    _require("# " not in preview_text and "](" not in preview_text, "article preview exposes Markdown syntax")
     checks["title_and_keyword_search"] = True
 
     page.get_by_placeholder("Search title or keyword").fill("__p3_011_no_matching_article__")
@@ -353,6 +361,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     expect(page.locator(".reader-markdown")).to_contain_text("Fisher")
     expect(page.locator(".reader-markdown .katex").first).to_be_visible()
+    expect(page.get_by_text("External image not loaded automatically.", exact=True)).to_be_visible()
     expect(page.get_by_role("heading", name="Structured References", exact=True)).to_be_visible()
     expect(page.get_by_text("10.1000/example", exact=False).first).to_be_visible(timeout=30_000)
     checks["article_markdown_formula_and_reference"] = True
@@ -475,6 +484,25 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
     mobile_page.on("pageerror", lambda error: page_errors.append(str(error)))
+    mobile_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    expect(
+        mobile_page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
+    ).to_be_visible()
+    nav_boxes = mobile_page.locator('nav[aria-label="Primary"] a').evaluate_all(
+        "nodes => nodes.map(node => node.getBoundingClientRect()).map(box => ({x: box.x, y: box.y}))"
+    )
+    stat_boxes = mobile_page.locator('[data-testid="dashboard-stats"] > div').evaluate_all(
+        "nodes => nodes.map(node => node.getBoundingClientRect()).map(box => ({x: box.x, y: box.y}))"
+    )
+    _require(len({round(item["y"]) for item in nav_boxes}) == 1, "mobile primary navigation wraps")
+    _require(len({round(item["x"]) for item in stat_boxes}) == 2, "mobile dashboard statistics are not two columns")
+    recent_articles_top = mobile_page.get_by_role("heading", name="Recent Articles", exact=True).bounding_box()
+    _require(
+        recent_articles_top is not None and recent_articles_top["y"] < 844,
+        "Recent Articles is below the first mobile viewport",
+    )
+    checks["mobile_dashboard_density"] = True
+
     mobile_page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
     expect(mobile_page.get_by_role("heading", name="Article List", exact=True)).to_be_visible()
     expect(mobile_page.get_by_text(re.compile(r"^Page 1 / "))).to_be_visible(timeout=30_000)
@@ -485,6 +513,13 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     expect(mobile_page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     expect(mobile_page.locator(".reader-markdown .katex").first).to_be_visible()
+    reading_tools_link = mobile_page.get_by_role("link", name="Reading tools", exact=True)
+    expect(reading_tools_link).to_be_visible()
+    reading_tools_box = reading_tools_link.bounding_box()
+    _require(
+        reading_tools_box is not None and reading_tools_box["y"] < 844,
+        "mobile Reading tools entry is below the first viewport",
+    )
     detail_width = _document_width(mobile_page)
     formula_overflow = mobile_page.locator(".reader-markdown .katex-display").first.evaluate(
         "(node) => getComputedStyle(node).overflowX"
@@ -492,6 +527,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     _require(list_width <= 390, f"mobile Article List overflowed to {list_width}px")
     _require(detail_width <= 390, f"mobile Article Detail overflowed to {detail_width}px")
     _require(formula_overflow == "auto", "display formula does not retain local horizontal scrolling")
+    reading_tools_link.click()
     mobile_end_button = mobile_page.get_by_role("button", name="End session", exact=True)
     expect(mobile_end_button).to_be_enabled(timeout=30_000)
     mobile_end_button.click()

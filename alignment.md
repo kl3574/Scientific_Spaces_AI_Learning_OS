@@ -1,158 +1,139 @@
-# P3-011 End-to-End Product Convergence Alignment
+# P3-012 Learning Experience and GUI Refinement Alignment
 
 Canonical task:
-`docs/tasks/P3-011_END_TO_END_PRODUCT_CONVERGENCE.md`
+`docs/tasks/P3-012_LEARNING_EXPERIENCE_GUI_REFINEMENT.md`
 
-Status: **PASS / CLOSED**
+Status: **AUTHORIZED / LOCAL PASS / CI PENDING**
 
-LOCAL DATA READ / APPLICATION RUNTIME AUTHORIZATION: **CONSUMED / CLOSED**
+LOCAL DATA READ / APPLICATION RUNTIME / COMPUTER USE AUTHORIZATION:
+**GRANTED**
 
 LOCAL FILE MODIFICATION / TEST / COMMIT / PUSH / CI AUTHORIZATION:
-**CONSUMED / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT**
+**GRANTED**
 
-SOURCE NETWORK / PRIVATE ZOTERO WRITE / REAL PROVIDER AUTHORIZATION:
+SOURCE NETWORK / PRIVATE ZOTERO READ-WRITE / REAL PROVIDER AUTHORIZATION:
 **NOT GRANTED**
 
 CANDIDATE / TAG / RELEASE AUTHORIZATION: **NOT GRANTED**
 
 ## 1. Background
 
-- P3-010 is PASS / CLOSED at the exact 1,314-Article corpus fingerprint.
-- RAG, Graph, and structured Reference assets match the current Article Store.
-- The product now needs a real local runtime and browser acceptance cycle that
-  proves complete user workflows rather than relying only on component tests.
-- M1 frozen modules, existing Article records, and published legacy, `/v1.1`,
-  and `/v1.2` API contracts remain protected.
-- The entry commit is
-  `380f79804fbbde6795a7532f00a9be79b02b3bc0`; entry `main` and
-  `origin/main` are synchronized and the worktree is clean.
+- P3-011 is PASS / CLOSED with deterministic local E2E and exact-SHA CI.
+- The product is functionally complete but needs a systematic learning
+  experience and GUI convergence pass based on real browser operation.
+- The local `deep-research` skill supplies the evidence method, while Computer
+  Use supplies direct interaction and visual evidence against the local app.
+- Existing Article data, M1 frozen modules, derived assets, and published
+  legacy, `/v1.1`, and `/v1.2` API contracts remain protected.
+- Entry branch is `main`; entry commit and cached `origin/main` are both
+  `5933c17481a98db4b296eabac3a9d8947cd06704`; entry worktree is clean.
+- No REWORK or `.audit` blocker exists at task entry.
 
 ## 2. Requirements
 
-1. Start the Backend, Frontend, and required local runtime dependencies.
-2. Use the existing exact 1,314-Article local corpus and matching derived
-   assets.
-3. Exercise Reader, Search, Reading History, Learning, Tutor, References, and
-   Knowledge Graph through real APIs and browser UI.
-4. Add repeatable browser automation instead of relying only on unit tests.
-5. Diagnose and fix in-scope defects, then add focused regression coverage.
-6. Repeat the complete E2E flow at least three times without flaky failures,
-   duplicate writes, or state leakage.
-7. Verify desktop and mobile rendering, Markdown, Chinese text, formulas,
-   citations, deep links, empty/error states, and restart persistence.
-8. Run full Backend, Frontend, Docker, compatibility, secret, artifact, and
-   changed-path gates.
-9. Create an implementation commit and a docs-only closure commit, push both,
-   and verify each exact-SHA main CI run.
-10. Do not access the source site, write private Zotero, call a real/paid
-    Provider, or assign/create a candidate, tag, or Release.
+1. Read and apply the local `deep-research`, `kimi-webbridge`, and, for hard
+   defects, `diagnosing-bugs` skills.
+2. Start the real local Backend and Frontend against approved local assets.
+3. Operate Dashboard, Article List, Article Detail, Tutor, References,
+   Knowledge Graph, and the shared shell through a real browser.
+4. Audit desktop and mobile navigation, hierarchy, readability, feedback,
+   interaction efficiency, consistency, responsiveness, and accessibility.
+5. Build an evidence matrix with page, action, observation, severity, root
+   cause, proposed correction, and verification criteria.
+6. Fix confirmed in-scope issues and re-operate the browser to verify actual
+   improvement.
+7. Complete at least three discover-fix-reverify convergence passes, with the
+   last pass free of unresolved high-severity product defects.
+8. Add focused Frontend regression tests and repeatable browser E2E evidence.
+9. Run Backend, Frontend, E2E, compatibility, secret, artifact, and CI gates.
+10. Commit and push implementation and closure evidence, then verify exact-SHA
+    main CI.
 
 ## 3. Purpose
 
-Converge the current product into a repeatably runnable local system with
-evidence that its core user journey works from browser interaction through
-Backend persistence and derived knowledge services.
+Turn the verified functional platform into a coherent learning product whose
+primary workflows are easy to scan, navigate, read, and operate on desktop and
+mobile, with every material change grounded in observed browser evidence.
 
 ## 4. Planned Execution
 
 1. Persist this alignment and canonical task.
-2. Revalidate Git, Article Store identity, derived manifests, runtime
-   dependencies, and current test inventory.
-3. Build a requirement-to-evidence E2E acceptance matrix.
-4. Start Backend and Frontend locally and run API smoke checks.
-5. Exercise desktop and mobile browser journeys with Playwright.
-6. Verify Reader/Search, History, Learning, Tutor, Reference, and Graph
-   behavior, including negative and persistence cases.
-7. Classify failures by product defect, test defect, environment limitation,
-   or external boundary.
-8. Fix only in-scope product/test defects and add regression coverage.
-9. Repeat the complete E2E suite three times and verify clean isolation.
-10. Run full Backend, Frontend, Docker, API compatibility, secret, artifact,
-    and changed-path gates.
-11. Update governance and the P3-011 evidence report.
-12. Commit and push implementation, verify exact main CI, create and push a
-    docs-only closure commit, verify its exact main CI, and finish clean and
-    synchronized.
+2. Read the applicable research, browser, and diagnosis skills.
+3. Inventory routes, components, tests, design tokens, and runtime boundaries.
+4. Start the real Backend and Frontend and use Computer Use on the local app.
+5. Capture temporary desktop/mobile screenshots and conduct the first full
+   page and workflow audit.
+6. Convert observations into a severity-ranked evidence and fix matrix.
+7. Implement focused shell, page, responsive, state, and accessibility fixes.
+8. Re-run the same browser journeys and iterate until high-severity issues are
+   resolved and the solution converges.
+9. Extend component and product E2E regression coverage.
+10. Run three complete isolated E2E passes and all required quality gates.
+11. Update the P3-012 report and governance documents.
+12. Create and push an implementation commit, verify exact-SHA main CI, then
+    create and push a docs-only closure commit and verify its CI.
 
 ## 5. Selection Rationale
 
-A deterministic local E2E baseline separates application defects from source,
-private-library, and paid-provider variability. It provides repeatable browser
-evidence while preserving the existing external-side-effect boundaries.
+Real browser operation exposes layout, focus, scrolling, state, and workflow
+defects that static inspection cannot prove. The deep-research method keeps
+observations, hypotheses, fixes, and acceptance evidence traceable instead of
+turning the task into an unbounded aesthetic rewrite.
 
 ## 6. Alternatives
 
 | Option | Decision |
 | --- | --- |
-| Existing corpus, fake Provider, real local APIs/UI, automated browser E2E | Selected: complete deterministic product validation |
-| Include source crawling, private Zotero writes, and real Provider calls | Rejected for this task: separate authorization and side effects required |
-| Run only existing unit/build checks | Rejected: cannot prove user workflows |
+| Deep-research method plus real Computer Use and automated regression | Selected: strongest direct evidence and convergence loop |
+| Code and screenshot review only | Rejected: cannot prove real interaction |
+| Full Frontend rewrite | Rejected: excessive regression and migration risk |
+| Cosmetic CSS-only pass | Rejected: insufficient for workflow, state, and accessibility defects |
 
 ## 7. Deliverables
 
 - updated `alignment.md`
-- `docs/tasks/P3-011_END_TO_END_PRODUCT_CONVERGENCE.md`
+- `docs/tasks/P3-012_LEARNING_EXPERIENCE_GUI_REFINEMENT.md`
 - updated `docs/tasks/CURRENT_TASK.md`
-- an explicit E2E acceptance matrix
-- repeatable browser E2E tests and runtime configuration
-- in-scope Backend/Frontend fixes and regression tests, if required
-- `docs/P3_011_END_TO_END_PRODUCT_CONVERGENCE_REPORT.md`
+- a GUI/UX evidence and convergence matrix
+- improved `frontend/src/` pages, components, and styles
+- focused Frontend tests and updated `scripts/e2e/` coverage
+- `docs/P3_012_LEARNING_EXPERIENCE_GUI_REFINEMENT_REPORT.md`
 - updated `README.md`, `docs/00_PROJECT_STATE.md`, and
   `docs/V1_2_ROADMAP.md`
-- implementation commit and exact main CI evidence
-- docs-only closure commit and exact main CI evidence
+- implementation and docs-only closure commits with exact-SHA CI evidence
 
 ## 8. Acceptance Criteria
 
-- Backend full tests pass.
-- Frontend tests and production build pass.
-- Docker compose smoke passes.
-- Desktop and mobile core browser journeys pass.
-- Reader/Search, Article detail, Reading History, Learning, Tutor, References,
-  and Graph have direct runtime evidence.
-- Tutor evidence contains valid source citations and does not substitute an
-  ungrounded answer.
-- The complete E2E suite passes three consecutive isolated runs.
-- Required state survives application restart; test-only state does not leak
-  across runs.
-- Empty, not-found, and Backend-unavailable states are controlled.
-- Secret and artifact audits report no credible secret or tracked
-  runtime/private artifact.
-- Frozen M1 paths, Article source records, and published API contracts remain
-  unchanged.
-- Source access, private Zotero writes, real Providers, candidate, tag, and
-  Release remain untouched.
-- Implementation and closure commits are pushed; both exact main CI runs pass;
-  final `main` is clean and synchronized.
-
-## Closure Evidence
-
-- implementation commit:
-  `579c90252bc6fa594905491646ec07e296340043`
-- implementation main CI:
-  [`30456388891`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30456388891),
-  `success`
-- exact-implementation `workflow_dispatch` CI:
-  [`30456541072`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/30456541072),
-  `success`
-- Backend, Frontend, Product E2E, workflow policy, dependency, secret, and
-  SBOM jobs: PASS
-- Docker compose smoke and no-publish release-evidence dry-run: PASS
-- uploaded workflow artifacts: 0 for both implementation runs
-- candidate, tag, Release, attestation, source access, private Zotero, and real
-  Provider actions: 0
-
-The docs-only closure commit must pass its own exact main CI before the final
-execution response claims synchronized completion. No subsequent task is
-authorized by this closed alignment.
+- All primary pages are opened and operated through a real browser.
+- The Dashboard -> Search -> Article -> Learning/History ->
+  Tutor/References/Graph journey is connected and browser-verified.
+- Each fixed issue has reproduction evidence, a root-cause account, a code or
+  design correction, and post-fix browser plus regression evidence.
+- At 1440 x 900 and 390 x 844 viewports there is no page-level horizontal
+  overflow, incoherent overlap, or clipped primary control.
+- Chinese, Markdown, code, images, and KaTeX content render correctly.
+- Loading, empty, error, 404, and Backend-unavailable states are controlled.
+- Primary commands are keyboard reachable, focus is visible, and interactive
+  controls expose meaningful accessible names.
+- Three convergence passes complete; the final pass has no unresolved
+  high-severity product defect.
+- Frontend tests and production build pass; Backend full tests pass.
+- The complete browser E2E suite passes three consecutive isolated runs.
+- Existing Article data, frozen M1 paths, and published legacy, `/v1.1`, and
+  `/v1.2` API contracts remain unchanged.
+- Temporary screenshots under `/tmp`, traces, profiles, builds, databases, and
+  local corpus artifacts are not committed.
+- No source access, private Zotero read/write, real Provider call, candidate,
+  tag, Release, or attestation action occurs.
+- Implementation and closure commits pass exact-SHA main CI; final `main` is
+  clean and synchronized.
 
 ## Stop Conditions
 
-- The current corpus or derived assets are missing or inconsistent.
-- The worktree develops unknown changes or conflicts.
+- The worktree develops unknown modifications or conflicts.
 - Completion requires a frozen M1 or published API contract change.
-- Completion requires source access, a private Zotero write, or a real/paid
+- Completion requires source access, private Zotero access, or a real/paid
   Provider call.
-- A critical test, runtime, Docker, secret, or artifact gate fails without an
-  in-scope deterministic fix.
+- A required test, build, browser, secret, artifact, or CI gate fails without
+  an in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.

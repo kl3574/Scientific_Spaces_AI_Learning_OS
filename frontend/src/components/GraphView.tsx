@@ -379,7 +379,7 @@ function SummaryPanel({
   return (
     <section className="space-y-3">
       <h2 className="sr-only">Graph Summary</h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-px overflow-hidden border border-slate-200 bg-slate-200 lg:grid-cols-4">
         <SummaryItem label="Nodes" value={formatCount(summary.node_count)} />
         <SummaryItem label="Edges" value={formatCount(summary.edge_count)} />
         <SummaryItem label="Articles" value={formatCount(summary.source_counts.articles ?? 0)} />
@@ -401,7 +401,7 @@ function SummaryPanel({
 
 function SummaryItem({ label, value, compact = false }: Readonly<{ label: string; value: string; compact?: boolean }>) {
   return (
-    <section className="min-w-0 rounded border border-slate-200 bg-white p-4">
+    <section className="min-w-0 bg-white p-3 sm:p-4">
       <p className="text-sm text-slate-500">{label}</p>
       <p className={`mt-2 min-w-0 break-words font-semibold [overflow-wrap:anywhere] ${compact ? "text-sm leading-6" : "text-2xl"}`}>
         {value}

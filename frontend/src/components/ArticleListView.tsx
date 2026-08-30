@@ -3,7 +3,15 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
-import { ArticleListRequest, ArticleMetadata, ArticleSummary, fetchArticles, formatMetadata } from "@/lib/articles";
+import {
+  ArticleListRequest,
+  ArticleListSort,
+  ArticleMetadata,
+  ArticleSummary,
+  fetchArticles,
+  formatMetadata,
+} from "@/lib/articles";
+import { toPlainTextPreview } from "@/lib/articlePresentation";
 import { Bookmark, LearningState, fetchBookmarks, fetchLearningStates } from "@/lib/learning";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
@@ -13,6 +21,7 @@ const PAGE_SIZE = 20;
 export function ArticleListView() {
   const [query, setQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
+  const [sort, setSort] = useState<ArticleListSort>("date_desc");
   const [page, setPage] = useState(1);
   const [articles, setArticles] = useState<ArticleSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -26,7 +35,7 @@ export function ArticleListView() {
 
   useEffect(() => {
     void loadArticles();
-  }, [appliedQuery, page]);
+  }, [appliedQuery, page, sort]);
 
   useEffect(() => {
     void loadLearningBadges();
@@ -40,6 +49,7 @@ export function ArticleListView() {
         q: appliedQuery,
         page,
         page_size: PAGE_SIZE,
+        sort,
       };
       const response = await fetchArticles(request);
       setArticles(response.items);
@@ -76,6 +86,12 @@ export function ArticleListView() {
     setAppliedQuery(query.trim());
   }
 
+  function clearSearch() {
+    setQuery("");
+    setAppliedQuery("");
+    setPage(1);
+  }
+
   function getSummaryLabel(metadata: ArticleMetadata) {
     const refs = metadata.references?.length ?? 0;
     const imgs = metadata.images?.length ?? 0;
@@ -94,26 +110,53 @@ export function ArticleListView() {
 
   return (
     <section className="min-w-0 max-w-full space-y-5">
-      <div className="flex min-w-0 max-w-full flex-col gap-3 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
-        <div className="min-w-0">
+      <header className="border-b border-slate-200 pb-5">
+        <div>
           <h1 className="text-2xl font-semibold">Article List</h1>
           <p className="mt-1 text-sm text-slate-600">Search Scientific Spaces articles by title or keyword.</p>
           <p className="mt-2 text-xs text-slate-500">{status === "loaded" ? getRangeLabel() : ""}</p>
         </div>
-        <form className="flex w-full min-w-0 max-w-xl gap-2" onSubmit={handleSubmit}>
-          <input
-            className="min-w-0 flex-1 rounded border border-slate-300 bg-white px-3 py-2 text-sm outline-none focus:border-slate-950"
-            name="q"
-            placeholder="Search title or keyword"
-            type="search"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-          />
-          <button className="rounded bg-slate-950 px-4 py-2 text-sm font-medium text-white" type="submit">
+        <form className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px_auto_auto] sm:items-end" onSubmit={handleSubmit}>
+          <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+            Search
+            <input
+              className="min-w-0 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none"
+              name="q"
+              placeholder="Search title or keyword"
+              type="search"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <label className="grid gap-1 text-xs font-medium text-slate-600">
+            Sort
+            <select
+              className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none"
+              value={sort}
+              onChange={(event) => {
+                setSort(event.target.value as ArticleListSort);
+                setPage(1);
+              }}
+            >
+              <option value="date_desc">Newest date</option>
+              <option value="archive_desc">Newest archive</option>
+              <option value="title_asc">Title A-Z</option>
+              <option value="relevance">Relevance</option>
+            </select>
+          </label>
+          <button className="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800" type="submit">
             Search
           </button>
+          <button
+            className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:border-slate-500 disabled:cursor-not-allowed disabled:text-slate-300"
+            disabled={!query && !appliedQuery}
+            type="button"
+            onClick={clearSearch}
+          >
+            Clear
+          </button>
         </form>
-      </div>
+      </header>
 
       {status === "loading" ? <p className="text-sm text-slate-600">Loading articles...</p> : null}
       {status === "error" ? <p className="text-sm text-red-700">{error}</p> : null}
@@ -145,9 +188,9 @@ export function ArticleListView() {
 
       {status === "loaded" && total === 0 ? <p className="text-sm text-slate-600">No articles found.</p> : null}
 
-      <div className="grid min-w-0 max-w-full gap-3">
+      <div className="min-w-0 max-w-full divide-y divide-slate-200 border-y border-slate-200">
         {articles.map((article) => (
-          <article key={article.id} className="min-w-0 max-w-full overflow-hidden rounded border border-slate-200 bg-white p-4">
+          <article key={article.id} className="min-w-0 max-w-full overflow-hidden py-4">
             <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-start md:justify-between">
               <div className="min-w-0">
                 <Link
@@ -167,15 +210,17 @@ export function ArticleListView() {
                 </div>
               </div>
               <a
-                className="text-xs text-slate-500 hover:text-slate-950"
+                className="shrink-0 text-xs font-medium text-emerald-800 hover:text-emerald-950"
                 href={article.url}
                 rel="noreferrer"
                 target="_blank"
               >
-                Source
+                Open source
               </a>
             </div>
-            <p className="mt-3 line-clamp-3 break-words text-sm leading-6 text-slate-700">{article.content_preview}</p>
+            <p data-testid="article-preview" className="mt-3 line-clamp-3 break-words text-sm leading-6 text-slate-700">
+              {toPlainTextPreview(article.content_preview)}
+            </p>
           </article>
         ))}
       </div>

@@ -47,78 +47,78 @@ export function DashboardView() {
   }
 
   const articleTotal = articleQuery?.total ?? 0;
+  const metrics = [
+    { label: "Articles", value: articleTotal },
+    { label: "Reading", value: stats?.reading_count ?? 0 },
+    { label: "Completed", value: stats?.completed_count ?? 0 },
+    { label: "Bookmarks", value: stats?.bookmark_count ?? 0 },
+    { label: "Notes", value: stats?.note_count ?? 0 },
+    { label: "Unread", value: stats?.unread_count ?? 0 },
+  ];
 
   return (
     <section className="space-y-6">
-      <div className="border-b border-slate-200 pb-5">
-        <h1 className="text-3xl font-semibold">Scientific Spaces AI Learning OS</h1>
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-          Browse, search, and read the frozen M1 Scientific Spaces article collection.
-        </p>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-3">
-        <section className="rounded border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Articles</p>
-          <p className="mt-2 text-3xl font-semibold">{articleTotal}</p>
-        </section>
-        <section className="rounded border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Reading</p>
-          <p className="mt-2 text-3xl font-semibold">{stats?.reading_count ?? 0}</p>
-        </section>
-        <section className="rounded border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Completed</p>
-          <p className="mt-2 text-3xl font-semibold">{stats?.completed_count ?? 0}</p>
-        </section>
-        <section className="rounded border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Bookmarks</p>
-          <p className="mt-2 text-3xl font-semibold">{stats?.bookmark_count ?? 0}</p>
-        </section>
-        <section className="rounded border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Notes</p>
-          <p className="mt-2 text-3xl font-semibold">{stats?.note_count ?? 0}</p>
-        </section>
-        <section className="rounded border border-slate-200 bg-white p-4">
-          <p className="text-sm text-slate-500">Unread</p>
-          <p className="mt-2 text-3xl font-semibold">{stats?.unread_count ?? 0}</p>
-        </section>
-        <section className="rounded border border-slate-200 bg-white p-4 md:col-span-3">
-          <div className="flex items-center justify-between gap-3">
-            <h2 className="text-base font-semibold">Recent Articles</h2>
-            <Link className="text-sm text-slate-600 hover:text-slate-950" href="/articles">
-              View all
-            </Link>
-          </div>
-          <p className="mt-2 text-xs text-slate-500">
-            {articleQuery ? `Showing ${articleQuery.items.length} of ${articleQuery.total}` : `Showing 0 of ${articleTotal}`}
+      <header className="flex flex-col gap-4 border-b border-slate-200 pb-5 md:flex-row md:items-end md:justify-between">
+        <div>
+          <h1 className="text-3xl font-semibold">Scientific Spaces AI Learning OS</h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+            Read the local Scientific Spaces collection and continue your grounded learning workflow.
           </p>
-          <div className="mt-3 grid gap-2">
-            {articles.length ? (
-              articles.map((article) => (
-                <Link
-                  key={article.id}
-                  className="rounded border border-slate-100 px-3 py-2 text-sm hover:bg-slate-50"
-                  href={`/articles/${article.id}`}
-                >
-                  <span className="block break-words font-medium">{article.title}</span>
-                  <span className="mt-1 block text-xs text-slate-500">{formatMetadata(article.metadata)}</span>
-                </Link>
-              ))
-            ) : (
-              <p className="text-sm text-slate-600">No articles available.</p>
-            )}
-          </div>
-        </section>
-      </div>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Link className="rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800" href="/articles">
+            Browse articles
+          </Link>
+          <Link className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:border-slate-500" href="/tutor">
+            Open tutor
+          </Link>
+        </div>
+      </header>
 
-      <section className="rounded border border-slate-200 bg-white p-4">
-        <h2 className="text-base font-semibold">Recent Learning</h2>
-        <div className="mt-3 grid gap-2">
+      <dl data-testid="dashboard-stats" className="grid grid-cols-2 gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-3 lg:grid-cols-6">
+        {metrics.map((metric) => (
+          <div key={metric.label} className="min-w-0 bg-white px-3 py-3">
+            <dt className="text-xs font-medium text-slate-500">{metric.label}</dt>
+            <dd className="mt-1 break-words text-2xl font-semibold text-slate-950">{metric.value}</dd>
+          </div>
+        ))}
+      </dl>
+
+      <section className="border-t-2 border-emerald-700 pt-4">
+        <div className="flex items-end justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold">Recent Articles</h2>
+            <p className="mt-1 text-xs text-slate-500">
+              {articleQuery ? `Showing ${articleQuery.items.length} of ${articleQuery.total}` : `Showing 0 of ${articleTotal}`}
+            </p>
+          </div>
+          <Link className="text-sm font-medium text-emerald-800 hover:text-emerald-950" href="/articles">
+            View all
+          </Link>
+        </div>
+        <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
+          {articles.length ? (
+            articles.map((article) => (
+              <Link key={article.id} className="block px-1 py-3 text-sm hover:bg-white" href={`/articles/${article.id}`}>
+                <span className="block break-words font-medium">{article.title}</span>
+                <span className="mt-1 block text-xs text-slate-500">{formatMetadata(article.metadata)}</span>
+              </Link>
+            ))
+          ) : (
+            <p className="py-3 text-sm text-slate-600">No articles available.</p>
+          )}
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-3">
+        <section className="border-t border-slate-300 pt-4">
+          <h2 className="text-base font-semibold">Recent Learning</h2>
+          <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
           {stats?.recent_articles.length ? (
             stats.recent_articles.map((item) => (
               <Link
                 key={`${item.article_id}-${item.updated_at ?? item.last_read_at}`}
-                className="rounded border border-slate-100 px-3 py-2 text-sm hover:bg-slate-50"
+                className="block py-3 text-sm hover:bg-white"
                 href={`/articles/${item.article_id}`}
               >
                 <span className="block font-medium">{item.title}</span>
@@ -130,17 +130,17 @@ export function DashboardView() {
           ) : (
             <p className="text-sm text-slate-600">No learning activity yet.</p>
           )}
-        </div>
-      </section>
+          </div>
+        </section>
 
-      <section className="rounded border border-slate-200 bg-white p-4">
-        <h2 className="text-base font-semibold">Recent Sessions</h2>
-        <div className="mt-3 grid gap-2">
+        <section className="border-t border-slate-300 pt-4">
+          <h2 className="text-base font-semibold">Recent Sessions</h2>
+          <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
           {stats?.recent_sessions.length ? (
             stats.recent_sessions.map((session) => (
               <Link
                 key={session.session_id}
-                className="rounded border border-slate-100 px-3 py-2 text-sm hover:bg-slate-50"
+                className="block py-3 text-sm hover:bg-white"
                 href={`/articles/${session.article_id}`}
               >
                 <span className="block font-medium">{session.article_id}</span>
@@ -153,17 +153,17 @@ export function DashboardView() {
           ) : (
             <p className="text-sm text-slate-600">No sessions yet.</p>
           )}
-        </div>
-      </section>
+          </div>
+        </section>
 
-      <section className="rounded border border-slate-200 bg-white p-4">
-        <h2 className="text-base font-semibold">Reading History</h2>
-        <div className="mt-3 grid gap-2">
+        <section className="border-t border-slate-300 pt-4">
+          <h2 className="text-base font-semibold">Reading History</h2>
+          <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
           {history.length ? (
             history.map((item) => (
               <Link
                 key={`${item.id}-${item.last_read_at}`}
-                className="rounded border border-slate-100 px-3 py-2 text-sm hover:bg-slate-50"
+                className="block py-3 text-sm hover:bg-white"
                 href={`/articles/${item.id}`}
               >
                 <span className="block font-medium">{item.title}</span>
@@ -173,8 +173,9 @@ export function DashboardView() {
           ) : (
             <p className="text-sm text-slate-600">No reading history yet.</p>
           )}
-        </div>
-      </section>
+          </div>
+        </section>
+      </div>
     </section>
   );
 }

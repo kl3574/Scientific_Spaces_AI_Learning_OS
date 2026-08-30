@@ -122,7 +122,7 @@ function ReferenceRow({ record }: Readonly<{ record: ReferenceRecord }>) {
           identity
         )}
       </p>
-      <p className="mt-2 text-sm leading-6 text-slate-600">{record.evidence_text}</p>
+      <p className="mt-2 break-words text-sm leading-6 text-slate-600 [overflow-wrap:anywhere]">{record.evidence_text}</p>
       <p className="mt-2 text-xs text-slate-500">
         Section: {record.source_section || "Article root"}
       </p>

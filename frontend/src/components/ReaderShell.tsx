@@ -1,34 +1,26 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 
+import { PrimaryNav } from "@/components/PrimaryNav";
+
 export function ReaderShell({ children }: Readonly<{ children: ReactNode }>) {
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-950">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-3 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-          <Link href="/" className="text-sm font-semibold tracking-normal text-slate-950">
-            Scientific Spaces AI Learning OS
+    <div className="min-h-screen bg-slate-50 text-slate-950">
+      <a className="skip-link" href="#main-content">
+        Skip to content
+      </a>
+      <header className="sticky top-0 z-40 border-b border-slate-200 bg-slate-50/95 backdrop-blur">
+        <div className="mx-auto flex w-full max-w-6xl flex-col items-start gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <Link href="/" className="flex items-center gap-2 text-sm font-semibold text-slate-950">
+            <span aria-hidden="true" className="h-2.5 w-2.5 bg-amber-500" />
+            <span>Scientific Spaces AI Learning OS</span>
           </Link>
-          <nav aria-label="Primary" className="flex w-full flex-wrap items-center gap-2 text-sm sm:w-auto sm:justify-end">
-            <Link className="rounded border border-slate-200 px-3 py-2 hover:bg-slate-50" href="/">
-              Dashboard
-            </Link>
-            <Link className="rounded border border-slate-200 px-3 py-2 hover:bg-slate-50" href="/articles">
-              Articles
-            </Link>
-            <Link className="rounded border border-slate-200 px-3 py-2 hover:bg-slate-50" href="/zotero">
-              Zotero
-            </Link>
-            <Link className="rounded border border-slate-200 px-3 py-2 hover:bg-slate-50" href="/graph">
-              Graph
-            </Link>
-            <Link className="rounded border border-slate-200 px-3 py-2 hover:bg-slate-50" href="/tutor">
-              Tutor
-            </Link>
-          </nav>
+          <PrimaryNav />
         </div>
       </header>
-      <div className="mx-auto w-full max-w-6xl px-5 py-6">{children}</div>
-    </main>
+      <main id="main-content" className="mx-auto w-full max-w-6xl px-5 py-6">
+        {children}
+      </main>
+    </div>
   );
 }
