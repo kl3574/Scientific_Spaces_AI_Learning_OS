@@ -1,4 +1,5 @@
 import { GraphView } from "@/components/GraphView";
+import { parseGraphSearchState } from "@/lib/globalSearch";
 import { parseLearningWorkflowContext } from "@/lib/learningWorkflow";
 
 export default async function GraphPage({
@@ -6,7 +7,9 @@ export default async function GraphPage({
 }: Readonly<{
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }>) {
-  const initialContext = parseLearningWorkflowContext(await searchParams);
+  const query = await searchParams;
+  const initialContext = parseLearningWorkflowContext(query);
+  const initialSearch = parseGraphSearchState(query);
 
-  return <GraphView initialContext={initialContext} />;
+  return <GraphView initialContext={initialContext} initialSearch={initialSearch} />;
 }

@@ -363,6 +363,127 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["dashboard_command_center"] = True
     checks["desktop_application_shell"] = True
 
+    search_trigger = page.get_by_test_id("global-search-trigger-desktop")
+    expect(search_trigger).to_be_visible()
+    _require(
+        search_trigger.inner_text().strip() == "Search",
+        "desktop search trigger exposes shortcut instructions",
+    )
+    search_trigger.click()
+    search_dialog = page.get_by_test_id("global-search-dialog")
+    expect(search_dialog).to_be_visible()
+    search_input = search_dialog.get_by_label("Search library")
+    expect(search_input).to_be_focused()
+    _require(
+        search_dialog.locator('[data-testid="global-search-result-workspace"]').count() == 5,
+        "global quick navigation does not expose five stable workspaces",
+    )
+    last_workspace_result = search_dialog.locator(
+        '[data-testid="global-search-result-workspace"]'
+    ).last
+    search_input.press("Shift+Tab")
+    expect(last_workspace_result).to_be_focused()
+    last_workspace_result.press("Tab")
+    expect(search_input).to_be_focused()
+    search_input.press("Escape")
+    expect(search_dialog).to_have_count(0)
+    expect(search_trigger).to_be_focused()
+    checks["global_search_entry_focus_and_quick_navigation"] = True
+
+    page.route(
+        re.compile(r".*/v1\.2/references(?:\?.*)?$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional P3-019 partial Reference failure"}',
+        ),
+        times=1,
+    )
+    page.keyboard.press("Control+K")
+    search_dialog = page.get_by_test_id("global-search-dialog")
+    expect(search_dialog).to_be_visible()
+    search_input = search_dialog.get_by_label("Search library")
+    expect(search_input).to_be_focused()
+    page.keyboard.press("Control+K")
+    expect(search_input).to_be_focused()
+    search_input.fill("Attention")
+    article_search_result = search_dialog.get_by_test_id("global-search-result-article").first
+    graph_search_result = search_dialog.get_by_role(
+        "link", name=re.compile(r"^attention\s+Concept\s+·\s+Knowledge Graph$", re.I)
+    )
+    expect(article_search_result).to_be_visible(timeout=30_000)
+    expect(graph_search_result).to_be_visible(timeout=30_000)
+    expect(search_dialog.get_by_text("Some sources are unavailable", exact=True)).to_be_visible()
+    _require(
+        "q%3DAttention%26sort%3Drelevance" in (article_search_result.get_attribute("href") or ""),
+        "global Article result does not preserve its relevance-search return path",
+    )
+    visible_search_text = search_dialog.inner_text()
+    _require(
+        "attention-basics" not in visible_search_text and "concept:attention" not in visible_search_text,
+        "global search exposes raw internal identifiers",
+    )
+    search_input.press("ArrowDown")
+    expect(article_search_result).to_be_focused()
+    article_search_result.press("Escape")
+    expect(search_dialog).to_have_count(0)
+    expect(search_trigger).to_be_focused()
+    checks["global_search_partial_failure_and_keyboard"] = True
+
+    search_trigger.click()
+    search_dialog = page.get_by_test_id("global-search-dialog")
+    search_input = search_dialog.get_by_label("Search library")
+    page.evaluate(
+        """
+        () => {
+          const originalFetch = window.fetch.bind(window);
+          let delayed = false;
+          window.fetch = (...args) => {
+            const url = String(args[0]);
+            if (!delayed && url.includes('/v1.1/articles') && url.includes('q=CRB')) {
+              delayed = true;
+              const response = originalFetch(...args);
+              return new Promise((resolve, reject) => {
+                window.setTimeout(() => response.then(resolve, reject), 1000);
+              });
+            }
+            return originalFetch(...args);
+          };
+        }
+        """
+    )
+    search_input.fill("CRB")
+    page.wait_for_timeout(350)
+    search_input.fill("Attention")
+    current_article_result = search_dialog.get_by_test_id("global-search-result-article").first
+    expect(current_article_result).to_contain_text("Attention机制入门", timeout=30_000)
+    page.wait_for_timeout(1100)
+    expect(current_article_result).to_contain_text("Attention机制入门")
+    expect(search_input).to_have_value("Attention")
+    checks["global_search_stale_response_guard"] = True
+
+    search_input.fill("1706.03762")
+    expect(search_dialog.get_by_test_id("global-search-result-reference").first).to_be_visible(
+        timeout=30_000
+    )
+    search_input.fill("Attention")
+    graph_search_result = search_dialog.get_by_role(
+        "link", name=re.compile(r"^attention\s+Concept\s+·\s+Knowledge Graph$", re.I)
+    )
+    expect(graph_search_result).to_be_visible(timeout=30_000)
+    graph_search_result.click()
+    expect(search_dialog).to_have_count(0)
+    expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
+    expect(page.get_by_placeholder("Title, concept, or formula")).to_have_value("Attention")
+    expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    _require("node_id=concept%3Aattention" in page.url, f"Graph deep link was not preserved: {page.url}")
+    checks["global_search_reference_and_graph_deep_link"] = True
+
+    page.get_by_role("link", name="Dashboard", exact=True).click()
+    expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
+
     page.get_by_role("link", name="Articles", exact=True).click()
     expect(page.get_by_role("heading", name="Article List", exact=True)).to_be_visible()
     expect(page.locator('nav[aria-label="Primary"] [aria-current="page"]')).to_have_text("Articles")
@@ -846,6 +967,35 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(mobile_page.get_by_test_id("application-shell")).to_have_attribute(
         "data-workspace", "dashboard"
     )
+    mobile_search_trigger = mobile_page.get_by_test_id("global-search-trigger-mobile")
+    expect(mobile_search_trigger).to_be_visible()
+    _require(
+        mobile_search_trigger.inner_text().strip() == "Search",
+        "mobile search trigger exposes shortcut instructions",
+    )
+    mobile_search_trigger.click()
+    mobile_search_dialog = mobile_page.get_by_test_id("global-search-dialog")
+    expect(mobile_search_dialog).to_be_visible()
+    mobile_search_input = mobile_search_dialog.get_by_label("Search library")
+    expect(mobile_search_input).to_be_focused()
+    _require(
+        mobile_search_dialog.locator('[data-testid="global-search-result-workspace"]').count() == 5,
+        "mobile quick navigation does not expose five stable workspaces",
+    )
+    mobile_search_box = mobile_search_dialog.locator('[role="dialog"]').bounding_box()
+    _require(
+        mobile_search_box is not None and mobile_search_box["width"] <= 390,
+        f"mobile global search dialog overflowed: {mobile_search_box}",
+    )
+    mobile_search_input.fill("CRB")
+    mobile_article_result = mobile_search_dialog.get_by_test_id("global-search-result-article").first
+    expect(mobile_article_result).to_contain_text(CRB_TITLE, timeout=30_000)
+    mobile_search_input.press("Escape")
+    expect(mobile_search_dialog).to_have_count(0)
+    expect(mobile_search_trigger).to_be_focused()
+    _require(_document_width(mobile_page) <= 390, "mobile Shell overflows after global search")
+    checks["mobile_global_search"] = True
+
     mobile_menu_button = mobile_page.get_by_role("button", name="Open navigation", exact=True)
     expect(mobile_menu_button).to_have_attribute("aria-expanded", "false")
     mobile_menu_button.click()
@@ -1084,7 +1234,7 @@ def _document_width(page) -> int:
 
 
 def _unexpected_console_errors(messages: list[str]) -> list[str]:
-    expected_statuses = {"404": 1, "503": 3}
+    expected_statuses = {"404": 1, "503": 4}
     unexpected: list[str] = []
     for message in messages:
         matched = False

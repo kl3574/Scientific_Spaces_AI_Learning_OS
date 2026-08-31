@@ -16,6 +16,7 @@ import {
   fetchGraphSubgraph,
   fetchGraphSummary,
 } from "@/lib/graph";
+import type { GraphSearchState } from "@/lib/globalSearch";
 import { getSafeDisplayText } from "@/lib/graphPresentation";
 import type { LearningWorkflowContext } from "@/lib/learningWorkflow";
 
@@ -35,17 +36,20 @@ const nodeTypes: Array<{ value: GraphNodeType | ""; label: string }> = [
 
 export function GraphView({
   initialContext,
+  initialSearch,
 }: Readonly<{
   initialContext: LearningWorkflowContext | null;
+  initialSearch: GraphSearchState;
 }>) {
+  const initialNodeId = initialContext?.nodeId ?? initialSearch.nodeId;
   const [summary, setSummary] = useState<GraphSummary | null>(null);
   const [summaryStatus, setSummaryStatus] = useState<GraphLoadState>("idle");
   const [summaryError, setSummaryError] = useState<string | null>(null);
   const [summaryRevision, setSummaryRevision] = useState(0);
 
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialSearch.query);
   const [nodeType, setNodeType] = useState<GraphNodeType | "">("");
-  const [appliedQuery, setAppliedQuery] = useState("");
+  const [appliedQuery, setAppliedQuery] = useState(initialSearch.query);
   const [appliedNodeType, setAppliedNodeType] = useState<GraphNodeType | "">("");
   const [page, setPage] = useState(1);
   const [nodePage, setNodePage] = useState<GraphNodeListResponse | null>(null);
@@ -53,7 +57,7 @@ export function GraphView({
   const [nodeError, setNodeError] = useState<string | null>(null);
   const [nodeRevision, setNodeRevision] = useState(0);
 
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(initialContext?.nodeId ?? null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(initialNodeId);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [detailStatus, setDetailStatus] = useState<GraphLoadState>("idle");
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -61,17 +65,28 @@ export function GraphView({
   const [subgraphStatus, setSubgraphStatus] = useState<GraphLoadState>("idle");
   const [subgraphError, setSubgraphError] = useState<string | null>(null);
   const [selectionRevision, setSelectionRevision] = useState(0);
-  const contextNodeIdRef = useRef(initialContext?.nodeId ?? null);
+  const routeStateRef = useRef(`${initialNodeId ?? ""}\u0000${initialSearch.query}`);
 
   useEffect(() => {
-    const contextNodeId = initialContext?.nodeId ?? null;
-    if (contextNodeId !== contextNodeIdRef.current) {
-      contextNodeIdRef.current = contextNodeId;
-      if (contextNodeId) {
-        setSelectedNodeId(contextNodeId);
-      }
+    const nodeId = initialContext?.nodeId ?? initialSearch.nodeId;
+    const routeState = `${nodeId ?? ""}\u0000${initialSearch.query}`;
+    if (routeState === routeStateRef.current) {
+      return;
     }
-  }, [initialContext?.nodeId]);
+    routeStateRef.current = routeState;
+    setQuery(initialSearch.query);
+    setAppliedQuery(initialSearch.query);
+    setNodeType("");
+    setAppliedNodeType("");
+    setPage(1);
+    setSelectedNodeId(nodeId);
+    if (!nodeId) {
+      setSelectedNode(null);
+      setDetailStatus("idle");
+      setSubgraph(null);
+      setSubgraphStatus("idle");
+    }
+  }, [initialContext?.nodeId, initialSearch.nodeId, initialSearch.query]);
 
   useEffect(() => {
     const controller = new AbortController();

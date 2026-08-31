@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-018 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-018 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; P3-019 is LOCAL PASS / IMPLEMENTATION CI PENDING; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -564,6 +564,30 @@ readiness/hydration repair commit
 correctly skipped and uploaded artifacts were zero. Evidence is in
 `docs/P3_018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION_REPORT.md`.
 
+### P3-019 - Global Search and Quick Navigation
+
+Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+
+P3-019 adds one responsive, accessible global search surface to the shared
+Application Shell. It aggregates the existing local Article, structured
+Reference, and Graph-node search APIs; provides stable-workspace quick
+navigation; preserves canonical Article return context; and supports safe Graph
+deep links. Backend, source records, Article records, derived assets,
+dependencies, workflows, private Zotero, external search, real Providers, and
+release actions remain protected. The canonical task is
+`docs/tasks/P3-019_GLOBAL_SEARCH_AND_QUICK_NAVIGATION.md`.
+
+Local evidence passed 600 Backend tests with 4 skipped, 64 focused Frontend
+tests, the production build, and three Product E2E runs with 37 checks each.
+A real local probe searched 1,314 Articles plus installed Reference and Graph
+assets with five representative queries at desktop and mobile widths; Article,
+Reference, and Graph results were all exercised. Browser checks recorded zero
+external requests, unexpected console errors, or page errors. Workflow,
+suppression, dependency, secret, security utility, temporary SBOM, artifact,
+and protected-path gates passed. Implementation exact-SHA main CI remains
+pending. Evidence is in
+`docs/P3_019_GLOBAL_SEARCH_AND_QUICK_NAVIGATION_REPORT.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -596,7 +620,8 @@ correctly skipped and uploaded artifacts were zero. Evidence is in
 
 ## Next Recommended Task
 
-P3-018 is PASS / CLOSED after its bounded repair passed exact-SHA main CI. No
-subsequent task or v1.2 candidate is assigned; the next task requires fresh
-alignment and authorization. Tag, Release, attestation, real Provider, source
-access, and private Zotero actions remain unauthorized.
+P3-019 Global Search and Quick Navigation is LOCAL PASS / IMPLEMENTATION CI
+PENDING. It must pass implementation and docs-only closure exact-SHA CI gates
+before closure. No
+v1.2 candidate is assigned. Tag, Release, attestation, real Provider, source
+access, external search, and private Zotero actions remain unauthorized.
