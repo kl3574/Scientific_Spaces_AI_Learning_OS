@@ -3,36 +3,45 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-const navigationItems = [
-  { href: "/", label: "Dashboard" },
-  { href: "/articles", label: "Articles" },
-  { href: "/zotero", label: "Zotero" },
-  { href: "/graph", label: "Graph" },
-  { href: "/tutor", label: "Tutor" },
-];
+import { PRIMARY_NAVIGATION, isNavigationItemActive } from "@/lib/navigation";
 
-export function PrimaryNav() {
+export function PrimaryNav({
+  variant = "rail",
+  onNavigate,
+}: Readonly<{
+  variant?: "rail" | "drawer";
+  onNavigate?: () => void;
+}>) {
   const pathname = usePathname();
 
   return (
-    <nav aria-label="Primary" className="grid w-full grid-cols-5 gap-1 sm:flex sm:w-auto sm:items-center sm:gap-1.5">
-      {navigationItems.map((item) => {
-        const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
-        return (
-          <Link
-            key={item.href}
-            aria-current={active ? "page" : undefined}
-            className={
-              active
-                ? "min-w-0 rounded border border-emerald-700 bg-emerald-700 px-1.5 py-2 text-center text-[11px] font-semibold text-white sm:px-3 sm:text-sm"
-                : "min-w-0 rounded border border-transparent px-1.5 py-2 text-center text-[11px] font-medium text-slate-600 hover:border-slate-200 hover:bg-white hover:text-slate-950 sm:px-3 sm:text-sm"
-            }
-            href={item.href}
-          >
-            {item.label}
-          </Link>
-        );
-      })}
+    <nav aria-label="Primary" className="w-full" data-variant={variant}>
+      <ul className="grid gap-1.5">
+        {PRIMARY_NAVIGATION.map((item) => {
+          const active = isNavigationItemActive(pathname, item);
+          return (
+            <li key={item.href}>
+              <Link
+                aria-current={active ? "page" : undefined}
+                className={
+                  active
+                    ? "flex min-h-11 items-center gap-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-950"
+                    : "flex min-h-11 items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-sm font-medium text-slate-600 hover:border-slate-200 hover:bg-slate-50 hover:text-slate-950"
+                }
+                data-testid={`primary-nav-${item.id}`}
+                href={item.href}
+                onClick={onNavigate}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`h-2 w-2 shrink-0 rounded-sm ${active ? "bg-emerald-600" : "bg-slate-300"}`}
+                />
+                <span>{item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
     </nav>
   );
 }

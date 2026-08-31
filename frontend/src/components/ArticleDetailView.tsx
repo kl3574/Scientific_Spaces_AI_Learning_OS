@@ -47,6 +47,7 @@ import {
 import { ReadingHistoryItem, loadReadingHistory, recordReading } from "@/lib/readingHistory";
 import { createLearningToolHref } from "@/lib/learningWorkflow";
 import { StructuredReferencesPanel } from "@/components/StructuredReferencesPanel";
+import { WorkspaceState } from "@/components/WorkspaceState";
 import { ZoteroLinksPanel } from "@/components/ZoteroLinksPanel";
 
 export function ArticleDetailView({
@@ -375,17 +376,24 @@ export function ArticleDetailView({
 
   if (error) {
     return (
-      <section className="space-y-4">
-        <Link className="text-sm text-slate-600 hover:text-slate-950" href={listReturnTo}>
-          Back to articles
-        </Link>
-        <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
-      </section>
+      <WorkspaceState
+        action={
+          <Link
+            className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-900 hover:border-red-500"
+            href={listReturnTo}
+          >
+            Back to articles
+          </Link>
+        }
+        detail={error}
+        title="Article unavailable"
+        tone="error"
+      />
     );
   }
 
   if (!article) {
-    return <p className="text-sm text-slate-600">Loading article...</p>;
+    return <WorkspaceState title="Loading article" tone="loading" />;
   }
 
   const workflowContext = {

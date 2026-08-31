@@ -1,5 +1,4 @@
 import { ArticleDetailView } from "@/components/ArticleDetailView";
-import { ReaderShell } from "@/components/ReaderShell";
 import { sanitizeArticleListReturnPath } from "@/lib/learningWorkflow";
 
 export default async function ArticlePage({
@@ -13,9 +12,5 @@ export default async function ArticlePage({
   const rawReturnTo = Array.isArray(query.from) ? query.from[0] : query.from;
   const listReturnTo = sanitizeArticleListReturnPath(rawReturnTo);
 
-  return (
-    <ReaderShell>
-      <ArticleDetailView articleId={id} listReturnTo={listReturnTo} />
-    </ReaderShell>
-  );
+  return <ArticleDetailView articleId={id} listReturnTo={listReturnTo} />;
 }

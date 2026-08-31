@@ -1,5 +1,4 @@
 import { ArticleListView } from "@/components/ArticleListView";
-import { ReaderShell } from "@/components/ReaderShell";
 import { parseArticleListState } from "@/lib/learningWorkflow";
 
 export default async function ArticlesPage({
@@ -9,9 +8,5 @@ export default async function ArticlesPage({
 }>) {
   const initialState = parseArticleListState(await searchParams);
 
-  return (
-    <ReaderShell>
-      <ArticleListView initialState={initialState} />
-    </ReaderShell>
-  );
+  return <ArticleListView initialState={initialState} />;
 }

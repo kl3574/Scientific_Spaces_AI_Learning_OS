@@ -10,6 +10,7 @@ import {
   searchZoteroItems,
 } from "@/lib/zotero";
 import { ZoteroReferenceReview } from "@/components/ZoteroReferenceReview";
+import { WorkspaceState } from "@/components/WorkspaceState";
 
 export function ZoteroLibraryView() {
   const [status, setStatus] = useState<ZoteroStatus | null>(null);
@@ -55,7 +56,7 @@ export function ZoteroLibraryView() {
         </p>
       </div>
 
-      {error ? <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+      {error ? <WorkspaceState detail={error} title="Reference workspace unavailable" tone="error" /> : null}
 
       <section className="rounded border border-slate-200 bg-white p-4">
         <h2 className="text-base font-semibold">Provider Status</h2>
@@ -120,7 +121,7 @@ export function ZoteroLibraryView() {
             </article>
           ))
         ) : (
-          <p className="rounded border border-slate-200 bg-white p-4 text-sm text-slate-600">No Zotero items loaded.</p>
+          <WorkspaceState title="No Zotero items loaded." tone="empty" />
         )}
       </section>
 

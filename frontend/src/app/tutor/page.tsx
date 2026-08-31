@@ -1,4 +1,3 @@
-import { ReaderShell } from "@/components/ReaderShell";
 import { TutorView } from "@/components/TutorView";
 import { parseLearningWorkflowContext } from "@/lib/learningWorkflow";
 
@@ -9,9 +8,5 @@ export default async function TutorPage({
 }>) {
   const initialContext = parseLearningWorkflowContext(await searchParams);
 
-  return (
-    <ReaderShell>
-      <TutorView initialContext={initialContext} />
-    </ReaderShell>
-  );
+  return <TutorView initialContext={initialContext} />;
 }

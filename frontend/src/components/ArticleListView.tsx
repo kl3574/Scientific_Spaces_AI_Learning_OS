@@ -18,6 +18,7 @@ import {
   createArticleDetailHref,
   createArticleListHref,
 } from "@/lib/learningWorkflow";
+import { WorkspaceState } from "@/components/WorkspaceState";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
@@ -174,8 +175,12 @@ export function ArticleListView({
         </form>
       </header>
 
-      {status === "loading" ? <p className="text-sm text-slate-600">Loading articles...</p> : null}
-      {status === "error" ? <p className="text-sm text-red-700">{error}</p> : null}
+      {status === "loading" ? (
+        <WorkspaceState title="Loading articles" tone="loading" />
+      ) : null}
+      {status === "error" ? (
+        <WorkspaceState detail={error} title="Article library unavailable" tone="error" />
+      ) : null}
       {status === "loaded" ? (
         <div className="flex items-center justify-between gap-2">
           <p className="text-sm text-slate-600">
@@ -202,7 +207,9 @@ export function ArticleListView({
         </div>
       ) : null}
 
-      {status === "loaded" && total === 0 ? <p className="text-sm text-slate-600">No articles found.</p> : null}
+      {status === "loaded" && total === 0 ? (
+        <WorkspaceState title="No articles found." tone="empty" />
+      ) : null}
 
       <div className="min-w-0 max-w-full divide-y divide-slate-200 border-y border-slate-200">
         {articles.map((article) => (

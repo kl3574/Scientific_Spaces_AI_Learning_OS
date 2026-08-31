@@ -344,6 +344,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_test_id("dashboard-command-center")).to_be_visible()
     expect(page.get_by_role("heading", name="Learning Overview", exact=True)).to_be_visible()
     expect(page.get_by_role("heading", name="Next Actions", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "dashboard")
+    expect(page.get_by_test_id("workspace-context").locator('[aria-current="page"]')).to_have_text(
+        "Dashboard"
+    )
+    _require(
+        page.locator('nav[aria-label="Primary"] a').count() == 5,
+        "desktop Application Shell does not expose five primary workspaces",
+    )
     for action in ("Browse library", "Ask tutor", "Explore graph", "Review sources"):
         expect(page.get_by_role("link", name=re.compile(rf"^{re.escape(action)}"))).to_be_visible()
     _require(
@@ -352,10 +360,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     checks["dashboard"] = True
     checks["dashboard_command_center"] = True
+    checks["desktop_application_shell"] = True
 
     page.get_by_role("link", name="Articles", exact=True).click()
     expect(page.get_by_role("heading", name="Article List", exact=True)).to_be_visible()
     expect(page.locator('nav[aria-label="Primary"] [aria-current="page"]')).to_have_text("Articles")
+    expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "articles")
     page.get_by_placeholder("Search title or keyword").fill("CRB")
     page.get_by_role("button", name="Search", exact=True).click()
     article_link = page.get_by_role("link", name=CRB_TITLE, exact=True)
@@ -375,6 +385,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     article_link.click()
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    article_trail = page.get_by_test_id("workspace-context")
+    expect(article_trail).to_contain_text("Articles")
+    expect(article_trail).to_contain_text("Article")
+    expect(article_trail).not_to_contain_text(CRB_ARTICLE_ID)
     expect(page.locator(".reader-markdown")).to_contain_text("Fisher")
     expect(page.locator(".reader-markdown .katex").first).to_be_visible()
     expect(page.get_by_text("External image not loaded automatically.", exact=True)).to_be_visible()
@@ -723,6 +737,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_text("Article not found", exact=True)).to_be_visible(timeout=30_000)
     checks["article_not_found_state"] = True
 
+    not_found_console_start = len(console_errors)
+    page.goto(f"{FRONTEND_URL}/not-a-product-route", wait_until="domcontentloaded")
+    expect(
+        page.get_by_test_id("route-not-found-state").get_by_text("Page not found", exact=True)
+    ).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "unknown")
+    expected_not_found_console = console_errors[not_found_console_start:]
+    _require(
+        all("status of 404" in message for message in expected_not_found_console),
+        f"unexpected console output during intentional route 404: {expected_not_found_console}",
+    )
+    del console_errors[not_found_console_start:]
+    checks["route_not_found_state"] = True
+
     page.route(
         re.compile(r".*/v1\.1/articles(?:\?.*)?$"),
         lambda route: route.fulfill(
@@ -799,13 +827,32 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(
         mobile_page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
     ).to_be_visible()
-    nav_boxes = mobile_page.locator('nav[aria-label="Primary"] a').evaluate_all(
-        "nodes => nodes.map(node => node.getBoundingClientRect()).map(box => ({x: box.x, y: box.y}))"
+    expect(mobile_page.get_by_test_id("application-shell")).to_have_attribute(
+        "data-workspace", "dashboard"
     )
+    mobile_menu_button = mobile_page.get_by_role("button", name="Open navigation", exact=True)
+    expect(mobile_menu_button).to_have_attribute("aria-expanded", "false")
+    mobile_menu_button.click()
+    mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
+    expect(mobile_navigation).to_be_visible()
+    expect(mobile_menu_button).to_have_attribute("aria-expanded", "true")
+    close_navigation = mobile_page.get_by_role("button", name="Close navigation", exact=True)
+    expect(close_navigation).to_be_focused()
+    _require(
+        mobile_navigation.locator('nav[aria-label="Primary"] a').count() == 5,
+        "mobile drawer does not expose five primary workspaces",
+    )
+    expect(
+        mobile_navigation.locator('nav[aria-label="Primary"] [aria-current="page"]')
+    ).to_have_text("Dashboard")
+    close_navigation.press("Escape")
+    expect(mobile_navigation).to_have_count(0)
+    expect(mobile_menu_button).to_be_focused()
+    checks["mobile_navigation_focus_and_escape"] = True
+
     stat_boxes = mobile_page.locator('[data-testid="dashboard-stats"] > div').evaluate_all(
         "nodes => nodes.map(node => node.getBoundingClientRect()).map(box => ({x: box.x, y: box.y}))"
     )
-    _require(len({round(item["y"]) for item in nav_boxes}) == 1, "mobile primary navigation wraps")
     _require(len({round(item["x"]) for item in stat_boxes}) == 2, "mobile dashboard statistics are not two columns")
     continue_learning_action = mobile_page.get_by_role(
         "link",
@@ -820,9 +867,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(mobile_page.get_by_role("heading", name="Next Actions", exact=True)).to_be_visible()
     checks["mobile_dashboard_density"] = True
 
-    mobile_page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
+    mobile_menu_button.click()
+    mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
+    expect(mobile_navigation).to_be_visible()
+    mobile_navigation.get_by_role("link", name="Articles", exact=True).click()
+    expect(mobile_navigation).to_have_count(0)
     expect(mobile_page.get_by_role("heading", name="Article List", exact=True)).to_be_visible()
+    expect(mobile_page.get_by_test_id("application-shell")).to_have_attribute(
+        "data-workspace", "articles"
+    )
     expect(mobile_page.get_by_text(re.compile(r"^Page 1 / "))).to_be_visible(timeout=30_000)
+    checks["mobile_navigation_route_selection"] = True
     list_width = _document_width(mobile_page)
     mobile_page.goto(
         f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
@@ -869,7 +924,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     _require(tutor_width <= 390, f"mobile Tutor page overflowed to {tutor_width}px")
     checks["mobile_guided_tutor_workspace"] = True
 
-    mobile_page.get_by_role("link", name="Graph", exact=True).click()
+    mobile_page.get_by_role("button", name="Open navigation", exact=True).click()
+    mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
+    expect(mobile_navigation).to_be_visible()
+    mobile_navigation.get_by_role("link", name="Graph", exact=True).click()
+    expect(mobile_navigation).to_have_count(0)
     expect(mobile_page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
     mobile_page.get_by_placeholder("Title, concept, or formula").fill("Attention")
     mobile_page.locator('select[name="node_type"]').select_option("concept")
