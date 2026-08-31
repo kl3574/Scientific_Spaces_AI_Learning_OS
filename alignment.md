@@ -3,13 +3,13 @@
 Canonical task:
 `docs/tasks/P3-014_INTEGRATED_LEARNING_WORKFLOW.md`
 
-Status: **ACTIVE / IMPLEMENTATION AUTHORIZED**
+Status: **PASS / CLOSED**
 
 LOCAL DATA READ / APPLICATION RUNTIME / COMPUTER USE AUTHORIZATION:
-**GRANTED**
+**CONSUMED / CLOSED**
 
 LOCAL FILE MODIFICATION / TEST / COMMIT / PUSH / CI AUTHORIZATION:
-**GRANTED**
+**CONSUMED / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT**
 
 SOURCE NETWORK / PRIVATE ZOTERO READ-WRITE / REAL PROVIDER AUTHORIZATION:
 **NOT GRANTED**
@@ -136,3 +136,18 @@ current contracts and directly improves the primary product workflow.
 - A required test, build, browser, secret, artifact, or CI gate fails without
   an in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.
+
+## Closure Evidence
+
+- implementation commit: `9e52b1730b32ba81766a5cf674605bb788aff629`
+- initial main CI: run `33349166132` exposed an unsequenced Product E2E
+  learning-write race
+- repair commit: `82eab2386c703b0768806900402771e7911f8f58`
+- repair exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33349379685`
+- Backend, Frontend, Product E2E, workflow policy, dependency, secret, and
+  SBOM jobs: PASS
+- Docker compose smoke and release evidence: correctly skipped for a normal
+  `main` push
+- workflow artifacts: 0
+- next task: ALIGNMENT REQUIRED / NOT GRANTED

@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-014 local repair PASS; repair exact-SHA CI pending`
+- Status: `P3-014 PASS / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-014 repair stress 10/10 PASS after initial Product E2E CI sequencing failure`
-- Current task: `P3-014 Integrated Learning Workflow`
+- Latest gate: `P3-014 repair exact-SHA main CI PASS`
+- Current task: `None; next task alignment required`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -28,7 +28,7 @@ P3-010 derived refresh evidence: `docs/P3_010_INCREMENTAL_DERIVED_ASSET_REFRESH_
 P3-011 product convergence evidence: `docs/P3_011_END_TO_END_PRODUCT_CONVERGENCE_REPORT.md`.
 P3-012 learning experience and GUI evidence: `docs/P3_012_LEARNING_EXPERIENCE_GUI_REFINEMENT_REPORT.md`.
 P3-013 reader workspace evidence: `docs/P3_013_READER_WORKSPACE_REPORT.md` (PASS / CLOSED).
-P3-014 integrated workflow evidence: `docs/P3_014_INTEGRATED_LEARNING_WORKFLOW_REPORT.md` (local PASS; exact-SHA CI pending).
+P3-014 integrated workflow evidence: `docs/P3_014_INTEGRATED_LEARNING_WORKFLOW_REPORT.md` (PASS / CLOSED).
 
 v1.2 planning specifications:
 
@@ -169,17 +169,18 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `docs/tasks/P3-014_INTEGRATED_LEARNING_WORKFLOW.md`
-- Last closed task: `docs/tasks/P3-013_READER_WORKSPACE_AND_LEARNING_CONTINUITY.md`
+- Active task: `None; alignment required`
+- Last closed task: `docs/tasks/P3-014_INTEGRATED_LEARNING_WORKFLOW.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
 
-P3-014 is locally implemented and awaiting its exact-SHA implementation CI.
-It connects Article search state, Reader sections, Tutor context, and exact
-Article Graph nodes through bounded local URLs without changing source data,
-Backend code, or published API contracts. It is not closed and no v1.2
-candidate or subsequent task is assigned.
+P3-014 is `PASS / CLOSED`. Repair commit
+`82eab2386c703b0768806900402771e7911f8f58` passed exact-SHA main CI after a
+10-run local Product E2E stress gate. The task connects Article search state,
+Reader sections, Tutor context, and exact Article Graph nodes through bounded
+local URLs without changing source data, Backend code, or published API
+contracts. No v1.2 candidate or subsequent task is assigned.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
 

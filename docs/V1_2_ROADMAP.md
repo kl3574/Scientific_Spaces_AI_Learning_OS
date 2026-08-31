@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011, P3-012, and P3-013 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; P3-014 integrated learning workflow is locally PASS with exact-SHA implementation CI pending; no candidate version or subsequent task is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011, P3-012, P3-013, and P3-014 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; no candidate version or subsequent task is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -466,7 +466,7 @@ including Backend, Frontend, and three Product E2E runs. Evidence is in
 
 ### P3-014 - Integrated Learning Workflow
 
-Status: **LOCAL REPAIR PASS / REPAIR EXACT-SHA CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-014 connects the existing Article List, Reader, Tutor, Graph, Dashboard,
 and learning-state surfaces through bounded, canonical local context. Article
@@ -487,7 +487,11 @@ governance with generated agent/hook instructions removed. Evidence is in
 Initial implementation run `33349166132` passed every job except Product E2E,
 where unsequenced UI writes exposed a JSON learning-store test race. The
 Backend contract remains unchanged; the E2E repair waits for each observable
-writeback and passed 10/10 local stress iterations before the repair push.
+writeback and passed 10/10 local stress iterations. Repair commit
+`82eab2386c703b0768806900402771e7911f8f58` passed exact-SHA main CI run
+[`33349379685`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33349379685),
+including Backend, Frontend, three Product E2E runs, workflow policy,
+dependency, secret, and SBOM jobs with zero uploaded artifacts.
 
 ## Release Criteria
 
@@ -521,7 +525,7 @@ writeback and passed 10/10 local stress iterations before the repair push.
 
 ## Next Recommended Task
 
-P3-014 is locally PASS and awaiting its implementation exact-SHA main CI,
-followed by a separately committed docs-only closure and second exact-SHA CI.
-No subsequent task or v1.2 candidate is assigned. Tag, Release, attestation,
-real Provider, source access, and private Zotero actions remain unauthorized.
+P3-014 is PASS / CLOSED after local stress evidence and repair exact-SHA main
+CI. No subsequent task or v1.2 candidate is assigned; the next task requires
+fresh alignment and authorization. Tag, Release, attestation, real Provider,
+source access, and private Zotero actions remain unauthorized.
