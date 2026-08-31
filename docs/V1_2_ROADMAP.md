@@ -466,7 +466,7 @@ including Backend, Frontend, and three Product E2E runs. Evidence is in
 
 ### P3-014 - Integrated Learning Workflow
 
-Status: **LOCAL PASS / EXACT-SHA CI PENDING**.
+Status: **LOCAL REPAIR PASS / REPAIR EXACT-SHA CI PENDING**.
 
 P3-014 connects the existing Article List, Reader, Tutor, Graph, Dashboard,
 and learning-state surfaces through bounded, canonical local context. Article
@@ -483,6 +483,11 @@ runs with 20 checks each, and workflow, dependency, secret, SBOM, artifact,
 and protected-path audits. `AGENTS.md` was reduced to platform-neutral project
 governance with generated agent/hook instructions removed. Evidence is in
 `docs/P3_014_INTEGRATED_LEARNING_WORKFLOW_REPORT.md`.
+
+Initial implementation run `33349166132` passed every job except Product E2E,
+where unsequenced UI writes exposed a JSON learning-store test race. The
+Backend contract remains unchanged; the E2E repair waits for each observable
+writeback and passed 10/10 local stress iterations before the repair push.
 
 ## Release Criteria
 

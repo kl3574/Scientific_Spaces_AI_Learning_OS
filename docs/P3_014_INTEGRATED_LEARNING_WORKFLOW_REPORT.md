@@ -4,6 +4,9 @@
 
 - task: P3-014 Integrated Learning Workflow
 - local implementation: **PASS**
+- initial implementation commit: `9e52b1730b32ba81766a5cf674605bb788aff629`
+- initial exact-SHA main CI: **FAILED** (`33349166132`, Product E2E only)
+- repair exact-SHA main CI: **PENDING**
 - exact-SHA main CI: **PENDING**
 - task closure: **PENDING**
 - entry commit: `5be49f05d1bf8055a8e844237fc7a058ca7c90d7`
@@ -136,6 +139,10 @@ uv run --project backend --extra dev python \
 - page errors: 0
 - Backend restart persistence: PASS
 
+A post-CI repair stress run completed 10/10 isolated iterations with all 20
+checks passing in every iteration. It recorded zero external requests,
+console errors, and page errors.
+
 ## 6. Security and Supply Chain
 
 - workflow policy: PASS, 1 workflow / 19 immutable Action uses
@@ -171,7 +178,22 @@ uv run --project backend --extra dev python \
 3. Browser verification depends on a compatible Chromium runtime.
 4. The application remains a local, single-user system.
 
-## 9. Closure State
+## 9. Defect Convergence
+
+The initial exact-SHA run passed Backend, Frontend, workflow, dependency,
+secret, and SBOM jobs but exposed a Product E2E sequencing race. The browser
+test dispatched learning-state, bookmark, and note writes without waiting for
+each preceding UI writeback. On the remote runner, the note request could read
+the JSON learning store during the preceding atomic replacement and fail with
+`JSONDecodeError`; this was not an Article, workflow-context, or product-data
+loss.
+
+The repair keeps Backend and persistence contracts unchanged. Product E2E now
+waits for the completed-state presentation and bookmark-label readback before
+submitting the note. The assertion remains strict, and the 10-iteration stress
+run proves the complete persisted workflow after the sequencing fix.
+
+## 10. Closure State
 
 All authorized local implementation, browser, test, build, security, artifact,
 and protected-boundary gates are **PASS**. P3-014 remains active until the

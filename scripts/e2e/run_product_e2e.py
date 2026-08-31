@@ -409,8 +409,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     _require(sessions["total"] == 1, f"expected one reader session, got {sessions['total']}")
     checks["single_reader_session"] = True
 
-    page.get_by_role("button", name="completed", exact=True).click()
+    completed_button = page.get_by_role("button", name="completed", exact=True)
+    completed_button.click()
+    expect(completed_button).to_have_class(re.compile(r"\bbg-slate-950\b"), timeout=30_000)
     page.get_by_role("button", name="Save", exact=True).click()
+    expect(page.get_by_role("button", name="Remove", exact=True)).to_be_visible(timeout=30_000)
     note_text = f"P3-011 iteration {iteration}"
     page.get_by_placeholder("Write a learning note").fill(note_text)
     page.get_by_role("button", name="Add note", exact=True).click()
