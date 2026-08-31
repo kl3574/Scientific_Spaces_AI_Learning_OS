@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-017 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; P3-018 is LOCAL REPAIR PASS / REPAIR CI PENDING; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-018 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -542,7 +542,7 @@ gates are PASS. Implementation commit
 
 ### P3-018 - Unified Application Shell and Navigation
 
-Status: **LOCAL REPAIR PASS / REPAIR CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-018 places Dashboard, Articles, References, Graph, and Tutor inside one
 responsive, accessible Application Shell. The shared route model provides
@@ -558,8 +558,10 @@ page errors. Workflow, suppression, dependency, secret, security utility,
 temporary SBOM, artifact, and protected-path gates passed. Initial commit
 `86ff3cf971acc73feb298918e89f4468e6814e3b` passed every CI job except
 Product E2E, which exposed a cold React Flow readiness assertion. The bounded
-readiness/hydration repair is locally PASS; repair and closure exact-SHA main
-CI are pending. Evidence is in
+readiness/hydration repair commit
+`8db53b06947f4438d179ca020a7a1496e5176de8` passed exact-SHA main CI run
+`33373397693`, including Product E2E; normal-main Docker and release jobs were
+correctly skipped and uploaded artifacts were zero. Evidence is in
 `docs/P3_018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION_REPORT.md`.
 
 ## Release Criteria
@@ -594,7 +596,7 @@ CI are pending. Evidence is in
 
 ## Next Recommended Task
 
-P3-018 is LOCAL REPAIR PASS / REPAIR CI PENDING. Its repair and docs-only
-closure commits must each pass exact-SHA main CI before the task can close. No
-v1.2 candidate is assigned. Tag, Release, attestation, real Provider, source
+P3-018 is PASS / CLOSED after its bounded repair passed exact-SHA main CI. No
+subsequent task or v1.2 candidate is assigned; the next task requires fresh
+alignment and authorization. Tag, Release, attestation, real Provider, source
 access, and private Zotero actions remain unauthorized.

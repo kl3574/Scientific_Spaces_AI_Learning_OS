@@ -3,13 +3,13 @@
 Canonical task:
 `docs/tasks/P3-018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION.md`
 
-Status: **LOCAL REPAIR PASS / REPAIR CI PENDING**
+Status: **PASS / CLOSED**
 
 LOCAL ARTICLE DATA READ / LOCAL APPLICATION RUNTIME / ISOLATED BROWSER
-VALIDATION AUTHORIZATION: **GRANTED FOR P3-018**
+VALIDATION AUTHORIZATION: **CONSUMED / CLOSED**
 
 FRONTEND / TEST / DOCUMENTATION MODIFICATION, LOCAL COMMIT / PUSH / CI
-INSPECTION AUTHORIZATION: **GRANTED FOR P3-018**
+INSPECTION AUTHORIZATION: **CONSUMED / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT**
 
 BACKEND / FROZEN M1 / SOURCE RECORD / DERIVED RAG-GRAPH-REFERENCE / PRIVATE
 ZOTERO / REAL PROVIDER AUTHORIZATION: **NOT GRANTED**
@@ -173,5 +173,11 @@ workspace.
 - initial implementation CI run `33370930585`: Backend, Frontend, workflow,
   dependency, secret, and SBOM PASS; Product E2E BLOCKED on a cold React Flow
   readiness assertion
-- local repair: PASS; repair commit, exact-SHA repair CI, and closure evidence:
-  pending
+- repair commit:
+  `8db53b06947f4438d179ca020a7a1496e5176de8`
+- repair exact-SHA main CI run
+  [`33373397693`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33373397693):
+  Backend, Frontend, Product E2E, workflow, dependency, secret, and SBOM PASS;
+  Docker and release evidence correctly skipped; uploaded artifacts 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting

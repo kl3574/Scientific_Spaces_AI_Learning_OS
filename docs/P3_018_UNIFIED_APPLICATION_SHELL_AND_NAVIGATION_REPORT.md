@@ -1,6 +1,6 @@
 # P3-018 Unified Application Shell and Navigation Report
 
-Status: **LOCAL REPAIR PASS / REPAIR CI PENDING**
+Status: **PASS / CLOSED**
 
 ## 1. Scope And Boundaries
 
@@ -194,10 +194,27 @@ independent full-page error scenarios. The local repair:
 - records page-error URLs without suppressing any hydration error.
 
 The repaired production path passed 10 of 10 stress runs and an independent
-three-run formal gate. Repair commit and exact-SHA repair CI remain pending.
+three-run formal gate. Repair commit
+`8db53b06947f4438d179ca020a7a1496e5176de8` then passed exact-SHA main CI run
+[`33373397693`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33373397693):
+
+- event / branch / head SHA: `push` / `main` /
+  `8db53b06947f4438d179ca020a7a1496e5176de8`
+- Backend pytest: PASS
+- Frontend build: PASS
+- Product E2E three-run gate: PASS
+- workflow policy: PASS
+- dependency audit: PASS
+- secret audit: PASS
+- SBOM validation: PASS
+- Docker compose smoke: correctly skipped for normal `main` push
+- release evidence: correctly skipped for normal `main` push
+- uploaded workflow artifacts: 0
 
 ## 12. Closure
 
-P3-018 repair is locally PASS. It becomes PASS / CLOSED only after the repair
-commit and subsequent docs-only closure commit pass exact-SHA main CI, with
-final `main` clean and synchronized.
+P3-018 is PASS / CLOSED. The initial CI failure remains recorded above rather
+than being hidden; the bounded repair passed both local stress/formal gates
+and exact-SHA main CI. This docs-only closure commit must pass exact-SHA main
+CI before final completion is reported. No subsequent task or v1.2 candidate
+is assigned.

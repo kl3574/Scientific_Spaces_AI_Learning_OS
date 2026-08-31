@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-018 LOCAL REPAIR PASS / REPAIR CI PENDING`
+- Status: `P3-018 PASS / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-018 local hydration/readiness repair PASS; repair CI pending`
-- Current task: `P3-018 Unified Application Shell and Navigation`
+- Latest gate: `P3-018 repair exact-SHA main CI PASS`
+- Current task: `None; next task alignment required`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -32,7 +32,7 @@ P3-014 integrated workflow evidence: `docs/P3_014_INTEGRATED_LEARNING_WORKFLOW_R
 P3-015 visual knowledge explorer evidence: `docs/P3_015_VISUAL_KNOWLEDGE_EXPLORER_REPORT.md` (PASS / CLOSED).
 P3-016 learning Dashboard evidence: `docs/P3_016_LEARNING_DASHBOARD_COMMAND_CENTER_REPORT.md` (PASS / CLOSED).
 P3-017 guided Tutor evidence: `docs/P3_017_GUIDED_TUTOR_STUDY_WORKSPACE_REPORT.md` (PASS / CLOSED).
-P3-018 unified Application Shell evidence: `docs/P3_018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION_REPORT.md` (LOCAL REPAIR PASS / REPAIR CI PENDING).
+P3-018 unified Application Shell evidence: `docs/P3_018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION_REPORT.md` (PASS / CLOSED).
 
 v1.2 planning specifications:
 
@@ -173,20 +173,21 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `docs/tasks/P3-018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION.md`
-- Last closed task: `docs/tasks/P3-017_GUIDED_TUTOR_STUDY_WORKSPACE.md`
+- Active task: `None; alignment required`
+- Last closed task: `docs/tasks/P3-018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
 
-P3-018 is `LOCAL REPAIR PASS / REPAIR CI PENDING`. One responsive Application
+P3-018 is `PASS / CLOSED`. One responsive Application
 Shell now provides direct Dashboard, Articles, References, Graph, and Tutor
 navigation, active workspace feedback, ID-free contextual trails, accessible
 mobile drawer behavior, and consistent bounded states while preserving the
 existing integrated Workflow. Initial implementation CI passed every job
 except Product E2E; the bounded readiness/hydration repair passed 10 stress
-runs and 3 formal runs locally. Exact-SHA repair and closure CI remain
-required. No v1.2 candidate is assigned.
+runs and 3 formal runs locally, then passed exact-SHA repair CI run
+`33373397693`, including Product E2E. The docs-only closure commit must pass
+exact-SHA main CI before final reporting. No v1.2 candidate is assigned.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
 

@@ -1,6 +1,6 @@
 # P3-018 Unified Application Shell and Navigation
 
-Status: **LOCAL REPAIR PASS / REPAIR CI PENDING**
+Status: **PASS / CLOSED**
 
 ## Objective
 
@@ -108,5 +108,11 @@ access becomes necessary, or any release action becomes necessary.
   `86ff3cf971acc73feb298918e89f4468e6814e3b`
 - initial implementation CI run `33370930585`: Product E2E BLOCKED; all other
   required jobs PASS
-- hydration/readiness repair: LOCAL PASS; repair commit and exact-SHA CI:
-  pending
+- hydration/readiness repair commit:
+  `8db53b06947f4438d179ca020a7a1496e5176de8`
+- repair exact-SHA main CI run
+  [`33373397693`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33373397693):
+  Backend, Frontend, Product E2E, workflow, dependency, secret, and SBOM PASS;
+  Docker and release evidence correctly skipped; uploaded artifacts 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
