@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011, P3-012, P3-013, and P3-014 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; P3-015 Visual Knowledge Explorer is LOCAL PASS / IMPLEMENTATION CI PENDING; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011, P3-012, P3-013, P3-014, and P3-015 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; no candidate version or subsequent task is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -495,7 +495,7 @@ dependency, secret, and SBOM jobs with zero uploaded artifacts.
 
 ### P3-015 - Visual Knowledge Explorer
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-015 turns the existing bounded Graph response into an interactive visual
 map while retaining the list, detail, provenance, and Article-context
@@ -505,8 +505,9 @@ interfaces and derived Graph data remain protected. The canonical task is
 
 Local evidence: 600 Backend tests with 4 skipped, 43 focused Frontend tests,
 production build, three Product E2E runs with 22 checks each, and real local
-desktop/mobile Graph probes are PASS. Exact-SHA implementation and docs-only
-closure CI remain pending. Evidence is in
+desktop/mobile Graph probes are PASS. Implementation commit
+`8224b072434c016b348311cb27cc41c4ae593a14` passed exact-SHA main CI run
+`33351208778`. Evidence is in
 `docs/P3_015_VISUAL_KNOWLEDGE_EXPLORER_REPORT.md`.
 
 ## Release Criteria
@@ -541,7 +542,7 @@ closure CI remain pending. Evidence is in
 
 ## Next Recommended Task
 
-Push the P3-015 implementation commit, verify exact-SHA main CI, then create
-and verify the docs-only closure commit.
-No v1.2 candidate is assigned. Tag, Release, attestation, real Provider,
+P3-015 is PASS / CLOSED after implementation exact-SHA main CI. No subsequent
+task or v1.2 candidate is assigned; the next task requires fresh alignment and
+authorization. Tag, Release, attestation, real Provider,
 source access, and private Zotero actions remain unauthorized.

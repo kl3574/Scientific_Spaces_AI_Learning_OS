@@ -4,8 +4,9 @@
 
 - task: P3-015 Visual Knowledge Explorer
 - local implementation: **PASS**
-- implementation exact-SHA main CI: **PENDING**
-- task closure: **PENDING**
+- implementation commit: `8224b072434c016b348311cb27cc41c4ae593a14`
+- implementation exact-SHA main CI: **PASS** ([run 33351208778](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33351208778))
+- task closure: **PASS / CLOSED**
 - entry commit: `36eafb5915122a9254c0c8e07c2c87c75042d55b`
 - candidate version: not assigned
 
@@ -183,10 +184,16 @@ uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3
    and presentation coverage but no real-corpus browser example.
 5. The application remains local and single-user.
 
-## 9. Local Gate Decision
+## 9. Closure State
 
 All authorized local implementation, real-browser, test, build, security,
-artifact, and protected-boundary gates are **PASS**. P3-015 is ready for its
-implementation commit and exact-SHA main CI. It must not be marked
-`PASS / CLOSED` until both the implementation commit and the subsequent
-docs-only closure commit pass their own exact-SHA main CI runs.
+artifact, and protected-boundary gates are **PASS**. Implementation commit
+`8224b072434c016b348311cb27cc41c4ae593a14` passed exact-SHA main CI run
+[`33351208778`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33351208778):
+Backend, Frontend, Product E2E, workflow policy, dependency, secret, and SBOM
+jobs passed; Docker and release evidence were correctly skipped for a normal
+`main` push; uploaded artifacts were zero.
+
+P3-015 is **PASS / CLOSED**. This docs-only closure commit is the final
+synchronization gate and must pass its own exact-SHA main CI before final
+completion is reported.

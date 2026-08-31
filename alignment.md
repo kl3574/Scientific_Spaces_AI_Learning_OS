@@ -3,13 +3,14 @@
 Canonical task:
 `docs/tasks/P3-015_VISUAL_KNOWLEDGE_EXPLORER.md`
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 LOCAL CORPUS READ / APPLICATION RUNTIME / COMPUTER USE AUTHORIZATION:
-**GRANTED FOR P3-015**
+**CONSUMED / CLOSED**
 
 FRONTEND / TEST / DOCUMENTATION MODIFICATION, OFFICIAL NPM REGISTRY READ,
-COMMIT / PUSH / CI INSPECTION AUTHORIZATION: **GRANTED FOR P3-015**
+COMMIT / PUSH / CI INSPECTION AUTHORIZATION:
+**CONSUMED / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT**
 
 SOURCE NETWORK / PRIVATE ZOTERO READ-WRITE / REAL PROVIDER AUTHORIZATION:
 **NOT GRANTED**
@@ -143,3 +144,15 @@ Backend complexity.
 - A required test, build, browser, secret, artifact, or CI gate fails without
   an in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.
+
+## Closure Evidence
+
+- implementation commit: `8224b072434c016b348311cb27cc41c4ae593a14`
+- implementation exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33351208778`
+- Backend, Frontend, Product E2E, workflow policy, dependency, secret, and
+  SBOM jobs: PASS
+- Docker compose smoke and release evidence: correctly skipped for a normal
+  `main` push
+- workflow artifacts: 0
+- next task: ALIGNMENT REQUIRED / NOT GRANTED

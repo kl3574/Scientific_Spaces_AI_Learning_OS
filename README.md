@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-015 LOCAL PASS / IMPLEMENTATION CI PENDING`
+- Status: `P3-015 PASS / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-014 docs-only closure exact-SHA main CI PASS`
-- Current task: `P3-015 Visual Knowledge Explorer`
+- Latest gate: `P3-015 implementation exact-SHA main CI PASS`
+- Current task: `None; next task alignment required`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -29,7 +29,7 @@ P3-011 product convergence evidence: `docs/P3_011_END_TO_END_PRODUCT_CONVERGENCE
 P3-012 learning experience and GUI evidence: `docs/P3_012_LEARNING_EXPERIENCE_GUI_REFINEMENT_REPORT.md`.
 P3-013 reader workspace evidence: `docs/P3_013_READER_WORKSPACE_REPORT.md` (PASS / CLOSED).
 P3-014 integrated workflow evidence: `docs/P3_014_INTEGRATED_LEARNING_WORKFLOW_REPORT.md` (PASS / CLOSED).
-P3-015 visual knowledge explorer evidence: `docs/P3_015_VISUAL_KNOWLEDGE_EXPLORER_REPORT.md` (local PASS; exact-SHA CI pending).
+P3-015 visual knowledge explorer evidence: `docs/P3_015_VISUAL_KNOWLEDGE_EXPLORER_REPORT.md` (PASS / CLOSED).
 
 v1.2 planning specifications:
 
@@ -170,17 +170,20 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `docs/tasks/P3-015_VISUAL_KNOWLEDGE_EXPLORER.md`
-- Last closed task: `docs/tasks/P3-014_INTEGRATED_LEARNING_WORKFLOW.md`
+- Active task: `None; alignment required`
+- Last closed task: `docs/tasks/P3-015_VISUAL_KNOWLEDGE_EXPLORER.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
 
-P3-015 is local `PASS / IMPLEMENTATION CI PENDING`. It adds a deterministic,
-bounded Map/List explorer for the existing Graph interfaces, preserves exact
-Article context and return navigation, and passed real local desktop/mobile
-browser checks without changing Backend code, source data, derived Graph
-assets, or published API contracts. No v1.2 candidate is assigned.
+P3-015 is `PASS / CLOSED`. It adds a deterministic, bounded Map/List explorer
+for the existing Graph interfaces, preserves exact Article context and return
+navigation, and passed real local desktop/mobile browser checks without
+changing Backend code, source data, derived Graph assets, or published API
+contracts. Implementation commit `8224b072434c016b348311cb27cc41c4ae593a14`
+passed exact-SHA main CI run
+[`33351208778`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33351208778).
+No v1.2 candidate or subsequent task is assigned.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
 
