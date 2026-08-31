@@ -2,36 +2,29 @@
 
 ## Task
 
-No active implementation task
-
-## Last Closed Task
-
-`docs/tasks/P3-014_INTEGRATED_LEARNING_WORKFLOW.md`
+`docs/tasks/P3-015_VISUAL_KNOWLEDGE_EXPLORER.md`
 
 ## Status
 
-P3-014 PASS / CLOSED
-
-Next task: ALIGNMENT REQUIRED / NOT GRANTED
+P3-015 LOCAL PASS / IMPLEMENTATION CI PENDING
 
 ## Authorization
 
-- P3-014 local corpus and derived-asset reads: CONSUMED / CLOSED
-- P3-014 local Backend/Frontend runtime and Computer Use: CONSUMED / CLOSED
-- P3-014 Frontend/docs/tests changes, commit, push, and CI inspection: CONSUMED / CLOSED
-- Source network/browser acquisition: NOT GRANTED
-- Private Zotero reads or writes: NOT GRANTED
-- Real/paid Provider calls: NOT GRANTED
-- Candidate / tag / Release / attestation: NOT GRANTED
+- local corpus and derived Graph reads: GRANTED FOR P3-015
+- local Backend/Frontend runtime and Computer Use: GRANTED FOR P3-015
+- Frontend/docs/tests changes and official npm registry read: GRANTED FOR P3-015
+- commit, push, and exact-SHA CI inspection: GRANTED FOR P3-015
+- source network/browser acquisition: NOT GRANTED
+- private Zotero reads or writes: NOT GRANTED
+- real/paid Provider calls: NOT GRANTED
+- candidate / tag / Release / attestation: NOT GRANTED
 
-## Closure Evidence
+## Entry Evidence
 
-- local implementation and 10-run Product E2E stress evidence: PASS
-- Backend, Frontend, Product E2E, dependency, secret, workflow, and SBOM gates:
-  PASS
-- implementation commit: `9e52b1730b32ba81766a5cf674605bb788aff629`
-- repair commit: `82eab2386c703b0768806900402771e7911f8f58`
-- repair exact-SHA main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33349379685`
-- docs-only closure commit: must pass exact main CI before final completion is
-  reported
+- branch: `main`
+- HEAD and cached `origin/main`:
+  `36eafb5915122a9254c0c8e07c2c87c75042d55b`
+- ahead/behind: `0/0`
+- worktree: clean
+- P3-014: PASS / CLOSED
+- REWORK / `.audit` blockers: none

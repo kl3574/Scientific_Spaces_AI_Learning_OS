@@ -469,13 +469,29 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
     expect(page.get_by_test_id("learning-workflow-context")).to_contain_text(CRB_TITLE)
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
+    expect(
+        page.get_by_role("button", name=f"Selected Article: {CRB_TITLE}", exact=True)
+    ).to_be_visible()
     page.get_by_placeholder("Title, concept, or formula").fill("Attention")
-    page.get_by_label("Type").select_option("concept")
+    page.locator('select[name="node_type"]').select_option("concept")
     page.get_by_role("button", name="Apply", exact=True).click()
-    context_graph_node = page.locator("button").filter(has_text=re.compile(r"^Attention", re.I)).first
+    context_graph_node = (
+        page.get_by_test_id("graph-node-results")
+        .locator("button")
+        .filter(has_text=re.compile(r"^Attention", re.I))
+        .first
+    )
     expect(context_graph_node).to_be_visible(timeout=30_000)
     context_graph_node.click()
     expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(timeout=30_000)
+    expect(
+        page.get_by_role("button", name=re.compile(r"^Selected Concept: Attention", re.I))
+    ).to_be_visible(timeout=30_000)
+    page.get_by_test_id("graph-view-list").click()
+    expect(page.get_by_role("heading", name="Bounded Context", exact=True)).to_be_visible()
+    page.get_by_test_id("graph-view-map").click()
+    expect(page.get_by_test_id("graph-visualization")).to_be_visible()
     graph_return = page.get_by_role("link", name="Return to article", exact=True)
     graph_return_href = graph_return.get_attribute("href") or ""
     _require(
@@ -531,21 +547,38 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
     expect(page.get_by_text(re.compile(r"^Showing \d+-\d+ of \d+$"))).to_be_visible(timeout=30_000)
     page.get_by_placeholder("Title, concept, or formula").fill("Attention")
-    page.get_by_label("Type").select_option("concept")
+    page.locator('select[name="node_type"]').select_option("concept")
     page.get_by_role("button", name="Apply", exact=True).click()
     expect(page.get_by_text(re.compile(r"^Showing 1-\d+ of \d+$"))).to_be_visible(timeout=30_000)
-    graph_node = page.locator("button").filter(has_text=re.compile(r"^Attention", re.I)).first
+    graph_node = (
+        page.get_by_test_id("graph-node-results")
+        .locator("button")
+        .filter(has_text=re.compile(r"^Attention", re.I))
+        .first
+    )
     expect(graph_node).to_be_visible()
     graph_node.click()
     expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(timeout=30_000)
-    expect(page.get_by_role("heading", name="Bounded Context", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("graph-map-counts")).to_contain_text("relationships")
+    graph_article_node = page.get_by_role("button", name=re.compile(r"^Article: ")).first
+    expect(graph_article_node).to_be_visible()
+    graph_article_node.press("Enter")
+    expect(page.get_by_role("button", name=re.compile(r"^Selected Article: ")).first).to_be_visible(
+        timeout=30_000
+    )
     graph_article_link = page.get_by_role("link", name="Open article").first
     expect(graph_article_link).to_be_visible()
     _require(
         str(graph_article_link.get_attribute("href") or "").startswith("/articles/"),
         "Graph Article deep link is invalid",
     )
+    page.get_by_test_id("graph-view-list").click()
+    expect(page.get_by_role("heading", name="Bounded Context", exact=True)).to_be_visible()
+    page.get_by_test_id("graph-view-map").click()
+    expect(page.get_by_test_id("graph-visualization")).to_be_visible()
     checks["knowledge_graph"] = True
+    checks["visual_knowledge_explorer"] = True
 
     page.get_by_role("link", name="Tutor", exact=True).click()
     expect(page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
@@ -673,6 +706,32 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     mobile_end_button.click()
     expect(mobile_end_button).to_be_disabled()
     checks["mobile_layout_and_formula_scroll"] = True
+
+    mobile_page.get_by_role("link", name="Graph", exact=True).click()
+    expect(mobile_page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
+    mobile_page.get_by_placeholder("Title, concept, or formula").fill("Attention")
+    mobile_page.locator('select[name="node_type"]').select_option("concept")
+    mobile_page.get_by_role("button", name="Apply", exact=True).click()
+    mobile_graph_node = (
+        mobile_page.get_by_test_id("graph-node-results")
+        .locator("button")
+        .filter(has_text=re.compile(r"^Attention", re.I))
+        .first
+    )
+    expect(mobile_graph_node).to_be_visible(timeout=30_000)
+    mobile_graph_node.click()
+    expect(mobile_page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
+    mobile_graph_box = mobile_page.locator(".knowledge-graph-canvas").bounding_box()
+    mobile_graph_width = _document_width(mobile_page)
+    _require(
+        mobile_graph_box is not None and mobile_graph_box["width"] <= 390,
+        f"mobile visual Graph canvas overflowed: {mobile_graph_box}",
+    )
+    _require(mobile_graph_width <= 390, f"mobile Graph page overflowed to {mobile_graph_width}px")
+    expect(mobile_page.locator(".react-flow__controls")).to_be_visible()
+    mobile_page.get_by_test_id("graph-view-list").click()
+    expect(mobile_page.get_by_role("heading", name="Bounded Context", exact=True)).to_be_visible()
+    checks["mobile_visual_knowledge_explorer"] = True
     mobile_context.close()
 
     unexpected_console_errors = _unexpected_console_errors(console_errors)
@@ -689,6 +748,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             "viewport": 390,
             "article_list": list_width,
             "article_detail": detail_width,
+            "graph": mobile_graph_width,
         },
         "external_network_request_count": len(blocked_external),
         "console_error_count": len(unexpected_console_errors),

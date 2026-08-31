@@ -23,6 +23,11 @@ type GraphNodeDetailProps = {
   node: GraphNode | null;
   detailStatus: GraphLoadState;
   detailError: string | null;
+  onRetry: () => void;
+};
+
+type GraphContextListProps = {
+  node: GraphNode | null;
   subgraph: GraphSubgraphResponse | null;
   subgraphStatus: GraphLoadState;
   subgraphError: string | null;
@@ -35,15 +40,10 @@ export function GraphNodeDetail({
   node,
   detailStatus,
   detailError,
-  subgraph,
-  subgraphStatus,
-  subgraphError,
-  bounds,
-  onSelectNode,
   onRetry,
 }: Readonly<GraphNodeDetailProps>) {
   return (
-    <aside className="min-w-0 space-y-4">
+    <aside className="min-w-0">
       <section className="min-w-0 rounded border border-slate-200 bg-white p-4" aria-busy={detailStatus === "loading"}>
         <div className="flex items-center justify-between gap-3">
           <h2 className="text-base font-semibold">Selected Node</h2>
@@ -69,36 +69,48 @@ export function GraphNodeDetail({
         ) : null}
         {detailStatus === "loaded" && node ? <NodeContent key={node.node_id} node={node} /> : null}
       </section>
-
-      <section className="min-w-0 rounded border border-slate-200 bg-white p-4" aria-busy={subgraphStatus === "loading"}>
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
-          <h2 className="text-base font-semibold">Bounded Context</h2>
-          <p className="text-xs text-slate-500">
-            Depth {bounds.depth} | {bounds.nodeLimit} nodes | {bounds.edgeLimit} relationships
-          </p>
-        </div>
-
-        {subgraphStatus === "idle" ? (
-          <p className="mt-3 text-sm leading-6 text-slate-600">No node selected.</p>
-        ) : null}
-        {subgraphStatus === "loading" ? (
-          <p className="mt-3 text-sm text-slate-600" role="status">
-            Loading bounded context...
-          </p>
-        ) : null}
-        {subgraphStatus === "error" ? (
-          <div className="mt-3 flex items-start justify-between gap-3" role="alert">
-            <p className="min-w-0 break-words text-sm text-red-700">{subgraphError}</p>
-            <button className="shrink-0 text-xs font-medium text-slate-600 hover:text-slate-950" type="button" onClick={onRetry}>
-              Retry
-            </button>
-          </div>
-        ) : null}
-        {subgraphStatus === "loaded" && subgraph ? (
-          <SubgraphContent node={node} subgraph={subgraph} onSelectNode={onSelectNode} />
-        ) : null}
-      </section>
     </aside>
+  );
+}
+
+export function GraphContextList({
+  node,
+  subgraph,
+  subgraphStatus,
+  subgraphError,
+  bounds,
+  onSelectNode,
+  onRetry,
+}: Readonly<GraphContextListProps>) {
+  return (
+    <section className="min-w-0" aria-busy={subgraphStatus === "loading"} data-testid="graph-context-list">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between">
+        <h3 className="text-sm font-semibold">Bounded Context</h3>
+        <p className="text-xs text-slate-500">
+          Depth {bounds.depth} | {bounds.nodeLimit} nodes | {bounds.edgeLimit} relationships
+        </p>
+      </div>
+
+      {subgraphStatus === "idle" ? (
+        <p className="mt-3 text-sm leading-6 text-slate-600">No node selected.</p>
+      ) : null}
+      {subgraphStatus === "loading" ? (
+        <p className="mt-3 text-sm text-slate-600" role="status">
+          Loading bounded context...
+        </p>
+      ) : null}
+      {subgraphStatus === "error" ? (
+        <div className="mt-3 flex items-start justify-between gap-3" role="alert">
+          <p className="min-w-0 break-words text-sm text-red-700">{subgraphError}</p>
+          <button className="shrink-0 text-xs font-medium text-slate-600 hover:text-slate-950" type="button" onClick={onRetry}>
+            Retry
+          </button>
+        </div>
+      ) : null}
+      {subgraphStatus === "loaded" && subgraph ? (
+        <SubgraphContent node={node} subgraph={subgraph} onSelectNode={onSelectNode} />
+      ) : null}
+    </section>
   );
 }
 

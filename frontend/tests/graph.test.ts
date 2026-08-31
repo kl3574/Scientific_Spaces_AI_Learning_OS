@@ -13,6 +13,11 @@ import {
   getSafeDisplayText,
   getSafeExternalUrl,
 } from "../src/lib/graphPresentation";
+import {
+  GRAPH_VISUAL_EDGE_LIMIT,
+  GRAPH_VISUAL_NODE_LIMIT,
+  createGraphVisualizationModel,
+} from "../src/lib/graphVisualization";
 
 type FetchCall = {
   input: string;
@@ -174,3 +179,96 @@ test("getSafeExternalUrl permits web URLs and rejects local paths", () => {
 test("getSafeDisplayText rejects arbitrary absolute paths embedded in metadata", () => {
   assert.equal(getSafeDisplayText("Loaded from /workspace/private/article.md"), null);
 });
+
+test("createGraphVisualizationModel centers the selected node with typed deterministic positions", () => {
+  const subgraph = {
+    nodes: [
+      graphNode("formula:fisher", "formula", "Fisher information"),
+      graphNode("concept:attention", "concept", "Attention"),
+      graphNode("article:a", "article", "Article A"),
+      graphNode("section:background", "section", "Background"),
+      graphNode("zotero:z", "zotero_item", "Paper Z"),
+    ],
+    edges: [
+      graphEdge("edge:2", "concept:attention", "section:background", "explained_by"),
+      graphEdge("edge:1", "article:a", "concept:attention", "mentions"),
+    ],
+  };
+
+  const first = createGraphVisualizationModel(subgraph, "concept:attention");
+  const second = createGraphVisualizationModel(
+    { nodes: [...subgraph.nodes].reverse(), edges: [...subgraph.edges].reverse() },
+    "concept:attention",
+  );
+
+  assert.deepEqual(first, second);
+  assert.equal(first.centerNodeId, "concept:attention");
+  assert.deepEqual(first.nodes.map((node) => node.id), [
+    "concept:attention",
+    "article:a",
+    "section:background",
+    "formula:fisher",
+    "zotero:z",
+  ]);
+  assert.deepEqual(first.nodes[0].position, { x: 0, y: 0 });
+  assert.deepEqual(first.nodes[1].position, { x: 0, y: -180 });
+  assert.equal(first.nodes[0].selected, true);
+  assert.equal(first.nodes[0].symbol, "C");
+  assert.equal(first.nodes[0].typeLabel, "Concept");
+  assert.equal(first.nodes[0].ariaLabel, "Selected Concept: Attention");
+  assert.equal(first.edges[0].label, "mentions");
+  assert.equal(first.edges[1].label, "explained by");
+});
+
+test("createGraphVisualizationModel enforces bounds and removes invalid relationships", () => {
+  const center = graphNode("concept:center", "concept", "Center");
+  const neighbors = Array.from({ length: 30 }, (_, index) =>
+    graphNode(`section:${String(index).padStart(2, "0")}`, "section", `Section ${index}`),
+  );
+  const edges = [
+    ...neighbors.map((node, index) =>
+      graphEdge(`edge:${String(index).padStart(2, "0")}`, center.node_id, node.node_id, "has_section"),
+    ),
+    graphEdge("edge:invalid", center.node_id, "section:missing", "related_to"),
+  ];
+
+  const model = createGraphVisualizationModel(
+    { nodes: [...neighbors, center, center], edges: [...edges, ...edges] },
+    center.node_id,
+  );
+
+  assert.equal(model.nodes.length, GRAPH_VISUAL_NODE_LIMIT);
+  assert.equal(model.edges.length, GRAPH_VISUAL_NODE_LIMIT - 1);
+  assert.ok(model.edges.length <= GRAPH_VISUAL_EDGE_LIMIT);
+  assert.equal(new Set(model.nodes.map((node) => node.id)).size, model.nodes.length);
+  assert.equal(new Set(model.edges.map((edge) => edge.id)).size, model.edges.length);
+  assert.ok(model.edges.every((edge) => model.nodes.some((node) => node.id === edge.source)));
+  assert.ok(model.edges.every((edge) => model.nodes.some((node) => node.id === edge.target)));
+});
+
+function graphNode(
+  nodeId: string,
+  nodeType: "article" | "section" | "concept" | "formula" | "zotero_item",
+  label: string,
+) {
+  return {
+    node_id: nodeId,
+    node_type: nodeType,
+    label,
+    source_id: null,
+    source_url: null,
+    metadata: {},
+  };
+}
+
+function graphEdge(edgeId: string, source: string, target: string, edgeType: string) {
+  return {
+    edge_id: edgeId,
+    source_node_id: source,
+    target_node_id: target,
+    edge_type: edgeType,
+    weight: 1,
+    evidence: {},
+    metadata: {},
+  };
+}

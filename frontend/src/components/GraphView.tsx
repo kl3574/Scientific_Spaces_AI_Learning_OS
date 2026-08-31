@@ -3,7 +3,8 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
-import { GraphLoadState, GraphNodeDetail } from "@/components/GraphNodeDetail";
+import { GraphContextList, GraphLoadState, GraphNodeDetail } from "@/components/GraphNodeDetail";
+import { GraphVisualization } from "@/components/GraphVisualization";
 import {
   GraphNode,
   GraphNodeListResponse,
@@ -294,7 +295,7 @@ export function GraphView({
       </section>
 
       <section className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,380px)] lg:items-start">
-        <section className="min-w-0" aria-busy={nodeStatus === "loading"}>
+        <section className="min-w-0" aria-busy={nodeStatus === "loading"} data-testid="graph-node-results">
           <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <h2 className="text-base font-semibold">Nodes</h2>
@@ -341,6 +342,7 @@ export function GraphView({
                   className={`min-w-0 rounded border bg-white p-4 text-left hover:bg-slate-50 ${
                     selectedNodeId === node.node_id ? "border-slate-950" : "border-slate-200"
                   }`}
+                  data-testid={`graph-result-node-${node.node_id}`}
                   type="button"
                   onClick={() => selectNode(node.node_id)}
                 >
@@ -357,18 +359,163 @@ export function GraphView({
         </section>
 
         <GraphNodeDetail
-          bounds={{ depth: SUBGRAPH_DEPTH, nodeLimit: SUBGRAPH_NODE_LIMIT, edgeLimit: SUBGRAPH_EDGE_LIMIT }}
           detailError={detailError}
           detailStatus={detailStatus}
           node={selectedNode}
-          subgraph={subgraph}
-          subgraphError={subgraphError}
-          subgraphStatus={subgraphStatus}
           onRetry={() => setSelectionRevision((current) => current + 1)}
-          onSelectNode={selectNode}
         />
       </section>
+
+      <GraphContextExplorer
+        node={selectedNode}
+        selectedNodeId={selectedNodeId}
+        subgraph={subgraph}
+        subgraphError={subgraphError}
+        subgraphStatus={subgraphStatus}
+        onRetry={() => setSelectionRevision((current) => current + 1)}
+        onSelectNode={selectNode}
+      />
     </section>
+  );
+}
+
+function GraphContextExplorer({
+  node,
+  selectedNodeId,
+  subgraph,
+  subgraphStatus,
+  subgraphError,
+  onSelectNode,
+  onRetry,
+}: Readonly<{
+  node: GraphNode | null;
+  selectedNodeId: string | null;
+  subgraph: GraphSubgraphResponse | null;
+  subgraphStatus: GraphLoadState;
+  subgraphError: string | null;
+  onSelectNode: (nodeId: string) => void;
+  onRetry: () => void;
+}>) {
+  const [viewMode, setViewMode] = useState<"map" | "list">("map");
+  const bounds = {
+    depth: SUBGRAPH_DEPTH,
+    nodeLimit: SUBGRAPH_NODE_LIMIT,
+    edgeLimit: SUBGRAPH_EDGE_LIMIT,
+  };
+
+  return (
+    <section className="min-w-0 border-t-2 border-slate-950 pt-4" data-testid="graph-context-explorer">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-base font-semibold">Knowledge Context</h2>
+          <p className="mt-1 text-xs text-slate-500">
+            Explore the selected node as a visual map or an accessible relationship list.
+          </p>
+        </div>
+        <div
+          aria-label="Knowledge context view"
+          className="inline-flex w-fit rounded border border-slate-300 bg-white p-1"
+          role="tablist"
+        >
+          <button
+            aria-controls="graph-context-panel"
+            aria-selected={viewMode === "map"}
+            className={`rounded px-3 py-1.5 text-xs font-semibold ${
+              viewMode === "map" ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"
+            }`}
+            data-testid="graph-view-map"
+            role="tab"
+            type="button"
+            onClick={() => setViewMode("map")}
+          >
+            Map
+          </button>
+          <button
+            aria-controls="graph-context-panel"
+            aria-selected={viewMode === "list"}
+            className={`rounded px-3 py-1.5 text-xs font-semibold ${
+              viewMode === "list" ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"
+            }`}
+            data-testid="graph-view-list"
+            role="tab"
+            type="button"
+            onClick={() => setViewMode("list")}
+          >
+            List
+          </button>
+        </div>
+      </header>
+
+      <div className="mt-4 min-w-0" id="graph-context-panel" role="tabpanel">
+        {viewMode === "map" ? (
+          <GraphMapState
+            selectedNodeId={selectedNodeId}
+            subgraph={subgraph}
+            subgraphError={subgraphError}
+            subgraphStatus={subgraphStatus}
+            onRetry={onRetry}
+            onSelectNode={onSelectNode}
+          />
+        ) : (
+          <GraphContextList
+            bounds={bounds}
+            node={node}
+            subgraph={subgraph}
+            subgraphError={subgraphError}
+            subgraphStatus={subgraphStatus}
+            onRetry={onRetry}
+            onSelectNode={onSelectNode}
+          />
+        )}
+      </div>
+    </section>
+  );
+}
+
+function GraphMapState({
+  selectedNodeId,
+  subgraph,
+  subgraphStatus,
+  subgraphError,
+  onSelectNode,
+  onRetry,
+}: Readonly<{
+  selectedNodeId: string | null;
+  subgraph: GraphSubgraphResponse | null;
+  subgraphStatus: GraphLoadState;
+  subgraphError: string | null;
+  onSelectNode: (nodeId: string) => void;
+  onRetry: () => void;
+}>) {
+  if (!selectedNodeId || subgraphStatus === "idle") {
+    return <p className="border-y border-slate-200 py-5 text-sm text-slate-600">Select a node to build its visual context.</p>;
+  }
+  if (subgraphStatus === "loading") {
+    return (
+      <p className="border-y border-slate-200 py-5 text-sm text-slate-600" role="status">
+        Loading visual context...
+      </p>
+    );
+  }
+  if (subgraphStatus === "error") {
+    return (
+      <div className="flex items-start justify-between gap-3 border border-red-200 bg-red-50 p-4" role="alert">
+        <p className="min-w-0 break-words text-sm text-red-700">{subgraphError}</p>
+        <button className="shrink-0 text-xs font-semibold text-red-700 hover:text-red-950" type="button" onClick={onRetry}>
+          Retry
+        </button>
+      </div>
+    );
+  }
+  if (!subgraph || !subgraph.nodes.length) {
+    return <p className="border-y border-slate-200 py-5 text-sm text-slate-600">No visual context is available.</p>;
+  }
+  return (
+    <GraphVisualization
+      selectedNodeId={selectedNodeId}
+      subgraph={subgraph}
+      onSelectNode={onSelectNode}
+    />
   );
 }
 
