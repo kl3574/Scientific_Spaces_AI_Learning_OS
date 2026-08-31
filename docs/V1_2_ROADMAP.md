@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011, P3-012, P3-013, P3-014, and P3-015 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; P3-016 Learning Dashboard Command Center is LOCAL PASS / IMPLEMENTATION CI PENDING; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011, P3-012, P3-013, P3-014, P3-015, and P3-016 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; no candidate version or subsequent task is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -512,15 +512,16 @@ desktop/mobile Graph probes are PASS. Implementation commit
 
 ### P3-016 - Learning Dashboard Command Center
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-016 consolidates the existing Dashboard counters and overlapping activity
 lists into a compact learning overview, exact Continue Learning action,
 bounded chronological activity timeline, latest-library view, and next-action
 surface. It reuses existing Frontend clients and published interfaces; Backend
 code and product data remain protected. Local Backend, Frontend, real-Article
-browser, Product E2E, security, and SBOM gates are PASS. The implementation
-commit and exact-SHA main CI are pending. Evidence is in
+browser, Product E2E, security, and SBOM gates are PASS. Implementation commit
+`fe4cf5e50a2a4c39982ca0e879d0a18cd561e904` passed exact-SHA main CI run
+`33353446426`. Evidence is in
 `docs/P3_016_LEARNING_DASHBOARD_COMMAND_CENTER_REPORT.md`.
 
 ## Release Criteria
@@ -555,7 +556,7 @@ commit and exact-SHA main CI are pending. Evidence is in
 
 ## Next Recommended Task
 
-Commit and push the P3-016 implementation, verify its exact-SHA main CI, then
-create the docs-only closure commit and verify its exact-SHA main CI. No v1.2
-candidate is assigned. Tag, Release, attestation, real Provider, source access,
-and private Zotero actions remain unauthorized.
+P3-016 is PASS / CLOSED after implementation exact-SHA main CI. No subsequent
+task or v1.2 candidate is assigned; the next task requires fresh alignment and
+authorization. Tag, Release, attestation, real Provider, source access, and
+private Zotero actions remain unauthorized.
