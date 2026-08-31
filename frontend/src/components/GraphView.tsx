@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import { GraphLoadState, GraphNodeDetail } from "@/components/GraphNodeDetail";
 import {
@@ -15,6 +16,7 @@ import {
   fetchGraphSummary,
 } from "@/lib/graph";
 import { getSafeDisplayText } from "@/lib/graphPresentation";
+import type { LearningWorkflowContext } from "@/lib/learningWorkflow";
 
 const PAGE_SIZE = 20;
 const SUBGRAPH_DEPTH = 1;
@@ -30,7 +32,11 @@ const nodeTypes: Array<{ value: GraphNodeType | ""; label: string }> = [
   { value: "zotero_item", label: "Zotero items" },
 ];
 
-export function GraphView() {
+export function GraphView({
+  initialContext,
+}: Readonly<{
+  initialContext: LearningWorkflowContext | null;
+}>) {
   const [summary, setSummary] = useState<GraphSummary | null>(null);
   const [summaryStatus, setSummaryStatus] = useState<GraphLoadState>("idle");
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -46,7 +52,7 @@ export function GraphView() {
   const [nodeError, setNodeError] = useState<string | null>(null);
   const [nodeRevision, setNodeRevision] = useState(0);
 
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(initialContext?.nodeId ?? null);
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [detailStatus, setDetailStatus] = useState<GraphLoadState>("idle");
   const [detailError, setDetailError] = useState<string | null>(null);
@@ -54,6 +60,17 @@ export function GraphView() {
   const [subgraphStatus, setSubgraphStatus] = useState<GraphLoadState>("idle");
   const [subgraphError, setSubgraphError] = useState<string | null>(null);
   const [selectionRevision, setSelectionRevision] = useState(0);
+  const contextNodeIdRef = useRef(initialContext?.nodeId ?? null);
+
+  useEffect(() => {
+    const contextNodeId = initialContext?.nodeId ?? null;
+    if (contextNodeId !== contextNodeIdRef.current) {
+      contextNodeIdRef.current = contextNodeId;
+      if (contextNodeId) {
+        setSelectedNodeId(contextNodeId);
+      }
+    }
+  }, [initialContext?.nodeId]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -199,6 +216,26 @@ export function GraphView() {
           Explore links between articles, sections, concepts, formulas, and Zotero papers.
         </p>
       </header>
+
+      {initialContext ? (
+        <section
+          data-testid="learning-workflow-context"
+          className="flex flex-col gap-3 border-y border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase text-emerald-800">Current article</p>
+            <p className="mt-1 break-words text-sm font-medium text-emerald-950">
+              {initialContext.articleTitle ?? initialContext.articleId}
+            </p>
+          </div>
+          <Link
+            className="w-fit shrink-0 rounded border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 hover:border-emerald-600"
+            href={initialContext.returnTo}
+          >
+            Return to article
+          </Link>
+        </section>
+      ) : null}
 
       <SummaryPanel
         summary={summary}

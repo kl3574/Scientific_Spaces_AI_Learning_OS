@@ -45,10 +45,17 @@ import {
   updateNote,
 } from "@/lib/learning";
 import { ReadingHistoryItem, loadReadingHistory, recordReading } from "@/lib/readingHistory";
+import { createLearningToolHref } from "@/lib/learningWorkflow";
 import { StructuredReferencesPanel } from "@/components/StructuredReferencesPanel";
 import { ZoteroLinksPanel } from "@/components/ZoteroLinksPanel";
 
-export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>) {
+export function ArticleDetailView({
+  articleId,
+  listReturnTo,
+}: Readonly<{
+  articleId: string;
+  listReturnTo: string;
+}>) {
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [learningState, setLearningState] = useState<LearningState | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -369,7 +376,7 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
   if (error) {
     return (
       <section className="space-y-4">
-        <Link className="text-sm text-slate-600 hover:text-slate-950" href="/articles">
+        <Link className="text-sm text-slate-600 hover:text-slate-950" href={listReturnTo}>
           Back to articles
         </Link>
         <p className="rounded border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</p>
@@ -381,6 +388,13 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
     return <p className="text-sm text-slate-600">Loading article...</p>;
   }
 
+  const workflowContext = {
+    articleId: article.id,
+    articleTitle: article.title,
+    listReturnTo,
+    sectionId: activeSectionId,
+  };
+
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
       <article
@@ -390,7 +404,7 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
         data-reader-size={readerPreferences.textSize}
         data-reader-width={readerPreferences.width}
       >
-        <Link className="text-sm text-slate-600 hover:text-slate-950" href="/articles">
+        <Link className="text-sm text-slate-600 hover:text-slate-950" href={listReturnTo}>
           Back to articles
         </Link>
         <h1 className="mt-4 break-words text-2xl font-semibold leading-tight">{article.title}</h1>
@@ -445,6 +459,23 @@ export function ArticleDetailView({ articleId }: Readonly<{ articleId: string }>
             Back to article
           </a>
         </div>
+        <section data-testid="article-study-actions" className="rounded border border-emerald-200 bg-emerald-50 p-4">
+          <h2 className="text-base font-semibold text-emerald-950">Study this article</h2>
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Link
+              className="rounded bg-emerald-800 px-3 py-2 text-center text-sm font-semibold text-white hover:bg-emerald-900"
+              href={createLearningToolHref("tutor", workflowContext)}
+            >
+              Ask tutor
+            </Link>
+            <Link
+              className="rounded border border-emerald-300 bg-white px-3 py-2 text-center text-sm font-semibold text-emerald-900 hover:border-emerald-600"
+              href={createLearningToolHref("graph", workflowContext)}
+            >
+              Explore graph
+            </Link>
+          </div>
+        </section>
         <section id="article-outline" className="scroll-mt-24 rounded border border-slate-200 bg-white p-4">
           <ArticleOutline activeSectionId={activeSectionId} items={outline} onNavigate={handleOutlineNavigate} />
         </section>

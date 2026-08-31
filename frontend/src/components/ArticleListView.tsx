@@ -5,7 +5,6 @@ import { FormEvent, useEffect, useState } from "react";
 
 import {
   ArticleListRequest,
-  ArticleListSort,
   ArticleMetadata,
   ArticleSummary,
   fetchArticles,
@@ -13,16 +12,26 @@ import {
 } from "@/lib/articles";
 import { toPlainTextPreview } from "@/lib/articlePresentation";
 import { Bookmark, LearningState, fetchBookmarks, fetchLearningStates } from "@/lib/learning";
+import {
+  ArticleListSort,
+  ArticleListState,
+  createArticleDetailHref,
+  createArticleListHref,
+} from "@/lib/learningWorkflow";
 
 type LoadState = "idle" | "loading" | "loaded" | "error";
 
 const PAGE_SIZE = 20;
 
-export function ArticleListView() {
-  const [query, setQuery] = useState("");
-  const [appliedQuery, setAppliedQuery] = useState("");
-  const [sort, setSort] = useState<ArticleListSort>("date_desc");
-  const [page, setPage] = useState(1);
+export function ArticleListView({
+  initialState,
+}: Readonly<{
+  initialState: ArticleListState;
+}>) {
+  const [query, setQuery] = useState(initialState.q);
+  const [appliedQuery, setAppliedQuery] = useState(initialState.q);
+  const [sort, setSort] = useState<ArticleListSort>(initialState.sort);
+  const [page, setPage] = useState(initialState.page);
   const [articles, setArticles] = useState<ArticleSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [hasNext, setHasNext] = useState(false);
@@ -35,6 +44,11 @@ export function ArticleListView() {
 
   useEffect(() => {
     void loadArticles();
+  }, [appliedQuery, page, sort]);
+
+  useEffect(() => {
+    const href = createArticleListHref({ q: appliedQuery, sort, page });
+    window.history.replaceState(null, "", href);
   }, [appliedQuery, page, sort]);
 
   useEffect(() => {
@@ -107,6 +121,8 @@ export function ArticleListView() {
     const to = Math.min(page * PAGE_SIZE, total);
     return `Showing ${from}-${to} of ${total}`;
   }
+
+  const listHref = createArticleListHref({ q: appliedQuery, sort, page });
 
   return (
     <section className="min-w-0 max-w-full space-y-5">
@@ -195,7 +211,7 @@ export function ArticleListView() {
               <div className="min-w-0">
                 <Link
                   className="break-words text-base font-semibold text-slate-950 hover:underline"
-                  href={`/articles/${article.id}`}
+                  href={createArticleDetailHref(article.id, listHref)}
                 >
                   {article.title}
                 </Link>

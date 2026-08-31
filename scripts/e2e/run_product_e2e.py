@@ -437,6 +437,71 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         and persisted_reader_state.get("section_id") == target_section_id,
         f"reader state lost the last meaningful section: {persisted_reader_state}",
     )
+
+    tutor_action = page.get_by_role("link", name="Ask tutor", exact=True)
+    expect(tutor_action).to_be_visible()
+    tutor_action.click()
+    expect(page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("learning-workflow-context")).to_contain_text(CRB_TITLE)
+    expect(page.get_by_label("Article ID")).to_have_value(CRB_ARTICLE_ID)
+    tutor_return = page.get_by_role("link", name="Return to article", exact=True)
+    tutor_return_href = tutor_return.get_attribute("href") or ""
+    _require(
+        tutor_return_href.startswith(f"/articles/{CRB_ARTICLE_ID}")
+        and "from=" in tutor_return_href
+        and "#" in tutor_return_href,
+        f"Tutor return context is incomplete: {tutor_return_href}",
+    )
+    tutor_return.click()
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("article-outline").locator('[aria-current="location"]')).to_be_visible()
+    tutor_return_session = page.get_by_role("button", name="End session", exact=True)
+    expect(tutor_return_session).to_be_enabled(timeout=30_000)
+    tutor_return_session.click()
+    expect(tutor_return_session).to_be_disabled()
+
+    graph_action = page.get_by_role("link", name="Explore graph", exact=True)
+    expect(graph_action).to_be_visible()
+    graph_action.click()
+    expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("learning-workflow-context")).to_contain_text(CRB_TITLE)
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    page.get_by_placeholder("Title, concept, or formula").fill("Attention")
+    page.get_by_label("Type").select_option("concept")
+    page.get_by_role("button", name="Apply", exact=True).click()
+    context_graph_node = page.locator("button").filter(has_text=re.compile(r"^Attention", re.I)).first
+    expect(context_graph_node).to_be_visible(timeout=30_000)
+    context_graph_node.click()
+    expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(timeout=30_000)
+    graph_return = page.get_by_role("link", name="Return to article", exact=True)
+    graph_return_href = graph_return.get_attribute("href") or ""
+    _require(
+        graph_return_href.startswith(f"/articles/{CRB_ARTICLE_ID}")
+        and "from=" in graph_return_href
+        and "#" in graph_return_href,
+        f"Graph return context is incomplete: {graph_return_href}",
+    )
+    graph_return.click()
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("article-outline").locator('[aria-current="location"]')).to_be_visible()
+    graph_return_session = page.get_by_role("button", name="End session", exact=True)
+    expect(graph_return_session).to_be_enabled(timeout=30_000)
+    graph_return_session.click()
+    expect(graph_return_session).to_be_disabled()
+
+    back_to_results = page.get_by_role("link", name="Back to articles", exact=True)
+    back_to_results_href = back_to_results.get_attribute("href") or ""
+    _require(
+        back_to_results_href == "/articles?q=CRB",
+        f"Article search return context is missing: {back_to_results_href}",
+    )
+    back_to_results.click()
+    expect(page.get_by_role("heading", name="Article List", exact=True)).to_be_visible()
+    expect(page.get_by_placeholder("Search title or keyword")).to_have_value("CRB")
+    expect(page.get_by_role("link", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    _require("q=CRB" in page.url, f"Article search URL state was not restored: {page.url}")
+    checks["integrated_learning_workflow"] = True
+
     page.get_by_role("link", name="Dashboard", exact=True).click()
     expect(page.get_by_role("heading", name="Continue Reading", exact=True)).to_be_visible()
     continue_link = page.get_by_role("link", name=re.compile(r"^Continue reading CRB"))
@@ -598,6 +663,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     outline_link.click()
     expect(mobile_page.get_by_test_id("article-outline")).to_be_visible()
     reading_tools_link.click()
+    expect(mobile_page.get_by_role("link", name="Ask tutor", exact=True)).to_be_visible()
+    expect(mobile_page.get_by_role("link", name="Explore graph", exact=True)).to_be_visible()
     mobile_end_button = mobile_page.get_by_role("button", name="End session", exact=True)
     expect(mobile_end_button).to_be_enabled(timeout=30_000)
     mobile_end_button.click()
@@ -676,7 +743,7 @@ def verify_backend_restart_persistence(
             "completed_state": stats.get("completed_count") == 1,
             "bookmark": stats.get("bookmark_count") == 1,
             "note": stats.get("note_count") == 1,
-            "ended_sessions": sessions.get("total") == 3
+            "ended_sessions": sessions.get("total") == 5
             and all(item.get("ended_at") for item in sessions.get("items", [])),
         }
         _require(all(checks.values()), f"restart persistence checks failed: {checks}")

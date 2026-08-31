@@ -28,6 +28,7 @@ import {
   resolveSourceArticleId,
   type TutorSelectionLine,
 } from "@/lib/tutorPresentation";
+import type { LearningWorkflowContext } from "@/lib/learningWorkflow";
 
 const modes: TutorMode[] = ["explain", "derive", "qa", "quiz", "research"];
 const DEFAULT_SOURCE_PREVIEW = 3;
@@ -35,10 +36,14 @@ const DEFAULT_SOURCE_PREVIEW = 3;
 type TutorFlowStatus = "idle" | "loading" | "ready" | "error";
 type SessionStatus = "idle" | "loading" | "loaded" | "error";
 
-export function TutorView() {
+export function TutorView({
+  initialContext,
+}: Readonly<{
+  initialContext: LearningWorkflowContext | null;
+}>) {
   const [mode, setMode] = useState<TutorMode>("explain");
   const [question, setQuestion] = useState("");
-  const [articleId, setArticleId] = useState("");
+  const [articleId, setArticleId] = useState(initialContext?.articleId ?? "");
   const [nodeId, setNodeId] = useState("");
   const [response, setResponse] = useState<TutorResponse | null>(null);
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
@@ -53,6 +58,12 @@ export function TutorView() {
   useEffect(() => {
     void fetchSessions();
   }, []);
+
+  useEffect(() => {
+    if (initialContext?.articleId) {
+      setArticleId(initialContext.articleId);
+    }
+  }, [initialContext?.articleId]);
 
   async function fetchSessions() {
     setSessionsStatus("loading");
@@ -155,6 +166,26 @@ export function TutorView() {
           Grounded tutor responses are bounded by mode, bounded evidence budgets, and local source safety.
         </p>
       </div>
+
+      {initialContext ? (
+        <section
+          data-testid="learning-workflow-context"
+          className="flex flex-col gap-3 border-y border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase text-emerald-800">Current article</p>
+            <p className="mt-1 break-words text-sm font-medium text-emerald-950">
+              {initialContext.articleTitle ?? initialContext.articleId}
+            </p>
+          </div>
+          <Link
+            className="w-fit shrink-0 rounded border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 hover:border-emerald-600"
+            href={initialContext.returnTo}
+          >
+            Return to article
+          </Link>
+        </section>
+      ) : null}
 
       <form className="grid gap-4 rounded border border-slate-200 bg-white p-4" onSubmit={runTutorQuery}>
         <fieldset className="space-y-2">

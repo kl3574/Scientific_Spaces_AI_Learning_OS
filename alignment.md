@@ -1,15 +1,15 @@
-# P3-013 Reader Workspace and Learning Continuity Alignment
+# P3-014 Integrated Learning Workflow Alignment
 
 Canonical task:
-`docs/tasks/P3-013_READER_WORKSPACE_AND_LEARNING_CONTINUITY.md`
+`docs/tasks/P3-014_INTEGRATED_LEARNING_WORKFLOW.md`
 
-Status: **PASS / CLOSED**
+Status: **ACTIVE / IMPLEMENTATION AUTHORIZED**
 
 LOCAL DATA READ / APPLICATION RUNTIME / COMPUTER USE AUTHORIZATION:
-**CONSUMED / CLOSED**
+**GRANTED**
 
 LOCAL FILE MODIFICATION / TEST / COMMIT / PUSH / CI AUTHORIZATION:
-**CONSUMED / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT**
+**GRANTED**
 
 SOURCE NETWORK / PRIVATE ZOTERO READ-WRITE / REAL PROVIDER AUTHORIZATION:
 **NOT GRANTED**
@@ -18,140 +18,121 @@ CANDIDATE / TAG / RELEASE / ATTESTATION AUTHORIZATION: **NOT GRANTED**
 
 ## 1. Background
 
-- P3-012 is PASS / CLOSED with implementation and docs-only closure exact-SHA
-  main CI passing.
-- The application has a responsive shell, searchable Article collection,
-  learning state, notes, references, Graph, and Tutor.
-- Long scientific Articles still lack a section model, current-section
-  feedback, scroll restoration, reading progress, and reader display controls.
-- Existing Article records, M1 frozen modules, derived assets, and published
+- P3-013 Reader Workspace and Learning Continuity is PASS / CLOSED with its
+  repair and docs-only closure exact-SHA main CI passing.
+- The product already has a responsive shell, searchable Article collection,
+  structured Reader, learning state, notes, references, Graph, Zotero metadata
+  links, and Tutor.
+- These capabilities remain distributed across routes, so the next improvement
+  should reduce context loss and dead ends across the complete learning journey.
+- Existing Article records, frozen M1 modules, derived assets, and published
   legacy, `/v1.1`, and `/v1.2` API contracts remain protected.
 - Entry branch is `main`; entry commit and cached `origin/main` are both
-  `6b297d8ae21b1b43ef2e6e7a1b0bef51e5d71b83`; entry worktree is clean.
+  `5be49f05d1bf8055a8e844237fc7a058ca7c90d7`; entry worktree is clean.
 - No REWORK or `.audit` blocker exists at task entry.
 
 ## 2. Requirements
 
-1. Build a scientific Article reading workspace over the existing Article
-   Detail page.
-2. Derive a deterministic outline and stable unique section anchors from the
-   existing Markdown without changing Article content.
-3. Expose current-section navigation and bounded reading progress.
-4. Persist and restore the last meaningful section and progress locally per
-   Article.
-5. Add local-only text-size and reading-width controls.
-6. Add a clear Dashboard Continue Reading entry using existing local reading
-   state.
-7. Preserve Chinese, Markdown, code, formulas, tables, images, citations, and
-   local deep links at desktop and mobile viewports.
-8. Keep keyboard navigation, focus, reduced-motion behavior, loading, empty,
-   error, and 404 states controlled.
-9. Add focused unit and browser regression coverage and complete three
-   isolated E2E runs.
-10. Run Backend, Frontend, E2E, compatibility, secret, artifact, dependency,
-    workflow, suppression, and SBOM gates.
+1. Audit the real local desktop and mobile learning journey using existing
+   Article data.
+2. Improve the Dashboard -> search -> reading -> notes/bookmark -> Tutor/Graph
+   -> return-to-reading workflow.
+3. Prioritize navigation dead ends, lost Article context, unclear state, and
+   mobile interaction issues found by evidence.
+4. Reuse existing API and learning-state contracts; add no Backend contract.
+5. Preserve Chinese, Markdown, formulas, code, references, and responsive
+   rendering.
+6. Add focused unit and browser regression coverage and complete three
+   isolated Product E2E runs.
+7. Run Backend, Frontend, E2E, compatibility, secret, artifact, dependency,
+   workflow, suppression, and SBOM gates.
+8. Replace generated agent-specific repository instructions with concise,
+   platform-neutral governance while preserving task, safety, and Git controls.
 
 ## 3. Purpose
 
-Reduce navigation and recovery cost for long scientific Articles so a learner
-can identify structure, move between sections, see progress, leave, and resume
-without altering source data or adding a new Backend contract.
+Turn the existing feature set into a coherent learning workflow in which a
+learner can see what they are studying, choose the next relevant action, move
+into existing learning tools with Article context, and return to the same
+reading position without source-data or Backend changes.
 
 ## 4. Planned Execution
 
 1. Persist this alignment and canonical task.
-2. Inventory the current Reader, history model, local corpus samples, and test
-   boundaries.
-3. Establish desktop/mobile browser baselines on three to five local Articles
-   containing headings, formulas, code, tables, or long references.
-4. Add pure outline, slug, progress, preference, and resume-state helpers with
-   focused tests.
-5. Integrate an accessible outline, progress display, reader controls, and
-   local resume behavior into Article Detail.
-6. Add Dashboard Continue Reading behavior without changing Backend data.
-7. Re-run real browser journeys, classify issues, and iterate through three
-   evidence-driven convergence passes.
-8. Extend the isolated product E2E suite and verify state isolation.
-9. Run all required local quality and artifact gates.
-10. Create and push an implementation commit, verify exact-SHA main CI, then
-    create and push a docs-only closure commit and verify its exact-SHA CI.
+2. Remove generated agent-specific instructions from `AGENTS.md` and retain a
+   concise platform-neutral governance contract.
+3. Inventory current Dashboard, Article, Tutor, Graph, notes/bookmark, route,
+   local-state, corpus, and E2E boundaries.
+4. Establish desktop and mobile browser baselines on three to five real local
+   Articles and rank workflow defects by user impact.
+5. Select and implement two to four high-impact Frontend-only corrections.
+6. Preserve route context, safe return paths, controlled states, keyboard
+   behavior, and reduced-motion behavior.
+7. Add pure helper/component regression tests and extend isolated Product E2E.
+8. Re-run real browser journeys and converge on stable desktop/mobile behavior.
+9. Run all required local quality, compatibility, security, and artifact gates.
+10. Create and push an implementation commit and verify exact-SHA main CI.
+11. Create and push a docs-only closure commit and verify its exact-SHA main CI.
 
 ## 5. Selection Rationale
 
-The Article view is the common entry point for search, learning state,
-references, Graph context, and Tutor use. A presentation-only workspace
-provides the largest workflow improvement while preserving frozen source data
-and published API contracts.
+P3-013 made long Articles navigable and resumable. The highest-value next step
+is connecting the existing Dashboard, Reader, Tutor, Graph, and learning-state
+surfaces so users can complete a study loop without losing context. This uses
+current contracts and directly improves the primary product workflow.
 
 ## 6. Alternatives
 
 | Option | Decision |
 | --- | --- |
-| Reader workspace and learning continuity | Selected: directly improves the primary learning workflow using current contracts |
-| Dashboard analytics expansion | Deferred: useful, but does not solve long-Article navigation or recovery |
-| Visual-only restyling | Rejected: cannot improve continuity or section-level interaction |
+| Integrated learning workflow | Selected: improves the complete user journey using current contracts |
+| Visual-only restyling | Rejected: cannot resolve context loss or navigation dead ends |
+| New Backend analytics | Deferred: requires contract and persistence expansion outside this task |
 
 ## 7. Deliverables
 
 - updated `alignment.md`
-- `docs/tasks/P3-013_READER_WORKSPACE_AND_LEARNING_CONTINUITY.md`
+- concise platform-neutral `AGENTS.md`
+- `docs/tasks/P3-014_INTEGRATED_LEARNING_WORKFLOW.md`
 - updated `docs/tasks/CURRENT_TASK.md`
-- outline, progress, preference, and resume-state Frontend helpers/components
-- Article Detail and Dashboard integration
-- focused Frontend tests and expanded `scripts/e2e/` coverage
-- `docs/P3_013_READER_WORKSPACE_REPORT.md`
+- bounded Frontend helpers/components under `frontend/src/`
+- focused Frontend tests and expanded `scripts/e2e/run_product_e2e.py`
+- `docs/P3_014_INTEGRATED_LEARNING_WORKFLOW_REPORT.md`
 - updated `README.md`, `docs/00_PROJECT_STATE.md`, and
   `docs/V1_2_ROADMAP.md`
 - implementation and docs-only closure commits with exact-SHA CI evidence
 
 ## 8. Acceptance Criteria
 
-- Three to five real local long Articles provide browser evidence for outline,
-  formulas, code, tables, references, and responsive behavior.
-- Outline entries map to unique stable anchors and keyboard-operable links.
-- The active section and progress update while reading; reported progress is
-  clamped to 0-100 percent.
-- Reopening an Article restores the last meaningful local reading position
-  without mutating Article or Backend data.
-- Dashboard exposes one unambiguous Continue Reading action when history exists
-  and a controlled empty state when it does not.
-- Text-size and reading-width preferences persist locally, remain reversible,
-  and do not shift fixed controls incoherently.
-- At 1440 x 900 and 390 x 844 there is no page-level overflow, overlap, or
-  clipped primary control.
-- Chinese, Markdown, code, tables, images, citations, and KaTeX remain correct.
-- Primary controls are keyboard reachable, visibly focused, and meaningfully
-  named; reduced-motion preference is respected.
-- Three consecutive isolated E2E runs pass without state leakage or external
-  requests.
+- Three to five real local Articles provide desktop/mobile workflow evidence.
+- At 1440 x 900 and 390 x 844, primary controls do not overflow, overlap, or
+  become unreachable.
+- A learner can move from Dashboard to an Article, enter at least two existing
+  learning tools, and return to the same Article context.
+- Article identity, safe return path, and reading resume state are preserved.
+- Loading, empty, error, and 404 states remain controlled.
+- Chinese, Markdown, code, references, images, and KaTeX remain correct.
+- Primary controls are keyboard reachable, visibly focused, meaningfully named,
+  and respect reduced-motion preference.
+- Three consecutive isolated Product E2E runs pass without state leakage or
+  external requests.
 - Backend full tests, all focused Frontend tests, production build, security,
   artifact, workflow, dependency, and SBOM gates pass.
-- Frozen M1 paths, Article records, and published API contracts remain
-  unchanged.
+- Frozen M1 paths, Article records, Backend implementation, and published API
+  contracts remain unchanged.
 - No source access, private Zotero read/write, real Provider call, candidate,
   tag, Release, or attestation action occurs.
+- `AGENTS.md` contains no generated hook ecosystem, agent-specific interaction
+  dependency, or tool-specific session-maintenance instructions.
 - Implementation and closure commits pass exact-SHA main CI; final `main` is
   clean and synchronized.
 
 ## Stop Conditions
 
 - The worktree develops unknown modifications or conflicts.
-- Completion requires a frozen M1 or published API contract change.
+- Completion requires a frozen M1, Backend, or published API contract change.
 - Completion requires source access, private Zotero access, or a real/paid
   Provider call.
 - A required test, build, browser, secret, artifact, or CI gate fails without
   an in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.
-
-## Closure Evidence
-
-- implementation commit: `f0d9a04c71efa503fa74ff45af4d26484cadb55e`
-- initial main CI: `33325284156` exposed a Product E2E resume race
-- repair commit: `1d5606c4db1cc1c3177f404652788269f66cdc61`
-- repair exact-SHA main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33325595191`
-- Backend, Frontend, Product E2E, workflow policy, dependency, secret, and
-  SBOM jobs: PASS
-- Docker compose smoke and release evidence: correctly skipped for normal
-  `main` push
-- next task: ALIGNMENT REQUIRED / NOT GRANTED

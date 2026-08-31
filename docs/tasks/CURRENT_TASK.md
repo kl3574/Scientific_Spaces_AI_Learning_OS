@@ -2,36 +2,38 @@
 
 ## Task
 
-No active implementation task
+P3-014 Integrated Learning Workflow
 
-## Last Closed Task
+## Canonical Specification
 
-`docs/tasks/P3-013_READER_WORKSPACE_AND_LEARNING_CONTINUITY.md`
+`docs/tasks/P3-014_INTEGRATED_LEARNING_WORKFLOW.md`
 
 ## Status
 
-P3-013 PASS / CLOSED
+ACTIVE / IMPLEMENTATION AUTHORIZED
 
-Next task: ALIGNMENT REQUIRED / NOT GRANTED
+## Entry State
+
+- branch: `main`
+- entry commit: `5be49f05d1bf8055a8e844237fc7a058ca7c90d7`
+- cached `origin/main`: exact match
+- worktree: clean
+- previous task: P3-013 PASS / CLOSED
 
 ## Authorization
 
-- P3-013 local corpus and derived-asset reads: CONSUMED / CLOSED
-- P3-013 local runtime and Computer Use: CONSUMED / CLOSED
-- P3-013 changes, tests, commit, push, and CI inspection: CONSUMED / CLOSED
+- Existing local corpus and derived-asset reads: GRANTED
+- Local Backend/Frontend runtime and Computer Use: GRANTED
+- Frontend/docs/tests changes, commit, push, and CI inspection: GRANTED
 - Source network/browser acquisition: NOT GRANTED
 - Private Zotero reads or writes: NOT GRANTED
 - Real/paid Provider calls: NOT GRANTED
 - Candidate / tag / Release / attestation: NOT GRANTED
 
-## Closure Evidence
+## Required Exit
 
-- local implementation and 10-run resume stress evidence: PASS
-- Backend, Frontend, Product E2E, dependency, secret, workflow, and SBOM gates:
-  PASS
-- implementation commit: `f0d9a04c71efa503fa74ff45af4d26484cadb55e`
-- repair commit: `1d5606c4db1cc1c3177f404652788269f66cdc61`
-- repair exact-SHA main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33325595191`
-- docs-only closure commit: must pass exact main CI before final completion is
-  reported
+- complete learning workflow and context continuity pass;
+- desktop/mobile content and accessibility gates pass;
+- three isolated Product E2E runs and all repository quality gates pass;
+- implementation and closure commits pass exact main CI; and
+- final branch/worktree are synchronized and clean.
