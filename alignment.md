@@ -3,13 +3,13 @@
 Canonical task:
 `docs/tasks/P3-017_GUIDED_TUTOR_STUDY_WORKSPACE.md`
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 LOCAL ARTICLE DATA READ / APPLICATION RUNTIME / COMPUTER USE AUTHORIZATION:
-**GRANTED FOR P3-017**
+**CONSUMED / CLOSED**
 
 FRONTEND / TEST / DOCUMENTATION MODIFICATION, COMMIT / PUSH / CI INSPECTION
-AUTHORIZATION: **GRANTED FOR P3-017**
+AUTHORIZATION: **CONSUMED / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT**
 
 BACKEND / FROZEN M1 / SOURCE RECORD / DERIVED RAG-GRAPH-REFERENCE / PRIVATE
 ZOTERO / REAL PROVIDER AUTHORIZATION: **NOT GRANTED**
@@ -154,3 +154,21 @@ without widening Backend or data contracts.
 - A required test, build, browser, secret, artifact, or CI gate fails without
   an in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.
+
+## Closure Evidence
+
+- local Backend, Frontend, real-Article browser, Product E2E, workflow,
+  dependency, secret, suppression, SBOM, artifact, and protected-path gates:
+  PASS
+- implementation commit:
+  `b66f5b39ae66efa6c4a3c673058ded49f0b7147e`
+- implementation exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33356672629`
+- Backend, Frontend, Product E2E, workflow, dependency, secret, and SBOM jobs:
+  PASS
+- Docker compose smoke and release evidence: correctly skipped for a normal
+  `main` push
+- workflow artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI must pass before
+  final completion is reported
+- next task: ALIGNMENT REQUIRED / NOT GRANTED

@@ -1,6 +1,6 @@
 # P3-017 Guided Tutor Study Workspace Report
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 ## 1. Scope And Boundaries
 
@@ -166,8 +166,31 @@ uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3
 - Article title hydration is intentionally limited to the five displayed
   activities.
 
-## 11. Status
+## 11. Exact-SHA Main CI
 
-Local acceptance is PASS. P3-017 remains open until the implementation commit
-is pushed and its exact-SHA main CI passes. A separate docs-only closure commit
-and its exact-SHA main CI are required before `PASS / CLOSED` is reported.
+- implementation commit:
+  `b66f5b39ae66efa6c4a3c673058ded49f0b7147e`
+- run:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33356672629`
+- run event / branch / exact head SHA: `push` / `main` /
+  `b66f5b39ae66efa6c4a3c673058ded49f0b7147e`
+- Backend pytest: PASS
+- Frontend build: PASS
+- Product E2E three-run gate: PASS
+- workflow policy: PASS
+- dependency audit: PASS
+- secret audit: PASS
+- SBOM validation: PASS
+- Docker compose smoke: correctly skipped for normal `main` push
+- release evidence: correctly skipped for normal `main` push
+- uploaded workflow artifacts: 0
+
+The existing Actions Node 20 deprecation annotation remains a non-blocking CI
+maintenance risk; the runner successfully used Node 24 and every required job
+passed.
+
+## 12. Closure
+
+P3-017 is PASS / CLOSED. This docs-only closure commit must pass exact-SHA main
+CI before final completion is reported. No subsequent task or v1.2 candidate
+is assigned.

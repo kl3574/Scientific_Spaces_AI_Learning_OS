@@ -1,6 +1,6 @@
 # P3-017 Guided Tutor Study Workspace
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 ## Objective
 
@@ -73,10 +73,10 @@ interfaces.
 
 ## Authorization
 
-- local Article data read: GRANTED FOR P3-017
-- local Backend/Frontend runtime and Computer Use: GRANTED FOR P3-017
-- Frontend/tests/docs edits, local commits, push, and CI inspection: GRANTED
-  FOR P3-017
+- local Article data read: CONSUMED / CLOSED
+- local Backend/Frontend runtime and Computer Use: CONSUMED / CLOSED
+- Frontend/tests/docs edits, local commits, push, and CI inspection: CONSUMED
+  / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT
 - Backend/frozen M1/source records/derived assets: NOT GRANTED
 - source network/private Zotero/real Provider: NOT GRANTED
 - candidate/tag/Release/attestation: NOT GRANTED
@@ -86,3 +86,17 @@ interfaces.
 Stop if an unknown worktree change appears, an in-scope gate cannot be fixed
 without widening scope, a protected path or artifact changes, external/private
 access becomes necessary, or any release action becomes necessary.
+
+## Closure Evidence
+
+- local acceptance: PASS
+- implementation commit:
+  `b66f5b39ae66efa6c4a3c673058ded49f0b7147e`
+- implementation exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33356672629`
+- implementation CI jobs: Backend, Frontend, Product E2E, workflow,
+  dependency, secret, and SBOM PASS
+- normal-main Docker and release evidence jobs: correctly skipped
+- implementation CI artifacts: 0
+- docs-only closure commit: this commit; exact-SHA CI required before final
+  reporting

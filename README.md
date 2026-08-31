@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-017 LOCAL PASS / IMPLEMENTATION CI PENDING`
+- Status: `P3-017 PASS / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-016 implementation exact-SHA main CI PASS`
-- Current task: `P3-017 Guided Tutor Study Workspace`
+- Latest gate: `P3-017 implementation exact-SHA main CI PASS`
+- Current task: `None; next task alignment required`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -31,7 +31,7 @@ P3-013 reader workspace evidence: `docs/P3_013_READER_WORKSPACE_REPORT.md` (PASS
 P3-014 integrated workflow evidence: `docs/P3_014_INTEGRATED_LEARNING_WORKFLOW_REPORT.md` (PASS / CLOSED).
 P3-015 visual knowledge explorer evidence: `docs/P3_015_VISUAL_KNOWLEDGE_EXPLORER_REPORT.md` (PASS / CLOSED).
 P3-016 learning Dashboard evidence: `docs/P3_016_LEARNING_DASHBOARD_COMMAND_CENTER_REPORT.md` (PASS / CLOSED).
-P3-017 evidence: `docs/P3_017_GUIDED_TUTOR_STUDY_WORKSPACE_REPORT.md` (LOCAL PASS / IMPLEMENTATION CI PENDING).
+P3-017 guided Tutor evidence: `docs/P3_017_GUIDED_TUTOR_STUDY_WORKSPACE_REPORT.md` (PASS / CLOSED).
 
 v1.2 planning specifications:
 
@@ -172,15 +172,19 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `docs/tasks/P3-017_GUIDED_TUTOR_STUDY_WORKSPACE.md`
-- Last closed task: `docs/tasks/P3-016_LEARNING_DASHBOARD_COMMAND_CENTER.md`
+- Active task: `None; alignment required`
+- Last closed task: `docs/tasks/P3-017_GUIDED_TUTOR_STUDY_WORKSPACE.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
 
-P3-016 is `PASS / CLOSED`. P3-017 is authorized to turn the existing Tutor
-into a guided study workspace using only current Frontend clients and
-published interfaces. No v1.2 candidate is assigned.
+P3-017 is `PASS / CLOSED`. The guided Tutor uses human-readable Article
+context, safe scientific Markdown, answer-hidden Quiz scoring, actionable
+follow-ups, and bounded recent activity through existing published
+interfaces. Implementation commit `b66f5b39ae66efa6c4a3c673058ded49f0b7147e`
+passed exact-SHA main CI run
+[`33356672629`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33356672629).
+No v1.2 candidate or subsequent task is assigned.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
 
