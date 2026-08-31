@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-015 PASS / CLOSED`
+- Status: `P3-016 LOCAL PASS / IMPLEMENTATION CI PENDING`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-015 implementation exact-SHA main CI PASS`
-- Current task: `None; next task alignment required`
+- Latest gate: `P3-016 local gates PASS; implementation exact-SHA main CI pending`
+- Current task: `P3-016 Learning Dashboard Command Center`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -170,20 +170,16 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `None; alignment required`
+- Active task: `docs/tasks/P3-016_LEARNING_DASHBOARD_COMMAND_CENTER.md`
 - Last closed task: `docs/tasks/P3-015_VISUAL_KNOWLEDGE_EXPLORER.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
 
-P3-015 is `PASS / CLOSED`. It adds a deterministic, bounded Map/List explorer
-for the existing Graph interfaces, preserves exact Article context and return
-navigation, and passed real local desktop/mobile browser checks without
-changing Backend code, source data, derived Graph assets, or published API
-contracts. Implementation commit `8224b072434c016b348311cb27cc41c4ae593a14`
-passed exact-SHA main CI run
-[`33351208778`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33351208778).
-No v1.2 candidate or subsequent task is assigned.
+P3-015 is `PASS / CLOSED`. P3-016 now has a compact, resilient Dashboard
+command center using only existing Article, learning-state, Reader, and
+local-history contracts. Local quality gates are PASS; implementation
+exact-SHA main CI is pending. No v1.2 candidate is assigned.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
 

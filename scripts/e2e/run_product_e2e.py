@@ -341,11 +341,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     ).to_be_visible(timeout=30_000)
     expect(page.get_by_text(str(EXPECTED_ARTICLE_COUNT), exact=True).first).to_be_visible()
     expect(page.get_by_text("No article in progress.", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("dashboard-command-center")).to_be_visible()
+    expect(page.get_by_role("heading", name="Learning Overview", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="Next Actions", exact=True)).to_be_visible()
+    for action in ("Browse library", "Ask tutor", "Explore graph", "Review sources"):
+        expect(page.get_by_role("link", name=re.compile(rf"^{re.escape(action)}"))).to_be_visible()
     _require(
         page.locator('nav[aria-label="Primary"] [aria-current="page"]').get_attribute("href") == "/",
         "Dashboard navigation item is not marked as current",
     )
     checks["dashboard"] = True
+    checks["dashboard_command_center"] = True
 
     page.get_by_role("link", name="Articles", exact=True).click()
     expect(page.get_by_role("heading", name="Article List", exact=True)).to_be_visible()
@@ -522,13 +528,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["integrated_learning_workflow"] = True
 
     page.get_by_role("link", name="Dashboard", exact=True).click()
-    expect(page.get_by_role("heading", name="Continue Reading", exact=True)).to_be_visible()
-    continue_link = page.get_by_role("link", name=re.compile(r"^Continue reading CRB"))
+    expect(page.get_by_role("heading", name="Continue Learning", exact=True)).to_be_visible()
+    continue_link = page.get_by_role("link", name=re.compile(r"^Continue learning CRB"))
     continue_href = continue_link.get_attribute("href") or ""
     _require("#" in continue_href, "Continue Reading does not retain a section anchor")
-    expect(page.get_by_role("heading", name="Recent Learning", exact=True)).to_be_visible()
-    expect(page.get_by_role("heading", name="Reading History", exact=True)).to_be_visible()
-    _require(page.get_by_role("link", name=re.compile(CRB_TITLE)).count() >= 2, "dashboard history is missing")
+    expect(page.get_by_role("heading", name="Learning Activity", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="New in Library", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("dashboard-activity")).to_contain_text(CRB_TITLE)
+    expect(page.get_by_test_id("dashboard-activity")).not_to_contain_text(CRB_ARTICLE_ID)
     checks["dashboard_history"] = True
 
     continue_link.click()
@@ -632,6 +639,25 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
     expect(page.get_by_text("Failed to load articles: 503", exact=True)).to_be_visible(timeout=30_000)
     checks["controlled_backend_error_state"] = True
+
+    page.route(
+        re.compile(r".*/learning/stats$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional P3-016 partial dashboard failure"}',
+        ),
+        times=1,
+    )
+    page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    expect(page.get_by_test_id("dashboard-remote-state")).to_have_attribute("data-state", "partial")
+    expect(page.get_by_role("heading", name="New in Library", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="Continue Learning", exact=True)).to_be_visible()
+    expect(page.get_by_role("link", name=CRB_TITLE, exact=True).first).to_be_visible()
+    page.get_by_role("button", name="Retry", exact=True).click()
+    expect(page.get_by_test_id("dashboard-remote-state")).to_have_count(0, timeout=30_000)
+    expect(page.get_by_role("heading", name="Learning Activity", exact=True)).to_be_visible()
+    checks["dashboard_partial_failure"] = True
     context.close()
 
     mobile_context = browser.new_context(
@@ -639,6 +665,32 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         locale="zh-CN",
         is_mobile=True,
         reduced_motion="reduce",
+    )
+    mobile_context.add_init_script(
+        script=f"""
+        localStorage.setItem(
+          "scientific-spaces-reading-history-v1",
+          {json.dumps(json.dumps([{
+              "id": CRB_ARTICLE_ID,
+              "title": CRB_TITLE,
+              "url": "https://spaces.ac.cn/archives/6508",
+              "last_read_at": "2026-08-31T02:00:00.000Z",
+          }], ensure_ascii=False))}
+        );
+        localStorage.setItem(
+          "scientific-spaces-reader-progress-v1",
+          {json.dumps(json.dumps({
+              "version": 1,
+              "items": [{
+                  "article_id": CRB_ARTICLE_ID,
+                  "section_id": "regularity",
+                  "section_title": "正则条件",
+                  "progress": 42,
+                  "updated_at": "2026-08-31T02:00:00.000Z",
+              }],
+          }, ensure_ascii=False))}
+        );
+        """
     )
     _install_network_guard(mobile_context, blocked_external)
     mobile_page = mobile_context.new_page()
@@ -659,11 +711,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     _require(len({round(item["y"]) for item in nav_boxes}) == 1, "mobile primary navigation wraps")
     _require(len({round(item["x"]) for item in stat_boxes}) == 2, "mobile dashboard statistics are not two columns")
-    recent_articles_top = mobile_page.get_by_role("heading", name="Recent Articles", exact=True).bounding_box()
+    continue_learning_action = mobile_page.get_by_role(
+        "link",
+        name=re.compile(r"^Continue learning "),
+    ).bounding_box()
     _require(
-        recent_articles_top is not None and recent_articles_top["y"] < 844,
-        "Recent Articles is below the first mobile viewport",
+        continue_learning_action is not None
+        and continue_learning_action["y"] + continue_learning_action["height"] <= 844,
+        "Continue Learning action is clipped by the first mobile viewport",
     )
+    _require(_document_width(mobile_page) <= 390, "mobile Dashboard overflows the viewport")
+    expect(mobile_page.get_by_role("heading", name="Next Actions", exact=True)).to_be_visible()
     checks["mobile_dashboard_density"] = True
 
     mobile_page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
@@ -839,7 +897,7 @@ def _document_width(page) -> int:
 
 
 def _unexpected_console_errors(messages: list[str]) -> list[str]:
-    expected_statuses = {"404": 1, "503": 1}
+    expected_statuses = {"404": 1, "503": 2}
     unexpected: list[str] = []
     for message in messages:
         matched = False

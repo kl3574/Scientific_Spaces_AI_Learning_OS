@@ -1,16 +1,15 @@
-# P3-015 Visual Knowledge Explorer Alignment
+# P3-016 Learning Dashboard Command Center Alignment
 
 Canonical task:
-`docs/tasks/P3-015_VISUAL_KNOWLEDGE_EXPLORER.md`
+`docs/tasks/P3-016_LEARNING_DASHBOARD_COMMAND_CENTER.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
 
-LOCAL CORPUS READ / APPLICATION RUNTIME / COMPUTER USE AUTHORIZATION:
-**CONSUMED / CLOSED**
+LOCAL ARTICLE DATA READ / APPLICATION RUNTIME / COMPUTER USE AUTHORIZATION:
+**GRANTED FOR P3-016**
 
-FRONTEND / TEST / DOCUMENTATION MODIFICATION, OFFICIAL NPM REGISTRY READ,
-COMMIT / PUSH / CI INSPECTION AUTHORIZATION:
-**CONSUMED / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT**
+FRONTEND / TEST / DOCUMENTATION MODIFICATION, COMMIT / PUSH / CI INSPECTION
+AUTHORIZATION: **GRANTED FOR P3-016**
 
 SOURCE NETWORK / PRIVATE ZOTERO READ-WRITE / REAL PROVIDER AUTHORIZATION:
 **NOT GRANTED**
@@ -19,114 +18,119 @@ CANDIDATE / TAG / RELEASE / ATTESTATION AUTHORIZATION: **NOT GRANTED**
 
 ## 1. Background
 
-- P3-014 Integrated Learning Workflow is PASS / CLOSED with its implementation,
-  repair, and docs-only closure exact-SHA main CI passing.
-- The existing Graph route exposes search, a node list, node details, and a
-  bounded textual relationship list, but it does not visually present the
-  returned knowledge network.
-- Existing `/graph/summary`, `/v1.1/graph/nodes`, `/graph/nodes/{node_id}`, and
-  `/v1.1/graph/subgraph` interfaces already provide the bounded data needed for
-  a visual explorer without Backend or data-contract changes.
+- P3-015 Visual Knowledge Explorer is PASS / CLOSED with implementation and
+  docs-only closure exact-SHA main CI passing.
+- Dashboard currently exposes six equal-weight counters, one latest-history
+  resume link, recent Articles, and three overlapping activity lists.
+- Any Article or learning-stats request failure currently replaces the entire
+  Dashboard, even when useful local or independently loaded data remains.
+- Recent Sessions display raw Article IDs and duplicate information already
+  shown by Recent Learning and browser-local Reading History.
+- Existing Article, learning-state, bookmark, session, Reader progress, and
+  Reading History interfaces are sufficient for a coherent command center;
+  no Backend contract or persisted-data change is required.
 - Entry branch is `main`; entry commit and cached `origin/main` are both
-  `36eafb5915122a9254c0c8e07c2c87c75042d55b`; entry worktree is clean.
+  `38e5d50990acb3886b84480417721806c1e6ec25`; entry worktree is clean.
 - No REWORK or `.audit` blocker exists at task entry.
 
 ## 2. Requirements
 
-1. Upgrade `/graph` from a list-and-text surface to an interactive visual
-   knowledge explorer while preserving the existing list and detail views.
-2. Add an explicit Map/List segmented view and retain bounded search and node
-   selection behavior.
-3. Visualize the selected subgraph with deterministic layout, typed nodes,
-   relationship labels, selected/focused states, and a visible legend.
-4. Support pan, zoom, fit-view, direct node selection, keyboard access, and
-   reduced-motion behavior on desktop and mobile.
-5. Preserve Article -> Graph context, exact Article-node centering, free graph
-   exploration, and same-Article/section return navigation.
-6. Reuse current Graph interfaces and data; add no Backend or published API
+1. Turn the Dashboard into a compact learning command center while retaining
+   the project title and current route structure.
+2. Present a meaningful learning overview with completion, active-reading,
+   saved-item, and note signals instead of six unrelated counters alone.
+3. Preserve one prioritized Continue Learning action with exact Article and
+   Reader section progress.
+4. Replace overlapping activity lists with one bounded chronological learning
+   timeline that resolves human-readable Article titles.
+5. Add a clear next-actions surface for Articles, Tutor, Graph, and Zotero
+   using existing local routes.
+6. Keep independently available Dashboard sections usable when one remote
+   request fails; expose a bounded warning and retry action.
+7. Preserve loading, empty, keyboard, focus, reduced-motion, and responsive
+   behavior at desktop and mobile widths.
+8. Reuse current Frontend clients and published APIs; add no Backend or data
    contract.
-7. Add focused unit and browser regression coverage and complete three
-   isolated Product E2E runs.
-8. Run Backend, Frontend, E2E, dependency, secret, workflow, suppression,
-   SBOM, artifact, and protected-path gates.
+9. Add focused pure-model tests and extend isolated Product E2E coverage.
+10. Run Backend, Frontend, E2E, dependency, secret, workflow, suppression,
+    SBOM, artifact, and protected-path gates.
 
 ## 3. Purpose
 
-Make relationships among Articles, Sections, Concepts, Formulas, and Zotero
-items directly inspectable so a learner can understand and navigate local
-knowledge context instead of reconstructing it from a text list.
+Make the first screen answer four learner questions immediately: what is my
+current state, where should I resume, what happened recently, and which
+existing learning tool should I use next.
 
 ## 4. Planned Execution
 
 1. Persist this alignment and canonical task.
-2. Add the exact pinned `@xyflow/react@12.11.5` dependency and lockfile entry.
-3. Implement one deep visualization module with a small typed interface and a
-   deterministic bounded layout for the existing subgraph response.
-4. Integrate Map/List controls, visual legend, viewport controls, selection,
-   and controlled loading/empty/error states into `GraphView`.
-5. Preserve the existing textual detail and relationship representation as an
-   accessible fallback and complementary inspection surface.
-6. Add pure layout/presentation tests and Graph interaction regression tests.
-7. Extend isolated Product E2E for visual map selection, Article context,
-   return navigation, keyboard access, and responsive geometry.
-8. Validate three to five real local Graph nodes at 1440 x 900 and 390 x 844
-   with all external requests blocked.
-9. Run all required local quality, compatibility, security, and artifact gates.
-10. Create and push an implementation commit and verify exact-SHA main CI.
-11. Create and push a docs-only closure commit and verify its exact-SHA main CI.
+2. Audit the existing Dashboard model, local Reader state, learning APIs, and
+   real local Article presentation at 1440 x 900 and 390 x 844.
+3. Add a pure Dashboard presentation model for progress, resume selection,
+   title resolution, bounded activity merging, and partial-data states.
+4. Refactor `DashboardView` into a compact overview, Continue Learning,
+   activity timeline, latest-library list, and next-action surface.
+5. Keep independently successful data visible through `Promise.allSettled`
+   loading and bounded partial-failure presentation.
+6. Add pure helper tests and Dashboard browser regression checks.
+7. Validate representative real local Articles with mutable state redirected
+   to temporary storage and all external requests blocked.
+8. Run all required local quality, compatibility, security, and artifact gates.
+9. Create and push an implementation commit and verify exact-SHA main CI.
+10. Create and push a docs-only closure commit and verify its exact-SHA main CI.
 
 ## 5. Selection Rationale
 
-The Graph data and bounded retrieval interfaces already exist, while the
-current GUI renders relationships only as prose. React Flow supplies mature
-viewport and interaction behavior; a project-owned deterministic layout keeps
-the module bounded, reproducible, and testable without adding physics or
-Backend complexity.
+Reader, Tutor, Graph, Zotero, and learning-state capabilities already exist.
+The Dashboard is the highest-leverage place to expose them as one coherent
+daily workflow. A pure project-owned presentation model improves semantics,
+testability, and partial-failure behavior without a new dependency or Backend
+surface.
 
 ## 6. Alternatives
 
 | Option | Decision |
 | --- | --- |
-| React Flow plus deterministic bounded layout | Selected: complete interaction with one pinned dependency |
-| Hand-written SVG interaction stack | Rejected: duplicates zoom, pan, focus, and accessibility behavior |
-| Dashboard-only refinement | Deferred: does not address the largest remaining visual capability gap |
+| Learning Dashboard command center | Selected: improves the primary entry point using current contracts |
+| Tutor-only GUI redesign | Deferred: valuable but limited to one downstream tool |
+| Global visual restyling | Rejected: broad churn without a measurable workflow outcome |
 
 ## 7. Deliverables
 
 - updated `alignment.md`
-- `docs/tasks/P3-015_VISUAL_KNOWLEDGE_EXPLORER.md`
+- `docs/tasks/P3-016_LEARNING_DASHBOARD_COMMAND_CENTER.md`
 - updated `docs/tasks/CURRENT_TASK.md`
-- `frontend/src/components/GraphVisualization.tsx`
-- `frontend/src/lib/graphVisualization.ts`
-- bounded updates to Graph presentation, tests, styles, and Product E2E
-- pinned Frontend manifest and lockfile updates
-- `docs/P3_015_VISUAL_KNOWLEDGE_EXPLORER_REPORT.md`
+- `frontend/src/lib/dashboard.ts`
+- bounded Dashboard component and style updates under `frontend/src/`
+- focused Frontend tests and expanded `scripts/e2e/run_product_e2e.py`
+- `docs/P3_016_LEARNING_DASHBOARD_COMMAND_CENTER_REPORT.md`
 - updated `README.md`, `docs/00_PROJECT_STATE.md`, and
   `docs/V1_2_ROADMAP.md`
 - implementation and docs-only closure commits with exact-SHA CI evidence
 
 ## 8. Acceptance Criteria
 
-- Map/List switching, direct node selection, zoom, pan, and fit-view work.
-- The selected node and up to 25 nodes / 50 relationships are rendered from
-  the exact bounded response with deterministic positions.
-- Node types and relationship direction are visually distinguishable without
-  relying on color alone; selected and keyboard-focused states are explicit.
-- Article context selects the exact `article:<article_id>` node, remains stable
-  during free exploration, and returns to the exact Article section.
-- Existing list, detail, provenance, loading, empty, error, and retry behavior
-  remains available and controlled.
-- At 1440 x 900 and 390 x 844, the explorer has stable dimensions with no page
-  overflow, overlap, clipped primary action, or inaccessible control.
-- Three to five real local nodes across representative types pass browser
-  validation with zero external requests, console errors, and page errors.
-- Primary controls are keyboard reachable, visibly focused, meaningfully named,
-  and respect reduced-motion preference.
+- Dashboard visibly presents learning overview, exact Continue Learning,
+  bounded activity, latest Articles, and next actions.
+- Completion percentage and counts are deterministic, bounded, and derived
+  only from current API fields.
+- Continue Learning preserves the exact Article and safe section anchor.
+- Activity is reverse chronological, bounded, title-resolved where evidence is
+  available, and avoids duplicate raw-ID-only lists.
+- An Article or learning request can fail independently without hiding all
+  successful local/remote Dashboard content; warning and retry remain visible.
+- Existing fully empty and fully failed states are controlled.
+- At 1440 x 900 and 390 x 844, primary content has stable dimensions with no
+  page overflow, overlap, clipped action, or wrapped primary navigation.
+- Primary controls are keyboard reachable, visibly focused, meaningfully
+  named, and respect reduced-motion preference.
+- Three to five real local Articles pass browser validation with mutable state
+  isolated and zero external requests, console errors, and page errors.
 - Three consecutive isolated Product E2E runs pass without state leakage.
 - Backend full tests, all focused Frontend tests, production build, security,
   artifact, workflow, dependency, and SBOM gates pass.
-- Frozen M1 paths, Article records, Backend implementation, derived Graph data,
-  and published API contracts remain unchanged.
+- Backend, frozen M1 paths, Article records, derived assets, and published API
+  contracts remain unchanged.
 - No source access, private Zotero read/write, real Provider call, candidate,
   tag, Release, or attestation action occurs.
 - Implementation and closure commits pass exact-SHA main CI; final `main` is
@@ -135,24 +139,10 @@ Backend complexity.
 ## Stop Conditions
 
 - The worktree develops unknown modifications or conflicts.
-- Completion requires Backend, frozen M1, Graph data, or published interface
-  changes.
+- Completion requires Backend, frozen M1, source-record, derived-asset, or
+  published-interface changes.
 - Completion requires source access, private Zotero access, or a real/paid
   Provider call.
-- The pinned dependency introduces an unresolved security or compatibility
-  finding.
 - A required test, build, browser, secret, artifact, or CI gate fails without
   an in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.
-
-## Closure Evidence
-
-- implementation commit: `8224b072434c016b348311cb27cc41c4ae593a14`
-- implementation exact-SHA main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33351208778`
-- Backend, Frontend, Product E2E, workflow policy, dependency, secret, and
-  SBOM jobs: PASS
-- Docker compose smoke and release evidence: correctly skipped for a normal
-  `main` push
-- workflow artifacts: 0
-- next task: ALIGNMENT REQUIRED / NOT GRANTED
