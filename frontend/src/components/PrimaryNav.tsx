@@ -1,24 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 import { PRIMARY_NAVIGATION, isNavigationItemActive } from "@/lib/navigation";
 
 export function PrimaryNav({
+  activePathname,
   variant = "rail",
   onNavigate,
 }: Readonly<{
+  activePathname: string | null;
   variant?: "rail" | "drawer";
   onNavigate?: () => void;
 }>) {
-  const pathname = usePathname();
-
   return (
     <nav aria-label="Primary" className="w-full" data-variant={variant}>
       <ul className="grid gap-1.5">
         {PRIMARY_NAVIGATION.map((item) => {
-          const active = isNavigationItemActive(pathname, item);
+          const active = activePathname !== null && isNavigationItemActive(activePathname, item);
           return (
             <li key={item.href}>
               <Link

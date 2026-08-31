@@ -333,9 +333,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console",
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
-    page.on("pageerror", lambda error: page_errors.append(str(error)))
+    page.on("pageerror", lambda error: page_errors.append(f"{page.url}: {error}"))
 
     page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
     expect(
         page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
     ).to_be_visible(timeout=30_000)
@@ -493,7 +494,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
     expect(
         page.get_by_role("button", name=f"Selected Article: {CRB_TITLE}", exact=True)
-    ).to_be_visible()
+    ).to_be_visible(timeout=30_000)
     page.get_by_placeholder("Title, concept, or formula").fill("Attention")
     page.locator('select[name="node_type"]').select_option("concept")
     page.get_by_role("button", name="Apply", exact=True).click()
@@ -733,12 +734,24 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["tutor_research"] = True
     checks["tutor_session_failure_isolation"] = True
 
+    _require(not page_errors, f"primary workflow emitted page errors: {page_errors}")
+    page.close()
+    page = context.new_page()
+    page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    page.on("pageerror", lambda error: page_errors.append(f"{page.url}: {error}"))
+
     page.goto(f"{FRONTEND_URL}/articles/not-a-real-article", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
     expect(page.get_by_text("Article not found", exact=True)).to_be_visible(timeout=30_000)
+    _require(not page_errors, f"Article not-found route emitted page errors: {page_errors}")
     checks["article_not_found_state"] = True
 
     not_found_console_start = len(console_errors)
     page.goto(f"{FRONTEND_URL}/not-a-product-route", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
     expect(
         page.get_by_test_id("route-not-found-state").get_by_text("Page not found", exact=True)
     ).to_be_visible(timeout=30_000)
@@ -761,6 +774,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         times=1,
     )
     page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
     expect(page.get_by_text("Failed to load articles: 503", exact=True)).to_be_visible(timeout=30_000)
     checks["controlled_backend_error_state"] = True
 
@@ -774,6 +788,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         times=1,
     )
     page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
     expect(page.get_by_test_id("dashboard-remote-state")).to_have_attribute("data-state", "partial")
     expect(page.get_by_role("heading", name="New in Library", exact=True)).to_be_visible()
     expect(page.get_by_role("heading", name="Continue Learning", exact=True)).to_be_visible()
@@ -822,8 +837,9 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console",
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
-    mobile_page.on("pageerror", lambda error: page_errors.append(str(error)))
+    mobile_page.on("pageerror", lambda error: page_errors.append(f"{mobile_page.url}: {error}"))
     mobile_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    _wait_for_application_shell(mobile_page)
     expect(
         mobile_page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
     ).to_be_visible()
@@ -879,10 +895,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(mobile_page.get_by_text(re.compile(r"^Page 1 / "))).to_be_visible(timeout=30_000)
     checks["mobile_navigation_route_selection"] = True
     list_width = _document_width(mobile_page)
-    mobile_page.goto(
-        f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
-        wait_until="domcontentloaded",
-    )
+    mobile_page.get_by_role("link", name=CRB_TITLE, exact=True).click()
     expect(mobile_page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     expect(mobile_page.locator(".reader-markdown .katex").first).to_be_visible()
     reading_tools_link = mobile_page.get_by_role("link", name="Reading tools", exact=True)
@@ -1050,6 +1063,16 @@ def _read_json_url(url: str) -> dict[str, object]:
         payload = json.load(response)
     _require(isinstance(payload, dict), f"{url} did not return an object")
     return payload
+
+
+def _wait_for_application_shell(page) -> None:
+    from playwright.sync_api import expect
+
+    expect(page.get_by_test_id("application-shell")).to_have_attribute(
+        "data-hydrated",
+        "true",
+        timeout=30_000,
+    )
 
 
 def _document_width(page) -> int:

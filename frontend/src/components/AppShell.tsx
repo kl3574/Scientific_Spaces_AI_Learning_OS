@@ -10,10 +10,17 @@ import { resolveWorkspaceLocation } from "@/lib/navigation";
 
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
-  const location = resolveWorkspaceLocation(pathname);
+  const [hydrated, setHydrated] = useState(false);
   const [navigationOpen, setNavigationOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement | null>(null);
   const drawerRef = useRef<HTMLDivElement | null>(null);
+  const location = hydrated
+    ? resolveWorkspaceLocation(pathname)
+    : { id: "unknown" as const, label: "Workspace", trail: ["Workspace"] };
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     setNavigationOpen(false);
@@ -76,8 +83,9 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   return (
     <div
       className="min-h-screen bg-slate-50 text-slate-950 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)]"
+      data-hydrated={hydrated ? "true" : "false"}
       data-testid="application-shell"
-      data-workspace={location.id}
+      data-workspace={hydrated ? location.id : "pending"}
     >
       <a className="skip-link" href="#main-content">
         Skip to content
@@ -88,7 +96,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           <Brand />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
-          <PrimaryNav />
+          <PrimaryNav activePathname={hydrated ? pathname : null} />
         </div>
         <div className="border-t border-slate-200 px-5 py-4 text-xs text-slate-500">
           Scientific learning workspace
@@ -143,7 +151,11 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
                 </button>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto px-3 py-5">
-                <PrimaryNav variant="drawer" onNavigate={() => closeNavigation(false)} />
+                <PrimaryNav
+                  activePathname={hydrated ? pathname : null}
+                  variant="drawer"
+                  onNavigate={() => closeNavigation(false)}
+                />
               </div>
             </div>
           </div>

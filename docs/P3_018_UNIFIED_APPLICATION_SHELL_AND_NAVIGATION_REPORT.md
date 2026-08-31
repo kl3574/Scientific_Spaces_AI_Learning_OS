@@ -1,6 +1,6 @@
 # P3-018 Unified Application Shell and Navigation Report
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **LOCAL REPAIR PASS / REPAIR CI PENDING**
 
 ## 1. Scope And Boundaries
 
@@ -122,6 +122,7 @@ uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3
 - complete runs: 3
 - successful runs: 3
 - checks per run: 32
+- additional production stress runs: 10 of 10 PASS
 - five desktop workspace destinations and active state: PASS
 - Article detail contextual trail without raw ID: PASS
 - global unknown-route state: PASS
@@ -172,13 +173,31 @@ uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3
 
 ## 11. Exact-SHA Main CI
 
-Implementation commit and exact-SHA main CI evidence are pending. Normal
-`main` push policy must run Backend, Frontend, Product E2E, workflow,
-dependency, secret, and SBOM jobs; Docker and release evidence should remain
-skipped.
+Initial implementation commit
+`86ff3cf971acc73feb298918e89f4468e6814e3b` triggered exact-SHA main CI run
+[`33370930585`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33370930585).
+Backend, Frontend, workflow policy, dependency audit, secret audit, and SBOM
+validation passed. Docker and release evidence were correctly skipped. Product
+E2E failed because the cold CI run did not expose a selected React Flow node
+within the prior default five-second assertion window.
+
+Diagnosis then found two related test-readiness gaps under repeated production
+navigation: shell HTML could be visible before client handlers were ready, and
+the same Playwright Page was reused across a heavy Tutor/Graph workflow and
+independent full-page error scenarios. The local repair:
+
+- exposes and waits for a post-effect shell hydration marker;
+- keeps the server/client first shell frame pathname-neutral;
+- allows the bounded React Flow node its existing 30-second cold-start budget;
+- isolates full-page error-state checks from the primary workflow Page;
+- uses the real Article Link for mobile App Router navigation; and
+- records page-error URLs without suppressing any hydration error.
+
+The repaired production path passed 10 of 10 stress runs and an independent
+three-run formal gate. Repair commit and exact-SHA repair CI remain pending.
 
 ## 12. Closure
 
-P3-018 is locally PASS. It becomes PASS / CLOSED only after both the
-implementation commit and the subsequent docs-only closure commit pass
-exact-SHA main CI, with final `main` clean and synchronized.
+P3-018 repair is locally PASS. It becomes PASS / CLOSED only after the repair
+commit and subsequent docs-only closure commit pass exact-SHA main CI, with
+final `main` clean and synchronized.

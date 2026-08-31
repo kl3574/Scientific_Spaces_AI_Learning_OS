@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-017 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; P3-018 is LOCAL PASS / IMPLEMENTATION CI PENDING; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-017 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; P3-018 is LOCAL REPAIR PASS / REPAIR CI PENDING; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -542,7 +542,7 @@ gates are PASS. Implementation commit
 
 ### P3-018 - Unified Application Shell and Navigation
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+Status: **LOCAL REPAIR PASS / REPAIR CI PENDING**.
 
 P3-018 places Dashboard, Articles, References, Graph, and Tutor inside one
 responsive, accessible Application Shell. The shared route model provides
@@ -551,12 +551,15 @@ trails. P3-014 Workflow remains a context-preserving cross-route behavior
 rather than an artificial standalone route.
 
 Local evidence passed 600 Backend tests with 4 skipped, 59 focused Frontend
-tests, the production build, three Product E2E runs with 32 checks each, and a
-five-Article real local desktop/mobile shell probe. Browser checks recorded
-zero external requests, unexpected console errors, or page errors. Workflow,
-suppression, dependency, secret, security utility, temporary SBOM, artifact,
-and protected-path gates passed. Implementation and closure exact-SHA main CI
-are pending. Evidence is in
+tests, the production build, 10 Product E2E stress runs plus three formal runs
+with 32 checks each, and a five-Article real local desktop/mobile shell probe.
+Browser checks recorded zero external requests, unexpected console errors, or
+page errors. Workflow, suppression, dependency, secret, security utility,
+temporary SBOM, artifact, and protected-path gates passed. Initial commit
+`86ff3cf971acc73feb298918e89f4468e6814e3b` passed every CI job except
+Product E2E, which exposed a cold React Flow readiness assertion. The bounded
+readiness/hydration repair is locally PASS; repair and closure exact-SHA main
+CI are pending. Evidence is in
 `docs/P3_018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION_REPORT.md`.
 
 ## Release Criteria
@@ -591,7 +594,7 @@ are pending. Evidence is in
 
 ## Next Recommended Task
 
-P3-018 is LOCAL PASS / IMPLEMENTATION CI PENDING. Its implementation and
-docs-only closure commits must each pass exact-SHA main CI before the task can
-close. No v1.2 candidate is assigned. Tag, Release, attestation, real Provider,
-source access, and private Zotero actions remain unauthorized.
+P3-018 is LOCAL REPAIR PASS / REPAIR CI PENDING. Its repair and docs-only
+closure commits must each pass exact-SHA main CI before the task can close. No
+v1.2 candidate is assigned. Tag, Release, attestation, real Provider, source
+access, and private Zotero actions remain unauthorized.

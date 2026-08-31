@@ -7,10 +7,10 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-018 LOCAL PASS / IMPLEMENTATION CI PENDING`
+- Status: `P3-018 LOCAL REPAIR PASS / REPAIR CI PENDING`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-018 local implementation and verification PASS`
+- Latest gate: `P3-018 local hydration/readiness repair PASS; repair CI pending`
 - Current task: `P3-018 Unified Application Shell and Navigation`
 - Current version: `v1.1.0`
 
@@ -32,7 +32,7 @@ P3-014 integrated workflow evidence: `docs/P3_014_INTEGRATED_LEARNING_WORKFLOW_R
 P3-015 visual knowledge explorer evidence: `docs/P3_015_VISUAL_KNOWLEDGE_EXPLORER_REPORT.md` (PASS / CLOSED).
 P3-016 learning Dashboard evidence: `docs/P3_016_LEARNING_DASHBOARD_COMMAND_CENTER_REPORT.md` (PASS / CLOSED).
 P3-017 guided Tutor evidence: `docs/P3_017_GUIDED_TUTOR_STUDY_WORKSPACE_REPORT.md` (PASS / CLOSED).
-P3-018 unified Application Shell evidence: `docs/P3_018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION_REPORT.md` (LOCAL PASS / IMPLEMENTATION CI PENDING).
+P3-018 unified Application Shell evidence: `docs/P3_018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION_REPORT.md` (LOCAL REPAIR PASS / REPAIR CI PENDING).
 
 v1.2 planning specifications:
 
@@ -179,11 +179,13 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
 
-P3-018 is `LOCAL PASS / IMPLEMENTATION CI PENDING`. One responsive Application
+P3-018 is `LOCAL REPAIR PASS / REPAIR CI PENDING`. One responsive Application
 Shell now provides direct Dashboard, Articles, References, Graph, and Tutor
 navigation, active workspace feedback, ID-free contextual trails, accessible
 mobile drawer behavior, and consistent bounded states while preserving the
-existing integrated Workflow. Exact-SHA implementation and closure CI remain
+existing integrated Workflow. Initial implementation CI passed every job
+except Product E2E; the bounded readiness/hydration repair passed 10 stress
+runs and 3 formal runs locally. Exact-SHA repair and closure CI remain
 required. No v1.2 candidate is assigned.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.

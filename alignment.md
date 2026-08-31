@@ -3,7 +3,7 @@
 Canonical task:
 `docs/tasks/P3-018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION.md`
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **LOCAL REPAIR PASS / REPAIR CI PENDING**
 
 LOCAL ARTICLE DATA READ / LOCAL APPLICATION RUNTIME / ISOLATED BROWSER
 VALIDATION AUTHORIZATION: **GRANTED FOR P3-018**
@@ -162,10 +162,16 @@ workspace.
 - Backend: 600 passed / 4 skipped
 - focused Frontend: 59 passed
 - Next.js production build: PASS, 9 routes
-- Product E2E: 3 of 3 runs, 32 checks per run
+- Product E2E: 10 of 10 stress runs plus 3 of 3 formal runs, 32 checks per run
 - real local Article shell probe: 5 of 5 PASS at 1440 x 900 and 390 x 844
 - Reader / Graph / Tutor / References cross-workspace navigation: PASS
 - external browser requests, unexpected console errors, and page errors: 0
 - workflow policy, suppression policy, dependency audit, staged secret audit,
   security utility tests, and temporary SBOM validation: PASS
-- implementation CI, commit, and closure evidence: pending
+- initial implementation commit:
+  `86ff3cf971acc73feb298918e89f4468e6814e3b`
+- initial implementation CI run `33370930585`: Backend, Frontend, workflow,
+  dependency, secret, and SBOM PASS; Product E2E BLOCKED on a cold React Flow
+  readiness assertion
+- local repair: PASS; repair commit, exact-SHA repair CI, and closure evidence:
+  pending

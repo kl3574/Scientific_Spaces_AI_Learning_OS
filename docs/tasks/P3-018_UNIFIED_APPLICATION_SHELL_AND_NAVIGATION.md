@@ -1,6 +1,6 @@
 # P3-018 Unified Application Shell and Navigation
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **LOCAL REPAIR PASS / REPAIR CI PENDING**
 
 ## Objective
 
@@ -99,9 +99,14 @@ access becomes necessary, or any release action becomes necessary.
 - Backend: 600 passed / 4 skipped
 - focused Frontend: 59 passed
 - production build: PASS
-- Product E2E: 3 of 3 runs, 32 checks per run
+- Product E2E: 10 of 10 stress runs plus 3 of 3 formal runs, 32 checks per run
 - real local Article shell probe: 5 of 5 PASS at 1440 x 900 and 390 x 844
 - external requests, unexpected console errors, and page errors: 0
 - workflow, suppression, dependency, staged secret audit, security utility,
   and temporary SBOM gates: PASS
-- implementation commit and exact-SHA CI: pending
+- initial implementation commit:
+  `86ff3cf971acc73feb298918e89f4468e6814e3b`
+- initial implementation CI run `33370930585`: Product E2E BLOCKED; all other
+  required jobs PASS
+- hydration/readiness repair: LOCAL PASS; repair commit and exact-SHA CI:
+  pending
