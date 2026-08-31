@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011, P3-012, P3-013, P3-014, P3-015, and P3-016 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; no candidate version or subsequent task is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-016 product convergence tasks are PASS / CLOSED with exact-SHA main CI passing; P3-017 Guided Tutor Study Workspace is AUTHORIZED / IN PROGRESS; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -523,6 +523,20 @@ browser, Product E2E, security, and SBOM gates are PASS. Implementation commit
 `fe4cf5e50a2a4c39982ca0e879d0a18cd561e904` passed exact-SHA main CI run
 `33353446426`. Evidence is in
 `docs/P3_016_LEARNING_DASHBOARD_COMMAND_CENTER_REPORT.md`.
+
+### P3-017 - Guided Tutor Study Workspace
+
+Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+
+P3-017 replaces raw identifier fields and passive Tutor output with
+human-readable Article context selection, safe scientific Markdown rendering,
+an answer-hidden Quiz workflow, actionable follow-up prompts, and bounded
+recent Tutor activity. It is Frontend-only apart from tests and governance;
+Backend interfaces, Article records, and derived assets remain protected. The
+canonical task is `docs/tasks/P3-017_GUIDED_TUTOR_STUDY_WORKSPACE.md`.
+Local Backend, Frontend, real-Article browser, Product E2E, security, and SBOM
+gates are PASS. Implementation exact-SHA main CI remains required. Evidence is
+in `docs/P3_017_GUIDED_TUTOR_STUDY_WORKSPACE_REPORT.md`.
 
 ## Release Criteria
 

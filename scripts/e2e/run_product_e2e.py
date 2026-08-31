@@ -452,7 +452,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     tutor_action.click()
     expect(page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
     expect(page.get_by_test_id("learning-workflow-context")).to_contain_text(CRB_TITLE)
-    expect(page.get_by_label("Article ID")).to_have_value(CRB_ARTICLE_ID)
+    expect(page.get_by_test_id("tutor-selected-article")).to_contain_text(CRB_TITLE)
+    _require(page.get_by_label("Article ID").count() == 0, "Tutor still exposes a raw Article ID input")
     tutor_return = page.get_by_role("link", name="Return to article", exact=True)
     tutor_return_href = tutor_return.get_attribute("href") or ""
     _require(
@@ -589,39 +590,134 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     page.get_by_role("link", name="Tutor", exact=True).click()
     expect(page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
-    page.get_by_label("Article ID").fill(CRB_ARTICLE_ID)
+    page.get_by_label("Search articles").fill("CRB")
+    page.get_by_role("button", name="Search library", exact=True).click()
+    page.get_by_role("button", name=f"Select {CRB_TITLE}", exact=True).click()
+    expect(page.get_by_test_id("tutor-selected-article")).to_contain_text(CRB_TITLE)
+    _require(page.get_by_label("Article ID").count() == 0, "Tutor primary flow exposes Article ID")
+
+    markdown_response = {
+        "answer": (
+            "## Core idea\n\n"
+            "**Fisher information** controls the local variance scale $I(\\theta)$.\n\n"
+            "$$\\operatorname{Var}(\\hat\\theta) \\ge I(\\theta)^{-1}$$\n\n"
+            "```python\nbound = 1 / fisher_information\n```"
+        ),
+        "mode": "explain",
+        "sources": [
+            {
+                "source_type": "article_chunk",
+                "source_id": f"{CRB_ARTICLE_ID}:0",
+                "title": CRB_TITLE,
+                "url": "https://spaces.ac.cn/archives/6508",
+                "section_title": "推导步骤",
+                "chunk_index": 0,
+                "evidence": None,
+                "metadata": {"article_id": CRB_ARTICLE_ID},
+            }
+        ],
+        "graph_context": {"nodes": [], "edges": []},
+        "zotero_context": [],
+        "follow_up_questions": ["How is the lower bound derived?"],
+        "refusal_reason": None,
+        "selection_summary": {
+            "candidate_count": 1,
+            "selected_article_count": 1,
+            "selected_chunk_count": 1,
+            "graph_node_count": 0,
+            "graph_edge_count": 0,
+            "graph_latency_ms": None,
+            "graph_error_code": None,
+            "context_character_count": 320,
+            "estimated_token_count": 80,
+            "truncated": False,
+            "supplement_omitted_count": 0,
+        },
+        "evidence_summary": {
+            "source_count": 1,
+            "article_count": 1,
+            "has_formula_evidence": True,
+            "has_definition_evidence": True,
+            "has_answerable_evidence": True,
+            "source_schema_valid": True,
+            "unsupported_or_out_of_scope": False,
+            "refusal_reason": None,
+        },
+    }
+    page.route(
+        re.compile(r".*/tutor/ask$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(markdown_response, ensure_ascii=False),
+        ),
+        times=1,
+    )
     page.get_by_label("Question").fill("什么是 CRB 和 Fisher 信息下界？")
     page.get_by_role("button", name="Ask tutor", exact=True).click()
     expect(page.get_by_role("heading", name="Answer", exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("tutor-answer").locator("strong")).to_contain_text("Fisher information")
+    expect(page.get_by_test_id("tutor-answer").locator(".katex").first).to_be_visible()
+    expect(page.get_by_test_id("tutor-answer").locator("code")).to_contain_text("fisher_information")
     tutor_article_link = page.get_by_role("link", name="Open local article").first
     expect(tutor_article_link).to_be_visible()
     _require(
         tutor_article_link.get_attribute("href") == f"/articles/{CRB_ARTICLE_ID}",
         "Tutor Article deep link is invalid",
     )
+    page.get_by_role("button", name="How is the lower bound derived?", exact=True).click()
+    expect(page.get_by_label("Question")).to_have_value("How is the lower bound derived?")
+    expect(page.get_by_label("Question")).to_be_focused()
+    expect(page.get_by_role("heading", name="Answer", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("tutor-activity")).to_contain_text(CRB_TITLE, timeout=30_000)
+    expect(page.get_by_test_id("tutor-activity")).not_to_contain_text(CRB_ARTICLE_ID)
     checks["tutor_explain"] = True
+    checks["guided_tutor_article_markdown_and_follow_up"] = True
 
-    page.get_by_role("button", name="derive", exact=True).click()
+    page.get_by_role("button", name="Derive", exact=True).click()
     page.get_by_label("Question").fill("根据文章公式推导 CRB 下界")
     page.get_by_role("button", name="Ask tutor", exact=True).click()
     expect(page.get_by_role("heading", name="Answer", exact=True)).to_be_visible(timeout=30_000)
     checks["tutor_derive"] = True
 
-    page.get_by_role("button", name="quiz", exact=True).click()
+    page.get_by_role("button", name="Quiz", exact=True).click()
     page.get_by_label("Prompt").fill("CRB")
     page.get_by_role("button", name="Generate quiz", exact=True).click()
     expect(page.get_by_role("heading", name="Quiz", exact=True)).to_be_visible(timeout=30_000)
-    expect(page.get_by_text(re.compile(r"^Answer: ")).first).to_be_visible()
+    _require(page.get_by_text(re.compile(r"^Correct answer:")).count() == 0, "Quiz disclosed answers before submission")
+    quiz_articles = page.get_by_test_id("tutor-quiz-workspace").locator("article")
+    _require(quiz_articles.count() >= 2, "Quiz did not return enough grounded questions for choices")
+    for quiz_index in range(quiz_articles.count()):
+        quiz_articles.nth(quiz_index).locator('input[type="radio"]').first.check()
+    page.get_by_role("button", name="Check answers", exact=True).click()
+    expect(page.get_by_test_id("tutor-quiz-score")).to_be_visible()
+    expect(page.get_by_text(re.compile(r"^Correct answer:")).first).to_be_visible()
+    expect(page.get_by_role("heading", name="题目来源", exact=True).first).to_be_visible()
+    page.get_by_role("button", name="Try again", exact=True).click()
+    _require(page.get_by_text(re.compile(r"^Correct answer:")).count() == 0, "Quiz retry retained answer disclosure")
     checks["tutor_quiz"] = True
+    checks["tutor_quiz_hidden_review_and_score"] = True
 
-    page.get_by_role("button", name="research", exact=True).click()
+    page.get_by_role("button", name="Research", exact=True).click()
     page.get_by_label("Question").fill("基于本地资料给出 CRB 研究方向")
+    page.route(
+        re.compile(r".*/tutor/sessions$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional P3-017 session write failure"}',
+        ),
+        times=1,
+    )
     page.get_by_role("button", name="Ask tutor", exact=True).click()
     expect(page.get_by_role("heading", name=re.compile(r"^(Answer|Refusal)$"))).to_be_visible(
         timeout=30_000
     )
     expect(page.get_by_role("heading", name="Research 模式范围", exact=True)).to_be_visible()
+    expect(page.get_by_text("The answer is ready, but recent activity could not be updated.", exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_role("heading", name=re.compile(r"^(Answer|Refusal)$"))).to_be_visible()
     checks["tutor_research"] = True
+    checks["tutor_session_failure_isolation"] = True
 
     page.goto(f"{FRONTEND_URL}/articles/not-a-real-article", wait_until="domcontentloaded")
     expect(page.get_by_text("Article not found", exact=True)).to_be_visible(timeout=30_000)
@@ -765,6 +861,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(mobile_end_button).to_be_disabled()
     checks["mobile_layout_and_formula_scroll"] = True
 
+    mobile_page.get_by_role("link", name="Ask tutor", exact=True).click()
+    expect(mobile_page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
+    expect(mobile_page.get_by_test_id("tutor-selected-article")).to_contain_text(CRB_TITLE)
+    expect(mobile_page.get_by_text("Advanced context", exact=True)).to_be_visible()
+    tutor_width = _document_width(mobile_page)
+    _require(tutor_width <= 390, f"mobile Tutor page overflowed to {tutor_width}px")
+    checks["mobile_guided_tutor_workspace"] = True
+
     mobile_page.get_by_role("link", name="Graph", exact=True).click()
     expect(mobile_page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
     mobile_page.get_by_placeholder("Title, concept, or formula").fill("Attention")
@@ -806,6 +910,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             "viewport": 390,
             "article_list": list_width,
             "article_detail": detail_width,
+            "tutor": tutor_width,
             "graph": mobile_graph_width,
         },
         "external_network_request_count": len(blocked_external),
@@ -897,7 +1002,7 @@ def _document_width(page) -> int:
 
 
 def _unexpected_console_errors(messages: list[str]) -> list[str]:
-    expected_statuses = {"404": 1, "503": 2}
+    expected_statuses = {"404": 1, "503": 3}
     unexpected: list[str] = []
     for message in messages:
         matched = False

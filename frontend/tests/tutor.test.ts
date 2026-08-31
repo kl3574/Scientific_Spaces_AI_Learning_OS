@@ -16,9 +16,20 @@ import {
   normalizeTutorQuizTopic,
   resolveSourceArticleId,
 } from "../src/lib/tutorPresentation";
+import {
+  buildTutorActivity,
+  createTutorArticleSelection,
+  getSafeTutorMarkdownHref,
+  getTutorModeLabel,
+  getTutorQuizChoices,
+  scoreTutorQuiz,
+} from "../src/lib/tutorWorkspace";
+import { createTutorSession } from "../src/lib/tutor";
 import type {
+  QuizQuestion,
   TutorEvidenceSummary,
   TutorResponse,
+  TutorSession,
   TutorSelectionSummary,
   TutorSource,
 } from "../src/lib/tutor";
@@ -62,6 +73,17 @@ function responseFactory(overrides: Partial<TutorResponse> = {}): TutorResponse 
     refusal_reason: null,
     selection_summary: null,
     evidence_summary: evidenceFactory(),
+    ...overrides,
+  };
+}
+
+function quizFactory(answer: string, overrides: Partial<QuizQuestion> = {}): QuizQuestion {
+  return {
+    question: `Question for ${answer}`,
+    options: null,
+    correct_answer: answer,
+    explanation: `Explanation for ${answer}`,
+    sources: [sourceFactory()],
     ...overrides,
   };
 }
@@ -351,4 +373,109 @@ test("formatSelectionSummaryLines renders every real backend summary field", () 
   assert.equal(byLabel.get("已截断"), "是");
   assert.equal(byLabel.get("已省略补充来源"), "7");
   assert.deepEqual(formatSelectionSummaryLines(null), []);
+});
+
+test("Tutor Article selection preserves only human-readable presentation fields", () => {
+  const selection = createTutorArticleSelection({
+    id: "crb-formula",
+    title: "CRB 公式与估计下界",
+    url: "https://spaces.ac.cn/archives/1",
+    metadata: { date: "2024-01-02", category: "数学" },
+    content_preview: "preview",
+  });
+
+  assert.deepEqual(selection, {
+    id: "crb-formula",
+    title: "CRB 公式与估计下界",
+    metadata: { date: "2024-01-02", category: "数学" },
+  });
+  assert.equal(getTutorModeLabel("qa"), "Q&A");
+});
+
+test("open-ended grounded Quiz questions become deterministic cross-question choices", () => {
+  const questions = [quizFactory("Alpha"), quizFactory("Beta"), quizFactory("Gamma")];
+
+  assert.deepEqual(getTutorQuizChoices(questions, 0), ["Alpha", "Beta", "Gamma"]);
+  assert.deepEqual(getTutorQuizChoices(questions, 1), ["Beta", "Gamma", "Alpha"]);
+  assert.deepEqual(getTutorQuizChoices(questions, 2), ["Gamma", "Alpha", "Beta"]);
+  assert.deepEqual(getTutorQuizChoices([quizFactory("Only answer")], 0), []);
+});
+
+test("supplied Quiz options remain selectable and scoring is exact and complete", () => {
+  const questions = [
+    quizFactory("Fisher information", { options: ["Variance", "Fisher information", "Bias"] }),
+    quizFactory("Cramer-Rao bound", { options: ["Posterior", "Cramer-Rao bound", "Entropy"] }),
+  ];
+  const choices = getTutorQuizChoices(questions, 0);
+  assert.equal(choices.includes("Fisher information"), true);
+
+  assert.deepEqual(scoreTutorQuiz(questions, { 0: "Fisher information" }), {
+    answered: 1,
+    correct: 1,
+    total: 2,
+    complete: false,
+  });
+  assert.deepEqual(scoreTutorQuiz(questions, { 0: "Fisher information", 1: "Posterior" }), {
+    answered: 2,
+    correct: 1,
+    total: 2,
+    complete: true,
+  });
+});
+
+test("recent Tutor activity is bounded, sorted, title-resolved, and ID-free in visible fields", () => {
+  const sessions: TutorSession[] = Array.from({ length: 7 }, (_, index) => ({
+    session_id: `private-session-${index}`,
+    mode: index === 0 ? "derive" : "explain",
+    article_id: index === 0 ? "crb-formula" : `private-article-${index}`,
+    node_id: `private-node-${index}`,
+    created_at: `2026-08-${String(index + 1).padStart(2, "0")}T10:00:00Z`,
+    updated_at: `2026-08-${String(index + 1).padStart(2, "0")}T10:00:00Z`,
+    turns: index === 6 ? [{ question: "Explain the lower bound" }] : [],
+  }));
+
+  const activity = buildTutorActivity(sessions, { "crb-formula": "CRB 公式" });
+  assert.equal(activity.length, 5);
+  assert.equal(activity[0].prompt, "Explain the lower bound");
+  assert.equal(activity[0].articleTitle, "Article context");
+  const visible = activity.flatMap((item) => [item.modeLabel, item.articleTitle, item.prompt, item.updatedAt]).join(" ");
+  assert.equal(visible.includes("private-article"), false);
+  assert.equal(visible.includes("private-node"), false);
+  assert.equal(visible.includes("private-session"), false);
+});
+
+test("Tutor Markdown links allow bounded local/HTTP targets and reject executable or file targets", () => {
+  assert.equal(getSafeTutorMarkdownHref("/articles/crb-formula#proof"), "/articles/crb-formula#proof");
+  assert.equal(getSafeTutorMarkdownHref("https://spaces.ac.cn/archives/6508"), "https://spaces.ac.cn/archives/6508");
+  assert.equal(getSafeTutorMarkdownHref("javascript:alert(1)"), null);
+  assert.equal(getSafeTutorMarkdownHref("file:///tmp/secret"), null);
+  assert.equal(getSafeTutorMarkdownHref("/articles/../secret"), null);
+  assert.equal(getSafeTutorMarkdownHref("/articles/%2e%2e/secret"), null);
+  assert.equal(getSafeTutorMarkdownHref("https://example.com/a/../secret"), null);
+  assert.equal(getSafeTutorMarkdownHref("https://example.com/?next=file:///tmp/secret"), null);
+});
+
+test("createTutorSession uses the existing session endpoint without changing its contract", async () => {
+  const calls: Array<{ input: string; init?: RequestInit }> = [];
+  globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {
+    calls.push({ input: input.toString(), init });
+    return new Response(JSON.stringify({
+      session_id: "session-1",
+      mode: "explain",
+      article_id: "crb-formula",
+      node_id: null,
+      created_at: "2026-08-31T10:00:00Z",
+      updated_at: "2026-08-31T10:00:00Z",
+      turns: [],
+    }), { status: 200, headers: { "Content-Type": "application/json" } });
+  }) as typeof fetch;
+
+  await createTutorSession({ mode: "explain", article_id: "crb-formula" });
+  const url = new URL(calls[0].input);
+  assert.equal(url.pathname, "/tutor/sessions");
+  assert.equal(calls[0].init?.method, "POST");
+  assert.deepEqual(JSON.parse(String(calls[0].init?.body)), {
+    mode: "explain",
+    article_id: "crb-formula",
+  });
 });

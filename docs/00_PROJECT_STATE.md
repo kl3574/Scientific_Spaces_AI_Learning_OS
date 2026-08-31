@@ -14,7 +14,7 @@ v1.2 Product Convergence
 
 Status:
 
-P3-016 Learning Dashboard Command Center: PASS / CLOSED
+P3-017 Guided Tutor Study Workspace: LOCAL PASS / IMPLEMENTATION CI PENDING
 
 Release Readiness:
 
@@ -128,15 +128,15 @@ PASS
 
 Current Task:
 
-No active implementation task; P3-016 is the last closed task
+P3-017 Guided Tutor Study Workspace
 
 Current Task Status:
 
-P3-016 PASS / CLOSED; NEXT TASK ALIGNMENT REQUIRED / NOT GRANTED
+P3-017 LOCAL PASS / IMPLEMENTATION CI PENDING
 
 Implementation Authorization:
 
-P3-016 AUTHORIZATION CONSUMED / CLOSED; NEXT TASK NOT GRANTED
+P3-017 FRONTEND / TEST / DOCUMENTATION / COMMIT / PUSH / CI AUTHORIZATION GRANTED; BACKEND / SOURCE / PRIVATE ZOTERO / REAL PROVIDER / RELEASE ACTIONS NOT GRANTED
 
 P3-016 Local Verification:
 
@@ -590,7 +590,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-NOT ASSIGNED - ALIGNMENT REQUIRED / NOT GRANTED; NO v1.2 CANDIDATE ASSIGNED
+P3-017 GUIDED TUTOR STUDY WORKSPACE; NO v1.2 CANDIDATE ASSIGNED
 
 Post-freeze Change Rule:
 

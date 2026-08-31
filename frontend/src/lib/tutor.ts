@@ -120,6 +120,17 @@ export async function fetchTutorSessions(): Promise<TutorSessionsResponse> {
   return requestJson<TutorSessionsResponse>("/tutor/sessions");
 }
 
+export async function createTutorSession(input: {
+  mode: TutorMode;
+  article_id?: string;
+  node_id?: string;
+}): Promise<TutorSession> {
+  return requestJson<TutorSession>("/tutor/sessions", {
+    body: JSON.stringify(input),
+    method: "POST",
+  });
+}
+
 async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(new URL(path, API_BASE_URL).toString(), {
     ...init,
