@@ -1,6 +1,6 @@
 # P3-021 Focused Study Session
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 ## Objective
 
@@ -113,4 +113,12 @@ necessary.
 - external requests, unexpected console errors, and page errors: 0
 - workflow, suppression, dependency, secret, security utility, temporary SBOM,
   artifact, and protected-path gates: PASS
-- implementation exact-SHA main CI: pending
+- implementation commit:
+  `df4500c17b2456aedde36a039a60a92f631e6ea9`
+- implementation exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33489296319`
+- required implementation CI jobs: PASS
+- normal-main Docker and release-evidence jobs: skipped as designed
+- uploaded workflow artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting

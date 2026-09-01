@@ -1,6 +1,6 @@
 # P3-021 Focused Study Session Report
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 ## 1. Scope And Boundaries
 
@@ -218,11 +218,29 @@ cache data.
   in-memory operation visible and reports the failed save.
 - The queue is capped at 20 Articles and has no server-side learning-plan or
   completion semantics by design.
-- Exact-SHA CI remains the final implementation gate.
+- GitHub Actions currently emits an upstream Node 20 deprecation annotation
+  for pinned Actions running under Node 24 compatibility. It did not affect
+  any required job and workflow changes were outside P3-021 scope.
 
 ## 12. Exact-SHA Main CI
 
-Implementation commit and exact-SHA main CI: **PENDING**.
+Implementation commit:
+`df4500c17b2456aedde36a039a60a92f631e6ea9`.
+
+Exact-SHA main CI:
+[`33489296319`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33489296319),
+`success` for the exact implementation SHA.
+
+- Backend pytest: PASS
+- Frontend build: PASS
+- Product E2E, including three repeated runs: PASS
+- workflow policy: PASS
+- dependency audit: PASS
+- secret audit: PASS
+- SBOM validation: PASS
+- Docker compose smoke: skipped as designed for a normal `main` push
+- release-evidence dry-run: skipped as designed
+- uploaded workflow artifacts: 0
 
 Normal-main Docker compose smoke and release-evidence jobs are expected to
 skip under the existing workflow policy. No workflow, tag, Release, candidate,
@@ -230,7 +248,7 @@ or attestation change is authorized by P3-021.
 
 ## 13. Closure
 
-P3-021 is `LOCAL PASS / IMPLEMENTATION CI PENDING`. Local acceptance passed
-without widening the authorized boundary. Closure requires the implementation
-commit's exact-SHA main CI, a docs-only closure commit, and that closure
-commit's exact-SHA main CI before final `PASS / CLOSED` status.
+P3-021 is `PASS / CLOSED`. Local acceptance and the implementation commit's
+exact-SHA main CI passed without widening the authorized boundary. This
+docs-only closure commit must pass its own exact-SHA main CI before final
+reporting; no new task is assigned or authorized.

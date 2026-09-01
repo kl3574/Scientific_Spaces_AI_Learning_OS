@@ -3,7 +3,7 @@
 Canonical task:
 `docs/tasks/P3-021_FOCUSED_STUDY_SESSION.md`
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 LOCAL ARTICLE / SAVED LIBRARY / READING HISTORY / READER PROGRESS READ, LOCAL
 APPLICATION RUNTIME, BOUNDED BROWSER-LOCAL SESSION STATE, AND ISOLATED BROWSER
@@ -169,3 +169,15 @@ existing Article and browser-local contracts.
 - A required test, build, browser, secret, artifact, or CI gate fails without
   an in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.
+
+## Closure Record
+
+- local acceptance: PASS
+- implementation commit:
+  `df4500c17b2456aedde36a039a60a92f631e6ea9`
+- implementation exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33489296319`
+- required implementation CI jobs: PASS
+- uploaded workflow artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting

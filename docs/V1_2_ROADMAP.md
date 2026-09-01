@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-020 product convergence tasks are PASS / CLOSED with exact-SHA implementation main CI passing; P3-021 is LOCAL PASS / IMPLEMENTATION CI PENDING; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-021 product convergence tasks are PASS / CLOSED with exact-SHA implementation main CI passing; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -622,7 +622,7 @@ jobs were skipped as designed; uploaded artifacts were zero. Evidence is in
 
 ### P3-021 - Focused Study Session
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-021 turns existing Saved Learning records into a bounded, resumable
 browser-local study queue. It provides deterministic add, deduplicate,
@@ -639,7 +639,12 @@ real local 1,314-Article desktop/mobile probe using two Chinese mathematics
 Articles. Browser checks recorded zero external requests, unexpected console
 errors, or page errors. Workflow, suppression, dependency, secret, security
 utility, temporary SBOM, artifact, and protected-path gates passed.
-Implementation exact-SHA main CI is pending. Evidence is in
+Implementation commit `df4500c17b2456aedde36a039a60a92f631e6ea9`
+passed exact-SHA main CI run
+[`33489296319`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33489296319):
+Backend, Frontend, Product E2E, workflow policy, dependency audit, secret
+audit, and SBOM validation passed; normal-main Docker and release-evidence
+jobs were skipped as designed; uploaded artifacts were zero. Evidence is in
 `docs/P3_021_FOCUSED_STUDY_SESSION_REPORT.md`.
 
 ## Release Criteria
@@ -674,8 +679,8 @@ Implementation exact-SHA main CI is pending. Evidence is in
 
 ## Next Recommended Task
 
-P3-021 Focused Study Session is LOCAL PASS / IMPLEMENTATION CI PENDING. The
-next authorized action is to create and push its implementation commit, then
-verify exact-SHA main CI. No next product task or v1.2 candidate is assigned.
-Tag, Release, attestation, real Provider, source access, external search, and
-private Zotero actions remain unauthorized.
+P3-021 Focused Study Session is PASS / CLOSED. Its implementation exact-SHA
+main CI passed, and this docs-only closure commit requires its own exact-SHA CI
+readback before final reporting. No active next task or v1.2 candidate is
+assigned. Tag, Release, attestation, real Provider, source access, external
+search, and private Zotero actions remain unauthorized.
