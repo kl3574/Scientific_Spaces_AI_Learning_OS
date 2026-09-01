@@ -19,9 +19,9 @@ type DashboardRemoteState = "loading" | "loaded" | "partial" | "error";
 
 const NEXT_ACTIONS = [
   {
-    href: "/articles",
-    label: "Browse library",
-    detail: "Find an article by title, keyword, category, or date.",
+    href: "/library",
+    label: "Open saved learning",
+    detail: "Resume active reading, bookmarks, and recent Articles.",
   },
   {
     href: "/tutor",
@@ -112,9 +112,9 @@ export function DashboardView() {
         </div>
         <Link
           className="w-fit rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-          href="/articles"
+          href="/library"
         >
-          Browse articles
+          Open saved learning
         </Link>
       </header>
 

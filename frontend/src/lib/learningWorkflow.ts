@@ -25,6 +25,8 @@ const MAX_TITLE_LENGTH = 240;
 const MAX_PATH_LENGTH = 1200;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 const SAFE_SECTION = /^[^\u0000-\u001f\u007f?#]{1,240}$/;
+const LIBRARY_VIEWS = new Set(["all", "continue", "bookmarked", "recent"]);
+const LIBRARY_SORTS = new Set(["recent", "title", "progress"]);
 
 export function parseArticleListState(input: SearchParamInput): ArticleListState {
   const q = normalizeText(readParam(input, "q"), MAX_QUERY_LENGTH);
@@ -66,12 +68,29 @@ export function sanitizeArticleListReturnPath(value: string | null | undefined):
   return createArticleListHref(parseArticleListState(parsed.searchParams));
 }
 
+export function sanitizeArticleEntryReturnPath(value: string | null | undefined): string {
+  if (!value || value.length > MAX_PATH_LENGTH) {
+    return "/articles";
+  }
+  const parsed = parseLocalUrl(value);
+  if (!parsed || parsed.hash) {
+    return "/articles";
+  }
+  if (parsed.pathname === "/articles") {
+    return createArticleListHref(parseArticleListState(parsed.searchParams));
+  }
+  if (parsed.pathname === "/library") {
+    return createLibraryReturnPath(parsed.searchParams);
+  }
+  return "/articles";
+}
+
 export function createArticleDetailHref(articleId: string, listReturnTo = "/articles"): string {
   const cleanArticleId = normalizeId(articleId);
   if (!cleanArticleId) {
     return "/articles";
   }
-  const safeListPath = sanitizeArticleListReturnPath(listReturnTo);
+  const safeListPath = sanitizeArticleEntryReturnPath(listReturnTo);
   const params = new URLSearchParams();
   if (safeListPath !== "/articles") {
     params.set("from", safeListPath);
@@ -160,7 +179,7 @@ function sanitizeArticleReturnPath(value: string, articleId: string): string {
   if (pathArticleId !== articleId) {
     return fallback;
   }
-  const listReturnTo = sanitizeArticleListReturnPath(parsed.searchParams.get("from"));
+  const listReturnTo = sanitizeArticleEntryReturnPath(parsed.searchParams.get("from"));
   const section = normalizeSection(parsed.hash ? decodeHash(parsed.hash) : null);
   return createArticleReturnHref(articleId, listReturnTo, section);
 }
@@ -202,4 +221,22 @@ function decodeHash(hash: string): string {
   } catch {
     return "";
   }
+}
+
+function createLibraryReturnPath(input: URLSearchParams): string {
+  const params = new URLSearchParams();
+  const query = normalizeText(input.get("q") ?? "", 120);
+  const view = input.get("view") ?? "";
+  const sort = input.get("sort") ?? "";
+  if (query) {
+    params.set("q", query);
+  }
+  if (LIBRARY_VIEWS.has(view) && view !== "all") {
+    params.set("view", view);
+  }
+  if (LIBRARY_SORTS.has(sort) && sort !== "recent") {
+    params.set("sort", sort);
+  }
+  const suffix = params.toString();
+  return suffix ? `/library?${suffix}` : "/library";
 }

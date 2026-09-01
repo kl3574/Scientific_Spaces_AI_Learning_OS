@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-019 PASS / CLOSED`
+- Status: `P3-020 LOCAL PASS / IMPLEMENTATION CI PENDING`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-019 implementation exact-SHA main CI PASS`
-- Current task: `None; next task requires alignment`
+- Latest gate: `P3-020 local acceptance PASS; implementation CI pending`
+- Current task: `P3-020 Saved Learning Library`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -34,6 +34,7 @@ P3-016 learning Dashboard evidence: `docs/P3_016_LEARNING_DASHBOARD_COMMAND_CENT
 P3-017 guided Tutor evidence: `docs/P3_017_GUIDED_TUTOR_STUDY_WORKSPACE_REPORT.md` (PASS / CLOSED).
 P3-018 unified Application Shell evidence: `docs/P3_018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION_REPORT.md` (PASS / CLOSED).
 P3-019 global search evidence: `docs/P3_019_GLOBAL_SEARCH_AND_QUICK_NAVIGATION_REPORT.md` (PASS / CLOSED).
+P3-020 saved learning evidence: `docs/P3_020_SAVED_LEARNING_LIBRARY_REPORT.md` (LOCAL PASS / IMPLEMENTATION CI PENDING).
 
 v1.2 planning specifications:
 
@@ -174,7 +175,7 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `None; alignment required`
+- Active task: `docs/tasks/P3-020_SAVED_LEARNING_LIBRARY.md`
 - Last closed task: `docs/tasks/P3-019_GLOBAL_SEARCH_AND_QUICK_NAVIGATION.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
@@ -199,7 +200,17 @@ gates pass. Implementation commit
 [`33389364565`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33389364565)
 with zero uploaded artifacts. Backend, data, dependencies, workflows, private
 Zotero, external search, real Providers, and release actions remained outside
-the task boundary. No subsequent task or v1.2 candidate is assigned.
+the task boundary.
+
+P3-020 is `LOCAL PASS / IMPLEMENTATION CI PENDING`. The new Saved Learning
+Library joins existing Learning State, Bookmark, Reading History, Reader
+Progress, and recent summary records in a bounded Frontend workspace. It adds
+continue, saved, and recent sections, deterministic filtering and sorting,
+canonical Reader return paths, complete failure states, and desktop/mobile
+navigation. Local gates include 600 Backend tests, 70 focused Frontend tests,
+13 consecutive production E2E runs, and a real local 1,314-Article visual
+probe with zero external requests or unexpected console/page errors. No v1.2
+candidate is assigned.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
 

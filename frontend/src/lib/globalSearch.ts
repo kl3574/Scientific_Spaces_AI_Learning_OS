@@ -61,6 +61,7 @@ const SOURCE_LABELS: Record<GlobalSearchSource, string> = {
 
 const WORKSPACE_DESCRIPTIONS: Record<(typeof PRIMARY_NAVIGATION)[number]["id"], string> = {
   dashboard: "Learning overview and next actions",
+  library: "Resume reading and revisit saved Articles",
   articles: "Browse and read the Article library",
   references: "Review papers and structured References",
   graph: "Explore concepts, formulas, and relationships",

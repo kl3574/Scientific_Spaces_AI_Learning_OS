@@ -39,6 +39,8 @@ API_URL = "http://127.0.0.1:8000"
 FRONTEND_URL = "http://127.0.0.1:3000"
 CRB_ARTICLE_ID = "crb-formula"
 CRB_TITLE = "CRB公式与估计下界"
+ATTENTION_ARTICLE_ID = "attention-basics"
+ATTENTION_TITLE = "Attention机制入门"
 EXPECTED_ARTICLE_COUNT = 3
 
 
@@ -350,11 +352,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "Dashboard"
     )
     _require(
-        page.locator('nav[aria-label="Primary"] a').count() == 5,
-        "desktop Application Shell does not expose five primary workspaces",
+        page.locator('nav[aria-label="Primary"] a').count() == 6,
+        "desktop Application Shell does not expose six primary workspaces",
     )
-    for action in ("Browse library", "Ask tutor", "Explore graph", "Review sources"):
-        expect(page.get_by_role("link", name=re.compile(rf"^{re.escape(action)}"))).to_be_visible()
+    next_actions = page.get_by_test_id("dashboard-next-actions")
+    for action in ("Open saved learning", "Ask tutor", "Explore graph", "Review sources"):
+        expect(next_actions.get_by_role("link", name=re.compile(rf"^{re.escape(action)}"))).to_be_visible()
     _require(
         page.locator('nav[aria-label="Primary"] [aria-current="page"]').get_attribute("href") == "/",
         "Dashboard navigation item is not marked as current",
@@ -375,8 +378,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     search_input = search_dialog.get_by_label("Search library")
     expect(search_input).to_be_focused()
     _require(
-        search_dialog.locator('[data-testid="global-search-result-workspace"]').count() == 5,
-        "global quick navigation does not expose five stable workspaces",
+        search_dialog.locator('[data-testid="global-search-result-workspace"]').count() == 6,
+        "global quick navigation does not expose six stable workspaces",
     )
     last_workspace_result = search_dialog.locator(
         '[data-testid="global-search-result-workspace"]'
@@ -389,6 +392,22 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(search_dialog).to_have_count(0)
     expect(search_trigger).to_be_focused()
     checks["global_search_entry_focus_and_quick_navigation"] = True
+
+    search_trigger.click()
+    search_dialog = page.get_by_test_id("global-search-dialog")
+    saved_workspace_result = search_dialog.get_by_test_id("global-search-result-workspace").filter(
+        has_text=re.compile(r"^Saved")
+    )
+    expect(saved_workspace_result).to_be_visible()
+    saved_workspace_result.click()
+    expect(page.get_by_role("heading", name="Saved Learning Library", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("saved-library-empty")).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "library")
+    page.get_by_role("link", name="Dashboard", exact=True).click()
+    expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
+    search_trigger = page.get_by_test_id("global-search-trigger-desktop")
+    search_trigger.focus()
+    checks["saved_library_empty_and_quick_navigation"] = True
 
     page.route(
         re.compile(r".*/v1\.2/references(?:\?.*)?$"),
@@ -675,6 +694,60 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_test_id("dashboard-activity")).not_to_contain_text(CRB_ARTICLE_ID)
     checks["dashboard_history"] = True
 
+    attention_state_response = context.request.put(
+        f"{API_URL}/learning/state/{ATTENTION_ARTICLE_ID}",
+        data={"status": "reading"},
+    )
+    _require(
+        attention_state_response.ok,
+        f"failed to prepare an in-progress Library fixture: {attention_state_response.status}",
+    )
+    page.get_by_role("link", name="Saved", exact=True).click()
+    expect(page.get_by_role("heading", name="Saved Learning Library", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "library")
+    expect(page.get_by_role("heading", name="Continue Learning", exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_role("heading", name="Bookmarked", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="Recently Read", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("saved-library-section-continue")).to_contain_text(ATTENTION_TITLE)
+    expect(page.get_by_test_id("saved-library-section-bookmarked")).to_contain_text(CRB_TITLE)
+    expect(page.get_by_test_id("saved-library-section-recent")).to_contain_text(CRB_TITLE)
+
+    page.get_by_role("button", name=re.compile(r"^Saved \(1\)$")).click()
+    page.get_by_label("Sort saved learning", exact=True).select_option("progress")
+    page.get_by_label("Filter saved learning", exact=True).fill("CRB")
+    page.get_by_role("button", name="Filter", exact=True).click()
+    expect(page).to_have_url(re.compile(r"/library\?q=CRB&view=bookmarked&sort=progress$"))
+    saved_crb_link = page.get_by_test_id("saved-library-section-bookmarked").get_by_role(
+        "link", name=CRB_TITLE, exact=True
+    )
+    expect(saved_crb_link).to_be_visible()
+    saved_crb_href = saved_crb_link.get_attribute("href") or ""
+    _require(
+        "from=%2Flibrary%3Fq%3DCRB%26view%3Dbookmarked%26sort%3Dprogress" in saved_crb_href
+        and "#" in saved_crb_href,
+        f"Saved Library Reader destination is incomplete: {saved_crb_href}",
+    )
+    saved_crb_link.click()
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    saved_return = page.get_by_role("link", name="Back to saved library", exact=True)
+    expect(saved_return).to_have_attribute(
+        "href", "/library?q=CRB&view=bookmarked&sort=progress"
+    )
+    saved_reader_session = page.get_by_role("button", name="End session", exact=True)
+    expect(saved_reader_session).to_be_enabled(timeout=30_000)
+    saved_reader_session.click()
+    expect(saved_reader_session).to_be_disabled()
+    saved_return.click()
+    expect(page.get_by_role("heading", name="Saved Learning Library", exact=True)).to_be_visible()
+    expect(page.get_by_label("Filter saved learning", exact=True)).to_have_value("CRB")
+    expect(page.get_by_label("Sort saved learning", exact=True)).to_have_value("progress")
+    expect(page.get_by_role("button", name=re.compile(r"^Saved \(1\)$"))).to_have_attribute(
+        "aria-pressed", "true"
+    )
+    checks["saved_learning_library"] = True
+
+    page.get_by_role("link", name="Dashboard", exact=True).click()
+    continue_link = page.get_by_role("link", name=re.compile(r"^Continue learning CRB"))
     continue_link.click()
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     page.wait_for_function("() => window.scrollY > 0")
@@ -918,7 +991,60 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_test_id("dashboard-remote-state")).to_have_count(0, timeout=30_000)
     expect(page.get_by_role("heading", name="Learning Activity", exact=True)).to_be_visible()
     checks["dashboard_partial_failure"] = True
+
+    page.route(
+        re.compile(r".*/learning/bookmarks$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional P3-020 partial Bookmark failure"}',
+        ),
+        times=1,
+    )
+    page.goto(f"{FRONTEND_URL}/library", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    expect(page.get_by_test_id("saved-library-remote-state")).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("saved-library-remote-state")).to_contain_text(
+        "Some saved-learning data is unavailable"
+    )
+    expect(page.get_by_role("heading", name="Saved Learning Library", exact=True)).to_be_visible()
+    expect(page.get_by_text(CRB_TITLE, exact=True).first).to_be_visible()
+    page.get_by_test_id("saved-library-remote-state").get_by_role(
+        "button", name="Retry", exact=True
+    ).click()
+    expect(page.get_by_test_id("saved-library-remote-state")).to_have_count(0, timeout=30_000)
+    checks["saved_library_partial_failure"] = True
     context.close()
+
+    unavailable_context = browser.new_context(viewport={"width": 1440, "height": 1000}, locale="zh-CN")
+    _install_network_guard(unavailable_context, blocked_external)
+    for endpoint in ("state", "bookmarks", "stats"):
+        unavailable_context.route(
+            re.compile(rf".*/learning/{endpoint}$"),
+            lambda route: route.fulfill(
+                status=503,
+                content_type="application/json",
+                body='{"detail":"intentional P3-020 unavailable state"}',
+            ),
+        )
+    unavailable_page = unavailable_context.new_page()
+    unavailable_page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    unavailable_page.on(
+        "pageerror", lambda error: page_errors.append(f"{unavailable_page.url}: {error}")
+    )
+    unavailable_page.goto(f"{FRONTEND_URL}/library", wait_until="domcontentloaded")
+    _wait_for_application_shell(unavailable_page)
+    expect(unavailable_page.get_by_test_id("saved-library-unavailable")).to_be_visible(
+        timeout=30_000
+    )
+    expect(unavailable_page.get_by_test_id("saved-library-unavailable")).not_to_contain_text(
+        CRB_ARTICLE_ID
+    )
+    checks["saved_library_unavailable_state"] = True
+    unavailable_context.close()
 
     mobile_context = browser.new_context(
         viewport={"width": 390, "height": 844},
@@ -979,8 +1105,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     mobile_search_input = mobile_search_dialog.get_by_label("Search library")
     expect(mobile_search_input).to_be_focused()
     _require(
-        mobile_search_dialog.locator('[data-testid="global-search-result-workspace"]').count() == 5,
-        "mobile quick navigation does not expose five stable workspaces",
+        mobile_search_dialog.locator('[data-testid="global-search-result-workspace"]').count() == 6,
+        "mobile quick navigation does not expose six stable workspaces",
     )
     mobile_search_box = mobile_search_dialog.locator('[role="dialog"]').bounding_box()
     _require(
@@ -1005,8 +1131,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     close_navigation = mobile_page.get_by_role("button", name="Close navigation", exact=True)
     expect(close_navigation).to_be_focused()
     _require(
-        mobile_navigation.locator('nav[aria-label="Primary"] a').count() == 5,
-        "mobile drawer does not expose five primary workspaces",
+        mobile_navigation.locator('nav[aria-label="Primary"] a').count() == 6,
+        "mobile drawer does not expose six primary workspaces",
     )
     expect(
         mobile_navigation.locator('nav[aria-label="Primary"] [aria-current="page"]')
@@ -1034,6 +1160,31 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["mobile_dashboard_density"] = True
 
     mobile_menu_button.click()
+    mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
+    expect(mobile_navigation).to_be_visible()
+    mobile_navigation.get_by_role("link", name="Saved", exact=True).click()
+    expect(mobile_navigation).to_have_count(0)
+    expect(mobile_page.get_by_role("heading", name="Saved Learning Library", exact=True)).to_be_visible()
+    expect(mobile_page.get_by_test_id("application-shell")).to_have_attribute(
+        "data-workspace", "library"
+    )
+    expect(mobile_page.get_by_role("heading", name="Continue Learning", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    expect(mobile_page.get_by_role("heading", name="Bookmarked", exact=True)).to_be_visible()
+    expect(mobile_page.get_by_role("heading", name="Recently Read", exact=True)).to_be_visible()
+    library_stat_boxes = mobile_page.locator('[data-testid="saved-library-summary"] > div').evaluate_all(
+        "nodes => nodes.map(node => node.getBoundingClientRect()).map(box => ({x: box.x, y: box.y}))"
+    )
+    _require(
+        len({round(item["x"]) for item in library_stat_boxes}) == 2,
+        "mobile Saved Library statistics are not two columns",
+    )
+    library_width = _document_width(mobile_page)
+    _require(library_width <= 390, f"mobile Saved Library overflowed to {library_width}px")
+    checks["mobile_saved_learning_library"] = True
+
+    mobile_page.get_by_role("button", name="Open navigation", exact=True).click()
     mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
     expect(mobile_navigation).to_be_visible()
     mobile_navigation.get_by_role("link", name="Articles", exact=True).click()
@@ -1130,6 +1281,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "checks": checks,
         "mobile_widths": {
             "viewport": 390,
+            "saved_library": library_width,
             "article_list": list_width,
             "article_detail": detail_width,
             "tutor": tutor_width,
@@ -1191,7 +1343,7 @@ def verify_backend_restart_persistence(
             "completed_state": stats.get("completed_count") == 1,
             "bookmark": stats.get("bookmark_count") == 1,
             "note": stats.get("note_count") == 1,
-            "ended_sessions": sessions.get("total") == 5
+            "ended_sessions": sessions.get("total") == 6
             and all(item.get("ended_at") for item in sessions.get("items", [])),
         }
         _require(all(checks.values()), f"restart persistence checks failed: {checks}")
@@ -1234,7 +1386,7 @@ def _document_width(page) -> int:
 
 
 def _unexpected_console_errors(messages: list[str]) -> list[str]:
-    expected_statuses = {"404": 1, "503": 4}
+    expected_statuses = {"404": 1, "503": 8}
     unexpected: list[str] = []
     for message in messages:
         matched = False

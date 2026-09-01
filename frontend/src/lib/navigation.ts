@@ -1,4 +1,4 @@
-export type WorkspaceId = "dashboard" | "articles" | "references" | "graph" | "tutor" | "unknown";
+export type WorkspaceId = "dashboard" | "library" | "articles" | "references" | "graph" | "tutor" | "unknown";
 
 export type PrimaryNavigationItem = {
   id: Exclude<WorkspaceId, "unknown">;
@@ -14,6 +14,7 @@ export type WorkspaceLocation = {
 
 export const PRIMARY_NAVIGATION: readonly PrimaryNavigationItem[] = [
   { id: "dashboard", href: "/", label: "Dashboard" },
+  { id: "library", href: "/library", label: "Saved" },
   { id: "articles", href: "/articles", label: "Articles" },
   { id: "references", href: "/zotero", label: "References" },
   { id: "graph", href: "/graph", label: "Graph" },
@@ -33,6 +34,9 @@ export function resolveWorkspaceLocation(pathname: string): WorkspaceLocation {
 
   if (normalized === "/") {
     return { id: "dashboard", label: "Dashboard", trail: ["Dashboard"] };
+  }
+  if (normalized === "/library" || normalized.startsWith("/library/")) {
+    return { id: "library", label: "Saved", trail: ["Saved Learning"] };
   }
   if (normalized === "/articles") {
     return { id: "articles", label: "Articles", trail: ["Articles"] };

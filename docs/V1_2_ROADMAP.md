@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-019 product convergence tasks are PASS / CLOSED with exact-SHA implementation main CI passing; no active task or candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-019 product convergence tasks are PASS / CLOSED with exact-SHA implementation main CI passing; P3-020 is LOCAL PASS / IMPLEMENTATION CI PENDING; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -591,6 +591,29 @@ Backend, Frontend, Product E2E, workflow policy, dependency audit, secret
 audit, and SBOM validation passed; normal-main Docker and release-evidence
 jobs were skipped as designed; uploaded artifacts were zero. Evidence is in
 `docs/P3_019_GLOBAL_SEARCH_AND_QUICK_NAVIGATION_REPORT.md`.
+
+### P3-020 - Saved Learning Library
+
+Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+
+P3-020 adds a bounded, responsive Saved Learning Library using only existing
+Learning State, Bookmark, Reading History, Reader Progress, and recent-learning
+contracts. It exposes continue-learning, bookmarked, and recently read
+sections; deterministic filtering, sorting, counts, and safe Reader return
+paths; complete partial/unavailable states; and desktop, mobile, and quick
+navigation. Backend, frozen M1, source records, Article records, derived
+assets, dependencies, workflows, private Zotero, Providers, and release state
+remain protected. The canonical task is
+`docs/tasks/P3-020_SAVED_LEARNING_LIBRARY.md`.
+
+Local evidence passed 600 Backend tests with 4 skipped, 70 focused Frontend
+tests, the production build, three formal Product E2E runs plus ten stress
+runs with 42 checks each, and a real local 1,314-Article desktop/mobile probe.
+The 13 consecutive production runs recorded zero external requests,
+unexpected console errors, or page errors. Workflow, suppression, dependency,
+secret, security utility, temporary SBOM, artifact, and protected-path gates
+passed. Implementation exact-SHA main CI is pending. Evidence is in
+`docs/P3_020_SAVED_LEARNING_LIBRARY_REPORT.md`.
 
 ## Release Criteria
 

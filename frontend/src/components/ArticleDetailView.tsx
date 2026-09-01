@@ -74,6 +74,7 @@ export function ArticleDetailView({
   const learningLoadArticleRef = useRef<string | null>(null);
   const articleRootRef = useRef<HTMLElement | null>(null);
   const explicitSectionRef = useRef<ArticleOutlineItem | null>(null);
+  const returnLabel = listReturnTo.startsWith("/library") ? "Back to saved library" : "Back to articles";
 
   useEffect(() => {
     setArticle(null);
@@ -382,7 +383,7 @@ export function ArticleDetailView({
             className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-900 hover:border-red-500"
             href={listReturnTo}
           >
-            Back to articles
+            {returnLabel}
           </Link>
         }
         detail={error}
@@ -413,7 +414,7 @@ export function ArticleDetailView({
         data-reader-width={readerPreferences.width}
       >
         <Link className="text-sm text-slate-600 hover:text-slate-950" href={listReturnTo}>
-          Back to articles
+          {returnLabel}
         </Link>
         <h1 className="mt-4 break-words text-2xl font-semibold leading-tight">{article.title}</h1>
         <p className="mt-2 text-sm text-slate-500">{formatMetadata(article.metadata)}</p>

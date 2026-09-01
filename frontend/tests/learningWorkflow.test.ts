@@ -8,6 +8,7 @@ import {
   createLearningToolHref,
   parseArticleListState,
   parseLearningWorkflowContext,
+  sanitizeArticleEntryReturnPath,
   sanitizeArticleListReturnPath,
 } from "../src/lib/learningWorkflow";
 
@@ -35,6 +36,20 @@ test("Article detail links retain only a safe canonical list return path", () =>
   assert.equal(sanitizeArticleListReturnPath("https://example.com/articles?q=secret"), "/articles");
   assert.equal(sanitizeArticleListReturnPath("//example.com/articles"), "/articles");
   assert.equal(sanitizeArticleListReturnPath("/tutor?q=CRB"), "/articles");
+});
+
+test("Article detail accepts only canonical Saved Library return state", () => {
+  const libraryPath = "/library?q=CRB&view=bookmarked&sort=progress";
+  assert.equal(sanitizeArticleEntryReturnPath(libraryPath), libraryPath);
+  assert.equal(
+    createArticleDetailHref("crb-formula", libraryPath),
+    "/articles/crb-formula?from=%2Flibrary%3Fq%3DCRB%26view%3Dbookmarked%26sort%3Dprogress",
+  );
+  assert.equal(
+    sanitizeArticleEntryReturnPath("/library?q=x&view=unsafe&sort=unsafe&token=secret"),
+    "/library?q=x",
+  );
+  assert.equal(sanitizeArticleEntryReturnPath("https://example.com/library"), "/articles");
 });
 
 test("Tutor workflow context round-trips Article, list, title, and section", () => {
