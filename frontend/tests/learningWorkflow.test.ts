@@ -52,6 +52,17 @@ test("Article detail accepts only canonical Saved Library return state", () => {
   assert.equal(sanitizeArticleEntryReturnPath("https://example.com/library"), "/articles");
 });
 
+test("Article detail accepts only the canonical local Study Session return path", () => {
+  assert.equal(sanitizeArticleEntryReturnPath("/session"), "/session");
+  assert.equal(sanitizeArticleEntryReturnPath("/session?token=secret"), "/session");
+  assert.equal(sanitizeArticleEntryReturnPath("/session#unsafe"), "/articles");
+  assert.equal(sanitizeArticleEntryReturnPath("https://example.com/session"), "/articles");
+  assert.equal(
+    createArticleDetailHref("crb-formula", "/session"),
+    "/articles/crb-formula?from=%2Fsession",
+  );
+});
+
 test("Tutor workflow context round-trips Article, list, title, and section", () => {
   const href = createLearningToolHref("tutor", {
     articleId: "crb-formula",

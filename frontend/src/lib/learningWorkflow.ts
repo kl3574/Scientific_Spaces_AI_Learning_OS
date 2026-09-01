@@ -82,6 +82,9 @@ export function sanitizeArticleEntryReturnPath(value: string | null | undefined)
   if (parsed.pathname === "/library") {
     return createLibraryReturnPath(parsed.searchParams);
   }
+  if (parsed.pathname === "/session") {
+    return "/session";
+  }
   return "/articles";
 }
 

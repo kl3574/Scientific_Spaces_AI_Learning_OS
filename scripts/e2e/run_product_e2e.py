@@ -352,8 +352,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "Dashboard"
     )
     _require(
-        page.locator('nav[aria-label="Primary"] a').count() == 6,
-        "desktop Application Shell does not expose six primary workspaces",
+        page.locator('nav[aria-label="Primary"] a').count() == 7,
+        "desktop Application Shell does not expose seven primary workspaces",
     )
     next_actions = page.get_by_test_id("dashboard-next-actions")
     for action in ("Open saved learning", "Ask tutor", "Explore graph", "Review sources"):
@@ -378,8 +378,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     search_input = search_dialog.get_by_label("Search library")
     expect(search_input).to_be_focused()
     _require(
-        search_dialog.locator('[data-testid="global-search-result-workspace"]').count() == 6,
-        "global quick navigation does not expose six stable workspaces",
+        search_dialog.locator('[data-testid="global-search-result-workspace"]').count() == 7,
+        "global quick navigation does not expose seven stable workspaces",
     )
     last_workspace_result = search_dialog.locator(
         '[data-testid="global-search-result-workspace"]'
@@ -392,6 +392,21 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(search_dialog).to_have_count(0)
     expect(search_trigger).to_be_focused()
     checks["global_search_entry_focus_and_quick_navigation"] = True
+
+    search_trigger.click()
+    search_dialog = page.get_by_test_id("global-search-dialog")
+    session_workspace_result = search_dialog.get_by_test_id(
+        "global-search-result-workspace"
+    ).filter(has_text=re.compile(r"^Session"))
+    expect(session_workspace_result).to_be_visible()
+    session_workspace_result.click()
+    expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("study-session-empty")).to_be_visible()
+    expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "session")
+    page.get_by_role("link", name="Dashboard", exact=True).click()
+    expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
+    search_trigger = page.get_by_test_id("global-search-trigger-desktop")
+    checks["study_session_empty_and_quick_navigation"] = True
 
     search_trigger.click()
     search_dialog = page.get_by_test_id("global-search-dialog")
@@ -712,6 +727,18 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_test_id("saved-library-section-bookmarked")).to_contain_text(CRB_TITLE)
     expect(page.get_by_test_id("saved-library-section-recent")).to_contain_text(CRB_TITLE)
 
+    attention_library_item = page.get_by_test_id("saved-library-section-continue").locator(
+        '[data-testid="saved-library-item"]'
+    ).filter(has_text=ATTENTION_TITLE).first
+    attention_library_item.get_by_role(
+        "button", name=f"Add {ATTENTION_TITLE} to study session", exact=True
+    ).click()
+    expect(
+        attention_library_item.get_by_role(
+            "button", name=f"{ATTENTION_TITLE} is in study session", exact=True
+        )
+    ).to_be_disabled()
+
     page.get_by_role("button", name=re.compile(r"^Saved \(1\)$")).click()
     page.get_by_label("Sort saved learning", exact=True).select_option("progress")
     page.get_by_label("Filter saved learning", exact=True).fill("CRB")
@@ -744,11 +771,73 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("button", name=re.compile(r"^Saved \(1\)$"))).to_have_attribute(
         "aria-pressed", "true"
     )
+    session_url_before_add = page.url
+    saved_crb_item = page.get_by_test_id("saved-library-section-bookmarked").locator(
+        '[data-testid="saved-library-item"]'
+    ).filter(has_text=CRB_TITLE).first
+    saved_crb_item.get_by_role(
+        "button", name=f"Add {CRB_TITLE} to study session", exact=True
+    ).click()
+    _require(page.url == session_url_before_add, "adding to Session discarded Saved Library URL state")
+    expect(page.get_by_role("link", name="Open study session (2)", exact=True)).to_be_visible()
     checks["saved_learning_library"] = True
 
+    page.get_by_role("link", name="Open study session (2)", exact=True).click()
+    expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "session")
+    expect(page.get_by_test_id("study-session-summary")).to_contain_text("2 Articles")
+    crb_queue_item = page.get_by_test_id("study-session-item").filter(has_text=CRB_TITLE).first
+    crb_queue_item.get_by_role("button", name=f"Move {CRB_TITLE} up", exact=True).click()
+    crb_queue_item.get_by_role("button", name=f"Set {CRB_TITLE} as current", exact=True).click()
+    expect(crb_queue_item).to_contain_text("Current")
+    page.reload(wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    crb_queue_item = page.get_by_test_id("study-session-item").first
+    expect(crb_queue_item).to_contain_text(CRB_TITLE)
+    expect(crb_queue_item).to_contain_text("Current")
+    page.get_by_role(
+        "link", name=f"Continue current Article: {CRB_TITLE}", exact=True
+    ).click()
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    session_reader_navigation = page.get_by_test_id("study-session-reader-navigation")
+    expect(session_reader_navigation).to_contain_text("Article 1 of 2")
+    next_session_article = session_reader_navigation.get_by_role(
+        "link", name=f"Next in session: {ATTENTION_TITLE}", exact=True
+    )
+    current_queue_reader_session = page.get_by_role("button", name="End session", exact=True)
+    expect(current_queue_reader_session).to_be_enabled(timeout=30_000)
+    current_queue_reader_session.click()
+    expect(current_queue_reader_session).to_be_disabled()
+    next_session_article.click()
+    expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    session_reader_navigation = page.get_by_test_id("study-session-reader-navigation")
+    expect(session_reader_navigation).to_contain_text("Article 2 of 2")
+    expect(
+        session_reader_navigation.get_by_role(
+            "link", name=f"Previous in session: {CRB_TITLE}", exact=True
+        )
+    ).to_be_visible()
+    next_queue_reader_session = page.get_by_role("button", name="End session", exact=True)
+    expect(next_queue_reader_session).to_be_enabled(timeout=30_000)
+    next_queue_reader_session.click()
+    expect(next_queue_reader_session).to_be_disabled()
+    page.get_by_role("link", name="Back to study session", exact=True).first.click()
+    expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    crb_queue_item = page.get_by_test_id("study-session-item").filter(has_text=CRB_TITLE).first
+    crb_queue_item.get_by_role(
+        "button", name=f"Remove {CRB_TITLE} from session", exact=True
+    ).click()
+    expect(page.get_by_test_id("study-session-summary")).to_contain_text("1 Article")
+    page.get_by_role("button", name="Clear queue", exact=True).click()
+    page.get_by_role("button", name="Confirm clear queue", exact=True).click()
+    expect(page.get_by_test_id("study-session-empty")).to_be_visible()
+    checks["focused_study_session_workflow"] = True
+
     page.get_by_role("link", name="Dashboard", exact=True).click()
-    continue_link = page.get_by_role("link", name=re.compile(r"^Continue learning CRB"))
-    continue_link.click()
+    expect(page.get_by_role("heading", name="Continue Learning", exact=True)).to_be_visible()
+    page.goto(f"{FRONTEND_URL}{continue_href}", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     page.wait_for_function("() => window.scrollY > 0")
     expect(page.locator("article.reader-workspace")).to_have_attribute("data-reader-size", "large")
@@ -1046,6 +1135,156 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["saved_library_unavailable_state"] = True
     unavailable_context.close()
 
+    recovered_session_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    recovered_session_context.add_init_script(
+        script=f"""
+        localStorage.setItem(
+          "scientific-spaces-study-session-v1",
+          {json.dumps(json.dumps({
+              "version": 1,
+              "active_article_id": "missing-article",
+              "updated_at": "invalid timestamp",
+              "items": [
+                  {
+                      "article_id": CRB_ARTICLE_ID,
+                      "title": CRB_TITLE,
+                      "section_id": "regularity",
+                      "added_at": "2026-08-31T02:00:00.000Z",
+                  },
+                  {
+                      "article_id": CRB_ARTICLE_ID,
+                      "title": CRB_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-08-31T02:01:00.000Z",
+                  },
+                  {
+                      "article_id": "raw-title-id",
+                      "title": "raw-title-id",
+                      "section_id": None,
+                      "added_at": "2026-08-31T02:02:00.000Z",
+                  },
+              ],
+          }, ensure_ascii=False))}
+        );
+        """
+    )
+    _install_network_guard(recovered_session_context, blocked_external)
+    recovered_session_page = recovered_session_context.new_page()
+    recovered_session_page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    recovered_session_page.on(
+        "pageerror", lambda error: page_errors.append(f"{recovered_session_page.url}: {error}")
+    )
+    recovered_session_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
+    _wait_for_application_shell(recovered_session_page)
+    expect(recovered_session_page.get_by_role("status")).to_contain_text(
+        "The saved queue was recovered safely"
+    )
+    expect(recovered_session_page.get_by_test_id("study-session-summary")).to_contain_text(
+        "1 Article"
+    )
+    expect(recovered_session_page.get_by_test_id("study-session-item")).to_contain_text(CRB_TITLE)
+    expect(recovered_session_page.get_by_test_id("focused-study-session")).not_to_contain_text(
+        "raw-title-id"
+    )
+    checks["study_session_stale_record_recovery"] = True
+    recovered_session_context.close()
+
+    read_failure_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    read_failure_context.add_init_script(
+        script="""
+        const originalGetItem = Storage.prototype.getItem;
+        Storage.prototype.getItem = function (key) {
+          if (key === "scientific-spaces-study-session-v1") {
+            throw new Error("intentional study session read failure");
+          }
+          return originalGetItem.call(this, key);
+        };
+        """
+    )
+    _install_network_guard(read_failure_context, blocked_external)
+    read_failure_page = read_failure_context.new_page()
+    read_failure_page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    read_failure_page.on(
+        "pageerror", lambda error: page_errors.append(f"{read_failure_page.url}: {error}")
+    )
+    read_failure_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
+    _wait_for_application_shell(read_failure_page)
+    expect(read_failure_page.get_by_test_id("study-session-unavailable")).to_be_visible()
+    checks["study_session_storage_unavailable"] = True
+    read_failure_context.close()
+
+    write_failure_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    write_failure_context.add_init_script(
+        script=f"""
+        const studySessionKey = "scientific-spaces-study-session-v1";
+        const originalSetItem = Storage.prototype.setItem;
+        originalSetItem.call(
+          localStorage,
+          studySessionKey,
+          {json.dumps(json.dumps({
+              "version": 1,
+              "active_article_id": ATTENTION_ARTICLE_ID,
+              "updated_at": "2026-08-31T02:00:00.000Z",
+              "items": [
+                  {
+                      "article_id": ATTENTION_ARTICLE_ID,
+                      "title": ATTENTION_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-08-31T02:00:00.000Z",
+                  },
+                  {
+                      "article_id": CRB_ARTICLE_ID,
+                      "title": CRB_TITLE,
+                      "section_id": "regularity",
+                      "added_at": "2026-08-31T02:01:00.000Z",
+                  },
+              ],
+          }, ensure_ascii=False))}
+        );
+        Storage.prototype.setItem = function (key, value) {{
+          if (key === studySessionKey) {{
+            throw new Error("intentional study session write failure");
+          }}
+          return originalSetItem.call(this, key, value);
+        }};
+        """
+    )
+    _install_network_guard(write_failure_context, blocked_external)
+    write_failure_page = write_failure_context.new_page()
+    write_failure_page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    write_failure_page.on(
+        "pageerror", lambda error: page_errors.append(f"{write_failure_page.url}: {error}")
+    )
+    write_failure_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
+    _wait_for_application_shell(write_failure_page)
+    crb_write_failure_item = write_failure_page.get_by_test_id("study-session-item").filter(
+        has_text=CRB_TITLE
+    ).first
+    crb_write_failure_item.get_by_role(
+        "button", name=f"Move {CRB_TITLE} up", exact=True
+    ).click()
+    expect(write_failure_page.get_by_test_id("study-session-item").first).to_contain_text(CRB_TITLE)
+    expect(write_failure_page.get_by_role("status")).to_contain_text(
+        "browser-local storage could not save it"
+    )
+    checks["study_session_storage_write_failure"] = True
+    write_failure_context.close()
+
     mobile_context = browser.new_context(
         viewport={"width": 390, "height": 844},
         locale="zh-CN",
@@ -1074,6 +1313,28 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
                   "progress": 42,
                   "updated_at": "2026-08-31T02:00:00.000Z",
               }],
+          }, ensure_ascii=False))}
+        );
+        localStorage.setItem(
+          "scientific-spaces-study-session-v1",
+          {json.dumps(json.dumps({
+              "version": 1,
+              "active_article_id": CRB_ARTICLE_ID,
+              "updated_at": "2026-08-31T02:03:00.000Z",
+              "items": [
+                  {
+                      "article_id": CRB_ARTICLE_ID,
+                      "title": CRB_TITLE,
+                      "section_id": "regularity",
+                      "added_at": "2026-08-31T02:00:00.000Z",
+                  },
+                  {
+                      "article_id": ATTENTION_ARTICLE_ID,
+                      "title": ATTENTION_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-08-31T02:01:00.000Z",
+                  },
+              ],
           }, ensure_ascii=False))}
         );
         """
@@ -1105,8 +1366,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     mobile_search_input = mobile_search_dialog.get_by_label("Search library")
     expect(mobile_search_input).to_be_focused()
     _require(
-        mobile_search_dialog.locator('[data-testid="global-search-result-workspace"]').count() == 6,
-        "mobile quick navigation does not expose six stable workspaces",
+        mobile_search_dialog.locator('[data-testid="global-search-result-workspace"]').count() == 7,
+        "mobile quick navigation does not expose seven stable workspaces",
     )
     mobile_search_box = mobile_search_dialog.locator('[role="dialog"]').bounding_box()
     _require(
@@ -1131,8 +1392,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     close_navigation = mobile_page.get_by_role("button", name="Close navigation", exact=True)
     expect(close_navigation).to_be_focused()
     _require(
-        mobile_navigation.locator('nav[aria-label="Primary"] a').count() == 6,
-        "mobile drawer does not expose six primary workspaces",
+        mobile_navigation.locator('nav[aria-label="Primary"] a').count() == 7,
+        "mobile drawer does not expose seven primary workspaces",
     )
     expect(
         mobile_navigation.locator('nav[aria-label="Primary"] [aria-current="page"]')
@@ -1183,6 +1444,28 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     library_width = _document_width(mobile_page)
     _require(library_width <= 390, f"mobile Saved Library overflowed to {library_width}px")
     checks["mobile_saved_learning_library"] = True
+
+    mobile_page.get_by_role("button", name="Open navigation", exact=True).click()
+    mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
+    expect(mobile_navigation).to_be_visible()
+    mobile_navigation.get_by_role("link", name="Session", exact=True).click()
+    expect(mobile_navigation).to_have_count(0)
+    expect(mobile_page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    expect(mobile_page.get_by_test_id("application-shell")).to_have_attribute(
+        "data-workspace", "session"
+    )
+    expect(mobile_page.get_by_test_id("study-session-summary")).to_contain_text("2 Articles")
+    expect(mobile_page.get_by_test_id("study-session-item")).to_have_count(2)
+    session_width = _document_width(mobile_page)
+    first_session_item_box = mobile_page.get_by_test_id("study-session-item").first.bounding_box()
+    _require(
+        first_session_item_box is not None
+        and first_session_item_box["x"] >= 0
+        and first_session_item_box["x"] + first_session_item_box["width"] <= 390,
+        f"mobile Session queue item is clipped: {first_session_item_box}",
+    )
+    _require(session_width <= 390, f"mobile Session overflowed to {session_width}px")
+    checks["mobile_focused_study_session"] = True
 
     mobile_page.get_by_role("button", name="Open navigation", exact=True).click()
     mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
@@ -1282,6 +1565,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "mobile_widths": {
             "viewport": 390,
             "saved_library": library_width,
+            "study_session": session_width,
             "article_list": list_width,
             "article_detail": detail_width,
             "tutor": tutor_width,
@@ -1343,7 +1627,7 @@ def verify_backend_restart_persistence(
             "completed_state": stats.get("completed_count") == 1,
             "bookmark": stats.get("bookmark_count") == 1,
             "note": stats.get("note_count") == 1,
-            "ended_sessions": sessions.get("total") == 6
+            "ended_sessions": sessions.get("total") == 8
             and all(item.get("ended_at") for item in sessions.get("items", [])),
         }
         _require(all(checks.values()), f"restart persistence checks failed: {checks}")

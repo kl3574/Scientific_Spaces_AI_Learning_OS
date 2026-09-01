@@ -46,6 +46,14 @@ import {
 } from "@/lib/learning";
 import { ReadingHistoryItem, loadReadingHistory, recordReading } from "@/lib/readingHistory";
 import { createLearningToolHref } from "@/lib/learningWorkflow";
+import {
+  activateStudySessionItem,
+  createStudySessionReaderHref,
+  getStudySessionPosition,
+  loadStudySession,
+  saveStudySession,
+  type StudySessionPosition,
+} from "@/lib/studySession";
 import { StructuredReferencesPanel } from "@/components/StructuredReferencesPanel";
 import { WorkspaceState } from "@/components/WorkspaceState";
 import { ZoteroLinksPanel } from "@/components/ZoteroLinksPanel";
@@ -71,10 +79,16 @@ export function ArticleDetailView({
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [readingProgress, setReadingProgress] = useState(0);
   const [readerPreferences, setReaderPreferences] = useState<ReaderPreferences>(DEFAULT_READER_PREFERENCES);
+  const [studySessionPosition, setStudySessionPosition] = useState<StudySessionPosition | null>(null);
+  const [studySessionWarning, setStudySessionWarning] = useState<string | null>(null);
   const learningLoadArticleRef = useRef<string | null>(null);
   const articleRootRef = useRef<HTMLElement | null>(null);
   const explicitSectionRef = useRef<ArticleOutlineItem | null>(null);
-  const returnLabel = listReturnTo.startsWith("/library") ? "Back to saved library" : "Back to articles";
+  const returnLabel = listReturnTo === "/session"
+    ? "Back to study session"
+    : listReturnTo.startsWith("/library")
+      ? "Back to saved library"
+      : "Back to articles";
 
   useEffect(() => {
     setArticle(null);
@@ -86,6 +100,8 @@ export function ArticleDetailView({
     setNotes([]);
     setActiveSession(null);
     setLearningError(null);
+    setStudySessionPosition(null);
+    setStudySessionWarning(null);
     learningLoadArticleRef.current = null;
     explicitSectionRef.current = null;
     setHistory(loadReadingHistory());
@@ -101,6 +117,35 @@ export function ArticleDetailView({
   useEffect(() => {
     setReaderPreferences(loadReaderPreferences());
   }, []);
+
+  useEffect(() => {
+    if (listReturnTo !== "/session" || !article?.id) {
+      setStudySessionPosition(null);
+      setStudySessionWarning(null);
+      return;
+    }
+
+    const snapshot = loadStudySession();
+    if (!snapshot.storageAvailable) {
+      setStudySessionPosition(null);
+      setStudySessionWarning("The focused session could not be recovered from browser-local storage.");
+      return;
+    }
+    const currentPosition = getStudySessionPosition(snapshot.state, article.id);
+    if (!currentPosition) {
+      setStudySessionPosition(null);
+      setStudySessionWarning("This Article is no longer present in the focused session queue.");
+      return;
+    }
+
+    const activeState = activateStudySessionItem(snapshot.state, article.id, new Date().toISOString());
+    setStudySessionPosition(getStudySessionPosition(activeState, article.id));
+    setStudySessionWarning(
+      activeState !== snapshot.state && !saveStudySession(activeState)
+        ? "The current queue position changed on this page but could not be saved."
+        : null,
+    );
+  }, [article?.id, listReturnTo]);
 
   async function loadLearningContext(nextArticleId: string) {
     if (learningLoadArticleRef.current === nextArticleId) {
@@ -416,6 +461,9 @@ export function ArticleDetailView({
         <Link className="text-sm text-slate-600 hover:text-slate-950" href={listReturnTo}>
           {returnLabel}
         </Link>
+        {listReturnTo === "/session" ? (
+          <StudySessionReaderNavigation position={studySessionPosition} warning={studySessionWarning} />
+        ) : null}
         <h1 className="mt-4 break-words text-2xl font-semibold leading-tight">{article.title}</h1>
         <p className="mt-2 text-sm text-slate-500">{formatMetadata(article.metadata)}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -694,6 +742,51 @@ export function ArticleDetailView({
         </section>
       </aside>
     </section>
+  );
+}
+
+function StudySessionReaderNavigation({
+  position,
+  warning,
+}: Readonly<{
+  position: StudySessionPosition | null;
+  warning: string | null;
+}>) {
+  return (
+    <nav
+      aria-label="Focused study session position"
+      className="mt-4 border-y border-slate-200 py-3"
+      data-testid="study-session-reader-navigation"
+    >
+      {warning ? <p className="text-sm text-amber-800" role="status">{warning}</p> : null}
+      {position ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm font-semibold text-slate-700">
+            Article {position.index + 1} of {position.total}
+          </p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-semibold">
+            {position.previous ? (
+              <Link
+                aria-label={`Previous in session: ${position.previous.title}`}
+                className="text-emerald-800 hover:text-emerald-950"
+                href={createStudySessionReaderHref(position.previous)}
+              >
+                Previous
+              </Link>
+            ) : null}
+            {position.next ? (
+              <Link
+                aria-label={`Next in session: ${position.next.title}`}
+                className="text-emerald-800 hover:text-emerald-950"
+                href={createStudySessionReaderHref(position.next)}
+              >
+                Next
+              </Link>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
+    </nav>
   );
 }
 

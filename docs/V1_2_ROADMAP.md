@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-020 product convergence tasks are PASS / CLOSED with exact-SHA implementation main CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-020 product convergence tasks are PASS / CLOSED with exact-SHA implementation main CI passing; P3-021 is LOCAL PASS / IMPLEMENTATION CI PENDING; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -620,6 +620,28 @@ audit, and SBOM validation passed; normal-main Docker and release-evidence
 jobs were skipped as designed; uploaded artifacts were zero. Evidence is in
 `docs/P3_020_SAVED_LEARNING_LIBRARY_REPORT.md`.
 
+### P3-021 - Focused Study Session
+
+Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+
+P3-021 turns existing Saved Learning records into a bounded, resumable
+browser-local study queue. It provides deterministic add, deduplicate,
+reorder, activate, remove, clear, and recovery behavior; integrates the queue
+with Saved Learning and Reader previous/next/return controls; and exposes
+Session through desktop, mobile, and global quick navigation. Backend, frozen
+M1, source records, Article records, derived assets, dependencies, workflows,
+private Zotero, Providers, and release state remain protected. The canonical
+task is `docs/tasks/P3-021_FOCUSED_STUDY_SESSION.md`.
+
+Local evidence passed 600 Backend tests with 4 skipped, 77 focused Frontend
+tests, the production build, three Product E2E runs with 48 checks each, and a
+real local 1,314-Article desktop/mobile probe using two Chinese mathematics
+Articles. Browser checks recorded zero external requests, unexpected console
+errors, or page errors. Workflow, suppression, dependency, secret, security
+utility, temporary SBOM, artifact, and protected-path gates passed.
+Implementation exact-SHA main CI is pending. Evidence is in
+`docs/P3_021_FOCUSED_STUDY_SESSION_REPORT.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -652,8 +674,8 @@ jobs were skipped as designed; uploaded artifacts were zero. Evidence is in
 
 ## Next Recommended Task
 
-P3-019 Global Search and Quick Navigation is PASS / CLOSED. Its implementation
-exact-SHA main CI passed, and this docs-only closure commit requires its own
-exact-SHA CI readback before final reporting. No active next task or v1.2
-candidate is assigned. Tag, Release, attestation, real Provider, source access,
-external search, and private Zotero actions remain unauthorized.
+P3-021 Focused Study Session is LOCAL PASS / IMPLEMENTATION CI PENDING. The
+next authorized action is to create and push its implementation commit, then
+verify exact-SHA main CI. No next product task or v1.2 candidate is assigned.
+Tag, Release, attestation, real Provider, source access, external search, and
+private Zotero actions remain unauthorized.

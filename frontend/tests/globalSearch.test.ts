@@ -26,6 +26,7 @@ test("empty quick navigation covers every stable workspace and filters readably"
   assert.deepEqual(all.map((result) => result.title), [
     "Dashboard",
     "Saved",
+    "Session",
     "Articles",
     "References",
     "Graph",

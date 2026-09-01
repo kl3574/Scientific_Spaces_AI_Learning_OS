@@ -24,6 +24,13 @@ import {
   type SavedLibraryState,
   type SavedLibraryView as SavedLibraryViewId,
 } from "@/lib/savedLibrary";
+import {
+  STUDY_SESSION_CHANGE_EVENT,
+  addStudySessionItem,
+  loadStudySession,
+  saveStudySession,
+  type StudySessionLoadResult,
+} from "@/lib/studySession";
 
 type RemoteState = "loading" | "loaded" | "partial" | "error";
 
@@ -44,11 +51,24 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
   const [recentArticles, setRecentArticles] = useState<RecentLearningArticle[]>([]);
   const [remoteState, setRemoteState] = useState<RemoteState>("loading");
   const [remoteErrors, setRemoteErrors] = useState<string[]>([]);
+  const [studySession, setStudySession] = useState<StudySessionLoadResult | null>(null);
+  const [studySessionNotice, setStudySessionNotice] = useState<string | null>(null);
 
   useEffect(() => {
     setHistory(loadReadingHistory());
     setProgressItems(loadReaderProgressItems());
     void loadRemoteRecords();
+  }, []);
+
+  useEffect(() => {
+    const refresh = () => setStudySession(loadStudySession());
+    refresh();
+    window.addEventListener("storage", refresh);
+    window.addEventListener(STUDY_SESSION_CHANGE_EVENT, refresh);
+    return () => {
+      window.removeEventListener("storage", refresh);
+      window.removeEventListener(STUDY_SESSION_CHANGE_EVENT, refresh);
+    };
   }, []);
 
   useEffect(() => {
@@ -92,6 +112,10 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
   const visibleItems = useMemo(() => selectSavedLibraryItems(model.items, state), [model.items, state]);
   const sections = useMemo(() => createSections(model.items, visibleItems, state), [model.items, state, visibleItems]);
   const hasVisibleItems = sections.some((section) => section.items.length > 0);
+  const queuedArticleIds = useMemo(
+    () => new Set(studySession?.state.items.map((item) => item.articleId) ?? []),
+    [studySession?.state.items],
+  );
 
   function applyQuery(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -101,6 +125,37 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
   function clearQuery() {
     setQueryDraft("");
     setState((current) => ({ ...current, q: "" }));
+  }
+
+  function addToStudySession(item: SavedLibraryItem) {
+    if (!studySession?.storageAvailable) {
+      setStudySessionNotice("Browser-local storage is unavailable. The Article was not added.");
+      return;
+    }
+    const mutation = addStudySessionItem(
+      studySession.state,
+      { articleId: item.articleId, title: item.title, sectionId: item.sectionId },
+      new Date().toISOString(),
+    );
+    if (mutation.outcome === "already-present") {
+      setStudySessionNotice("This Article is already in the focused session.");
+      return;
+    }
+    if (mutation.outcome === "full") {
+      setStudySessionNotice("The focused session is full. Remove an Article before adding another.");
+      return;
+    }
+    if (mutation.outcome === "invalid") {
+      setStudySessionNotice("This saved record is not readable enough to add to the focused session.");
+      return;
+    }
+
+    setStudySession((current) => current ? { ...current, state: mutation.state } : current);
+    if (saveStudySession(mutation.state)) {
+      setStudySessionNotice(null);
+    } else {
+      setStudySessionNotice("The queue changed on this page, but browser-local storage could not save it.");
+    }
   }
 
   return (
@@ -118,11 +173,22 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
               Resume active reading, revisit saved Articles, and recover recent study positions.
             </p>
           </div>
-          <Link className="w-fit text-sm font-semibold text-emerald-800 hover:text-emerald-950" href="/articles">
-            Browse all articles
-          </Link>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link className="text-sm font-semibold text-emerald-800 hover:text-emerald-950" href="/session">
+              Open study session ({studySession?.state.items.length ?? 0})
+            </Link>
+            <Link className="text-sm font-semibold text-emerald-800 hover:text-emerald-950" href="/articles">
+              Browse all articles
+            </Link>
+          </div>
         </div>
       </header>
+
+      {studySessionNotice ? (
+        <p className="border-l-2 border-amber-600 bg-amber-50 px-3 py-2 text-sm text-amber-950" role="status">
+          {studySessionNotice}
+        </p>
+      ) : null}
 
       <LibrarySummary model={model} />
 
@@ -228,7 +294,14 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
       {hasVisibleItems ? (
         <div className="space-y-7" data-testid="saved-library-sections">
           {sections.map((section) => (
-            <LibrarySection key={section.id} section={section} state={state} />
+            <LibrarySection
+              key={section.id}
+              queuedArticleIds={queuedArticleIds}
+              section={section}
+              sessionAvailable={studySession?.storageAvailable ?? false}
+              state={state}
+              onAddToSession={addToStudySession}
+            />
           ))}
         </div>
       ) : null}
@@ -335,7 +408,19 @@ function createSections(
   return [{ ...definition, items: visibleItems }];
 }
 
-function LibrarySection({ section, state }: Readonly<{ section: LibrarySectionModel; state: SavedLibraryState }>) {
+function LibrarySection({
+  queuedArticleIds,
+  section,
+  sessionAvailable,
+  state,
+  onAddToSession,
+}: Readonly<{
+  queuedArticleIds: ReadonlySet<string>;
+  section: LibrarySectionModel;
+  sessionAvailable: boolean;
+  state: SavedLibraryState;
+  onAddToSession: (item: SavedLibraryItem) => void;
+}>) {
   if (section.items.length === 0) {
     return null;
   }
@@ -349,13 +434,34 @@ function LibrarySection({ section, state }: Readonly<{ section: LibrarySectionMo
         <span className="shrink-0 text-xs font-semibold text-slate-500">{section.items.length}</span>
       </div>
       <div className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
-        {section.items.map((item) => <LibraryItem item={item} key={item.articleId} state={state} />)}
+        {section.items.map((item) => (
+          <LibraryItem
+            inStudySession={queuedArticleIds.has(item.articleId)}
+            item={item}
+            key={item.articleId}
+            sessionAvailable={sessionAvailable}
+            state={state}
+            onAddToSession={onAddToSession}
+          />
+        ))}
       </div>
     </section>
   );
 }
 
-function LibraryItem({ item, state }: Readonly<{ item: SavedLibraryItem; state: SavedLibraryState }>) {
+function LibraryItem({
+  inStudySession,
+  item,
+  sessionAvailable,
+  state,
+  onAddToSession,
+}: Readonly<{
+  inStudySession: boolean;
+  item: SavedLibraryItem;
+  sessionAvailable: boolean;
+  state: SavedLibraryState;
+  onAddToSession: (item: SavedLibraryItem) => void;
+}>) {
   const href = createSavedLibraryReaderHref(item.articleId, state, item.sectionId);
   const progressLabel = item.progress > 0 ? `${item.progress}% read` : "Ready to read";
   return (
@@ -378,6 +484,18 @@ function LibraryItem({ item, state }: Readonly<{ item: SavedLibraryItem; state: 
       </div>
       <div aria-label={`${item.title} progress`} aria-valuemax={100} aria-valuemin={0} aria-valuenow={item.progress} className="mt-3 h-1.5 overflow-hidden bg-slate-200" role="progressbar">
         <span className="block h-full bg-emerald-700" style={{ width: `${item.progress}%` }} />
+      </div>
+      <div className="mt-3 flex justify-end">
+        <button
+          aria-label={inStudySession ? `${item.title} is in study session` : `Add ${item.title} to study session`}
+          className="rounded border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 hover:border-emerald-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+          disabled={inStudySession || !sessionAvailable}
+          title={!sessionAvailable ? "Browser-local storage is unavailable" : undefined}
+          type="button"
+          onClick={() => onAddToSession(item)}
+        >
+          {inStudySession ? "In session" : "Add to session"}
+        </button>
       </div>
     </article>
   );

@@ -13,6 +13,7 @@ test("primary navigation exposes every stable workspace root once", () => {
     [
       { id: "dashboard", href: "/", label: "Dashboard" },
       { id: "library", href: "/library", label: "Saved" },
+      { id: "session", href: "/session", label: "Session" },
       { id: "articles", href: "/articles", label: "Articles" },
       { id: "references", href: "/zotero", label: "References" },
       { id: "graph", href: "/graph", label: "Graph" },
@@ -24,7 +25,7 @@ test("primary navigation exposes every stable workspace root once", () => {
 
 test("active workspace matching respects route boundaries", () => {
   const dashboard = PRIMARY_NAVIGATION[0];
-  const articles = PRIMARY_NAVIGATION[2];
+  const articles = PRIMARY_NAVIGATION[3];
 
   assert.equal(isNavigationItemActive("/", dashboard), true);
   assert.equal(isNavigationItemActive("/articles", dashboard), false);
@@ -46,6 +47,7 @@ test("workspace location describes Article detail without exposing its identifie
 
 test("workspace location handles each root and an unknown route", () => {
   assert.equal(resolveWorkspaceLocation("/library").id, "library");
+  assert.equal(resolveWorkspaceLocation("/session").id, "session");
   assert.equal(resolveWorkspaceLocation("/zotero").id, "references");
   assert.equal(resolveWorkspaceLocation("/graph/context").id, "graph");
   assert.equal(resolveWorkspaceLocation("tutor").id, "tutor");
