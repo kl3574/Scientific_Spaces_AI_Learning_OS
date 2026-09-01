@@ -1,6 +1,6 @@
 # P3-020 Saved Learning Library Report
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 ## 1. Scope And Boundaries
 
@@ -212,11 +212,27 @@ it predates P3-020 and contains no credential.
 - Browser storage denial degrades local progress/history only; remote learning
   records remain usable.
 - A single exploratory hydration mismatch did not recur in 13 consecutive
-  production runs. Exact-SHA CI remains the final implementation gate.
+  local production runs or in the exact-SHA CI Product E2E job.
 
 ## 12. Exact-SHA Main CI
 
-Implementation commit and exact-SHA main CI: **PENDING**.
+Implementation commit:
+`c3baf32151bd0db5937df29de4419c8c77630851`.
+
+Exact-SHA main CI:
+[`33460687127`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33460687127),
+`success` for the exact implementation SHA.
+
+- Backend pytest: PASS
+- Frontend build: PASS
+- Product E2E, including three repeated runs: PASS
+- workflow policy: PASS
+- dependency audit: PASS
+- secret audit: PASS
+- SBOM validation: PASS
+- Docker compose smoke: skipped as designed for a normal `main` push
+- release-evidence dry-run: skipped as designed
+- uploaded workflow artifacts: 0
 
 Normal-main Docker compose smoke and release-evidence jobs are expected to
 skip under the existing workflow policy. No workflow, tag, Release, candidate,
@@ -224,7 +240,7 @@ or attestation change is authorized by P3-020.
 
 ## 13. Closure
 
-P3-020 is `LOCAL PASS / IMPLEMENTATION CI PENDING`. Local acceptance passed
-without widening the authorized boundary. Closure requires the implementation
-commit's exact-SHA main CI, a docs-only closure commit, and that closure
-commit's exact-SHA main CI before final `PASS / CLOSED` status.
+P3-020 is `PASS / CLOSED`. Local acceptance and the implementation commit's
+exact-SHA main CI passed without widening the authorized boundary. This
+docs-only closure commit must pass its own exact-SHA main CI before final
+reporting; no new task is assigned or authorized.

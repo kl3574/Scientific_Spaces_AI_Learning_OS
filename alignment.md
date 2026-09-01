@@ -3,7 +3,7 @@
 Canonical task:
 `docs/tasks/P3-020_SAVED_LEARNING_LIBRARY.md`
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 LOCAL ARTICLE / BOOKMARK / READING HISTORY / LEARNING STATE READ, LOCAL
 APPLICATION RUNTIME, AND ISOLATED BROWSER VALIDATION AUTHORIZATION:
@@ -148,7 +148,7 @@ operation, or Provider.
   an in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.
 
-## Local Evidence
+## Closure Evidence
 
 - Backend: 600 passed / 4 skipped
 - focused Frontend: 70 passed
@@ -162,4 +162,14 @@ operation, or Provider.
   SBOM gates: PASS
 - Article Store count and SHA-256: unchanged
 - protected implementation/data/dependency/workflow paths: unchanged
-- implementation exact-SHA main CI: pending
+- implementation commit:
+  `c3baf32151bd0db5937df29de4419c8c77630851`
+- implementation exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33460687127`
+- required implementation CI jobs: PASS
+- normal-main Docker and release-evidence jobs: skipped as designed
+- uploaded workflow artifacts: 0
+- status: P3-020 PASS / CLOSED
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
+- next task: ALIGNMENT REQUIRED / NOT GRANTED
