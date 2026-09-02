@@ -8,10 +8,12 @@ import {
   buildDashboardActivity,
   createArticleTitleIndex,
   createDashboardOverview,
+  createDashboardStudySession,
   selectContinueLearning,
 } from "../src/lib/dashboard";
 import type { LearningStats } from "../src/lib/learning";
 import type { ReadingHistoryItem } from "../src/lib/readingHistory";
+import type { StudySessionState } from "../src/lib/studySession";
 
 test("createDashboardOverview keeps unavailable values explicit and bounds completion", () => {
   assert.deepEqual(createDashboardOverview(1314, null), {
@@ -60,6 +62,46 @@ test("selectContinueLearning chooses the newest exact Reader position", () => {
     progress: 43,
     updatedAt: "2026-08-31T10:00:00Z",
   });
+});
+
+test("createDashboardStudySession resolves the active queue position and exact Reader resume", () => {
+  const session = studySession({ activeArticleId: "article-b" });
+  const summary = createDashboardStudySession(session, [
+    readerProgress("article-b", "proof", "Main proof", 47, "2026-09-01T11:00:00Z"),
+  ]);
+
+  assert.deepEqual(summary, {
+    count: 2,
+    position: 2,
+    currentTitle: "Article B",
+    currentHref: "/articles/article-b?from=%2Fsession#proof",
+    nextTitle: null,
+    progress: 47,
+    sectionTitle: "Main proof",
+    updatedAt: "2026-09-01T10:00:00Z",
+  });
+});
+
+test("createDashboardStudySession falls back safely and exposes the next Article", () => {
+  const session = studySession({ activeArticleId: "missing-article" });
+  const summary = createDashboardStudySession(session, []);
+
+  assert.equal(summary?.position, 1);
+  assert.equal(summary?.currentTitle, "Article A");
+  assert.equal(summary?.currentHref, "/articles/article-a?from=%2Fsession#introduction");
+  assert.equal(summary?.nextTitle, "Article B");
+  assert.equal(summary?.progress, null);
+  assert.equal(summary?.sectionTitle, null);
+});
+
+test("createDashboardStudySession returns null for an empty queue", () => {
+  assert.equal(
+    createDashboardStudySession(
+      { version: 1, items: [], activeArticleId: null, updatedAt: "2026-09-01T10:00:00Z" },
+      [],
+    ),
+    null,
+  );
 });
 
 test("buildDashboardActivity merges title-resolved events and suppresses duplicate history", () => {
@@ -195,6 +237,29 @@ function learningStats(overrides: Partial<LearningStats> = {}): LearningStats {
     note_count: 0,
     recent_articles: [],
     recent_sessions: [],
+    ...overrides,
+  };
+}
+
+function studySession(overrides: Partial<StudySessionState> = {}): StudySessionState {
+  return {
+    version: 1,
+    items: [
+      {
+        articleId: "article-a",
+        title: "Article A",
+        sectionId: "introduction",
+        addedAt: "2026-09-01T09:00:00Z",
+      },
+      {
+        articleId: "article-b",
+        title: "Article B",
+        sectionId: null,
+        addedAt: "2026-09-01T09:30:00Z",
+      },
+    ],
+    activeArticleId: "article-a",
+    updatedAt: "2026-09-01T10:00:00Z",
     ...overrides,
   };
 }

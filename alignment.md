@@ -1,16 +1,16 @@
-# P3-021 Focused Study Session Alignment
+# P3-022 Session-Aware Learning Dashboard Alignment
 
 Canonical task:
-`docs/tasks/P3-021_FOCUSED_STUDY_SESSION.md`
+`docs/tasks/P3-022_LEARNING_DASHBOARD.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
 
-LOCAL ARTICLE / SAVED LIBRARY / READING HISTORY / READER PROGRESS READ, LOCAL
-APPLICATION RUNTIME, BOUNDED BROWSER-LOCAL SESSION STATE, AND ISOLATED BROWSER
-VALIDATION AUTHORIZATION: **GRANTED FOR P3-021**
+LOCAL ARTICLE / SAVED LIBRARY / READING HISTORY / READER PROGRESS / FOCUSED
+SESSION READ, LOCAL APPLICATION RUNTIME, TEMPORARY ISOLATED MUTABLE STATE, AND
+BROWSER VALIDATION AUTHORIZATION: **GRANTED FOR P3-022**
 
 FRONTEND / TEST / DOCUMENTATION MODIFICATION, LOCAL COMMIT / PUSH / CI
-INSPECTION AUTHORIZATION: **GRANTED FOR P3-021**
+INSPECTION AUTHORIZATION: **GRANTED FOR P3-022**
 
 BACKEND / FROZEN M1 / SOURCE RECORD / ARTICLE RECORD / DERIVED ASSET / PRIVATE
 ZOTERO / REAL PROVIDER AUTHORIZATION: **NOT GRANTED**
@@ -22,125 +22,120 @@ CANDIDATE / TAG / RELEASE / ATTESTATION AUTHORIZATION: **NOT GRANTED**
 
 ## 1. Background
 
-- P3-020 Saved Learning Library is PASS / CLOSED after its implementation and
-  docs-only closure exact-SHA main CI passed.
-- The product exposes bookmarks, recent reading, and progress in `/library`,
-  but learners cannot yet organize several Articles into one continuous study
-  session.
-- Existing Article, Saved Library, Reading History, Reader Progress, and
-  workflow contracts must be reused. No Backend learning-plan entity or API is
-  authorized.
+- P3-016 Learning Dashboard Command Center and P3-021 Focused Study Session
+  are PASS / CLOSED.
+- The existing Dashboard already provides learning metrics, latest Articles,
+  activity, and exact single-Article resume behavior.
+- P3-021 added a bounded browser-local study queue after P3-016, but the
+  Dashboard does not expose that queue or its current Article. Its header still
+  sends every learner to Saved Learning even when a focused session exists.
 - Entry branch is `main`; entry commit and cached `origin/main` are both
-  `da426dc7edab1176b2fab2bbc1df8345ec30c771`; entry worktree and index are
+  `4c9ade019692173a3884fa7c60860aff04307a38`; entry worktree and index are
   clean with ahead / behind `0 / 0`.
 - No REWORK or `.audit` blocker exists at task entry.
 - No v1.2 candidate version is assigned.
 
 ## 2. Requirements
 
-1. Add a `/session` Focused Study Session workspace.
-2. Let learners add readable Saved Library Articles to a temporary bounded
-   study queue.
-3. Support deterministic add, deduplicate, reorder, remove, clear, and active
-   position behavior.
-4. Restore the queue and active position after a browser refresh using
-   bounded browser-local state only.
-5. Link the active queue item to the existing Article Reader and provide
-   accurate previous, next, and return-to-session navigation.
-6. Never render an internal Article identifier as the visible title of an
-   unavailable record.
-7. Integrate Session into desktop/mobile Application Shell navigation and
-   empty-query global quick navigation.
-8. Provide complete loading, empty, unavailable, stale-record, and bounded
-   recovery states.
-9. Preserve keyboard navigation, visible focus, semantic landmarks,
-   screen-reader feedback, reduced motion, and responsive behavior.
-10. Preserve all Backend, source, data, dependency, workflow, Provider,
-    Zotero, release, and published-interface boundaries.
+1. Enhance the existing Dashboard rather than creating a duplicate workspace.
+2. Load the versioned P3-021 Focused Session through its public Frontend
+   contract and expose its current Article, queue position, queue size, next
+   Article, and Reader progress when available.
+3. Make the primary Dashboard action resume the focused session when one
+   exists and retain Saved Learning as the empty-session starting point.
+4. Keep the exact single-Article Continue Learning action available alongside
+   the session-aware resume path.
+5. React to same-tab session change events, cross-tab storage events, and page
+   refreshes without introducing a new persistence model.
+6. Provide controlled empty, unavailable-storage, and recovered-state
+   feedback without exposing raw Article identifiers.
+7. Preserve existing Dashboard partial-remote-data behavior, activity,
+   overview, latest Articles, navigation, and responsive density.
+8. Preserve keyboard navigation, visible focus, semantic landmarks,
+   screen-reader feedback, reduced motion, and mobile behavior.
+9. Preserve all Backend, source, data, dependency, workflow, Provider, Zotero,
+   release, and published-interface boundaries.
 
 ## 3. Purpose
 
-Turn the Saved Learning Library into an executable multi-Article workflow so
-learners can assemble, resume, and complete a focused study session without
-losing their place or requiring a new server-side planning model.
+Close the continuity gap between the completed Focused Study Session and the
+existing learning command center so that opening the product immediately
+answers what the learner is studying now and provides the shortest safe route
+back into that work.
 
 ## 4. Planned Execution
 
 1. Persist this alignment and canonical task.
-2. Audit Saved Library, Article Reader, browser-local stores, route context,
-   Shell navigation, and Product E2E coverage.
-3. Use red-green TDD at two confirmed public seams: the pure study-session
-   queue model and the browser-visible `/session` workflow.
-4. Implement a versioned browser-local queue capped at 20 readable Articles,
-   with safe identifiers and deterministic recovery.
-5. Implement the responsive `/session` workspace and Saved Library queue
-   actions.
-6. Add Reader previous/next/return session controls while preserving existing
-   Article, Tutor, and Graph return context.
-7. Integrate Session into desktop/mobile Shell and global quick navigation.
-8. Validate representative real local data at 1440 x 900 and 390 x 844 with
-   mutable state isolated, fake providers, and non-loopback requests blocked.
-9. Run Backend regression, focused Frontend, production build, Product E2E,
+2. Audit the existing Dashboard model/view, Focused Session contract, Reader
+   destinations, current tests, and Product E2E workflow.
+3. Add failing pure-model tests for deterministic session summary selection,
+   safe Reader destinations, progress resolution, and empty behavior.
+4. Add failing browser assertions for empty and populated Dashboard session
+   states.
+5. Implement a session-aware Dashboard presentation model and responsive
+   Focused Session surface using the existing browser-local store.
+6. Subscribe to bounded same-tab and cross-tab session updates and preserve
+   all existing Dashboard failure behavior.
+7. Validate representative real local data at 1440 x 900 and 390 x 844 with
+   temporary mutable state, fake providers, and non-loopback requests blocked.
+8. Run Backend regression, focused Frontend, production build, Product E2E,
    workflow, suppression, dependency, secret, SBOM, artifact, and
    protected-path gates.
-10. Create and push an implementation commit and verify exact-SHA main CI.
-11. Create and push a docs-only closure commit and verify exact-SHA main CI.
+9. Create and push an implementation commit and verify exact-SHA main CI.
+10. Create and push a docs-only closure commit and verify exact-SHA main CI.
 
 ## 5. Selection Rationale
 
-A Focused Study Session is the next coherent extension of P3-020. It converts
-saved material into a repeatable learning flow while remaining entirely on
-existing Article and browser-local contracts.
+Enhancing the existing Command Center reuses the strongest completed product
+surface and gives P3-021 a first-class daily entry point. It avoids a duplicate
+Dashboard, a second queue model, and any Backend or persistence expansion.
 
 ## 6. Alternatives
 
 | Option | Decision |
 | --- | --- |
-| Focused Study Session | Selected: directly improves continuous study using the completed Saved Library |
-| Global visual-theme redesign | Deferred: broad visual churn with less workflow value |
-| First-run onboarding | Deferred: primarily benefits initial use rather than daily study |
-| Backend learning-plan service | Rejected: requires an unauthorized entity, schema, and API |
+| Session-aware existing Dashboard | Selected: closes a verified continuity gap using completed contracts |
+| Rebuild or duplicate the Dashboard | Rejected: P3-016 already provides the command-center foundation |
+| Reader-only visual polish | Deferred: does not connect the new Session to product entry |
+| Backend analytics or planning service | Rejected: requires unauthorized schema and API expansion |
 
 ## 7. Deliverables
 
 - updated `alignment.md`
-- `docs/tasks/P3-021_FOCUSED_STUDY_SESSION.md`
+- `docs/tasks/P3-022_LEARNING_DASHBOARD.md`
 - updated `docs/tasks/CURRENT_TASK.md`
-- `/session` workspace and bounded browser-local queue modules under
-  `frontend/src/`
-- Saved Library, Reader, Shell, and global-search session integration
+- session-aware Dashboard model and view changes under `frontend/src/`
 - focused Frontend tests and expanded `scripts/e2e/run_product_e2e.py`
-- `docs/P3_021_FOCUSED_STUDY_SESSION_REPORT.md`
+- `docs/P3_022_IMPLEMENTATION_REPORT.md`
 - updated `README.md`, `docs/00_PROJECT_STATE.md`, and
   `docs/V1_2_ROADMAP.md`
 - implementation and docs-only closure commits with exact-SHA CI evidence
 
 ## 8. Acceptance Criteria
 
-- `/session` builds and renders using only existing local Article contracts
-  and one versioned browser-local queue.
-- The queue accepts at most 20 readable, valid, unique Article records.
-- Add, deduplicate, reorder, remove, clear, active-position, and refresh
-  recovery behavior are deterministic and tested through the public model.
-- Saved Library can add an Article to the queue without losing its current
-  filter/view/sort state.
-- Session opens the correct Reader destination; previous, next, and return
-  controls preserve a canonical Session return path.
-- Missing or malformed records fail closed without exposing raw identifiers,
-  corrupting the queue, or preventing healthy entries from loading.
-- Session is reachable from desktop, mobile, and global quick navigation.
-- Loading, empty, stale, bounded, and unavailable states are complete and
-  actionable.
+- The existing `/` Dashboard renders a Focused Session surface without adding
+  a duplicate route or persistence model.
+- A healthy non-empty queue shows its safe current title, exact position,
+  bounded count, next title when present, and Reader progress when available.
+- The primary Dashboard action opens `/session` when the queue is non-empty;
+  an exact current-Article Reader action preserves the canonical `/session`
+  return path.
+- An empty queue points to Saved Learning and leaves Continue Learning usable.
+- Same-tab change events, cross-tab storage events, and refresh recovery update
+  the surface deterministically.
+- Missing, malformed, or inaccessible browser storage fails closed without raw
+  identifiers, crashes, or loss of independently available Dashboard content.
+- Existing overview, activity, latest Articles, partial-failure Retry, Shell,
+  and global navigation behavior remains intact.
 - Keyboard navigation, visible focus, semantic landmarks, reduced motion, and
   screen-reader feedback pass.
-- At 1440 x 900 and 390 x 844, the workspace has no overlap, clipped controls,
+- At 1440 x 900 and 390 x 844, the Dashboard has no overlap, clipped controls,
   or horizontal page overflow.
-- Representative real local data passes with isolated mutable state, fake
+- Representative real local data passes with temporary isolated state, fake
   providers, zero external requests, and no unexpected console/page errors.
 - Three consecutive isolated Product E2E runs pass without state leakage.
 - Backend full tests, focused Frontend tests, production build, dependency,
-  secret, workflow, suppression, SBOM, artifact, and protected-path gates
-  pass.
+  secret, workflow, suppression, SBOM, artifact, and protected-path gates pass.
 - Backend, frozen M1 paths, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts remain
   unchanged.
@@ -151,10 +146,10 @@ existing Article and browser-local contracts.
 
 ## Confirmed Test Seams
 
-1. Pure queue model: serialization, validation, bounds, deduplication,
-   ordering, active position, and canonical Reader destinations.
-2. Browser workflow: Saved Library add action, `/session` recovery and queue
-   controls, Reader previous/next/return behavior, failure states, and mobile
+1. Pure Dashboard session model: active selection, position, safe Reader href,
+   progress, next Article, and empty behavior.
+2. Browser workflow: empty Dashboard, populated queue, same-tab update,
+   refresh, current Reader return path, recovery/unavailable states, and mobile
    geometry.
 
 ## Stop Conditions
@@ -170,14 +165,17 @@ existing Article and browser-local contracts.
   an in-scope deterministic fix.
 - A candidate, tag, Release, or attestation action becomes necessary.
 
-## Closure Record
+## Local Acceptance Record
 
-- local acceptance: PASS
-- implementation commit:
-  `df4500c17b2456aedde36a039a60a92f631e6ea9`
-- implementation exact-SHA main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33489296319`
-- required implementation CI jobs: PASS
-- uploaded workflow artifacts: 0
-- docs-only closure commit: this commit; exact-SHA main CI required before
-  final reporting
+- Dashboard Session model and browser workflow: PASS
+- Backend: 600 passed / 4 skipped
+- focused Frontend: 80 passed
+- production build: PASS, 11 routes
+- Product E2E: 3/3 production runs, 51 checks each
+- real local probe: 1,314 Articles at 1440 px and 390 px widths
+- same-tab, cross-tab, recovered, unavailable, and exact Reader return states:
+  PASS
+- external requests, unexpected console errors, and page errors: 0
+- workflow, suppression, dependency, secret, security utility, reproducible
+  SBOM, artifact, and protected-path gates: PASS
+- implementation commit and exact-SHA main CI: PENDING

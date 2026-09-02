@@ -1,7 +1,9 @@
 import type { ArticleSummary } from "./articles";
 import { createResumeHref, type ReaderProgressState } from "./articleWorkspace";
 import type { LearningStats, LearningStatus } from "./learning";
+import { createArticleReturnHref } from "./learningWorkflow";
 import type { ReadingHistoryItem } from "./readingHistory";
+import type { StudySessionState } from "./studySession";
 
 export const DASHBOARD_ACTIVITY_LIMIT = 8;
 
@@ -21,6 +23,17 @@ export type DashboardContinueItem = {
   href: string;
   sectionTitle: string | null;
   progress: number;
+  updatedAt: string;
+};
+
+export type DashboardStudySession = {
+  count: number;
+  position: number;
+  currentTitle: string;
+  currentHref: string;
+  nextTitle: string | null;
+  progress: number | null;
+  sectionTitle: string | null;
   updatedAt: string;
 };
 
@@ -113,6 +126,37 @@ export function selectContinueLearning(
   })[0] ?? null;
 }
 
+export function createDashboardStudySession(
+  state: StudySessionState,
+  progressItems: ReaderProgressState[],
+): DashboardStudySession | null {
+  const items = state.items.flatMap((item) => {
+    const title = safeDisplayTitle(item.articleId, item.title);
+    return title ? [{ ...item, title }] : [];
+  });
+  if (!items.length) {
+    return null;
+  }
+
+  const activeIndex = Math.max(0, items.findIndex((item) => item.articleId === state.activeArticleId));
+  const current = items[activeIndex];
+  const progress = progressItems
+    .filter((item) => item.article_id === current.articleId)
+    .sort((left, right) => timestampValue(right.updated_at) - timestampValue(left.updated_at))[0] ?? null;
+  const sectionId = progress?.section_id ?? current.sectionId;
+
+  return {
+    count: items.length,
+    position: activeIndex + 1,
+    currentTitle: current.title,
+    currentHref: createArticleReturnHref(current.articleId, "/session", sectionId),
+    nextTitle: cleanTitle(items[activeIndex + 1]?.title),
+    progress: progress ? clampPercent(progress.progress) : null,
+    sectionTitle: cleanTitle(progress?.section_title),
+    updatedAt: state.updatedAt,
+  };
+}
+
 export function buildDashboardActivity(
   stats: LearningStats | null,
   history: ReadingHistoryItem[],
@@ -203,6 +247,20 @@ function setTitle(titles: Map<string, string>, articleId: string, value: string 
 function cleanTitle(value: string | null | undefined): string | null {
   const normalized = value?.replace(/\s+/g, " ").trim();
   return normalized || null;
+}
+
+function safeDisplayTitle(articleId: string, title: string): string | null {
+  const normalizedTitle = cleanTitle(title);
+  const normalizedId = articleId.trim();
+  if (
+    !normalizedTitle
+    || !normalizedId
+    || normalizedTitle.normalize("NFKC").toLocaleLowerCase()
+      === normalizedId.normalize("NFKC").toLocaleLowerCase()
+  ) {
+    return null;
+  }
+  return normalizedTitle;
 }
 
 function latestValidTimestamp(...values: Array<string | null | undefined>): string | null {

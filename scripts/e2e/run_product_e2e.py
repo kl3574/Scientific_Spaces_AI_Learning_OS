@@ -346,6 +346,85 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_text("No article in progress.", exact=True)).to_be_visible()
     expect(page.get_by_test_id("dashboard-command-center")).to_be_visible()
     expect(page.get_by_role("heading", name="Learning Overview", exact=True)).to_be_visible()
+    expect(page.get_by_role("heading", name="Focused Session", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("dashboard-study-session")).to_have_attribute(
+        "data-state", "empty"
+    )
+    expect(
+        page.get_by_test_id("dashboard-study-session").get_by_role(
+            "link", name="Build from saved learning", exact=True
+        )
+    ).to_be_visible()
+    dashboard_sync_payload = json.dumps(
+        {
+            "version": 1,
+            "active_article_id": CRB_ARTICLE_ID,
+            "updated_at": "2026-08-31T01:00:00.000Z",
+            "items": [
+                {
+                    "article_id": CRB_ARTICLE_ID,
+                    "title": CRB_TITLE,
+                    "section_id": "regularity",
+                    "added_at": "2026-08-31T01:00:00.000Z",
+                }
+            ],
+        },
+        ensure_ascii=False,
+    )
+    page.evaluate(
+        """
+        ([key, eventName, payload]) => {
+          localStorage.setItem(key, payload);
+          window.dispatchEvent(new Event(eventName));
+        }
+        """,
+        [
+            "scientific-spaces-study-session-v1",
+            "scientific-spaces-study-session-change",
+            dashboard_sync_payload,
+        ],
+    )
+    expect(page.get_by_test_id("dashboard-study-session")).to_have_attribute(
+        "data-state", "ready"
+    )
+    expect(page.get_by_test_id("dashboard-study-session")).to_contain_text(CRB_TITLE)
+    page.evaluate(
+        """
+        ([key, eventName]) => {
+          localStorage.removeItem(key);
+          window.dispatchEvent(new Event(eventName));
+        }
+        """,
+        ["scientific-spaces-study-session-v1", "scientific-spaces-study-session-change"],
+    )
+    expect(page.get_by_test_id("dashboard-study-session")).to_have_attribute(
+        "data-state", "empty"
+    )
+    checks["dashboard_session_same_tab_sync"] = True
+
+    sync_page = context.new_page()
+    sync_page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    sync_page.on("pageerror", lambda error: page_errors.append(f"{sync_page.url}: {error}"))
+    sync_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    _wait_for_application_shell(sync_page)
+    sync_page.evaluate(
+        "([key, payload]) => localStorage.setItem(key, payload)",
+        ["scientific-spaces-study-session-v1", dashboard_sync_payload],
+    )
+    expect(page.get_by_test_id("dashboard-study-session")).to_have_attribute(
+        "data-state", "ready"
+    )
+    sync_page.evaluate(
+        "key => localStorage.removeItem(key)", "scientific-spaces-study-session-v1"
+    )
+    expect(page.get_by_test_id("dashboard-study-session")).to_have_attribute(
+        "data-state", "empty"
+    )
+    sync_page.close()
+    checks["dashboard_session_cross_tab_sync"] = True
     expect(page.get_by_role("heading", name="Next Actions", exact=True)).to_be_visible()
     expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "dashboard")
     expect(page.get_by_test_id("workspace-context").locator('[aria-current="page"]')).to_have_text(
@@ -780,9 +859,22 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     ).click()
     _require(page.url == session_url_before_add, "adding to Session discarded Saved Library URL state")
     expect(page.get_by_role("link", name="Open study session (2)", exact=True)).to_be_visible()
+    page.get_by_role("link", name="Dashboard", exact=True).click()
+    dashboard_session = page.get_by_test_id("dashboard-study-session")
+    expect(dashboard_session).to_have_attribute("data-state", "ready")
+    expect(dashboard_session).to_contain_text("2 Articles")
+    expect(dashboard_session).to_contain_text(ATTENTION_TITLE)
+    expect(
+        dashboard_session.get_by_role(
+            "link", name=f"Continue current Article: {ATTENTION_TITLE}", exact=True
+        )
+    ).to_have_attribute(
+        "href", re.compile(rf"^/articles/{ATTENTION_ARTICLE_ID}\?from=%2Fsession")
+    )
+    expect(page.get_by_role("link", name="Resume focused session", exact=True)).to_be_visible()
     checks["saved_learning_library"] = True
 
-    page.get_by_role("link", name="Open study session (2)", exact=True).click()
+    page.get_by_role("link", name="Resume focused session", exact=True).click()
     expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
     expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "session")
     expect(page.get_by_test_id("study-session-summary")).to_contain_text("2 Articles")
@@ -836,6 +928,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     page.get_by_role("link", name="Dashboard", exact=True).click()
     expect(page.get_by_role("heading", name="Continue Learning", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("dashboard-study-session")).to_have_attribute(
+        "data-state", "empty"
+    )
+    checks["dashboard_focused_session"] = True
     page.goto(f"{FRONTEND_URL}{continue_href}", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
@@ -1179,6 +1275,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     recovered_session_page.on(
         "pageerror", lambda error: page_errors.append(f"{recovered_session_page.url}: {error}")
     )
+    recovered_session_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    _wait_for_application_shell(recovered_session_page)
+    recovered_dashboard_session = recovered_session_page.get_by_test_id(
+        "dashboard-study-session"
+    )
+    expect(recovered_dashboard_session).to_have_attribute("data-state", "recovered")
+    expect(recovered_dashboard_session).to_contain_text(CRB_TITLE)
+    expect(recovered_dashboard_session).not_to_contain_text("raw-title-id")
     recovered_session_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
     _wait_for_application_shell(recovered_session_page)
     expect(recovered_session_page.get_by_role("status")).to_contain_text(
@@ -1217,6 +1321,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     read_failure_page.on(
         "pageerror", lambda error: page_errors.append(f"{read_failure_page.url}: {error}")
     )
+    read_failure_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    _wait_for_application_shell(read_failure_page)
+    expect(read_failure_page.get_by_test_id("dashboard-study-session")).to_have_attribute(
+        "data-state", "unavailable"
+    )
+    expect(read_failure_page.get_by_role("heading", name="Learning Overview", exact=True)).to_be_visible()
     read_failure_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
     _wait_for_application_shell(read_failure_page)
     expect(read_failure_page.get_by_test_id("study-session-unavailable")).to_be_visible()

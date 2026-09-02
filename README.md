@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-021 PASS / CLOSED`
+- Status: `P3-022 LOCAL PASS / IMPLEMENTATION CI PENDING`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-021 implementation exact-SHA main CI PASS`
-- Current task: `None; next task requires alignment`
+- Latest gate: `P3-022 local acceptance PASS`
+- Current task: `P3-022 Session-Aware Learning Dashboard`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -36,6 +36,7 @@ P3-018 unified Application Shell evidence: `docs/P3_018_UNIFIED_APPLICATION_SHEL
 P3-019 global search evidence: `docs/P3_019_GLOBAL_SEARCH_AND_QUICK_NAVIGATION_REPORT.md` (PASS / CLOSED).
 P3-020 saved learning evidence: `docs/P3_020_SAVED_LEARNING_LIBRARY_REPORT.md` (PASS / CLOSED).
 P3-021 focused study session evidence: `docs/P3_021_FOCUSED_STUDY_SESSION_REPORT.md` (PASS / CLOSED).
+P3-022 session-aware Dashboard evidence: `docs/P3_022_IMPLEMENTATION_REPORT.md` (LOCAL PASS / CI PENDING).
 
 v1.2 planning specifications:
 
@@ -176,7 +177,8 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: none; alignment required before new work
+- Active task: `docs/tasks/P3-022_LEARNING_DASHBOARD.md`
+- Status: local acceptance PASS; implementation exact-SHA main CI pending
 - Last closed task: `docs/tasks/P3-021_FOCUSED_STUDY_SESSION.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
@@ -227,6 +229,16 @@ zero external requests or unexpected console/page errors. Implementation
 commit `df4500c17b2456aedde36a039a60a92f631e6ea9` passed exact-SHA main CI run
 [`33489296319`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33489296319)
 with zero uploaded artifacts. No v1.2 candidate is assigned.
+
+P3-022 is `LOCAL PASS / IMPLEMENTATION CI PENDING`. The existing Dashboard
+now reads the bounded P3-021 queue and exposes the current Article, position,
+next Article, Reader progress, exact `/session` return path, and dynamic
+session resume action. Empty, recovered, unavailable-storage, same-tab, and
+cross-tab states are controlled without adding a second store or changing a
+Backend interface. Local gates include 600 Backend tests, 80 focused Frontend
+tests, three production Product E2E runs with 51 checks each, and a real local
+1,314-Article desktop/mobile visual probe with zero external requests or
+unexpected console/page errors. No v1.2 candidate is assigned.
 
 Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
 

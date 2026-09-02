@@ -10,10 +10,18 @@ import {
   createArticleTitleIndex,
   createDashboardOverview,
   buildDashboardActivity,
+  createDashboardStudySession,
   selectContinueLearning,
+  type DashboardStudySession,
 } from "@/lib/dashboard";
 import { LearningStats, fetchLearningStats } from "@/lib/learning";
 import { ReadingHistoryItem, loadReadingHistory } from "@/lib/readingHistory";
+import {
+  STUDY_SESSION_CHANGE_EVENT,
+  STUDY_SESSION_STORAGE_KEY,
+  loadStudySession,
+  type StudySessionLoadResult,
+} from "@/lib/studySession";
 
 type DashboardRemoteState = "loading" | "loaded" | "partial" | "error";
 
@@ -45,13 +53,27 @@ export function DashboardView() {
   const [stats, setStats] = useState<LearningStats | null>(null);
   const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
   const [progressItems, setProgressItems] = useState<ReaderProgressState[]>([]);
+  const [sessionLoad, setSessionLoad] = useState<StudySessionLoadResult | null>(null);
   const [remoteState, setRemoteState] = useState<DashboardRemoteState>("loading");
   const [remoteErrors, setRemoteErrors] = useState<string[]>([]);
 
   useEffect(() => {
     setHistory(loadReadingHistory());
     setProgressItems(loadReaderProgressItems());
+    const refreshSession = () => setSessionLoad(loadStudySession());
+    const handleStorage = (event: StorageEvent) => {
+      if (event.key === null || event.key === STUDY_SESSION_STORAGE_KEY) {
+        refreshSession();
+      }
+    };
+    refreshSession();
+    window.addEventListener(STUDY_SESSION_CHANGE_EVENT, refreshSession);
+    window.addEventListener("storage", handleStorage);
     void loadDashboard();
+    return () => {
+      window.removeEventListener(STUDY_SESSION_CHANGE_EVENT, refreshSession);
+      window.removeEventListener("storage", handleStorage);
+    };
   }, []);
 
   async function loadDashboard() {
@@ -91,6 +113,10 @@ export function DashboardView() {
     () => selectContinueLearning(history, progressItems, titles),
     [history, progressItems, titles],
   );
+  const focusedSession = useMemo(
+    () => sessionLoad ? createDashboardStudySession(sessionLoad.state, progressItems) : null,
+    [progressItems, sessionLoad],
+  );
   const activity = useMemo(
     () => buildDashboardActivity(stats, history, titles),
     [history, stats, titles],
@@ -112,9 +138,9 @@ export function DashboardView() {
         </div>
         <Link
           className="w-fit rounded bg-emerald-700 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-800"
-          href="/library"
+          href={focusedSession ? "/session" : "/library"}
         >
-          Open saved learning
+          {focusedSession ? "Resume focused session" : "Open saved learning"}
         </Link>
       </header>
 
@@ -125,6 +151,8 @@ export function DashboardView() {
         <ContinueLearning item={continueItem} />
       </div>
 
+      <FocusedSession load={sessionLoad} summary={focusedSession} />
+
       <NextActions />
 
       <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(19rem,0.85fr)] lg:gap-7">
@@ -133,6 +161,127 @@ export function DashboardView() {
       </div>
     </section>
   );
+}
+
+function FocusedSession({
+  load,
+  summary,
+}: Readonly<{
+  load: StudySessionLoadResult | null;
+  summary: DashboardStudySession | null;
+}>) {
+  const state = !load
+    ? "loading"
+    : !load.storageAvailable
+      ? "unavailable"
+      : load.recovered
+        ? "recovered"
+        : summary
+          ? "ready"
+          : "empty";
+
+  return (
+    <section
+      aria-labelledby="dashboard-study-session-title"
+      className="min-w-0 border-t-2 border-sky-700 pt-4"
+      data-state={state}
+      data-testid="dashboard-study-session"
+    >
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
+        <div>
+          <h2 className="text-base font-semibold" id="dashboard-study-session-title">Focused Session</h2>
+          <p className="mt-1 text-xs text-slate-500">Keep a bounded reading queue and return to its exact current Article.</p>
+        </div>
+        {summary ? (
+          <p className="text-xs font-semibold text-sky-800">
+            {summary.count} {summary.count === 1 ? "Article" : "Articles"}
+          </p>
+        ) : null}
+      </div>
+
+      {!load ? (
+        <p className="mt-3 border-y border-slate-200 py-4 text-sm text-slate-600" role="status">
+          Restoring focused session...
+        </p>
+      ) : null}
+
+      {load && !load.storageAvailable ? (
+        <div className="mt-3 border-y border-amber-300 bg-amber-50 py-4" role="status">
+          <p className="text-sm font-semibold text-amber-950">Focused Session storage is unavailable.</p>
+          <p className="mt-1 text-xs leading-5 text-amber-900">
+            Saved Learning and server-backed progress remain available in this browser.
+          </p>
+          <Link className="mt-3 inline-block text-sm font-semibold text-amber-950 underline" href="/library">
+            Open saved learning
+          </Link>
+        </div>
+      ) : null}
+
+      {load?.storageAvailable && load.recovered ? (
+        <p className="mt-3 border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs text-amber-950" role="status">
+          Invalid or duplicate queue entries were ignored. Healthy Articles remain available.
+        </p>
+      ) : null}
+
+      {load?.storageAvailable && !summary ? (
+        <div className="mt-3 border-y border-slate-200 py-4">
+          <p className="text-sm text-slate-600">No focused session yet.</p>
+          <Link className="mt-3 inline-block text-sm font-semibold text-emerald-800 hover:text-emerald-950" href="/library">
+            Build from saved learning
+          </Link>
+        </div>
+      ) : null}
+
+      {load?.storageAvailable && summary ? (
+        <div className="mt-3 grid min-w-0 gap-4 border-y border-slate-200 py-4 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,0.45fr)] lg:items-end">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase text-sky-800">
+              Article {summary.position} of {summary.count}
+            </p>
+            <p className="mt-1 break-words text-lg font-semibold text-slate-950">{summary.currentTitle}</p>
+            <p className="mt-1 break-words text-xs text-slate-500">
+              {sessionProgressLabel(summary)}
+              {summary.nextTitle ? ` · Next: ${summary.nextTitle}` : " · Final queue item"}
+            </p>
+            {summary.progress !== null ? (
+              <div
+                aria-label={`Reading progress for ${summary.currentTitle}`}
+                aria-valuemax={100}
+                aria-valuemin={0}
+                aria-valuenow={summary.progress}
+                className="mt-3 h-1.5 overflow-hidden bg-slate-200"
+                role="progressbar"
+              >
+                <span className="block h-full bg-sky-700" style={{ width: `${summary.progress}%` }} />
+              </div>
+            ) : null}
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
+            <Link
+              className="w-fit rounded border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-slate-50"
+              href="/session"
+            >
+              Open session
+            </Link>
+            <Link
+              aria-label={`Continue current Article: ${summary.currentTitle}`}
+              className="w-fit rounded bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              href={summary.currentHref}
+            >
+              Continue current Article
+            </Link>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+function sessionProgressLabel(summary: DashboardStudySession): string {
+  if (summary.progress === null) {
+    return "Reader progress not recorded";
+  }
+  return `${summary.sectionTitle ?? "Article position"} · ${summary.progress}% read`;
 }
 
 function RemoteStatus({

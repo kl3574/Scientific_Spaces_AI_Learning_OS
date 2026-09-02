@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-021 product convergence tasks are PASS / CLOSED with exact-SHA implementation main CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-021 product convergence tasks are PASS / CLOSED with exact-SHA implementation main CI passing; P3-022 has local acceptance PASS with implementation CI pending; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -647,6 +647,27 @@ audit, and SBOM validation passed; normal-main Docker and release-evidence
 jobs were skipped as designed; uploaded artifacts were zero. Evidence is in
 `docs/P3_021_FOCUSED_STUDY_SESSION_REPORT.md`.
 
+### P3-022 - Session-Aware Learning Dashboard
+
+Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+
+P3-022 connects the completed P3-021 browser-local queue to the existing
+P3-016 Command Center. The Dashboard now exposes the safe current Article,
+queue position and size, next Article, Reader progress, exact Session return
+path, and dynamic primary action. It handles empty, recovered, unavailable,
+same-tab, cross-tab, and refresh states without adding a persistence model or
+changing a Backend interface. The canonical task is
+`docs/tasks/P3-022_LEARNING_DASHBOARD.md`.
+
+Local evidence passed 600 Backend tests with 4 skipped, 80 focused Frontend
+tests, the production build, three Product E2E runs with 51 checks each, and a
+real local 1,314-Article desktop/mobile visual probe. Browser checks recorded
+zero external requests, unexpected console errors, or page errors. Workflow,
+suppression, dependency, secret, security utility, reproducible temporary
+SBOM, artifact, and protected-path gates passed. Implementation commit and
+exact-SHA main CI are pending. Evidence is in
+`docs/P3_022_IMPLEMENTATION_REPORT.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -679,8 +700,9 @@ jobs were skipped as designed; uploaded artifacts were zero. Evidence is in
 
 ## Next Recommended Task
 
-P3-021 Focused Study Session is PASS / CLOSED. Its implementation exact-SHA
-main CI passed, and this docs-only closure commit requires its own exact-SHA CI
-readback before final reporting. No active next task or v1.2 candidate is
-assigned. Tag, Release, attestation, real Provider, source access, external
-search, and private Zotero actions remain unauthorized.
+P3-022 Session-Aware Learning Dashboard has local acceptance PASS. Create and
+push its implementation commit, verify exact-SHA main CI, then create a
+docs-only closure commit and verify that commit's exact-SHA CI before assigning
+another task. No v1.2 candidate is assigned. Tag, Release, attestation, real
+Provider, source access, external search, and private Zotero actions remain
+unauthorized.
