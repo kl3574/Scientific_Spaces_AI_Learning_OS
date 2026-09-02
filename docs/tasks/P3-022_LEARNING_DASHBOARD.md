@@ -2,7 +2,7 @@
 
 ## Status
 
-LOCAL PASS / IMPLEMENTATION CI PENDING
+PASS / CLOSED
 
 ## Objective
 
@@ -80,4 +80,15 @@ critical regression.
 - Product E2E: 3/3 production runs, 51 checks each
 - real local 1,314-Article desktop/mobile visual probe: PASS
 - security, SBOM, artifact, and protected-path gates: PASS
-- implementation commit and exact-SHA main CI: PENDING
+- implementation commit:
+  `13af4c0898bbea6a86172c924ad255702ebc8d06`
+- initial implementation CI run `33588352098`: Product E2E BLOCKED by the
+  repeated-hard-navigation hydration race; all other required jobs PASS
+- E2E isolation repair commit:
+  `eeef48fbd982621da1e02553f34edefe8f53f8c5`
+- repair exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33590335784`
+- repair CI: PASS, including three-run Product E2E; normal-main Docker and
+  release-evidence jobs skipped as designed; uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting

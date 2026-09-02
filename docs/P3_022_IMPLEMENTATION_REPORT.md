@@ -1,6 +1,6 @@
 # P3-022 Session-Aware Learning Dashboard Report
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 ## 1. Baseline And Scope
 
@@ -116,7 +116,7 @@ runtime store was retained.
 
 ```text
 uv run --project backend --extra dev pytest -q
-600 passed, 4 skipped in 37.66s
+600 passed, 4 skipped in 38.20s
 ```
 
 ### Frontend
@@ -153,6 +153,10 @@ uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3
 - unexpected console errors: 0
 - page errors: 0
 
+The final E2E harness also passed three complete runs under a single-core UTC
+constraint. That stress run retained all 51 checks per run, restart
+persistence, zero external requests, and zero unexpected console/page errors.
+
 ## 7. Security And Supply Chain
 
 - workflow policy: PASS, 1 workflow / 19 immutable Action uses
@@ -184,7 +188,45 @@ uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3
 - real or paid Provider calls: 0
 - candidate, tag, Release, or attestation actions: 0
 
-## 9. Known Risks
+## 9. Exact-SHA CI And E2E Repair
+
+Implementation commit
+`13af4c0898bbea6a86172c924ad255702ebc8d06` triggered exact-SHA main CI run
+[`33588352098`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33588352098).
+Backend, Frontend, workflow, dependency, secret, and SBOM jobs passed, but
+Product E2E reported React hydration error `#418`. A rerun of the same SHA
+failed again; the captured URL moved from `/library` to `/articles`, so the
+failure was not accepted as a page-specific product defect or a transient
+runner pass.
+
+Bounded diagnosis established:
+
+- direct target-state hard loads: 210/210 without hydration failure
+- direct `/articles` 503 state: 100/100 without hydration failure
+- same-tab unrelated hard-navigation sequence under one CPU: reproduced in
+  1/32 runs
+- fixed delays and `networkidle`: reduced but did not eliminate the race
+- independent page per unrelated hard-navigation scenario: 100/100 without
+  hydration failure
+
+The Product E2E harness now gives each independent 404/503/Dashboard/Library
+hard-navigation scenario a new Playwright page while retaining its browser
+context, localStorage, backend state, network guard, console capture, and
+strict page-error rejection. It also checks page errors immediately after
+each scenario. Product routes, implementation behavior, workflows, and test
+acceptance thresholds were not changed.
+
+Repair commit `eeef48fbd982621da1e02553f34edefe8f53f8c5` passed exact-SHA main CI
+run [`33590335784`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33590335784):
+
+- Backend pytest: PASS
+- Frontend build: PASS
+- Product E2E, three runs: PASS
+- workflow, dependency, secret, and SBOM jobs: PASS
+- normal-main Docker and release-evidence jobs: skipped as designed
+- uploaded workflow artifacts: 0
+
+## 10. Known Risks
 
 1. Focused Session remains intentionally browser-local and is not shared
    between browsers or devices.
@@ -196,12 +238,20 @@ uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3
 4. Pinned GitHub Actions currently receive an upstream Node 20 deprecation
    annotation while the runner forces Node 24; workflow revision is outside
    this product task.
+5. Reusing one Playwright tab for unrelated hard-navigation failure scenarios
+   can surface a low-resource React/Chromium old-document hydration race. The
+   harness now isolates those scenarios without relaxing page-error checks.
 
-## 10. Decision
+## 11. Decision
 
 P3-022 local acceptance: **PASS**.
 
-- implementation commit: PENDING
-- implementation exact-SHA main CI: PENDING
-- P3-022 closure: PENDING implementation CI and docs-only closure CI
+- implementation commit:
+  `13af4c0898bbea6a86172c924ad255702ebc8d06`
+- E2E isolation repair commit:
+  `eeef48fbd982621da1e02553f34edefe8f53f8c5`
+- repair exact-SHA main CI: PASS, run `33590335784`
+- P3-022: **PASS / CLOSED**
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
 - v1.2 candidate assignment: none
