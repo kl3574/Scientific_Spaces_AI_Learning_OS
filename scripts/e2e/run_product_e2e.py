@@ -1115,19 +1115,16 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     _require(not page_errors, f"primary workflow emitted page errors: {page_errors}")
     page.close()
-    page = context.new_page()
-    page.on(
-        "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
-    )
-    page.on("pageerror", lambda error: page_errors.append(f"{page.url}: {error}"))
+    page = _new_observed_page(context, console_errors, page_errors)
 
     page.goto(f"{FRONTEND_URL}/articles/not-a-real-article", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     expect(page.get_by_text("Article not found", exact=True)).to_be_visible(timeout=30_000)
     _require(not page_errors, f"Article not-found route emitted page errors: {page_errors}")
     checks["article_not_found_state"] = True
+    page.close()
 
+    page = _new_observed_page(context, console_errors, page_errors)
     not_found_console_start = len(console_errors)
     page.goto(f"{FRONTEND_URL}/not-a-product-route", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
@@ -1141,8 +1138,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"unexpected console output during intentional route 404: {expected_not_found_console}",
     )
     del console_errors[not_found_console_start:]
+    _require(not page_errors, f"route not-found state emitted page errors: {page_errors}")
     checks["route_not_found_state"] = True
+    page.close()
 
+    page = _new_observed_page(context, console_errors, page_errors)
     page.route(
         re.compile(r".*/v1\.1/articles(?:\?.*)?$"),
         lambda route: route.fulfill(
@@ -1155,8 +1155,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     expect(page.get_by_text("Failed to load articles: 503", exact=True)).to_be_visible(timeout=30_000)
+    _require(not page_errors, f"Article error state emitted page errors: {page_errors}")
     checks["controlled_backend_error_state"] = True
+    page.close()
 
+    page = _new_observed_page(context, console_errors, page_errors)
     page.route(
         re.compile(r".*/learning/stats$"),
         lambda route: route.fulfill(
@@ -1175,8 +1178,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.get_by_role("button", name="Retry", exact=True).click()
     expect(page.get_by_test_id("dashboard-remote-state")).to_have_count(0, timeout=30_000)
     expect(page.get_by_role("heading", name="Learning Activity", exact=True)).to_be_visible()
+    _require(not page_errors, f"Dashboard partial state emitted page errors: {page_errors}")
     checks["dashboard_partial_failure"] = True
+    page.close()
 
+    page = _new_observed_page(context, console_errors, page_errors)
     page.route(
         re.compile(r".*/learning/bookmarks$"),
         lambda route: route.fulfill(
@@ -1198,7 +1204,9 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "button", name="Retry", exact=True
     ).click()
     expect(page.get_by_test_id("saved-library-remote-state")).to_have_count(0, timeout=30_000)
+    _require(not page_errors, f"Saved Library partial state emitted page errors: {page_errors}")
     checks["saved_library_partial_failure"] = True
+    page.close()
     context.close()
 
     unavailable_context = browser.new_context(viewport={"width": 1440, "height": 1000}, locale="zh-CN")
@@ -1759,6 +1767,16 @@ def _read_json_url(url: str) -> dict[str, object]:
         payload = json.load(response)
     _require(isinstance(payload, dict), f"{url} did not return an object")
     return payload
+
+
+def _new_observed_page(context, console_errors: list[str], page_errors: list[str]):
+    page = context.new_page()
+    page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    page.on("pageerror", lambda error: page_errors.append(f"{page.url}: {error}"))
+    return page
 
 
 def _wait_for_application_shell(page) -> None:
