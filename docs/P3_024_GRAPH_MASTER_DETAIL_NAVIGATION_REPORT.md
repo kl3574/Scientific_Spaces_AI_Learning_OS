@@ -14,9 +14,8 @@ Zotero data, Provider defaults, and release state remained unchanged. No
 source request, external search, private Zotero action, real Provider call,
 candidate, tag, Release, attestation, force push, or history rewrite occurred.
 
-The user-requested `AGENTS.md` cleanup removed only agent-authored orchestration
-and standing-authorization prose. Repository engineering, data-safety, and Git
-safety rules remain intact.
+The user-requested removal of the unrelated agent-authored `AGENTS.md` is kept
+in a separate commit and does not change product behavior or P3-024 scope.
 
 ## 2. Workspace Contract
 
@@ -103,7 +102,7 @@ requests, and no console or page errors.
 
 ```text
 uv run --project backend --extra dev pytest -q
-600 passed, 4 skipped in 41.12s
+600 passed, 4 skipped in 39.08s
 ```
 
 ### Frontend
@@ -111,11 +110,11 @@ uv run --project backend --extra dev pytest -q
 - Article, Reader, workflow, and navigation: 33 passed
 - structured References: 3 passed
 - Tutor: 20 passed
-- Graph, workspace, and Concept Study Set: 23 passed
+- Graph, workspace, Concept Study Set, and hydration guard: 27 passed
 - global search: 5 passed
 - Saved Learning Library: 5 passed
 - Focused Session: 8 passed
-- focused total: 97 passed
+- focused total: 101 passed
 - Next.js 15.5.21 production build: PASS, 11 routes
 - `/graph`: 68.3 kB route / 182 kB first load
 - shared first load: 103 kB
@@ -124,11 +123,11 @@ uv run --project backend --extra dev pytest -q
 
 ```text
 uv run --project backend python scripts/e2e/run_product_e2e.py \
-  --repeat 3 --frontend-mode start
+  --repeat 10 --frontend-mode start
 ```
 
-- formal complete runs: 3
-- formal successful runs: 3
+- formal complete runs: 10
+- formal successful runs: 10
 - checks per run: 73
 - Graph responsive reachability, focus, URL, history, context, and retry:
   PASS in every run
@@ -174,12 +173,44 @@ continuity in Context, same-route global-search handoff, direct 390 x 844 deep
 links, fragment canonicalization, and route-driven Context focus were made
 explicit and covered by tests.
 
-Exploratory production runs previously observed intermittent React hydration
-error 418 during repeated hard-navigation test reuse. Stable page-context
-labels localized the race, and the harness now isolates those navigation and
-storage scenarios in fresh pages. The final current-tree production suite
-passed three consecutive complete runs with zero console or page errors. This
-remains a framework/runtime regression risk, not an active P3-024 blocker.
+The initial implementation commit exposed intermittent production React error
+418 in exact-SHA CI. Instrumented local reproduction found that Next 15.5.21
+starts App Router hydration in a transition lane and its bundled React canary
+can yield with a stale hydration cursor. Stable SSR response hashes, a failure
+before the first host node was claimed, and reproduction on both Graph and
+Articles excluded data drift and a Graph-only DOM mismatch.
+
+The repair uses Next's client instrumentation entry point to remove only that
+first bootstrap hydration call from transition context. It is restricted to
+production App Router, exact Next `15.5.21`, exact bundled React
+`19.2.0-canary-0bdb9206-20250818`, a non-error document, and an empty
+before-interactive script queue. It preserves and restores the complete
+property descriptor before hydration, delegates every captured later call to
+the original transition implementation, expires after one microtask if unused,
+and fails open for unsupported runtimes. No framework package was patched and
+no dependency or lockfile changed.
+
+Final clean-build stress evidence:
+
+- Graph deep link: 500 / 500 normal hard reloads
+- Graph deep link with browser cache disabled: 200 / 200
+- Graph at 390 x 844, 320 x 844, and 720 x 450: 100 / 100 each
+- Articles search route: 200 / 200
+- response variants: one stable SSR hash per route
+- page errors / unexpected console errors / external requests: 0 / 0 / 0
+- 20-load performance sample per Graph and Articles: zero long tasks; median
+  hydrated time 143.15 ms and 115.60 ms respectively
+- ten complete Product E2E runs: PASS, including subsequent same-route and
+  cross-route navigation, Back/Forward, 404, controlled errors, and persistence
+
+The workaround is intentionally version-bound. A future Next or React upgrade
+will skip it and must re-run the hard-reload regression before removal or
+replacement.
+
+An independent final repair review returned PASS after checking one-shot
+consumption, descriptor restoration, subsequent-transition delegation,
+fail-open guards, error-route behavior, diagnostic cleanup, and protected
+scope.
 
 The Graph remains bounded by existing result and traversal limits, and its
 runtime still depends on external data shape remaining compatible with the
@@ -188,9 +219,18 @@ learning semantics.
 
 ## 11. Exact-SHA Main CI
 
-Implementation commit: pending.
+Initial implementation commit:
+`86a63bd3c0641e2d3c0e8128a2bd61783fd3ff04`.
 
-Exact-SHA main CI: pending.
+Initial exact-SHA CI:
+`https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33851459994`
+completed with Product E2E failure; Backend, Frontend, workflow policy,
+dependency audit, secret audit, and SBOM validation passed. Docker and release
+evidence were skipped as expected for an ordinary `main` push.
+
+Hydration repair commit: pending.
+
+Hydration repair exact-SHA main CI: pending.
 
 Required CI evidence:
 

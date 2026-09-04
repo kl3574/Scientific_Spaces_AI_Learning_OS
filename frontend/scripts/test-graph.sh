@@ -11,17 +11,20 @@ trap 'rm -rf "$test_dir"' EXIT
   --esModuleInterop \
   --skipLibCheck \
   --outDir "$test_dir" \
+  tests/bootstrapHydration.test.ts \
   tests/graph.test.ts \
   tests/graphWorkspace.test.ts \
   tests/conceptStudySet.test.ts \
   src/lib/conceptLearningLaunch.ts \
   src/lib/conceptStudySet.ts \
+  src/lib/bootstrapHydration.ts \
   src/lib/graph.ts \
   src/lib/graphPresentation.ts \
   src/lib/graphWorkspace.ts \
   src/lib/graphVisualization.ts
 
 node --test \
+  "$test_dir/tests/bootstrapHydration.test.js" \
   "$test_dir/tests/graph.test.js" \
   "$test_dir/tests/graphWorkspace.test.js" \
   "$test_dir/tests/conceptStudySet.test.js"
