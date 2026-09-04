@@ -11,10 +11,10 @@ Current task:
 `docs/tasks/CURRENT_TASK.md`
 
 Current milestone:
-P3-025 Focused Session Completion and Guided Advance
+P3-026 Trustworthy Article Discovery and Focused Session Capture
 
 Status:
-PASS / CLOSED
+LOCAL PASS / CI PENDING
 
 ## Historical Notes
 

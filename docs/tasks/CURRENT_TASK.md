@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION.md`
 
 ## Staged Task
 
@@ -15,6 +15,7 @@ None
 ## Status
 
 - P3-025: PASS / CLOSED
+- P3-026: LOCAL PASS / CI PENDING
 
 ## Authorization
 
@@ -24,6 +25,10 @@ None
 - P3-025 Frontend implementation, focused tests, isolated fake-runtime
   validation, local commit, non-force push, and exact-SHA CI execution:
   CONSUMED / CLOSED after this docs-only closure commit
+- P3-026 bounded Frontend implementation, focused tests, governance
+  documentation, isolated fake-runtime validation, local commits, non-force
+  push, and exact-SHA CI execution: GRANTED / ACTIVE by standing user direction
+  after two independent automatic-alignment reviews passed
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -53,6 +58,5 @@ None
 
 ## Next Gate
 
-Verify this docs-only closure commit through exact-SHA main CI, then run a
-bounded product and GUI audit to define the next convergence task. No v1.2
-candidate is assigned.
+Create and push the P3-026 implementation commit, then require exact-SHA main
+CI before the docs-only closure. No v1.2 candidate is assigned.

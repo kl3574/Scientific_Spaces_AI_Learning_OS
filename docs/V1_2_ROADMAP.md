@@ -745,6 +745,19 @@ The canonical contract is
 Evidence is in
 `docs/P3_025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE_REPORT.md`.
 
+### P3-026 - Trustworthy Article Discovery and Focused Session Capture
+
+Status: **LOCAL PASS / CI PENDING**.
+
+P3-026 makes `/articles` generation-safe, separates Learning State and Bookmark
+availability, and adds explicit page-scoped capture into the existing
+browser-local Focused Session. It preserves published APIs, queue semantics,
+server records, and all frozen data contracts. Local Frontend, Backend, build,
+three-run Product E2E, security, artifact, and independent-review gates pass.
+The canonical task is
+`docs/tasks/P3-026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION.md`; evidence is in
+`docs/P3_026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION_REPORT.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -777,9 +790,7 @@ Evidence is in
 
 ## Next Recommended Task
 
-Run a bounded product and GUI audit to define the next convergence task. No
-next implementation task or v1.2 candidate is currently staged. Tag, Release,
-attestation, real Provider, source access, external search, and private Zotero
-actions remain unauthorized.
-Tag, Release, attestation, real Provider, source access, external search, and
-private Zotero actions remain unauthorized.
+Complete and verify P3-026. The bounded Tutor result/Quiz accessibility repair
+remains the next audit candidate and must not be folded into this task. No
+v1.2 candidate is currently staged. Tag, Release, attestation, real Provider,
+source access, external search, and private Zotero actions remain unauthorized.

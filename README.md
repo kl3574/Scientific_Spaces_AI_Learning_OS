@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-025 PASS / CLOSED`
+- Status: `P3-026 LOCAL PASS / CI PENDING`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-025 implementation exact-SHA main CI PASS`
-- Current task: `No active implementation task`
+- Latest gate: `P3-026 local verification and two independent reviews PASS`
+- Current task: `P3-026 Trustworthy Article Discovery and Focused Session Capture`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -42,6 +42,8 @@ P3-024 Graph workspace evidence: `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REP
 P3-024 canonical task: `docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md` (PASS / CLOSED).
 P3-025 focused completion evidence: `docs/P3_025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE_REPORT.md` (PASS / CLOSED).
 P3-025 canonical task: `docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md` (PASS / CLOSED).
+P3-026 evidence: `docs/P3_026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION_REPORT.md` (LOCAL PASS / CI PENDING).
+P3-026 canonical task: `docs/tasks/P3-026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION.md` (LOCAL PASS / CI PENDING).
 
 v1.2 planning specifications:
 
@@ -182,9 +184,9 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `None`
+- Active task: `P3-026 Trustworthy Article Discovery and Focused Session Capture`
 - Staged task: `None`
-- Status: `P3-025 PASS / CLOSED`
+- Status: `P3-026 LOCAL PASS / CI PENDING`
 - Last closed task: `docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`

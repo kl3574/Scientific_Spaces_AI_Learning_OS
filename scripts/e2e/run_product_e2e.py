@@ -638,6 +638,85 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     _require("# " not in preview_text and "](" not in preview_text, "article preview exposes Markdown syntax")
     checks["title_and_keyword_search"] = True
 
+    capture_url = page.url
+    page.evaluate(
+        """
+        () => {
+          window.__p3026LearningWrites = 0;
+          window.__p3026SessionWrites = 0;
+          const originalFetch = window.fetch.bind(window);
+          const originalSetItem = Storage.prototype.setItem;
+          window.fetch = (...args) => {
+            const url = String(args[0]);
+            const method = String(args[1]?.method || "GET").toUpperCase();
+            if (url.includes("/learning/") && method !== "GET") {
+              window.__p3026LearningWrites += 1;
+            }
+            return originalFetch(...args);
+          };
+          Storage.prototype.setItem = function (key, value) {
+            if (key === "scientific-spaces-study-session-v1") {
+              window.__p3026SessionWrites += 1;
+            }
+            return originalSetItem.call(this, key, value);
+          };
+        }
+        """
+    )
+    capture_checkbox = page.get_by_role(
+        "checkbox", name=f"Select {CRB_TITLE} for focused session", exact=True
+    )
+    _focus_via_tab(page, capture_checkbox)
+    capture_checkbox.press("Space")
+    expect(capture_checkbox).to_be_checked()
+    capture_action = page.get_by_role("button", name="Add selected to session", exact=True)
+    _focus_via_tab(page, capture_action)
+    capture_action.press("Enter")
+    capture_feedback = page.get_by_test_id("article-session-capture-feedback")
+    expect(capture_feedback).to_be_focused()
+    expect(capture_feedback).to_have_attribute("aria-live", "polite")
+    expect(capture_feedback).to_have_attribute("aria-atomic", "true")
+    expect(capture_feedback).to_contain_text(
+        "1 added; 0 already present; 0 invalid; 0 omitted by capacity."
+    )
+    _require_visible_focus(capture_feedback, "Article capture feedback")
+    capture_feedback_box = capture_feedback.bounding_box()
+    _require(
+        capture_feedback_box is not None
+        and capture_feedback_box["y"] < page.viewport_size["height"]
+        and capture_feedback_box["y"] + capture_feedback_box["height"] > 0,
+        f"Article capture feedback does not intersect the viewport: {capture_feedback_box}",
+    )
+    captured_session = page.evaluate(
+        "JSON.parse(localStorage.getItem('scientific-spaces-study-session-v1'))"
+    )
+    _require(
+        [item["article_id"] for item in captured_session["items"]] == [CRB_ARTICLE_ID]
+        and captured_session["active_article_id"] == CRB_ARTICLE_ID,
+        f"Article capture persisted the wrong Session: {captured_session}",
+    )
+    _require(page.url == capture_url, "Article capture navigated or changed list URL state")
+    _require(
+        page.evaluate("window.__p3026LearningWrites") == 0,
+        "Article capture mutated Learning State or Bookmark data",
+    )
+    _require(
+        page.evaluate("window.__p3026SessionWrites") == 1,
+        "Article capture did not use exactly one Session storage write",
+    )
+    expect(article_link.locator("xpath=ancestor::article[1]")).to_contain_text("In session")
+    page.evaluate(
+        """
+        () => {
+          localStorage.removeItem("scientific-spaces-study-session-v1");
+          window.dispatchEvent(new Event("scientific-spaces-study-session-change"));
+        }
+        """
+    )
+    expect(article_link.locator("xpath=ancestor::article[1]")).not_to_contain_text("In session")
+    checks["article_session_capture_keyboard_and_truthful_write"] = True
+    checks["article_session_capture_no_server_mutation_or_navigation"] = True
+
     page.get_by_placeholder("Search title or keyword").fill("__p3_011_no_matching_article__")
     page.get_by_role("button", name="Search", exact=True).click()
     expect(page.get_by_text("No articles found.", exact=True)).to_be_visible(timeout=30_000)
@@ -1828,6 +1907,557 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.close()
     context.close()
 
+    article_race_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    article_race_context.add_init_script(
+        script="""
+        (() => {
+          const originalFetch = window.fetch.bind(window);
+          let delayedCrb = false;
+          let delayedSuccess = false;
+          let delayedSort = false;
+          let delayedPage = false;
+          let retryRaceCount = 0;
+          const articleResponse = (id, title, query, sort, page, hasNext = false) =>
+            new Response(JSON.stringify({
+              items: [{
+                id,
+                title,
+                url: `https://spaces.ac.cn/archives/${id}`,
+                metadata: {},
+                content_preview: `${title} preview`,
+              }],
+              total: hasNext ? 40 : 1,
+              query,
+              category: null,
+              sort,
+              page,
+              page_size: 20,
+              total_pages: hasNext ? 2 : 1,
+              has_next: hasNext && page === 1,
+              has_previous: page > 1,
+            }), { status: 200, headers: { "Content-Type": "application/json" } });
+          window.fetch = (...args) => {
+            const url = String(args[0]);
+            if (!delayedCrb && url.includes('/v1.1/articles') && url.includes('q=CRB')) {
+              delayedCrb = true;
+              return new Promise((_, reject) => {
+                window.setTimeout(() => reject(new Error('intentional stale Article failure')), 900);
+              });
+            }
+            if (!delayedSuccess && url.includes('/v1.1/articles') && url.includes('q=slow-success')) {
+              delayedSuccess = true;
+              return new Promise((resolve) => {
+                window.setTimeout(
+                  () => resolve(articleResponse('stale-success', 'Stale success result', 'slow-success', 'date_desc', 1)),
+                  900,
+                );
+              });
+            }
+            if (!delayedSort && url.includes('/v1.1/articles') && url.includes('q=CRB') && url.includes('sort=title_asc')) {
+              delayedSort = true;
+              return new Promise((resolve) => {
+                window.setTimeout(
+                  () => resolve(articleResponse('stale-sort', 'Stale sort result', 'CRB', 'title_asc', 1)),
+                  900,
+                );
+              });
+            }
+            if (url.includes('/v1.1/articles') && url.includes('q=page-fixture')) {
+              const page = Number(new URL(url).searchParams.get('page') || '1');
+              if (page === 2 && !delayedPage) {
+                delayedPage = true;
+                return new Promise((resolve) => {
+                  window.setTimeout(
+                    () => resolve(articleResponse('stale-page', 'Stale page 2 result', 'page-fixture', 'archive_desc', 2, true)),
+                    900,
+                  );
+                });
+              }
+              return Promise.resolve(articleResponse('page-one', 'Page fixture 1', 'page-fixture', 'date_desc', 1, true));
+            }
+            if (url.includes('/v1.1/articles') && url.includes('q=retry-race')) {
+              retryRaceCount += 1;
+              if (retryRaceCount === 1) {
+                return Promise.resolve(new Response('{', {
+                  status: 200,
+                  headers: { "Content-Type": "application/json" },
+                }));
+              }
+              return new Promise((resolve) => {
+                window.setTimeout(
+                  () => resolve(articleResponse('stale-retry', 'Stale retry result', 'retry-race', 'date_desc', 1)),
+                  900,
+                );
+              });
+            }
+            return originalFetch(...args);
+          };
+        })();
+        """
+    )
+    _install_network_guard(article_race_context, blocked_external)
+    article_race_page = _new_observed_page(
+        article_race_context,
+        console_errors,
+        page_errors,
+        label="article-result-race",
+    )
+    article_race_page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
+    _wait_for_application_shell(article_race_page)
+    expect(article_race_page.get_by_text(re.compile(r"^Page 1 / "))).to_be_visible(
+        timeout=30_000
+    )
+    race_search = article_race_page.get_by_placeholder("Search title or keyword")
+    race_submit = article_race_page.get_by_role("button", name="Search", exact=True)
+    race_search.fill("CRB")
+    race_submit.click()
+    expect(article_race_page.get_by_text("Loading articles", exact=True)).to_be_visible()
+    _require(
+        article_race_page.get_by_role("link", name=CRB_TITLE, exact=True).count() == 0,
+        "pending Article request left stale rows actionable",
+    )
+    race_search.fill("Attention")
+    race_submit.click()
+    race_search.fill("CRB")
+    race_submit.click()
+    race_crb_link = article_race_page.get_by_role("link", name=CRB_TITLE, exact=True)
+    expect(race_crb_link).to_be_visible(timeout=30_000)
+    article_race_page.wait_for_timeout(1_000)
+    expect(race_crb_link).to_be_visible()
+    expect(article_race_page.get_by_text("Article library unavailable", exact=True)).to_have_count(0)
+
+    race_search.fill("slow-success")
+    race_submit.click()
+    race_search.fill("CRB")
+    race_submit.click()
+    expect(race_crb_link).to_be_visible(timeout=30_000)
+    article_race_page.wait_for_timeout(1_000)
+    expect(race_crb_link).to_be_visible()
+    expect(article_race_page.get_by_text("Stale success result", exact=True)).to_have_count(0)
+
+    race_sort = article_race_page.get_by_test_id(
+        "article-discovery-workspace"
+    ).locator("select")
+    race_sort.select_option("title_asc")
+    race_sort.select_option("archive_desc")
+    expect(race_crb_link).to_be_visible(timeout=30_000)
+    article_race_page.wait_for_timeout(1_000)
+    expect(race_crb_link).to_be_visible()
+    expect(article_race_page.get_by_text("Stale sort result", exact=True)).to_have_count(0)
+
+    race_search.fill("page-fixture")
+    race_submit.click()
+    expect(article_race_page.get_by_text("Page fixture 1", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    article_race_page.get_by_role("button", name="Next", exact=True).click()
+    race_sort.select_option("date_desc")
+    expect(article_race_page.get_by_text("Page fixture 1", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    article_race_page.wait_for_timeout(1_000)
+    expect(article_race_page.get_by_text("Stale page 2 result", exact=True)).to_have_count(0)
+    expect(article_race_page.get_by_text("Page 1 / 2", exact=True)).to_be_visible()
+
+    race_search.fill("retry-race")
+    race_submit.click()
+    expect(article_race_page.get_by_text("Article library unavailable", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    article_race_page.get_by_role("button", name="Retry articles", exact=True).click()
+    race_search.fill("CRB")
+    race_submit.click()
+    expect(race_crb_link).to_be_visible(timeout=30_000)
+    article_race_page.wait_for_timeout(1_000)
+    expect(race_crb_link).to_be_visible()
+    expect(article_race_page.get_by_text("Stale retry result", exact=True)).to_have_count(0)
+
+    race_checkbox = article_race_page.get_by_role(
+        "checkbox", name=f"Select {CRB_TITLE} for focused session", exact=True
+    )
+    race_checkbox.check()
+    expect(race_checkbox).to_be_checked()
+    race_search.fill("Attention")
+    race_submit.click()
+    expect(
+        article_race_page.get_by_role("link", name=ATTENTION_TITLE, exact=True)
+    ).to_be_visible(timeout=30_000)
+    expect(article_race_page.get_by_test_id("article-session-capture")).to_contain_text(
+        "0 selected on this page"
+    )
+
+    article_race_page.route(
+        re.compile(r".*/v1\.1/articles\?.*q=__p3026_error__.*"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body="{",
+        ),
+        times=1,
+    )
+    race_search.fill("__p3026_error__")
+    race_submit.click()
+    expect(article_race_page.get_by_text("Article library unavailable", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    _require(
+        article_race_page.locator('[data-testid="article-discovery-workspace"] article').count() == 0,
+        "failed Article request exposed actionable stale rows",
+    )
+    article_race_page.get_by_role("button", name="Retry articles", exact=True).click()
+    expect(article_race_page.get_by_text("No articles found.", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    checks["article_result_generation_and_stale_failure_guard"] = True
+    checks["article_result_stale_success_sort_page_retry_guard"] = True
+    checks["article_result_failure_retry_and_selection_reset"] = True
+    article_race_context.close()
+
+    learning_partial_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    _install_network_guard(learning_partial_context, blocked_external)
+    learning_partial_context.route(
+        re.compile(r".*/learning/state$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body="{",
+        ),
+        times=1,
+    )
+    learning_partial_page = _new_observed_page(
+        learning_partial_context,
+        console_errors,
+        page_errors,
+        label="article-learning-partial",
+    )
+    learning_partial_page.goto(
+        f"{FRONTEND_URL}/articles?q=CRB", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(learning_partial_page)
+    learning_partial_row = learning_partial_page.get_by_role(
+        "link", name=CRB_TITLE, exact=True
+    ).locator("xpath=ancestor::article[1]")
+    expect(learning_partial_row).to_contain_text("Status unavailable", timeout=30_000)
+    expect(learning_partial_row).to_contain_text("Bookmarked")
+    learning_partial_page.evaluate(
+        """
+        () => {
+          const originalFetch = window.fetch.bind(window);
+          let delayed = false;
+          window.fetch = (...args) => {
+            const input = args[0];
+            const url = typeof input === "string" ? input : input.url;
+            if (!delayed && new URL(url, window.location.href).pathname === "/learning/state") {
+              delayed = true;
+              return new Promise((resolve, reject) => {
+                window.setTimeout(() => originalFetch(...args).then(resolve, reject), 900);
+              });
+            }
+            return originalFetch(...args);
+          };
+        }
+        """
+    )
+    learning_retry = learning_partial_page.get_by_role(
+        "button", name="Retry learning status", exact=True
+    )
+    learning_retry.click()
+    learning_availability = learning_partial_page.get_by_test_id(
+        "article-badge-availability"
+    )
+    expect(learning_retry).to_be_disabled()
+    expect(learning_availability).to_have_attribute("aria-busy", "true")
+    expect(learning_availability).to_contain_text(
+        "Learning status retry in progress. Article rows remain unavailable."
+    )
+    expect(learning_availability).to_be_focused()
+    _require_visible_focus(learning_availability, "Learning badge retry progress")
+    learning_search = learning_partial_page.get_by_placeholder("Search title or keyword")
+    learning_search.focus()
+    expect(learning_search).to_be_focused()
+    expect(learning_partial_row).to_contain_text("completed", timeout=30_000)
+    expect(learning_availability).to_contain_text("Learning status is available.")
+    expect(learning_search).to_be_focused()
+    checks["article_learning_failure_preserves_bookmarks"] = True
+    learning_partial_context.close()
+
+    bookmark_partial_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    _install_network_guard(bookmark_partial_context, blocked_external)
+    bookmark_partial_context.route(
+        re.compile(r".*/learning/bookmarks$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body="{",
+        ),
+        times=1,
+    )
+    bookmark_partial_page = _new_observed_page(
+        bookmark_partial_context,
+        console_errors,
+        page_errors,
+        label="article-bookmark-partial",
+    )
+    bookmark_partial_page.goto(
+        f"{FRONTEND_URL}/articles?q=CRB", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(bookmark_partial_page)
+    bookmark_partial_row = bookmark_partial_page.get_by_role(
+        "link", name=CRB_TITLE, exact=True
+    ).locator("xpath=ancestor::article[1]")
+    expect(bookmark_partial_row).to_contain_text("completed", timeout=30_000)
+    expect(bookmark_partial_row).not_to_contain_text("Bookmarked")
+    bookmark_partial_page.evaluate(
+        """
+        () => {
+          const originalFetch = window.fetch.bind(window);
+          let delayed = false;
+          window.fetch = (...args) => {
+            const input = args[0];
+            const url = typeof input === "string" ? input : input.url;
+            if (!delayed && new URL(url, window.location.href).pathname === "/learning/bookmarks") {
+              delayed = true;
+              return new Promise((resolve, reject) => {
+                window.setTimeout(() => originalFetch(...args).then(resolve, reject), 900);
+              });
+            }
+            return originalFetch(...args);
+          };
+        }
+        """
+    )
+    bookmark_retry = bookmark_partial_page.get_by_role(
+        "button", name="Retry saved status", exact=True
+    )
+    bookmark_retry.click()
+    bookmark_availability = bookmark_partial_page.get_by_test_id(
+        "article-badge-availability"
+    )
+    expect(bookmark_retry).to_be_disabled()
+    expect(bookmark_availability).to_have_attribute("aria-busy", "true")
+    expect(bookmark_availability).to_contain_text(
+        "Saved status retry in progress. Article rows remain unavailable."
+    )
+    expect(bookmark_availability).to_be_focused()
+    _require_visible_focus(bookmark_availability, "Saved badge retry progress")
+    expect(bookmark_partial_row).to_contain_text("Bookmarked", timeout=30_000)
+    expect(bookmark_availability).to_contain_text("Saved status is available.")
+    expect(bookmark_availability).to_be_focused()
+    _require_visible_focus(bookmark_availability, "Saved badge retry result")
+    checks["article_bookmark_failure_preserves_learning_state"] = True
+    bookmark_partial_context.close()
+
+    capture_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    _install_network_guard(capture_context, blocked_external)
+    capture_page = _new_observed_page(
+        capture_context, console_errors, page_errors, label="article-capture-reload"
+    )
+    capture_observer = _new_observed_page(
+        capture_context, console_errors, page_errors, label="article-capture-observer"
+    )
+    for capture_target in (capture_page, capture_observer):
+        capture_target.goto(f"{FRONTEND_URL}/articles?q=CRB", wait_until="domcontentloaded")
+        _wait_for_application_shell(capture_target)
+        expect(capture_target.get_by_role("link", name=CRB_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+    capture_page.evaluate(
+        """
+        ([attentionId, attentionTitle, researchId, researchTitle]) => {
+          localStorage.setItem("scientific-spaces-study-session-v1", JSON.stringify({
+            version: 1,
+            active_article_id: attentionId,
+            updated_at: "2026-09-05T01:00:00.000Z",
+            items: [
+              {
+                article_id: attentionId,
+                title: attentionTitle,
+                section_id: null,
+                added_at: "2026-09-05T01:00:00.000Z",
+              },
+              {
+                article_id: researchId,
+                title: researchTitle,
+                section_id: null,
+                added_at: "2026-09-05T01:01:00.000Z",
+              },
+            ],
+          }));
+        }
+        """,
+        [ATTENTION_ARTICLE_ID, ATTENTION_TITLE, RESEARCH_ARTICLE_ID, RESEARCH_TITLE],
+    )
+    expect(capture_observer.get_by_test_id("article-session-capture")).to_contain_text(
+        "2/20 in session", timeout=30_000
+    )
+    capture_page.get_by_role(
+        "checkbox", name=f"Select {CRB_TITLE} for focused session", exact=True
+    ).check()
+    capture_page_url = capture_page.url
+    capture_page.get_by_role("button", name="Add selected to session", exact=True).click()
+    capture_payload = capture_page.evaluate(
+        "JSON.parse(localStorage.getItem('scientific-spaces-study-session-v1'))"
+    )
+    _require(
+        [item["article_id"] for item in capture_payload["items"]]
+        == [ATTENTION_ARTICLE_ID, RESEARCH_ARTICLE_ID, CRB_ARTICLE_ID]
+        and capture_payload["active_article_id"] == ATTENTION_ARTICLE_ID,
+        f"Article capture did not reload or preserve the current Session: {capture_payload}",
+    )
+    _require(capture_page.url == capture_page_url, "Article capture auto-navigated")
+    expect(
+        capture_page.get_by_role("link", name=CRB_TITLE, exact=True).locator(
+            "xpath=ancestor::article[1]"
+        )
+    ).to_contain_text("In session")
+    expect(
+        capture_observer.get_by_role("link", name=CRB_TITLE, exact=True).locator(
+            "xpath=ancestor::article[1]"
+        )
+    ).to_contain_text("In session", timeout=30_000)
+    capture_feedback = capture_page.get_by_test_id("article-session-capture-feedback")
+    expect(capture_feedback).to_be_focused()
+    expect(capture_feedback).to_contain_text("Focused Session contains 3 of 20 Articles.")
+    capture_observer.evaluate(
+        "localStorage.removeItem('scientific-spaces-study-session-v1')"
+    )
+    capture_region = capture_page.get_by_test_id("article-session-capture")
+    expect(capture_region).to_contain_text("0/20 in session", timeout=30_000)
+    expect(capture_feedback).to_have_text("")
+    expect(capture_region).to_be_focused()
+    _require_visible_focus(capture_region, "Article capture region after external queue change")
+    checks["article_capture_reloads_queue_and_preserves_active"] = True
+    checks["article_capture_same_and_cross_tab_refresh"] = True
+    checks["article_capture_external_change_invalidates_feedback"] = True
+    capture_context.close()
+
+    write_failure_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    write_failure_context.add_init_script(
+        script="""
+        const originalSetItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "scientific-spaces-study-session-v1") {
+            throw new Error("intentional Article capture write failure");
+          }
+          return originalSetItem.call(this, key, value);
+        };
+        """
+    )
+    _install_network_guard(write_failure_context, blocked_external)
+    write_failure_page = _new_observed_page(
+        write_failure_context,
+        console_errors,
+        page_errors,
+        label="article-capture-write-failure",
+    )
+    write_failure_page.goto(
+        f"{FRONTEND_URL}/articles?q=CRB", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(write_failure_page)
+    write_failure_checkbox = write_failure_page.get_by_role(
+        "checkbox", name=f"Select {CRB_TITLE} for focused session", exact=True
+    )
+    write_failure_checkbox.check()
+    write_failure_page.get_by_role(
+        "button", name="Add selected to session", exact=True
+    ).click()
+    write_failure_feedback = write_failure_page.get_by_test_id(
+        "article-session-capture-feedback"
+    )
+    expect(write_failure_feedback).to_be_focused()
+    expect(write_failure_feedback).to_contain_text(
+        "Focused Session storage failed. No changes were saved. Selection is ready to retry."
+    )
+    expect(write_failure_checkbox).to_be_checked()
+    _require(
+        write_failure_page.evaluate(
+            "localStorage.getItem('scientific-spaces-study-session-v1')"
+        )
+        is None,
+        "failed Article capture persisted a Session",
+    )
+    checks["article_capture_write_failure_preserves_selection"] = True
+    write_failure_context.close()
+
+    full_capture_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    full_capture_items = [
+        {
+            "article_id": CRB_ARTICLE_ID,
+            "title": CRB_TITLE,
+            "section_id": None,
+            "added_at": "2026-09-05T02:00:00.000Z",
+        },
+        *[
+            {
+                "article_id": f"article-capture-capacity-{index}",
+                "title": f"Article capture capacity fixture {index}",
+                "section_id": None,
+                "added_at": f"2026-09-05T02:{index + 1:02d}:00.000Z",
+            }
+            for index in range(19)
+        ],
+    ]
+    full_capture_payload = json.dumps(
+        {
+            "version": 1,
+            "active_article_id": CRB_ARTICLE_ID,
+            "updated_at": "2026-09-05T02:20:00.000Z",
+            "items": full_capture_items,
+        },
+        ensure_ascii=False,
+    )
+    full_capture_context.add_init_script(
+        script=f"localStorage.setItem('scientific-spaces-study-session-v1', {json.dumps(full_capture_payload)});"
+    )
+    _install_network_guard(full_capture_context, blocked_external)
+    full_capture_page = _new_observed_page(
+        full_capture_context,
+        console_errors,
+        page_errors,
+        label="article-capture-full",
+    )
+    full_capture_page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
+    _wait_for_application_shell(full_capture_page)
+    expect(full_capture_page.get_by_text(re.compile(r"^Page 1 / "))).to_be_visible(
+        timeout=30_000
+    )
+    full_capture_page.get_by_role("button", name="Select page", exact=True).click()
+    expect(full_capture_page.get_by_test_id("article-session-capture")).to_contain_text(
+        "3 selected on this page"
+    )
+    full_capture_page.get_by_role(
+        "button", name="Add selected to session", exact=True
+    ).click()
+    full_feedback = full_capture_page.get_by_test_id("article-session-capture-feedback")
+    expect(full_feedback).to_be_focused()
+    expect(full_feedback).to_contain_text(
+        "0 added; 1 already present; 0 invalid; 2 omitted by capacity."
+    )
+    expect(full_capture_page.get_by_test_id("article-session-capture")).to_contain_text(
+        "2 selected on this page"
+    )
+    persisted_full_capture = full_capture_page.evaluate(
+        "localStorage.getItem('scientific-spaces-study-session-v1')"
+    )
+    _require(
+        persisted_full_capture == full_capture_payload,
+        "duplicate/full Article capture rewrote the unchanged queue",
+    )
+    checks["article_capture_duplicate_and_capacity_truth"] = True
+    full_capture_context.close()
+
     unavailable_context = browser.new_context(viewport={"width": 1440, "height": 1000}, locale="zh-CN")
     _install_network_guard(unavailable_context, blocked_external)
     for endpoint in ("state", "bookmarks", "stats"):
@@ -1958,11 +2588,19 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     read_failure_context.add_init_script(
         script="""
         const originalGetItem = Storage.prototype.getItem;
+        const originalSetItem = Storage.prototype.setItem;
+        window.__p3026ReadFailureSessionWrites = 0;
         Storage.prototype.getItem = function (key) {
           if (key === "scientific-spaces-study-session-v1") {
             throw new Error("intentional study session read failure");
           }
           return originalGetItem.call(this, key);
+        };
+        Storage.prototype.setItem = function (key, value) {
+          if (key === "scientific-spaces-study-session-v1") {
+            window.__p3026ReadFailureSessionWrites += 1;
+          }
+          return originalSetItem.call(this, key, value);
         };
         """
     )
@@ -1979,6 +2617,49 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "data-state", "unavailable"
     )
     expect(read_failure_page.get_by_role("heading", name="Learning Overview", exact=True)).to_be_visible()
+    read_failure_page.close()
+    read_failure_page = _new_observed_page(
+        read_failure_context,
+        console_errors,
+        page_errors,
+        label="articles-storage-read-failure",
+    )
+    read_failure_page.goto(
+        f"{FRONTEND_URL}/articles?q=CRB", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(read_failure_page)
+    expect(
+        read_failure_page.get_by_role("link", name=CRB_TITLE, exact=True)
+    ).to_be_visible(timeout=30_000)
+    unavailable_capture = read_failure_page.get_by_test_id("article-session-capture")
+    expect(unavailable_capture).to_contain_text("Focused Session unavailable")
+    _require(
+        "0/20 in session" not in unavailable_capture.inner_text(),
+        "Article capture falsely reported an empty Session after a storage read failure",
+    )
+    expect(
+        unavailable_capture.get_by_role("button", name="Retry session status", exact=True)
+    ).to_be_visible()
+    unavailable_checkbox = read_failure_page.get_by_role(
+        "checkbox", name=f"Select {CRB_TITLE} for focused session", exact=True
+    )
+    unavailable_checkbox.check()
+    unavailable_capture.get_by_role(
+        "button", name="Add selected to session", exact=True
+    ).click()
+    unavailable_feedback = read_failure_page.get_by_test_id(
+        "article-session-capture-feedback"
+    )
+    expect(unavailable_feedback).to_be_focused()
+    expect(unavailable_feedback).to_contain_text(
+        "Browser-local storage is unavailable. No Articles were added."
+    )
+    expect(unavailable_checkbox).to_be_checked()
+    _require(
+        read_failure_page.evaluate("window.__p3026ReadFailureSessionWrites") == 0,
+        "Article capture wrote Session storage after its read failed",
+    )
+    checks["article_session_storage_read_unavailable"] = True
     read_failure_page.close()
     read_failure_page = _new_observed_page(
         read_failure_context,
@@ -3271,30 +3952,43 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             is_mobile=viewport_width <= 390,
             reduced_motion="reduce",
         )
+        fail_article_capture_write = viewport_label == "narrow"
         completion_viewport_context.add_init_script(
             script=f"""
-            localStorage.setItem(
-              "scientific-spaces-study-session-v1",
-              {json.dumps(json.dumps({
-                  "version": 1,
-                  "active_article_id": CRB_ARTICLE_ID,
-                  "updated_at": "2026-09-04T09:00:00.000Z",
-                  "items": [
-                      {
-                          "article_id": CRB_ARTICLE_ID,
-                          "title": CRB_TITLE,
-                          "section_id": None,
-                          "added_at": "2026-09-04T09:00:00.000Z",
-                      },
-                      {
-                          "article_id": RESEARCH_ARTICLE_ID,
-                          "title": RESEARCH_TITLE,
-                          "section_id": None,
-                          "added_at": "2026-09-04T09:01:00.000Z",
-                      },
-                  ],
-              }, ensure_ascii=False))}
-            );
+            if (!sessionStorage.getItem("p3-026-viewport-seeded")) {{
+              localStorage.setItem(
+                "scientific-spaces-study-session-v1",
+                {json.dumps(json.dumps({
+                    "version": 1,
+                    "active_article_id": CRB_ARTICLE_ID,
+                    "updated_at": "2026-09-04T09:00:00.000Z",
+                    "items": [
+                        {
+                            "article_id": CRB_ARTICLE_ID,
+                            "title": CRB_TITLE,
+                            "section_id": None,
+                            "added_at": "2026-09-04T09:00:00.000Z",
+                        },
+                        {
+                            "article_id": RESEARCH_ARTICLE_ID,
+                            "title": RESEARCH_TITLE,
+                            "section_id": None,
+                            "added_at": "2026-09-04T09:01:00.000Z",
+                        },
+                    ],
+                }, ensure_ascii=False))}
+              );
+              sessionStorage.setItem("p3-026-viewport-seeded", "true");
+            }}
+            if ({str(fail_article_capture_write).lower()}) {{
+              const originalSetItem = Storage.prototype.setItem;
+              Storage.prototype.setItem = function (key, value) {{
+                if (key === "scientific-spaces-study-session-v1") {{
+                  throw new Error("intentional narrow viewport Article capture failure");
+                }}
+                return originalSetItem.call(this, key, value);
+              }};
+            }}
             """
         )
         _install_network_guard(completion_viewport_context, blocked_external)
@@ -3371,6 +4065,125 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         completion_viewport_page.keyboard.press("Tab")
         expect(viewport_mark).to_be_focused()
         checks[f"focused_session_completion_{viewport_label}_viewport"] = True
+
+        if fail_article_capture_write:
+            completion_viewport_page.evaluate(
+                "localStorage.removeItem('scientific-spaces-study-session-v1')"
+            )
+
+        completion_viewport_page.goto(
+            f"{FRONTEND_URL}/articles?q=CRB", wait_until="domcontentloaded"
+        )
+        _wait_for_application_shell(completion_viewport_page)
+        expect(
+            completion_viewport_page.get_by_role("link", name=CRB_TITLE, exact=True)
+        ).to_be_visible(timeout=30_000)
+        viewport_capture = completion_viewport_page.get_by_test_id(
+            "article-session-capture"
+        )
+        viewport_capture.scroll_into_view_if_needed()
+        viewport_capture_box = viewport_capture.bounding_box()
+        _require(
+            viewport_capture_box is not None
+            and viewport_capture_box["x"] >= 0
+            and viewport_capture_box["x"] + viewport_capture_box["width"]
+            <= viewport_width,
+            f"{viewport_label} Article capture region is horizontally clipped: "
+            f"{viewport_capture_box}",
+        )
+        for role, name in (
+            ("button", "Select page"),
+            ("button", "Clear selection"),
+            ("button", "Add selected to session"),
+            ("link", "Open Focused Session"),
+        ):
+            control_box = completion_viewport_page.get_by_role(
+                role, name=name, exact=True
+            ).bounding_box()
+            _require(
+                control_box is not None
+                and viewport_capture_box is not None
+                and control_box["x"] >= viewport_capture_box["x"]
+                and control_box["x"] + control_box["width"]
+                <= viewport_capture_box["x"] + viewport_capture_box["width"],
+                f"{viewport_label} Article capture control is clipped: {control_box}",
+            )
+        viewport_checkbox = completion_viewport_page.get_by_role(
+            "checkbox", name=f"Select {CRB_TITLE} for focused session", exact=True
+        )
+        viewport_select_page = completion_viewport_page.get_by_role(
+            "button", name="Select page", exact=True
+        )
+        viewport_clear = completion_viewport_page.get_by_role(
+            "button", name="Clear selection", exact=True
+        )
+        viewport_add = completion_viewport_page.get_by_role(
+            "button", name="Add selected to session", exact=True
+        )
+        expect(viewport_checkbox).not_to_be_checked()
+        expect(viewport_select_page).to_be_enabled()
+        expect(viewport_clear).to_be_disabled()
+        expect(viewport_add).to_be_disabled()
+        checkbox_box = viewport_checkbox.bounding_box()
+        _require(
+            checkbox_box is not None
+            and checkbox_box["x"] >= 0
+            and checkbox_box["x"] + checkbox_box["width"] <= viewport_width,
+            f"{viewport_label} Article capture checkbox is clipped: {checkbox_box}",
+        )
+        _require(
+            _document_width(completion_viewport_page) <= viewport_width,
+            f"{viewport_label} Article capture workspace overflows horizontally",
+        )
+        _focus_via_tab(completion_viewport_page, viewport_checkbox)
+        expect(viewport_checkbox).to_be_focused()
+        viewport_checkbox.press("Space")
+        expect(viewport_checkbox).to_be_checked()
+        expect(viewport_clear).to_be_enabled()
+        expect(viewport_add).to_be_enabled()
+        completion_viewport_page.keyboard.press("Shift+Tab")
+        expect(
+            completion_viewport_page.get_by_role(
+                "link", name="Open Focused Session", exact=True
+            )
+        ).to_be_focused()
+        completion_viewport_page.keyboard.press("Shift+Tab")
+        expect(viewport_add).to_be_focused()
+        completion_viewport_page.keyboard.press("Enter")
+        viewport_feedback = completion_viewport_page.get_by_test_id(
+            "article-session-capture-feedback"
+        )
+        expect(viewport_feedback).to_be_focused()
+        expect(viewport_feedback).to_have_attribute("aria-live", "polite")
+        expect(viewport_feedback).to_have_attribute("aria-atomic", "true")
+        if fail_article_capture_write:
+            expect(viewport_feedback).to_contain_text(
+                "Focused Session storage failed. No changes were saved. Selection is ready to retry."
+            )
+            expect(viewport_checkbox).to_be_checked()
+        else:
+            expect(viewport_feedback).to_contain_text(
+                "0 added; 1 already present; 0 invalid; 0 omitted by capacity."
+            )
+        _require_visible_focus(
+            viewport_feedback, f"{viewport_label} Article capture feedback"
+        )
+        feedback_box = viewport_feedback.bounding_box()
+        _require(
+            feedback_box is not None
+            and feedback_box["x"] >= 0
+            and feedback_box["x"] + feedback_box["width"] <= viewport_width
+            and feedback_box["y"] < viewport_height
+            and feedback_box["y"] + feedback_box["height"] > 0,
+            f"{viewport_label} Article capture feedback is clipped or off-screen: "
+            f"{feedback_box}",
+        )
+        _require(
+            _document_width(completion_viewport_page) <= viewport_width,
+            f"{viewport_label} Article capture feedback caused horizontal overflow",
+        )
+        checks[f"article_session_capture_{viewport_label}_viewport"] = True
+        checks[f"article_session_capture_{viewport_label}_keyboard_feedback"] = True
         completion_viewport_context.close()
 
     mobile_context = browser.new_context(
