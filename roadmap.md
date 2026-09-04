@@ -11,10 +11,10 @@ Current task:
 `docs/tasks/CURRENT_TASK.md`
 
 Current milestone:
-P3-028 Graph-Reader Round-Trip Reliability
+Not assigned
 
 Status:
-P3-028 LOCAL PASS / IMPLEMENTATION READY; EXACT-SHA IMPLEMENTATION CI PENDING
+P3-028 PASS / CLOSED; NEXT TASK ALIGNMENT REQUIRED / NOT GRANTED
 
 ## Historical Notes
 

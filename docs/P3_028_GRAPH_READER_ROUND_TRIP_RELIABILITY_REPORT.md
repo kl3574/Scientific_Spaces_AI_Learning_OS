@@ -5,8 +5,9 @@
 - task: P3-028 Graph-Reader Round-Trip Reliability
 - local implementation: PASS
 - independent final review: PASS, 2 reviewers, 0 Critical / 0 Important
-- exact-SHA main CI: pending implementation commit
-- closure: not yet claimed
+- exact-SHA implementation main CI: PASS
+- closure: PASS / CLOSED by this docs-only closure commit; closure exact-SHA
+  CI readback is required before final reporting
 - formal version: `v1.1.0`
 - v1.2 candidate: not assigned
 
@@ -121,13 +122,36 @@ Corrected Graph-to-Reader stress:
 - protected Backend, API, data, dependency, lockfile, workflow, M1, and release
   paths changed: 0
 - tracked runtime/private artifacts: 0
-- untracked files before the report: only the canonical P3-028 task
+- forbidden untracked files at the pre-commit audit: 0
 - `git diff --check`: PASS
 
-The dependency audit requires registry access and is deferred to exact-SHA CI,
-consistent with the task's non-loopback network prohibition.
+The local dependency audit was deferred because it requires registry access,
+consistent with the task's non-loopback network prohibition. The exact-SHA CI
+dependency audit passed.
 
-## 8. Review Findings And Repairs
+## 8. Exact-SHA Main CI
+
+Implementation commit:
+`315e446ade3b6565da2d00879b9379a91b08788c`.
+
+Exact-SHA main CI:
+[`33929384828`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33929384828).
+
+- Frontend build: PASS
+- Backend pytest: PASS
+- Product E2E: PASS, 3/3 runs
+- dependency audit: PASS
+- secret audit: PASS
+- SBOM validation: PASS
+- workflow and suppression policy: PASS
+- Docker compose smoke: skipped as designed for a normal `main` push
+- release evidence dry-run: skipped as designed
+- uploaded artifacts: 0
+
+The run used event `push`, branch `main`, and exact head SHA
+`315e446ade3b6565da2d00879b9379a91b08788c`.
+
+## 9. Review Findings And Repairs
 
 The first independent review pass rejected the implementation for five
 Important classes of issue: an uncovered Concept Study Set Article path,
@@ -148,7 +172,7 @@ returned PASS with zero Critical or Important findings. Their only repeated
 minor note was the stale E2E count in this report, corrected above from 150 to
 154.
 
-## 9. Known Risks
+## 10. Known Risks
 
 - The ten-second Reader deadline is a bounded recovery policy, not proof of the
   historical post-200 loading event's root cause.
@@ -164,10 +188,9 @@ minor note was the stale E2E count in this report, corrected above from 150 to
 - Exact focus origin is session-local. If session storage is unavailable,
   navigation remains usable and Graph falls back to its selected region.
 
-## 10. Decision
+## 11. Decision
 
-Local implementation, machine gates, and both independent final reviews are
-PASS. P3-028 is LOCAL PASS / IMPLEMENTATION READY, not yet CLOSED. The
-implementation commit must pass exact-SHA main CI before a docs-only closure
-commit can be created; that closure commit then requires its own exact-SHA CI
-readback.
+Local implementation, machine gates, both independent final reviews, and the
+exact-SHA implementation CI are PASS. P3-028 is PASS / CLOSED. This docs-only
+closure commit requires its own exact-SHA CI readback before final reporting.
+No v1.2 candidate is assigned.

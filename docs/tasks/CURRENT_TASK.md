@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-`docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md`
+None
 
 ## Staged Task
 
@@ -10,13 +10,13 @@ None
 
 ## Last Closed Task
 
-`docs/tasks/P3-027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md`
+`docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md`
 
 ## Status
 
 - P3-026: PASS / CLOSED
 - P3-027: PASS / CLOSED
-- P3-028: LOCAL PASS / IMPLEMENTATION READY; EXACT-SHA CI PENDING
+- P3-028: PASS / CLOSED
 
 ## Authorization
 
@@ -36,7 +36,8 @@ None
   closure commit
 - P3-028 bounded Graph/Reader Frontend implementation, focused tests,
   governance documentation, isolated fake-runtime validation, local commits,
-  non-force push, and exact-SHA CI execution: GRANTED
+  non-force push, and exact-SHA CI execution: CONSUMED / CLOSED after this
+  docs-only closure commit
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -116,8 +117,21 @@ None
 - evidence report:
   `docs/P3_028_GRAPH_READER_ROUND_TRIP_RELIABILITY_REPORT.md`
 
+## P3-028 Closure Evidence
+
+- implementation commit:
+  `315e446ade3b6565da2d00879b9379a91b08788c`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33929384828`
+- Frontend, Backend, Product E2E, dependency, secret, SBOM, workflow, and
+  suppression jobs: PASS
+- normal-main Docker and release evidence jobs: skipped as designed
+- uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
+
 ## Next Gate
 
-Create and push the P3-028 implementation commit, then require exact-SHA main
-CI before preparing the docs-only closure commit. No v1.2 candidate is
-assigned.
+No task is assigned. Any next implementation requires a new semantic task and
+task-level alignment; implementation authorization is NOT GRANTED. No v1.2
+candidate is assigned.

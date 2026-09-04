@@ -3,11 +3,11 @@
 Canonical task:
 `docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md`
 
-Status: **LOCAL PASS / IMPLEMENTATION READY; EXACT-SHA CI PENDING**
+Status: **PASS / CLOSED**
 
 BOUNDED GRAPH/READER FRONTEND, FOCUSED TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE PUSH TO `main`,
-AND EXACT-SHA CI READBACK: **GRANTED**
+AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED**
 
 BACKEND, FROZEN M1, SOURCE OR ARTICLE RECORDS, DERIVED ASSETS, GRAPH DATA OR
 BUILDERS, PERSISTENCE OR PROVIDER CONTRACTS, DEPENDENCIES, LOCKFILES, WORKFLOWS,
@@ -93,7 +93,14 @@ and replace ambiguous browser assertions with URL-first Reader-root evidence.
 - four required viewports, saved-progress preservation, storage denial,
   timeout/retry, stale-generation, and exact focus fallback: PASS
 - independent final implementation reviews: 2 PASS, 0 Critical / 0 Important
-- exact-SHA implementation and closure CI: pending
+- implementation commit:
+  `315e446ade3b6565da2d00879b9379a91b08788c`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33929384828`
+- required implementation CI jobs: PASS; normal-main Docker/release jobs
+  skipped as designed; uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA closure CI is required
+  before final reporting
 
 ## Stop Conditions
 

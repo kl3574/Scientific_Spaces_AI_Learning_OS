@@ -2,7 +2,7 @@
 
 ## Status
 
-LOCAL PASS / IMPLEMENTATION READY; EXACT-SHA CI PENDING
+PASS / CLOSED
 
 ## Task Identity
 
@@ -199,7 +199,14 @@ after extracting bounded results.
   and keyboard-focus scenarios: PASS
 - external requests, unexpected console errors, and page errors: 0
 - independent final reviews: 2 PASS, no Critical or Important findings
-- implementation and closure exact-SHA CI: pending
+- implementation commit:
+  `315e446ade3b6565da2d00879b9379a91b08788c`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33929384828`
+- required implementation CI jobs: PASS; normal-main Docker/release jobs
+  skipped as designed; uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA closure CI is required
+  before final reporting
 
 ## Git Plan
 
