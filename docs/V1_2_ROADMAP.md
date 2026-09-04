@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-025 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-026 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -747,7 +747,7 @@ Evidence is in
 
 ### P3-026 - Trustworthy Article Discovery and Focused Session Capture
 
-Status: **LOCAL PASS / CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-026 makes `/articles` generation-safe, separates Learning State and Bookmark
 availability, and adds explicit page-scoped capture into the existing
@@ -757,6 +757,13 @@ three-run Product E2E, security, artifact, and independent-review gates pass.
 The canonical task is
 `docs/tasks/P3-026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION.md`; evidence is in
 `docs/P3_026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION_REPORT.md`.
+
+Implementation commit `57333916e668516ff8e04b3062ffbc3365b72236`
+passed exact-SHA main CI run
+[`33902645777`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33902645777)
+on attempt 2. The first attempt observed one transient existing
+Graph-to-Reader loading timeout after a successful Article API response; it did
+not recur in 10 complete single-core local runs or the unchanged-SHA CI rerun.
 
 ## Release Criteria
 
@@ -790,7 +797,10 @@ The canonical task is
 
 ## Next Recommended Task
 
-Complete and verify P3-026. The bounded Tutor result/Quiz accessibility repair
-remains the next audit candidate and must not be folded into this task. No
-v1.2 candidate is currently staged. Tag, Release, attestation, real Provider,
-source access, external search, and private Zotero actions remain unauthorized.
+First verify the P3-026 docs-only closure commit through exact-SHA main CI.
+Then run a bounded product and GUI audit to select the next convergence task.
+The audit must compare the recorded transient Graph-to-Reader transition with
+the Tutor result/Quiz accessibility debt rather than folding either into
+P3-026. No v1.2 candidate is currently staged. Tag, Release, attestation, real
+Provider, source access, external search, and private Zotero actions remain
+unauthorized.

@@ -3,11 +3,11 @@
 Canonical task:
 `docs/tasks/P3-026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION.md`
 
-Status: **LOCAL PASS / CI PENDING**
+Status: **PASS / CLOSED**
 
 FRONTEND, FOCUSED TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION, ISOLATED LOCAL
 FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE PUSH TO `main`, AND EXACT-SHA
-CI READBACK: **GRANTED / ACTIVE**
+CI READBACK: **CONSUMED / CLOSED**
 
 BACKEND, FROZEN M1, SOURCE OR ARTICLE RECORDS, DERIVED ASSETS, QUEUE SCHEMA OR
 SEMANTICS, DEPENDENCIES, LOCKFILES, WORKFLOWS, PUBLISHED API CONTRACTS,
@@ -74,10 +74,19 @@ No v1.2 candidate is assigned.
 - focused Frontend tests: 119 passed
 - Backend regression: 600 passed / 4 skipped
 - Next.js production build: PASS, 11 routes
-- Product E2E: 3/3 PASS, 113 checks per run, restart persistence PASS
+- Product E2E: 3/3 formal PASS plus 10/10 single-core stress PASS,
+  113 checks per run, restart persistence PASS
 - Chromium: 149.0.7827.55
 - non-loopback requests and unexpected console/page errors: 0
 - workflow, suppression, dependency, secret, temporary SBOM, artifact, and
   protected-path gates: PASS
 - independent final reviews: 2 PASS after all findings were repaired
-- implementation commit and exact-SHA CI: pending
+- implementation commit:
+  `57333916e668516ff8e04b3062ffbc3365b72236`
+- exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33902645777`
+- CI attempt 1 exposed one transient pre-existing Graph-to-Reader loading
+  timeout; the same SHA passed all required jobs on attempt 2 after the 10-run
+  single-core local stress remained clean
+- docs-only closure commit: this commit; its exact-SHA CI is required before
+  final reporting

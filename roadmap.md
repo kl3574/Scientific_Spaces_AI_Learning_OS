@@ -2,7 +2,7 @@
 
 Formal version: v1.1.0
 
-Current phase: v1.2 Planning
+Current phase: v1.2 Product Convergence
 
 Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
@@ -11,10 +11,10 @@ Current task:
 `docs/tasks/CURRENT_TASK.md`
 
 Current milestone:
-P3-026 Trustworthy Article Discovery and Focused Session Capture
+None; P3-026 is the last closed task
 
 Status:
-LOCAL PASS / CI PENDING
+P3-026 PASS / CLOSED; docs-only closure exact-SHA CI pending
 
 ## Historical Notes
 

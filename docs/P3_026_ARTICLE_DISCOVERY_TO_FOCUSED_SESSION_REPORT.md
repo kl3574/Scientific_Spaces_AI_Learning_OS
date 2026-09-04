@@ -1,6 +1,6 @@
 # P3-026 Article Discovery to Focused Session Report
 
-Status: **LOCAL PASS / CI PENDING**
+Status: **PASS / CLOSED**
 
 ## 1. Scope And Boundaries
 
@@ -124,6 +124,11 @@ uv run --project backend python scripts/e2e/run_product_e2e.py \
 - unexpected console errors: 0
 - page errors: 0
 
+After the first implementation CI attempt exposed one transient timeout in an
+existing Graph-to-Reader return flow, the unchanged production build also
+passed 10 complete single-core local runs. Those runs exercised 1,130 checks
+with zero non-loopback requests, console errors, or page errors.
+
 ## 8. Security, Artifact, And Protected Paths
 
 - workflow policy: PASS, 1 workflow / 19 immutable Action uses
@@ -163,10 +168,39 @@ late retry completion stealing focus after the learner moves elsewhere.
   and remains outside this bounded task.
 - Capture is deliberately page-scoped. Cross-page selection and generated
   recommendations remain out of scope.
+- Exact-SHA CI attempt 1 observed one existing Graph-to-Reader transition stay
+  at `Loading article` after the Article API returned 200. The unchanged SHA
+  passed a 10-run single-core local stress and CI attempt 2. This is retained
+  as navigation reliability debt for the next product audit rather than
+  represented as a P3-026 capture failure.
 
-## 11. Current Decision
+## 11. Exact-SHA Main CI
 
-Local implementation, verification, and two independent final reviews are
-PASS. The task remains open until the implementation commit is pushed and its
-exact SHA passes main CI. A separate docs-only closure commit and exact-SHA CI
-readback are then required. No v1.2 candidate is assigned.
+Implementation commit:
+`57333916e668516ff8e04b3062ffbc3365b72236`.
+
+Exact-SHA main CI:
+[`33902645777`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33902645777).
+
+- run attempt: 2
+- Product E2E: PASS, 3/3 runs
+- Backend pytest: PASS
+- Frontend build: PASS
+- workflow policy: PASS
+- dependency audit: PASS
+- secret audit: PASS
+- SBOM validation: PASS
+- Docker compose smoke: skipped as designed for a normal `main` push
+- release evidence dry-run: skipped as designed
+
+Attempt 1 failed only at an existing Graph-to-Reader Article heading wait after
+the API returned 200. No P3-026 Article-list or Session-capture assertion
+failed. The unchanged exact SHA passed attempt 2 after the bounded local stress
+described above.
+
+## 12. Current Decision
+
+P3-026 is PASS / CLOSED. Local implementation, verification, two independent
+final reviews, and exact-SHA implementation CI pass. This docs-only closure
+commit requires its own exact-SHA CI readback before final reporting. No v1.2
+candidate is assigned.
