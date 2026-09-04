@@ -63,6 +63,21 @@ test("Article detail accepts only the canonical local Study Session return path"
   );
 });
 
+test("Article detail accepts only a canonical Graph Concept return path", () => {
+  const graphPath = "/graph?node_id=concept%3A%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6";
+  assert.equal(sanitizeArticleEntryReturnPath(graphPath), graphPath);
+  assert.equal(
+    sanitizeArticleEntryReturnPath(`${graphPath}&token=secret&q=private`),
+    graphPath,
+  );
+  assert.equal(sanitizeArticleEntryReturnPath("/graph?node_id=formula%3Asecret"), "/articles");
+  assert.equal(sanitizeArticleEntryReturnPath("https://example.com/graph?node_id=concept%3Ax"), "/articles");
+  assert.equal(
+    createArticleDetailHref("attention-basics", graphPath),
+    `/articles/attention-basics?from=${encodeURIComponent(graphPath)}`,
+  );
+});
+
 test("Tutor workflow context round-trips Article, list, title, and section", () => {
   const href = createLearningToolHref("tutor", {
     articleId: "crb-formula",

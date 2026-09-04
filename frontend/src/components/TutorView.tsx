@@ -4,6 +4,10 @@ import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { fetchArticle } from "@/lib/articles";
+import {
+  getConceptTutorContextMessage,
+  type ConceptTutorLaunch,
+} from "@/lib/conceptLearningLaunch";
 import type { LearningWorkflowContext } from "@/lib/learningWorkflow";
 import {
   QuizQuestion,
@@ -20,6 +24,7 @@ import {
   createTutorModeResetState,
   deriveRefusalLabel,
   formatSelectionSummaryLines,
+  getTutorEvidenceScopeMessage,
   isResearchEvidenceGap,
   isResearchLocalOnly,
   normalizeTutorQuizTopic,
@@ -43,12 +48,14 @@ type TutorFlowStatus = "idle" | "loading" | "ready" | "error";
 type SessionStatus = "idle" | "loading" | "loaded" | "error";
 
 export function TutorView({
+  initialConcept,
   initialContext,
 }: Readonly<{
+  initialConcept: ConceptTutorLaunch | null;
   initialContext: LearningWorkflowContext | null;
 }>) {
-  const [mode, setMode] = useState<TutorMode>("explain");
-  const [question, setQuestion] = useState("");
+  const [mode, setMode] = useState<TutorMode>(initialConcept?.mode ?? "explain");
+  const [question, setQuestion] = useState(initialConcept?.prompt ?? "");
   const [selectedArticle, setSelectedArticle] = useState<TutorArticleSelection | null>(() =>
     initialContext
       ? {
@@ -56,16 +63,26 @@ export function TutorView({
           title: initialContext.articleTitle ?? "Current article",
           metadata: {},
         }
+      : initialConcept?.primaryArticle
+        ? {
+            id: initialConcept.primaryArticle.articleId,
+            title: initialConcept.primaryArticle.title,
+            metadata: {},
+          }
       : null,
   );
-  const [nodeId, setNodeId] = useState(initialContext?.nodeId ?? "");
+  const [nodeId, setNodeId] = useState(initialConcept?.conceptNodeId ?? initialContext?.nodeId ?? "");
   const [response, setResponse] = useState<TutorResponse | null>(null);
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [quizAnswers, setQuizAnswers] = useState<TutorQuizAnswers>({});
   const [quizSubmitted, setQuizSubmitted] = useState(false);
   const [sessions, setSessions] = useState<TutorSessionsResponse | null>(null);
   const [articleTitles, setArticleTitles] = useState<Record<string, string>>(() =>
-    initialContext?.articleTitle ? { [initialContext.articleId]: initialContext.articleTitle } : {},
+    initialContext?.articleTitle
+      ? { [initialContext.articleId]: initialContext.articleTitle }
+      : initialConcept?.primaryArticle
+        ? { [initialConcept.primaryArticle.articleId]: initialConcept.primaryArticle.title }
+        : {},
   );
 
   const [status, setStatus] = useState<TutorFlowStatus>("idle");
@@ -79,6 +96,38 @@ export function TutorView({
   useEffect(() => {
     void fetchSessions();
   }, []);
+
+  useEffect(() => {
+    if (!initialConcept) {
+      return;
+    }
+    activeRequestId.current += 1;
+    const reset = createTutorModeResetState();
+    setMode(initialConcept.mode);
+    setQuestion(initialConcept.prompt);
+    setNodeId(initialConcept.conceptNodeId);
+    setStatus(reset.status);
+    setError(reset.error);
+    setResponse(reset.response);
+    setQuiz(reset.quiz);
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    setSelectedArticle(
+      initialConcept.primaryArticle
+        ? {
+            id: initialConcept.primaryArticle.articleId,
+            title: initialConcept.primaryArticle.title,
+            metadata: {},
+          }
+        : null,
+    );
+    if (initialConcept.primaryArticle) {
+      setArticleTitles((current) => ({
+        ...current,
+        [initialConcept.primaryArticle!.articleId]: initialConcept.primaryArticle!.title,
+      }));
+    }
+  }, [initialConcept]);
 
   useEffect(() => {
     if (!initialContext?.articleId) {
@@ -211,6 +260,11 @@ export function TutorView({
     setQuiz(reset.quiz);
     setQuizAnswers({});
     setQuizSubmitted(false);
+    if (initialConcept && nextMode === "quiz") {
+      setQuestion(initialConcept.conceptTitle);
+    } else if (initialConcept && nextMode === "explain") {
+      setQuestion(`Explain ${initialConcept.conceptTitle} using intuition, mathematics, and cited local evidence.`);
+    }
   }
 
   async function runTutorQuery(event?: FormEvent<HTMLFormElement>) {
@@ -300,6 +354,23 @@ export function TutorView({
         </section>
       ) : null}
 
+      {initialConcept ? (
+        <section data-testid="concept-learning-context" className="flex flex-col gap-3 border-y border-emerald-200 bg-emerald-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase text-emerald-800">Opened from Concept</p>
+            <p className="mt-1 break-words text-sm font-medium text-emerald-950 [overflow-wrap:anywhere]">
+              {initialConcept.conceptTitle}
+            </p>
+            <p className="mt-1 text-xs leading-5 text-emerald-900">
+              {getConceptTutorContextMessage(mode, Boolean(selectedArticle))}
+            </p>
+          </div>
+          <Link className="w-fit shrink-0 rounded border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 hover:border-emerald-600" href={initialConcept.returnTo}>
+            Return to concept
+          </Link>
+        </section>
+      ) : null}
+
       <TutorArticlePicker selected={selectedArticle} onSelect={chooseArticle} />
 
       <form className="grid gap-4 border-y border-slate-200 bg-white px-4 py-5" onSubmit={runTutorQuery}>
@@ -323,18 +394,25 @@ export function TutorView({
           </div>
         </fieldset>
 
-        <details className="border-y border-slate-200 py-3">
-          <summary className="cursor-pointer text-sm font-semibold text-slate-700">Advanced context</summary>
-          <label className="mt-3 grid max-w-xl gap-1 text-sm">
-            <span className="font-medium">Graph concept key</span>
-            <input
-              className="rounded border border-slate-300 px-3 py-2 outline-none focus:border-slate-950"
-              value={nodeId}
-              onChange={(event) => setNodeId(event.target.value)}
-              placeholder="Optional, for example concept:attention"
-            />
-          </label>
-        </details>
+        {initialConcept ? (
+          <div className="border-y border-slate-200 py-3 text-sm">
+            <span className="font-medium">{mode === "quiz" ? "Concept topic" : "Graph context"}</span>
+            <p className="mt-1 break-words text-slate-600 [overflow-wrap:anywhere]">{initialConcept.conceptTitle}</p>
+          </div>
+        ) : (
+          <details className="border-y border-slate-200 py-3">
+            <summary className="cursor-pointer text-sm font-semibold text-slate-700">Advanced context</summary>
+            <label className="mt-3 grid max-w-xl gap-1 text-sm">
+              <span className="font-medium">Graph concept key</span>
+              <input
+                className="rounded border border-slate-300 px-3 py-2 outline-none focus:border-slate-950"
+                value={nodeId}
+                onChange={(event) => setNodeId(event.target.value)}
+                placeholder="Optional, for example concept:attention"
+              />
+            </label>
+          </details>
+        )}
 
         <label className="grid gap-1 text-sm">
           <span className="font-medium">{articleQuestionLabel}</span>
@@ -355,7 +433,9 @@ export function TutorView({
           >
             {status === "loading" ? "Running..." : mode === "quiz" ? "Generate quiz" : "Ask tutor"}
           </button>
-          <p className="text-xs text-slate-500">Grounded in the selected local Article and returned sources.</p>
+          <p className="text-xs text-slate-500">
+            {getTutorEvidenceScopeMessage(Boolean(selectedArticle))}
+          </p>
         </div>
       </form>
 

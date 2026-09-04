@@ -85,6 +85,9 @@ export function sanitizeArticleEntryReturnPath(value: string | null | undefined)
   if (parsed.pathname === "/session") {
     return "/session";
   }
+  if (parsed.pathname === "/graph") {
+    return createGraphConceptReturnPath(parsed.searchParams.get("node_id"));
+  }
   return "/articles";
 }
 
@@ -242,4 +245,17 @@ function createLibraryReturnPath(input: URLSearchParams): string {
   }
   const suffix = params.toString();
   return suffix ? `/library?${suffix}` : "/library";
+}
+
+function createGraphConceptReturnPath(value: string | null): string {
+  const nodeId = value?.trim() ?? "";
+  if (
+    !nodeId.startsWith("concept:")
+    || nodeId.length === "concept:".length
+    || nodeId.length > 200
+    || /[\u0000-\u001f\u007f/\\?#]/u.test(nodeId)
+  ) {
+    return "/articles";
+  }
+  return `/graph?${new URLSearchParams({ node_id: nodeId }).toString()}`;
 }

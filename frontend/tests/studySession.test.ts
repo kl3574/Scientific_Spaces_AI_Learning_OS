@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   STUDY_SESSION_ITEM_LIMIT,
   activateStudySessionItem,
+  addStudySessionItems,
   addStudySessionItem,
   clearStudySession,
   createEmptyStudySession,
@@ -162,6 +163,83 @@ test("queue mutation is deterministic across add, deduplicate, reorder, remove, 
   assert.equal(state.activeArticleId, "crb-formula");
   assert.deepEqual(state.items.map((item) => item.articleId), ["crb-formula"]);
   assert.deepEqual(clearStudySession(state, THIRD_TIME), createEmptyStudySession(THIRD_TIME));
+});
+
+test("bulk append preserves queue order and active Article while classifying every input", () => {
+  const original = parseStudySessionStore(JSON.stringify({
+    version: 1,
+    active_article_id: "existing-b",
+    updated_at: FIRST_TIME,
+    items: [
+      { article_id: "existing-a", title: "Existing A", section_id: null, added_at: FIRST_TIME },
+      { article_id: "existing-b", title: "Existing B", section_id: null, added_at: FIRST_TIME },
+    ],
+  })).state;
+
+  const mutation = addStudySessionItems(original, [
+    { articleId: "new-a", title: "New A" },
+    { articleId: "existing-a", title: "Existing A" },
+    { articleId: "unsafe/id", title: "Unsafe" },
+    { articleId: "new-a", title: "New A duplicate" },
+    { articleId: "new-b", title: "New B" },
+  ], SECOND_TIME);
+
+  assert.deepEqual(mutation.state.items.map((item) => item.articleId), [
+    "existing-a",
+    "existing-b",
+    "new-a",
+    "new-b",
+  ]);
+  assert.equal(mutation.state.activeArticleId, "existing-b");
+  assert.deepEqual(mutation.outcomes, {
+    added: 2,
+    alreadyPresent: 2,
+    invalid: 1,
+    capacityOmitted: 0,
+  });
+  assert.equal(mutation.changed, true);
+});
+
+test("bulk append reports 19/20 and 20/20 capacity without replacing existing Articles", () => {
+  const nineteen = Array.from({ length: STUDY_SESSION_ITEM_LIMIT - 1 }, (_, index) => ({
+    article_id: `existing-${String(index).padStart(2, "0")}`,
+    title: `Existing ${index}`,
+    section_id: null,
+    added_at: FIRST_TIME,
+  }));
+  const state = parseStudySessionStore(JSON.stringify({
+    version: 1,
+    active_article_id: "existing-05",
+    updated_at: FIRST_TIME,
+    items: nineteen,
+  })).state;
+
+  const first = addStudySessionItems(state, [
+    { articleId: "new-a", title: "New A" },
+    { articleId: "new-b", title: "New B" },
+  ], SECOND_TIME);
+  assert.equal(first.state.items.length, STUDY_SESSION_ITEM_LIMIT);
+  assert.equal(first.state.items.at(-1)?.articleId, "new-a");
+  assert.equal(first.state.activeArticleId, "existing-05");
+  assert.deepEqual(first.outcomes, {
+    added: 1,
+    alreadyPresent: 0,
+    invalid: 0,
+    capacityOmitted: 1,
+  });
+
+  const second = addStudySessionItems(first.state, [
+    { articleId: "new-a", title: "New A" },
+    { articleId: "new-c", title: "New C" },
+  ], THIRD_TIME);
+  assert.equal(second.state, first.state);
+  assert.equal(second.changed, false);
+  assert.deepEqual(second.outcomes, {
+    added: 0,
+    alreadyPresent: 1,
+    invalid: 0,
+    capacityOmitted: 1,
+  });
 });
 
 test("queue rejects invalid additions and preserves a strict twenty-item bound", () => {

@@ -41,6 +41,8 @@ CRB_ARTICLE_ID = "crb-formula"
 CRB_TITLE = "CRB公式与估计下界"
 ATTENTION_ARTICLE_ID = "attention-basics"
 ATTENTION_TITLE = "Attention机制入门"
+ATTENTION_CONCEPT_ID = "concept:attention"
+ATTENTION_CONCEPT_RETURN = "/graph?node_id=concept%3Aattention"
 EXPECTED_ARTICLE_COUNT = 3
 
 
@@ -961,6 +963,266 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(graph_node).to_be_visible()
     graph_node.click()
     expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(timeout=30_000)
+    concept_study_set = page.get_by_test_id("concept-study-set")
+    expect(concept_study_set).to_have_attribute("data-state", "ready")
+    expect(concept_study_set.get_by_role("heading", name="Concept Study Set", exact=True)).to_be_visible()
+    expect(concept_study_set).to_contain_text("not a complete or recommended learning sequence")
+    expect(concept_study_set.get_by_test_id("concept-study-article")).to_have_count(1)
+    expect(concept_study_set.get_by_test_id("concept-study-article").first).to_contain_text(
+        ATTENTION_TITLE
+    )
+    for fact_label in ("Source records", "Returned", "Eligible", "Duplicates", "Invalid", "Omitted"):
+        expect(concept_study_set.locator("dt").filter(has_text=fact_label)).to_be_visible()
+    _require(
+        ATTENTION_CONCEPT_ID not in concept_study_set.inner_text(),
+        "Concept Study Set exposes a raw Graph node identifier",
+    )
+
+    concept_article_link = concept_study_set.get_by_role(
+        "link", name=ATTENTION_TITLE, exact=True
+    )
+    expect(concept_article_link).to_have_attribute(
+        "href",
+        f"/articles/{ATTENTION_ARTICLE_ID}?from=%2Fgraph%3Fnode_id%3Dconcept%253Aattention",
+    )
+    page.route(
+        re.compile(r".*/learning/sessions$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "session_id": "p3-023-isolated-concept-reader",
+                    "article_id": ATTENTION_ARTICLE_ID,
+                    "started_at": "2026-08-31T04:00:00+00:00",
+                    "ended_at": None,
+                    "duration_seconds": None,
+                    "source": "reader",
+                }
+            ),
+        ),
+        times=1,
+    )
+    _focus_via_tab(page, concept_article_link)
+    concept_article_link.press("Enter")
+    expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    reader_concept_return = page.get_by_role("link", name="Back to concept", exact=True).first
+    expect(reader_concept_return).to_have_attribute("href", ATTENTION_CONCEPT_RETURN)
+    _focus_via_tab(page, reader_concept_return)
+    reader_concept_return.press("Enter")
+    expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("concept-study-set")).to_be_visible(timeout=30_000)
+
+    concept_ask_payloads: list[dict[str, object]] = []
+
+    def fulfill_concept_explain(route) -> None:
+        concept_ask_payloads.append(json.loads(route.request.post_data or "{}"))
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "answer": "## Attention\n\nLocal Article evidence explains the selected Concept.",
+                    "mode": "explain",
+                    "sources": [
+                        {
+                            "source_type": "article_chunk",
+                            "source_id": f"{ATTENTION_ARTICLE_ID}:0",
+                            "title": ATTENTION_TITLE,
+                            "url": "https://spaces.ac.cn/archives/12345",
+                            "section_title": "Attention",
+                            "chunk_index": 0,
+                            "evidence": None,
+                            "metadata": {"article_id": ATTENTION_ARTICLE_ID},
+                        }
+                    ],
+                    "graph_context": {"nodes": [], "edges": []},
+                    "zotero_context": [],
+                    "follow_up_questions": [],
+                    "refusal_reason": None,
+                    "selection_summary": None,
+                    "evidence_summary": None,
+                },
+                ensure_ascii=False,
+            ),
+        )
+
+    page.route(re.compile(r".*/tutor/ask$"), fulfill_concept_explain, times=1)
+    concept_explain_link = page.get_by_test_id("concept-study-set").get_by_role(
+        "link", name="Explain concept", exact=True
+    )
+    _focus_via_tab(page, concept_explain_link)
+    concept_explain_link.press("Enter")
+    expect(page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("concept-learning-context")).to_contain_text("attention")
+    expect(page.get_by_role("button", name="Explain", exact=True)).to_have_attribute(
+        "aria-pressed", "true"
+    )
+    expect(page.get_by_label("Question")).to_have_value(
+        "Explain attention using intuition, mathematics, and cited local evidence."
+    )
+    expect(page.get_by_test_id("tutor-selected-article")).to_contain_text(ATTENTION_TITLE)
+    concept_return = page.get_by_role("link", name="Return to concept", exact=True)
+    expect(concept_return).to_have_attribute("href", ATTENTION_CONCEPT_RETURN)
+    _require(not concept_ask_payloads, "Concept Explain auto-submitted before user action")
+    page.get_by_role("button", name="Quiz", exact=True).click()
+    expect(page.get_by_test_id("concept-learning-context")).to_contain_text(
+        "Quiz uses the selected local Article and concept topic."
+    )
+    expect(page.get_by_text("Concept topic", exact=True)).to_be_visible()
+    page.get_by_role("button", name="Explain", exact=True).click()
+    expect(page.get_by_test_id("concept-learning-context")).to_contain_text(
+        "Graph context supplements the selected local Article evidence."
+    )
+    concept_submit = page.get_by_role("button", name="Ask tutor", exact=True)
+    _focus_via_tab(page, concept_submit)
+    concept_submit.press("Enter")
+    expect(page.get_by_role("heading", name="Answer", exact=True)).to_be_visible(timeout=30_000)
+    _require(
+        concept_ask_payloads
+        == [
+            {
+                "question": "Explain attention using intuition, mathematics, and cited local evidence.",
+                "mode": "explain",
+                "article_id": ATTENTION_ARTICLE_ID,
+                "node_id": ATTENTION_CONCEPT_ID,
+                "top_k": 5,
+                "include_graph_context": True,
+                "include_zotero_context": True,
+            }
+        ],
+        f"Concept Explain payload is incorrect: {concept_ask_payloads}",
+    )
+    concept_return.press("Enter")
+    expect(page.get_by_test_id("concept-study-set")).to_be_visible(timeout=30_000)
+
+    concept_quiz_payloads: list[dict[str, object]] = []
+
+    def fulfill_concept_quiz(route) -> None:
+        concept_quiz_payloads.append(json.loads(route.request.post_data or "{}"))
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "questions": [
+                        {
+                            "question": "What does Attention select?",
+                            "options": ["Relevant local evidence", "Unbounded external data"],
+                            "correct_answer": "Relevant local evidence",
+                            "explanation": "The local Article describes evidence-weighted selection.",
+                            "sources": [
+                                {
+                                    "source_type": "article_chunk",
+                                    "source_id": f"{ATTENTION_ARTICLE_ID}:0",
+                                    "title": ATTENTION_TITLE,
+                                    "url": "https://spaces.ac.cn/archives/12345",
+                                    "section_title": "Attention",
+                                    "chunk_index": 0,
+                                    "evidence": None,
+                                    "metadata": {"article_id": ATTENTION_ARTICLE_ID},
+                                }
+                            ],
+                        }
+                    ],
+                    "total": 1,
+                },
+                ensure_ascii=False,
+            ),
+        )
+
+    page.route(re.compile(r".*/tutor/quiz$"), fulfill_concept_quiz, times=1)
+    concept_quiz_link = page.get_by_test_id("concept-study-set").get_by_role(
+        "link", name="Open concept quiz", exact=True
+    )
+    _focus_via_tab(page, concept_quiz_link)
+    concept_quiz_link.press("Enter")
+    expect(page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
+    expect(page.get_by_role("button", name="Quiz", exact=True)).to_have_attribute(
+        "aria-pressed", "true"
+    )
+    expect(page.get_by_label("Prompt")).to_have_value("attention")
+    expect(page.get_by_test_id("tutor-selected-article")).to_contain_text(ATTENTION_TITLE)
+    concept_return = page.get_by_role("link", name="Return to concept", exact=True)
+    expect(concept_return).to_have_attribute("href", ATTENTION_CONCEPT_RETURN)
+    _require(not concept_quiz_payloads, "Concept Quiz auto-submitted before user action")
+    concept_quiz_submit = page.get_by_role("button", name="Generate quiz", exact=True)
+    _focus_via_tab(page, concept_quiz_submit)
+    concept_quiz_submit.press("Enter")
+    expect(page.get_by_role("heading", name="Quiz", exact=True)).to_be_visible(timeout=30_000)
+    _require(
+        concept_quiz_payloads
+        == [
+            {
+                "article_id": ATTENTION_ARTICLE_ID,
+                "node_id": ATTENTION_CONCEPT_ID,
+                "num_questions": 3,
+                "topic": "attention",
+            }
+        ],
+        f"Concept Quiz payload is incorrect: {concept_quiz_payloads}",
+    )
+    concept_return.press("Enter")
+    expect(page.get_by_test_id("concept-study-set")).to_be_visible(timeout=30_000)
+
+    page.evaluate(
+        """
+        () => {
+          window.__p3023SessionWrites = 0;
+          const originalSetItem = Storage.prototype.setItem;
+          Storage.prototype.setItem = function (key, value) {
+            if (key === "scientific-spaces-study-session-v1") {
+              window.__p3023SessionWrites += 1;
+            }
+            return originalSetItem.call(this, key, value);
+          };
+        }
+        """
+    )
+    study_set = page.get_by_test_id("concept-study-set")
+    bulk_add = study_set.get_by_role("button", name="Add eligible Articles", exact=True)
+    _focus_via_tab(page, bulk_add)
+    bulk_add.press("Enter")
+    expect(study_set.get_by_role("status").last).to_contain_text(
+        "1 added; 0 already present; 0 invalid; 0 omitted by capacity."
+    )
+    _require(
+        page.evaluate("window.__p3023SessionWrites") == 1,
+        "Concept Study Set bulk append did not use exactly one storage write",
+    )
+    persisted_concept_session = page.evaluate(
+        "JSON.parse(localStorage.getItem('scientific-spaces-study-session-v1'))"
+    )
+    _require(
+        [item["article_id"] for item in persisted_concept_session["items"]]
+        == [ATTENTION_ARTICLE_ID]
+        and persisted_concept_session["active_article_id"] == ATTENTION_ARTICLE_ID,
+        f"Concept Study Set saved the wrong Session state: {persisted_concept_session}",
+    )
+    bulk_add.press("Enter")
+    expect(study_set.get_by_role("status").last).to_contain_text(
+        "0 added; 1 already present; 0 invalid; 0 omitted by capacity."
+    )
+    _require(
+        page.evaluate("window.__p3023SessionWrites") == 1,
+        "idempotent Concept Study Set append performed an extra storage write",
+    )
+    page.evaluate(
+        """
+        () => {
+          localStorage.removeItem("scientific-spaces-study-session-v1");
+          window.dispatchEvent(new Event("scientific-spaces-study-session-change"));
+        }
+        """
+    )
+    checks["concept_study_set_workflow"] = True
+    checks["concept_reader_and_tutor_round_trip"] = True
+    checks["concept_tutor_explicit_payloads"] = True
+    checks["concept_study_set_session_append"] = True
+    checks["concept_study_set_keyboard_focus"] = True
+
     expect(page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
     expect(page.get_by_test_id("graph-map-counts")).to_contain_text("relationships")
     graph_article_node = page.get_by_role("button", name=re.compile(r"^Article: ")).first
@@ -1303,7 +1565,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(recovered_session_page.get_by_test_id("focused-study-session")).not_to_contain_text(
         "raw-title-id"
     )
+    recovered_session_page.goto(
+        f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(recovered_session_page)
+    recovered_concept_set = recovered_session_page.get_by_test_id("concept-study-set")
+    expect(recovered_concept_set).to_be_visible(timeout=30_000)
+    expect(recovered_concept_set.get_by_role("status")).to_contain_text(
+        "recovered valid entries from browser storage"
+    )
     checks["study_session_stale_record_recovery"] = True
+    checks["concept_study_set_storage_recovery"] = True
     recovered_session_context.close()
 
     read_failure_context = browser.new_context(
@@ -1338,7 +1610,22 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     read_failure_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
     _wait_for_application_shell(read_failure_page)
     expect(read_failure_page.get_by_test_id("study-session-unavailable")).to_be_visible()
+    read_failure_page.goto(
+        f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(read_failure_page)
+    unavailable_concept_set = read_failure_page.get_by_test_id("concept-study-set")
+    expect(unavailable_concept_set).to_be_visible(timeout=30_000)
+    expect(unavailable_concept_set.get_by_role("alert")).to_contain_text(
+        "Browser-local Focused Session storage is unavailable."
+    )
+    expect(
+        unavailable_concept_set.get_by_role(
+            "button", name="Add eligible Articles", exact=True
+        )
+    ).to_be_disabled()
     checks["study_session_storage_unavailable"] = True
+    checks["concept_study_set_storage_unavailable"] = True
     read_failure_context.close()
 
     write_failure_context = browser.new_context(
@@ -1400,8 +1687,144 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(write_failure_page.get_by_role("status")).to_contain_text(
         "browser-local storage could not save it"
     )
+    write_failure_page.goto(
+        f"{FRONTEND_URL}/graph?node_id=concept%3Aresearch", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(write_failure_page)
+    write_failure_concept_set = write_failure_page.get_by_test_id("concept-study-set")
+    expect(write_failure_concept_set).to_be_visible(timeout=30_000)
+    write_failure_concept_set.get_by_role(
+        "button", name="Add eligible Articles", exact=True
+    ).click()
+    expect(write_failure_concept_set.get_by_role("status")).to_contain_text(
+        "Focused Session storage failed. No saved change is being reported."
+    )
     checks["study_session_storage_write_failure"] = True
+    checks["concept_study_set_storage_write_failure"] = True
     write_failure_context.close()
+
+    full_session_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    full_session_items = [
+        {
+            "article_id": f"capacity-{index}",
+            "title": f"Capacity fixture Article {index}",
+            "section_id": None,
+            "added_at": f"2026-08-31T03:{index:02d}:00.000Z",
+        }
+        for index in range(20)
+    ]
+    full_session_context.add_init_script(
+        script=f"""
+        localStorage.setItem(
+          "scientific-spaces-study-session-v1",
+          {json.dumps(json.dumps({
+              "version": 1,
+              "active_article_id": "capacity-7",
+              "updated_at": "2026-08-31T03:20:00.000Z",
+              "items": full_session_items,
+          }, ensure_ascii=False))}
+        );
+        """
+    )
+    _install_network_guard(full_session_context, blocked_external)
+    full_session_page = full_session_context.new_page()
+    full_session_page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    full_session_page.on(
+        "pageerror", lambda error: page_errors.append(f"{full_session_page.url}: {error}")
+    )
+    full_session_page.goto(
+        f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(full_session_page)
+    full_concept_set = full_session_page.get_by_test_id("concept-study-set")
+    expect(full_concept_set).to_be_visible(timeout=30_000)
+    expect(full_concept_set.get_by_text("Open Focused Session (20/20)", exact=True)).to_be_visible()
+    expect(
+        full_concept_set.get_by_role(
+            "button", name=f"Add {ATTENTION_TITLE} to study session", exact=True
+        )
+    ).to_be_disabled()
+    full_concept_set.get_by_role("button", name="Add eligible Articles", exact=True).click()
+    expect(full_concept_set.get_by_role("status")).to_contain_text(
+        "0 added; 0 already present; 0 invalid; 1 omitted by capacity."
+    )
+    full_session_payload = full_session_page.evaluate(
+        "JSON.parse(localStorage.getItem('scientific-spaces-study-session-v1'))"
+    )
+    _require(
+        len(full_session_payload["items"]) == 20
+        and full_session_payload["active_article_id"] == "capacity-7",
+        f"full Concept Study Set mutation changed the Session: {full_session_payload}",
+    )
+    checks["concept_study_set_full_capacity"] = True
+    full_session_context.close()
+
+    zoom_context = browser.new_context(
+        viewport={"width": 720, "height": 450},
+        screen={"width": 1440, "height": 900},
+        locale="zh-CN",
+        reduced_motion="reduce",
+    )
+    _install_network_guard(zoom_context, blocked_external)
+    zoom_page = zoom_context.new_page()
+    zoom_page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    zoom_page.on("pageerror", lambda error: page_errors.append(f"{zoom_page.url}: {error}"))
+    zoom_page.goto(f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded")
+    _wait_for_application_shell(zoom_page)
+    zoom_concept_set = zoom_page.get_by_test_id("concept-study-set")
+    expect(zoom_concept_set).to_be_visible(timeout=30_000)
+    expect(zoom_concept_set.get_by_role("link", name="Explain concept", exact=True)).to_be_visible()
+    expect(zoom_concept_set.get_by_role("link", name="Open concept quiz", exact=True)).to_be_visible()
+    zoom_metrics = zoom_page.evaluate(
+        "({ viewportWidth: window.innerWidth, viewportHeight: window.innerHeight, "
+        "screenWidth: window.screen.width, screenHeight: window.screen.height })"
+    )
+    _require(
+        zoom_metrics["screenWidth"] == 1440
+        and zoom_metrics["screenHeight"] == 900
+        and zoom_metrics["viewportWidth"] == 720
+        and zoom_metrics["viewportHeight"] == 450
+        and zoom_metrics["screenWidth"] / zoom_metrics["viewportWidth"] == 2
+        and zoom_metrics["screenHeight"] / zoom_metrics["viewportHeight"] == 2,
+        f"Chromium did not apply the 200-percent zoom-equivalent layout boundary: {zoom_metrics}",
+    )
+    zoom_concept_box = zoom_concept_set.bounding_box()
+    zoom_document_width = _document_width(zoom_page)
+    _require(
+        zoom_concept_box is not None
+        and zoom_concept_box["x"] >= 0
+        and zoom_concept_box["x"] + zoom_concept_box["width"] <= zoom_metrics["viewportWidth"],
+        f"200-percent display-scale Concept Study Set is clipped: {zoom_concept_box}",
+    )
+    _require(
+        zoom_document_width <= zoom_metrics["viewportWidth"],
+        f"200-percent display-scale Graph page overflowed to {zoom_document_width}px",
+    )
+    for zoom_control in (
+        zoom_concept_set.get_by_role("link", name="Explain concept", exact=True),
+        zoom_concept_set.get_by_role("link", name="Open concept quiz", exact=True),
+        zoom_concept_set.get_by_role("button", name="Add eligible Articles", exact=True),
+    ):
+        control_box = zoom_control.bounding_box()
+        _require(
+            control_box is not None
+            and zoom_concept_box is not None
+            and control_box["x"] >= zoom_concept_box["x"]
+            and control_box["x"] + control_box["width"]
+            <= zoom_concept_box["x"] + zoom_concept_box["width"],
+            f"200-percent zoom-equivalent control is clipped: {control_box}",
+        )
+    checks["concept_study_set_200_percent_reflow"] = True
+    checks["concept_study_set_200_percent_zoom_equivalent"] = True
+    zoom_context.close()
 
     mobile_context = browser.new_context(
         viewport={"width": 390, "height": 844},
@@ -1657,6 +2080,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(mobile_graph_node).to_be_visible(timeout=30_000)
     mobile_graph_node.click()
     expect(mobile_page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
+    mobile_concept_set = mobile_page.get_by_test_id("concept-study-set")
+    expect(mobile_concept_set).to_be_visible(timeout=30_000)
+    expect(mobile_concept_set.get_by_role("link", name="Explain concept", exact=True)).to_be_visible()
+    expect(mobile_concept_set.get_by_role("link", name="Open concept quiz", exact=True)).to_be_visible()
+    mobile_concept_box = mobile_concept_set.bounding_box()
+    _require(
+        mobile_concept_box is not None
+        and mobile_concept_box["x"] >= 0
+        and mobile_concept_box["x"] + mobile_concept_box["width"] <= 390,
+        f"mobile Concept Study Set is clipped: {mobile_concept_box}",
+    )
     mobile_graph_box = mobile_page.locator(".knowledge-graph-canvas").bounding_box()
     mobile_graph_width = _document_width(mobile_page)
     _require(
@@ -1664,6 +2098,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"mobile visual Graph canvas overflowed: {mobile_graph_box}",
     )
     _require(mobile_graph_width <= 390, f"mobile Graph page overflowed to {mobile_graph_width}px")
+    checks["mobile_concept_study_set"] = True
     expect(mobile_page.locator(".react-flow__controls")).to_be_visible()
     mobile_page.get_by_test_id("graph-view-list").click()
     expect(mobile_page.get_by_role("heading", name="Bounded Context", exact=True)).to_be_visible()
@@ -1777,6 +2212,42 @@ def _new_observed_page(context, console_errors: list[str], page_errors: list[str
     )
     page.on("pageerror", lambda error: page_errors.append(f"{page.url}: {error}"))
     return page
+
+
+def _focus_via_tab(page, locator, *, max_steps: int = 160) -> None:
+    page.evaluate(
+        """
+        () => {
+          const active = document.activeElement;
+          if (active instanceof HTMLElement) {
+            active.blur();
+          }
+        }
+        """
+    )
+    for _ in range(max_steps):
+        page.keyboard.press("Tab")
+        if locator.evaluate("element => element === document.activeElement"):
+            focus_state = locator.evaluate(
+                """
+                element => {
+                  const style = getComputedStyle(element);
+                  return {
+                    focusVisible: element.matches(":focus-visible"),
+                    outlineStyle: style.outlineStyle,
+                    outlineWidth: style.outlineWidth,
+                  };
+                }
+                """
+            )
+            _require(
+                focus_state["focusVisible"]
+                and focus_state["outlineStyle"] != "none"
+                and focus_state["outlineWidth"] != "0px",
+                f"keyboard target lacks visible focus: {focus_state}",
+            )
+            return
+    raise E2EFailure(f"keyboard target was not reachable within {max_steps} Tab presses")
 
 
 def _wait_for_application_shell(page) -> None:

@@ -36,6 +36,17 @@ export type StudySessionMutation = {
   outcome: StudySessionAddOutcome;
 };
 
+export type StudySessionBulkMutation = {
+  state: StudySessionState;
+  changed: boolean;
+  outcomes: {
+    added: number;
+    alreadyPresent: number;
+    invalid: number;
+    capacityOmitted: number;
+  };
+};
+
 export type StudySessionPosition = {
   index: number;
   total: number;
@@ -168,6 +179,40 @@ export function addStudySessionItem(
       activeArticleId: state.activeArticleId ?? item.articleId,
       updatedAt: normalizeTimestamp(updatedAt),
     },
+  };
+}
+
+export function addStudySessionItems(
+  state: StudySessionState,
+  inputs: ReadonlyArray<{ articleId: string; title: string; sectionId?: string | null }>,
+  updatedAt: string,
+): StudySessionBulkMutation {
+  let nextState = state;
+  const outcomes = {
+    added: 0,
+    alreadyPresent: 0,
+    invalid: 0,
+    capacityOmitted: 0,
+  };
+
+  for (const input of inputs) {
+    const mutation = addStudySessionItem(nextState, input, updatedAt);
+    if (mutation.outcome === "added") {
+      outcomes.added += 1;
+      nextState = mutation.state;
+    } else if (mutation.outcome === "already-present") {
+      outcomes.alreadyPresent += 1;
+    } else if (mutation.outcome === "invalid") {
+      outcomes.invalid += 1;
+    } else {
+      outcomes.capacityOmitted += 1;
+    }
+  }
+
+  return {
+    state: nextState,
+    changed: nextState !== state,
+    outcomes,
   };
 }
 

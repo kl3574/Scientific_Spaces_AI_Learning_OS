@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-022 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-022 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; P3-023 Concept Study Set and Learning Launch is APPROVED / IN PROGRESS; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -673,6 +673,23 @@ CI job passed. E2E isolation repair commit
 including three Product E2E runs; uploaded artifacts were zero. Evidence is in
 `docs/P3_022_IMPLEMENTATION_REPORT.md`.
 
+### P3-023 - Concept Study Set and Learning Launch
+
+Status: **APPROVED / IN PROGRESS**.
+
+P3-023 connects a selected Graph Concept to a bounded set of unique readable
+Articles derived only from returned provenance, safe Tutor Explain and Quiz
+prefill, exact Graph return paths, and the existing browser-local Focused
+Session. Source order is deterministic but is not presented as a prerequisite
+or pedagogical recommendation; truncation and omission remain explicit.
+
+The task is Frontend-only apart from tests and governance. Backend interfaces,
+Article and derived stores, dependencies, workflows, private Zotero, source
+network, and real Providers remain protected. Two independent scope reviews
+passed after unsupported completeness, Paper/Experiment, prerequisite, and
+Quiz Graph-grounding claims were removed. The canonical task is
+`docs/tasks/P3-023_CONCEPT_STUDY_SET_AND_LEARNING_LAUNCH.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -705,8 +722,8 @@ including three Product E2E runs; uploaded artifacts were zero. Evidence is in
 
 ## Next Recommended Task
 
-P3-022 Session-Aware Learning Dashboard is PASS / CLOSED. No active
-implementation task is assigned; the next product-convergence task requires a
-new explicit alignment. No v1.2 candidate is assigned. Tag, Release,
-attestation, real Provider, source access, external search, and private Zotero
-actions remain unauthorized.
+P3-023 Concept Study Set and Learning Launch is the active product-convergence
+task. Complete local implementation and acceptance evidence, then exact-SHA
+implementation and docs-only closure CI. No v1.2 candidate is assigned. Tag,
+Release, attestation, real Provider, source access, external search, and private
+Zotero actions remain unauthorized.

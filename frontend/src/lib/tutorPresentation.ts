@@ -55,6 +55,12 @@ export function normalizeTutorQuizTopic(prompt: string): string | undefined {
   return prompt.trim() || undefined;
 }
 
+export function getTutorEvidenceScopeMessage(hasSelectedArticle: boolean): string {
+  return hasSelectedArticle
+    ? "Grounded in the selected local Article and returned sources."
+    : "No local Article is selected; any response must be supported by returned local sources.";
+}
+
 export function dedupeTutorSources(
   sources: readonly TutorSource[],
   maxSources = MAX_RENDERED_TUTOR_SOURCES,

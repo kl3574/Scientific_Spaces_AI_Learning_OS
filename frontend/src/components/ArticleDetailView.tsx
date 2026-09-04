@@ -88,6 +88,8 @@ export function ArticleDetailView({
     ? "Back to study session"
     : listReturnTo.startsWith("/library")
       ? "Back to saved library"
+      : listReturnTo.startsWith("/graph?node_id=concept%3A")
+        ? "Back to concept"
       : "Back to articles";
 
   useEffect(() => {

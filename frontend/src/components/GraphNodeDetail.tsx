@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Link from "next/link";
 
+import { ConceptStudySetPanel } from "@/components/ConceptStudySetPanel";
 import type { GraphNode, GraphSubgraphResponse } from "@/lib/graph";
 import {
   ConceptSource,
@@ -170,6 +171,8 @@ function NodeContent({ node }: Readonly<{ node: GraphNode }>) {
           ) : null}
         </section>
       ) : null}
+
+      {node.node_type === "concept" ? <ConceptStudySetPanel node={node} /> : null}
     </div>
   );
 }

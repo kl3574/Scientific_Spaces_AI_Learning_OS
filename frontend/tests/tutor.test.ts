@@ -11,6 +11,7 @@ import {
   getSafeDisplayText,
   getSafeExternalUrl,
   getSourceDisclosure,
+  getTutorEvidenceScopeMessage,
   isResearchEvidenceGap,
   isResearchLocalOnly,
   normalizeTutorQuizTopic,
@@ -87,6 +88,17 @@ function quizFactory(answer: string, overrides: Partial<QuizQuestion> = {}): Qui
     ...overrides,
   };
 }
+
+test("Tutor evidence scope never claims a selected Article when none exists", () => {
+  assert.equal(
+    getTutorEvidenceScopeMessage(true),
+    "Grounded in the selected local Article and returned sources.",
+  );
+  assert.equal(
+    getTutorEvidenceScopeMessage(false),
+    "No local Article is selected; any response must be supported by returned local sources.",
+  );
+});
 
 test("Tutor summary types match the backend additive schema exactly", () => {
   const summary = {

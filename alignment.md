@@ -1,199 +1,178 @@
-# P3-022 Session-Aware Learning Dashboard Alignment
+# P3-023 Concept Study Set and Learning Launch Alignment
 
 Canonical task:
-`docs/tasks/P3-022_LEARNING_DASHBOARD.md`
+`docs/tasks/P3-023_CONCEPT_STUDY_SET_AND_LEARNING_LAUNCH.md`
 
-Status: **PASS / CLOSED**
+Status: **APPROVED / IN PROGRESS**
 
-LOCAL ARTICLE / SAVED LIBRARY / READING HISTORY / READER PROGRESS / FOCUSED
-SESSION READ, LOCAL APPLICATION RUNTIME, TEMPORARY ISOLATED MUTABLE STATE, AND
-BROWSER VALIDATION AUTHORIZATION: **GRANTED FOR P3-022**
+ORDINARY FRONTEND / TEST / DOCUMENTATION WORK, LOCAL ARTICLE AND GRAPH READS,
+BROWSER-LOCAL FOCUSED SESSION WRITES, FAKE-PROVIDER LOCAL RUNTIME, TEMPORARY
+ISOLATED MUTABLE STATE, LOCAL COMMITS, NON-FORCE PUSH TO `main`, AND EXACT-SHA
+CI READBACK: **GRANTED FOR P3-023**
 
-FRONTEND / TEST / DOCUMENTATION MODIFICATION, LOCAL COMMIT / PUSH / CI
-INSPECTION AUTHORIZATION: **GRANTED FOR P3-022**
+BACKEND / FROZEN M1 / SOURCE RECORD / ARTICLE RECORD / DERIVED ASSET /
+DEPENDENCY / LOCKFILE / WORKFLOW / PUBLISHED API CONTRACT MODIFICATION:
+**NOT GRANTED**
 
-BACKEND / FROZEN M1 / SOURCE RECORD / ARTICLE RECORD / DERIVED ASSET / PRIVATE
-ZOTERO / REAL PROVIDER AUTHORIZATION: **NOT GRANTED**
-
-DEPENDENCY / LOCKFILE / WORKFLOW / PUBLISHED API CONTRACT MODIFICATION
-AUTHORIZATION: **NOT GRANTED**
-
-CANDIDATE / TAG / RELEASE / ATTESTATION AUTHORIZATION: **NOT GRANTED**
+SOURCE NETWORK / EXTERNAL SEARCH / PRIVATE ZOTERO / REAL OR PAID PROVIDER /
+CANDIDATE / TAG / RELEASE / ATTESTATION / DESTRUCTIVE GIT ACTION:
+**NOT GRANTED**
 
 ## 1. Background
 
-- P3-016 Learning Dashboard Command Center and P3-021 Focused Study Session
-  are PASS / CLOSED.
-- The existing Dashboard already provides learning metrics, latest Articles,
-  activity, and exact single-Article resume behavior.
-- P3-021 added a bounded browser-local study queue after P3-016, but the
-  Dashboard does not expose that queue or its current Article. Its header still
-  sends every learner to Saved Learning even when a focused session exists.
+- P3-015 provides a bounded visual Graph and concept provenance.
+- P3-017 provides Tutor Explain and Quiz modes with Article selection and an
+  optional Graph node key.
+- P3-021 provides a browser-local, Article-only Focused Session capped at 20
+  unique readable Articles.
+- P3-022 is PASS / CLOSED, but selecting a Concept still leaves provenance,
+  Tutor, Reader, and Session as disconnected surfaces.
+- The Graph does not encode prerequisite order or complete Paper and
+  Experiment entities. This task must not imply those unsupported semantics.
 - Entry branch is `main`; entry commit and cached `origin/main` are both
-  `4c9ade019692173a3884fa7c60860aff04307a38`; entry worktree and index are
+  `e5fd14d1292cb6142dca26d0bfdc6eb517d109bb`; entry worktree and index are
   clean with ahead / behind `0 / 0`.
-- No REWORK or `.audit` blocker exists at task entry.
-- No v1.2 candidate version is assigned.
+- REWORK and `.audit` are absent. No v1.2 candidate is assigned.
+- Two independent sub-agent reviews initially identified scope and contract
+  gaps. After the task was narrowed as recorded here, both returned PASS.
 
-## 2. Requirements
+## 2. Objective
 
-1. Enhance the existing Dashboard rather than creating a duplicate workspace.
-2. Load the versioned P3-021 Focused Session through its public Frontend
-   contract and expose its current Article, queue position, queue size, next
-   Article, and Reader progress when available.
-3. Make the primary Dashboard action resume the focused session when one
-   exists and retain Saved Learning as the empty-session starting point.
-4. Keep the exact single-Article Continue Learning action available alongside
-   the session-aware resume path.
-5. React to same-tab session change events, cross-tab storage events, and page
-   refreshes without introducing a new persistence model.
-6. Provide controlled empty, unavailable-storage, and recovered-state
-   feedback without exposing raw Article identifiers.
-7. Preserve existing Dashboard partial-remote-data behavior, activity,
-   overview, latest Articles, navigation, and responsive density.
-8. Preserve keyboard navigation, visible focus, semantic landmarks,
-   screen-reader feedback, reduced motion, and mobile behavior.
-9. Preserve all Backend, source, data, dependency, workflow, Provider, Zotero,
-   release, and published-interface boundaries.
+Turn a selected Graph Concept into a bounded, evidence-transparent Concept
+Study Set and explicit launch points for reading, Tutor Explain, Tutor Quiz,
+and the existing Focused Session without adding a new route, data model,
+persistence contract, or Backend capability.
 
-## 3. Purpose
+## 3. Product Semantics
 
-Close the continuity gap between the completed Focused Study Session and the
-existing learning command center so that opening the product immediately
-answers what the learner is studying now and provides the shortest safe route
-back into that work.
+1. A Concept Study Set contains only valid readable Articles present in the
+   provenance records returned by the existing Graph detail response.
+2. Preserve returned source order and deduplicate by Article ID.
+3. Report returned records, unique eligible Articles, omitted source records,
+   and truncation. Never claim completeness.
+4. The display order is deterministic source order, not a pedagogical or
+   prerequisite recommendation.
+5. Existing related Section, Formula, Article, and Zotero nodes remain in the
+   current explorer. Do not relabel them as Paper or Experiment entities.
+6. Tutor Explain may receive the Concept node as supplemental Graph context
+   plus the first eligible source Article. Tutor Quiz receives the Concept
+   topic and first eligible source Article; it is not described as Graph
+   grounded. Neither launch auto-submits a Tutor request.
 
-## 4. Planned Execution
+## 4. In Scope
 
-1. Persist this alignment and canonical task.
-2. Audit the existing Dashboard model/view, Focused Session contract, Reader
-   destinations, current tests, and Product E2E workflow.
-3. Add failing pure-model tests for deterministic session summary selection,
-   safe Reader destinations, progress resolution, and empty behavior.
-4. Add failing browser assertions for empty and populated Dashboard session
-   states.
-5. Implement a session-aware Dashboard presentation model and responsive
-   Focused Session surface using the existing browser-local store.
-6. Subscribe to bounded same-tab and cross-tab session updates and preserve
-   all existing Dashboard failure behavior.
-7. Validate representative real local data at 1440 x 900 and 390 x 844 with
-   temporary mutable state, fake providers, and non-loopback requests blocked.
-8. Run Backend regression, focused Frontend, production build, Product E2E,
-   workflow, suppression, dependency, secret, SBOM, artifact, and
-   protected-path gates.
-9. Create and push an implementation commit and verify exact-SHA main CI.
-10. Create and push a docs-only closure commit and verify exact-SHA main CI.
+- pure Concept Study Set extraction and presentation model
+- safe typed Concept Tutor launch builder/parser, separate from Article-origin
+  learning context
+- canonical `/graph?node_id=...` return paths
+- Graph -> Article -> Graph and Graph -> Tutor -> Graph continuity
+- per-Article and one bounded bulk add action using the existing Focused
+  Session store
+- deterministic bulk outcome counts and one persistence write
+- malformed, empty, truncated, full, duplicate, recovered, unavailable, and
+  write-failure states
+- keyboard, focus, semantic, live-announcement, long-CJK, 200-percent zoom,
+  desktop, and 390 px behavior
+- focused Frontend tests, isolated Product E2E, local real-data browser probe,
+  evidence report, commits, push, and exact-SHA CI closure
+- concise repository governance update implementing the user's reviewed-task
+  automatic-execution rule
 
-## 5. Selection Rationale
+## 5. Out of Scope
 
-Enhancing the existing Command Center reuses the strongest completed product
-surface and gives P3-021 a first-class daily entry point. It avoids a duplicate
-Dashboard, a second queue model, and any Backend or persistence expansion.
+- prerequisite inference or pedagogical ordering
+- completeness claims about related Articles, papers, formulas, or experiments
+- a persistent concept plan, new queue, route, Tutor mode, or persistence model
+- Backend, schema, API, Graph builder, derived asset, Article, source, or M1
+  changes
+- dependency, lockfile, or workflow changes
+- source-site access, external search, private Zotero access, or real/paid
+  Provider calls
+- candidate, tag, Release, attestation, destructive Git, or history rewriting
 
-## 6. Alternatives
+## 6. Planned Execution
 
-| Option | Decision |
-| --- | --- |
-| Session-aware existing Dashboard | Selected: closes a verified continuity gap using completed contracts |
-| Rebuild or duplicate the Dashboard | Rejected: P3-016 already provides the command-center foundation |
-| Reader-only visual polish | Deferred: does not connect the new Session to product entry |
-| Backend analytics or planning service | Rejected: requires unauthorized schema and API expansion |
+1. Persist this alignment, canonical task, and active status.
+2. Add a failing pure-model test for ordered provenance deduplication,
+   disclosure counts, safe primary Article selection, and malformed sources.
+3. Implement the minimal Concept Study Set model.
+4. Add failing tests for typed Explain/Quiz launch URLs and tamper-resistant
+   Graph return paths, then implement the URL contract.
+5. Add failing tests for one-write bulk Session append, preserved active/order,
+   idempotence, and capacity outcomes, then implement the operation.
+6. Integrate the Concept Study Set into the existing Graph detail flow and
+   prefill Tutor without auto-submission.
+7. Add browser assertions for round trips, request envelopes, Session states,
+   focus, announcements, mobile, and zoom behavior.
+8. Validate representative real local Concepts and Articles with fake
+   providers, temporary mutable state, and all non-loopback requests blocked.
+9. Run full regression, build, Product E2E, security, artifact, and protected
+   path gates.
+10. Commit and push implementation, verify exact-SHA CI, then create and push
+    a docs-only closure commit and verify its exact-SHA CI.
 
 ## 7. Deliverables
 
+- updated `AGENTS.md` reviewed-task execution rule
 - updated `alignment.md`
-- `docs/tasks/P3-022_LEARNING_DASHBOARD.md`
+- `docs/tasks/P3-023_CONCEPT_STUDY_SET_AND_LEARNING_LAUNCH.md`
 - updated `docs/tasks/CURRENT_TASK.md`
-- session-aware Dashboard model and view changes under `frontend/src/`
+- Concept Study Set and launch implementation under `frontend/src/`
 - focused Frontend tests and expanded `scripts/e2e/run_product_e2e.py`
-- `docs/P3_022_IMPLEMENTATION_REPORT.md`
+- `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md`
 - updated `README.md`, `docs/00_PROJECT_STATE.md`, and
   `docs/V1_2_ROADMAP.md`
 - implementation and docs-only closure commits with exact-SHA CI evidence
 
 ## 8. Acceptance Criteria
 
-- The existing `/` Dashboard renders a Focused Session surface without adding
-  a duplicate route or persistence model.
-- A healthy non-empty queue shows its safe current title, exact position,
-  bounded count, next title when present, and Reader progress when available.
-- The primary Dashboard action opens `/session` when the queue is non-empty;
-  an exact current-Article Reader action preserves the canonical `/session`
-  return path.
-- An empty queue points to Saved Learning and leaves Continue Learning usable.
-- Same-tab change events, cross-tab storage events, and refresh recovery update
-  the surface deterministically.
-- Missing, malformed, or inaccessible browser storage fails closed without raw
-  identifiers, crashes, or loss of independently available Dashboard content.
-- Existing overview, activity, latest Articles, partial-failure Retry, Shell,
-  and global navigation behavior remains intact.
-- Keyboard navigation, visible focus, semantic landmarks, reduced motion, and
-  screen-reader feedback pass.
-- At 1440 x 900 and 390 x 844, the Dashboard has no overlap, clipped controls,
-  or horizontal page overflow.
-- Representative real local data passes with temporary isolated state, fake
-  providers, zero external requests, and no unexpected console/page errors.
-- Three consecutive isolated Product E2E runs pass without state leakage.
-- Backend full tests, focused Frontend tests, production build, dependency,
-  secret, workflow, suppression, SBOM, artifact, and protected-path gates pass.
-- Backend, frozen M1 paths, source records, Article records, derived assets,
-  dependencies, lockfiles, workflows, and published API contracts remain
-  unchanged.
-- No source access, private Zotero operation, real Provider call, candidate,
-  tag, Release, or attestation action occurs.
+- Only a selected Concept exposes the Study Set; other node types retain their
+  existing detail and context behavior.
+- Eligible Articles are safe, readable, source-ordered, and unique by ID.
+- Returned, eligible, omitted, duplicate/invalid, and truncated states are
+  represented without a completeness or recommendation claim.
+- Explain and Quiz launches carry bounded Concept title, validated node ID,
+  optional primary Article, explicit mode, and canonical Graph return path.
+- Tutor fields are prefilled but no request occurs before explicit submission.
+- Explain uses the Concept node only as supplemental context; Quiz does not
+  claim Graph grounding.
+- Provenance Article links round-trip to the exact Concept. Section labels are
+  not converted into unverified Reader anchors.
+- Per-Article and bulk Session adds preserve existing queue order and active
+  item, append in source order, enforce the 20-item limit, are idempotent, and
+  save once per bulk action.
+- Added, already-present, invalid, and capacity-omitted outcomes are announced;
+  persistence failure does not navigate or claim success.
+- Empty, malformed, truncated, unavailable-storage, full-capacity, Graph
+  failure, and Tutor failure states remain controlled and do not expose raw IDs.
+- Keyboard access, visible focus, semantic headings/lists, live status/error
+  feedback, long CJK titles, 1440 x 900, 390 x 844, and 200-percent zoom pass
+  without overlap or horizontal overflow.
+- Three consecutive isolated production Product E2E runs pass with fake
+  providers, temporary state, zero external requests, and zero unexpected
+  console/page errors.
+- Backend full tests, focused Frontend tests, production build, workflow,
+  suppression, dependency, secret, SBOM, artifact, and protected-path gates
+  pass.
+- Backend, frozen M1, source records, Article records, derived assets,
+  dependencies, lockfiles, workflows, and published APIs remain unchanged.
 - Implementation and closure commits pass exact-SHA main CI; final `main` is
   clean and synchronized.
 
 ## Confirmed Test Seams
 
-1. Pure Dashboard session model: active selection, position, safe Reader href,
-   progress, next Article, and empty behavior.
-2. Browser workflow: empty Dashboard, populated queue, same-tab update,
-   refresh, current Reader return path, recovery/unavailable states, and mobile
-   geometry.
+1. Pure Concept Study Set, typed launch URL, and bounded Session mutation
+   interfaces.
+2. Browser-visible Graph Concept -> Reader/Tutor/Focused Session workflow.
 
 ## Stop Conditions
 
-- The worktree develops unknown modifications or conflicts.
+- An unknown worktree change or conflict appears.
 - Existing contracts cannot support the accepted workflow without a Backend,
-  schema, persistence API, or published-contract change.
-- Completion requires frozen M1, source, Article, derived-asset, dependency,
-  lockfile, workflow, or published-interface changes.
-- Completion requires source access, private Zotero access, external search,
-  or a real/paid Provider call.
+  schema, dependency, Graph-data, or published-interface change.
+- Required evidence needs source access, private Zotero, external search, or a
+  real/paid Provider call.
 - A required test, build, browser, secret, artifact, or CI gate fails without
-  an in-scope deterministic fix.
-- A candidate, tag, Release, or attestation action becomes necessary.
-
-## Local Acceptance Record
-
-- Dashboard Session model and browser workflow: PASS
-- Backend: 600 passed / 4 skipped
-- focused Frontend: 80 passed
-- production build: PASS, 11 routes
-- Product E2E: 3/3 production runs, 51 checks each
-- real local probe: 1,314 Articles at 1440 px and 390 px widths
-- same-tab, cross-tab, recovered, unavailable, and exact Reader return states:
-  PASS
-- external requests, unexpected console errors, and page errors: 0
-- workflow, suppression, dependency, secret, security utility, reproducible
-  SBOM, artifact, and protected-path gates: PASS
-- implementation commit:
-  `13af4c0898bbea6a86172c924ad255702ebc8d06`
-- initial implementation CI run `33588352098`: BLOCKED by a low-resource,
-  repeated-hard-navigation Product E2E hydration race; all non-E2E required
-  jobs passed and uploaded artifacts were zero
-- E2E isolation repair commit:
-  `eeef48fbd982621da1e02553f34edefe8f53f8c5`
-- repair exact-SHA main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33590335784`
-- repair CI required jobs: PASS; normal-main Docker and release-evidence jobs
-  skipped as designed; uploaded artifacts: 0
-
-## Closure Record
-
-- local acceptance: PASS
-- exact-SHA implementation plus E2E isolation repair CI: PASS
-- P3-022: PASS / CLOSED
-- docs-only closure commit: this commit; exact-SHA main CI required before
-  final reporting
+  an in-scope deterministic repair.
+- A candidate, tag, Release, attestation, force push, or history rewrite becomes
+  necessary.

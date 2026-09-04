@@ -1,4 +1,5 @@
 import { TutorView } from "@/components/TutorView";
+import { parseConceptTutorLaunch } from "@/lib/conceptLearningLaunch";
 import { parseLearningWorkflowContext } from "@/lib/learningWorkflow";
 
 export default async function TutorPage({
@@ -6,7 +7,9 @@ export default async function TutorPage({
 }: Readonly<{
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }>) {
-  const initialContext = parseLearningWorkflowContext(await searchParams);
+  const query = await searchParams;
+  const initialConcept = parseConceptTutorLaunch(query);
+  const initialContext = initialConcept ? null : parseLearningWorkflowContext(query);
 
-  return <TutorView initialContext={initialContext} />;
+  return <TutorView initialConcept={initialConcept} initialContext={initialContext} />;
 }
