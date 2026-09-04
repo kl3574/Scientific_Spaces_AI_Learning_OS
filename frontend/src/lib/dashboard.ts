@@ -1,9 +1,9 @@
 import type { ArticleSummary } from "./articles";
 import { createResumeHref, type ReaderProgressState } from "./articleWorkspace";
-import type { LearningStats, LearningStatus } from "./learning";
+import type { LearningState, LearningStats, LearningStatus } from "./learning";
 import { createArticleReturnHref } from "./learningWorkflow";
 import type { ReadingHistoryItem } from "./readingHistory";
-import type { StudySessionState } from "./studySession";
+import { createStudySessionCompletionSummary, type StudySessionState } from "./studySession";
 
 export const DASHBOARD_ACTIVITY_LIMIT = 8;
 
@@ -24,6 +24,7 @@ export type DashboardContinueItem = {
   sectionTitle: string | null;
   progress: number;
   updatedAt: string;
+  statusAvailable: boolean;
 };
 
 export type DashboardStudySession = {
@@ -32,6 +33,10 @@ export type DashboardStudySession = {
   currentTitle: string;
   currentHref: string;
   nextTitle: string | null;
+  completedCount: number | null;
+  remainingCount: number | null;
+  isComplete: boolean | null;
+  statusAvailable: boolean;
   progress: number | null;
   sectionTitle: string | null;
   updatedAt: string;
@@ -93,13 +98,22 @@ export function selectContinueLearning(
   history: ReadingHistoryItem[],
   progressItems: ReaderProgressState[],
   titles: ReadonlyMap<string, string>,
+  learningStates: ReadonlyArray<LearningState> | null,
 ): DashboardContinueItem | null {
+  const completedArticleIds = new Set(
+    (learningStates ?? [])
+      .filter((item) => item.status === "completed")
+      .map((item) => item.article_id),
+  );
   const historyById = new Map(history.map((item) => [item.id, item]));
   const progressById = new Map(progressItems.map((item) => [item.article_id, item]));
   const articleIds = new Set([...historyById.keys(), ...progressById.keys()]);
   const candidates: DashboardContinueItem[] = [];
 
   for (const articleId of articleIds) {
+    if (completedArticleIds.has(articleId)) {
+      continue;
+    }
     const historyItem = historyById.get(articleId) ?? null;
     const progress = progressById.get(articleId) ?? null;
     const updatedAt = latestValidTimestamp(progress?.updated_at, historyItem?.last_read_at);
@@ -117,6 +131,7 @@ export function selectContinueLearning(
       sectionTitle: cleanTitle(progress?.section_title),
       progress: clampPercent(progress?.progress ?? 0),
       updatedAt,
+      statusAvailable: learningStates !== null,
     });
   }
 
@@ -129,6 +144,7 @@ export function selectContinueLearning(
 export function createDashboardStudySession(
   state: StudySessionState,
   progressItems: ReaderProgressState[],
+  learningStates: ReadonlyArray<LearningState> | null,
 ): DashboardStudySession | null {
   const items = state.items.flatMap((item) => {
     const title = safeDisplayTitle(item.articleId, item.title);
@@ -140,6 +156,11 @@ export function createDashboardStudySession(
 
   const activeIndex = Math.max(0, items.findIndex((item) => item.articleId === state.activeArticleId));
   const current = items[activeIndex];
+  const completion = createStudySessionCompletionSummary(
+    { ...state, items },
+    learningStates,
+    current.articleId,
+  );
   const progress = progressItems
     .filter((item) => item.article_id === current.articleId)
     .sort((left, right) => timestampValue(right.updated_at) - timestampValue(left.updated_at))[0] ?? null;
@@ -150,7 +171,11 @@ export function createDashboardStudySession(
     position: activeIndex + 1,
     currentTitle: current.title,
     currentHref: createArticleReturnHref(current.articleId, "/session", sectionId),
-    nextTitle: cleanTitle(items[activeIndex + 1]?.title),
+    nextTitle: cleanTitle(completion.nextIncomplete?.title),
+    completedCount: completion.completedCount,
+    remainingCount: completion.remainingCount,
+    isComplete: completion.isComplete,
+    statusAvailable: completion.statusAvailable,
     progress: progress ? clampPercent(progress.progress) : null,
     sectionTitle: cleanTitle(progress?.section_title),
     updatedAt: state.updatedAt,

@@ -2,11 +2,11 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md`
 
 ## Staged Task
 
-`docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md`
+None
 
 ## Last Closed Task
 
@@ -15,7 +15,7 @@ None
 ## Status
 
 - P3-024: PASS / CLOSED
-- P3-025: ALIGNMENT REQUIRED / NOT GRANTED
+- P3-025: LOCAL GATES PASS / EXACT-SHA CI PENDING
 
 ## Authorization
 
@@ -23,8 +23,8 @@ None
   Graph validation, isolated fake-provider runtime, local commits, non-force
   push, and exact-SHA CI authorization: CONSUMED / CLOSED after this docs-only
   closure commit
-- P3-025 implementation, tests, runtime access, commit, push, and CI execution:
-  NOT GRANTED by the staging specification
+- P3-025 Frontend implementation, focused tests, isolated fake-runtime
+  validation, local commit, non-force push, and exact-SHA CI execution: GRANTED
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -55,5 +55,6 @@ None
 
 ## Next Gate
 
-Align and independently review P3-025 before granting any implementation or
-external action. No v1.2 candidate is assigned.
+Commit and push P3-025, verify exact-SHA main CI, then create a separate
+docs-only closure commit and verify its exact SHA. No v1.2 candidate is
+assigned.

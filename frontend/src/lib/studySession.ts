@@ -55,6 +55,28 @@ export type StudySessionPosition = {
   next: StudySessionItem | null;
 };
 
+export type StudySessionLearningStatus = "unread" | "reading" | "completed";
+
+export type StudySessionLearningState = {
+  article_id: string;
+  status: StudySessionLearningStatus;
+};
+
+export type StudySessionCompletionItem = {
+  item: StudySessionItem;
+  status: StudySessionLearningStatus | "unknown";
+};
+
+export type StudySessionCompletionSummary = {
+  statusAvailable: boolean;
+  items: StudySessionCompletionItem[];
+  current: StudySessionCompletionItem | null;
+  completedCount: number | null;
+  remainingCount: number | null;
+  isComplete: boolean | null;
+  nextIncomplete: StudySessionItem | null;
+};
+
 type PersistedStudySessionItem = {
   article_id: string;
   title: string;
@@ -287,8 +309,70 @@ export function getStudySessionPosition(
   };
 }
 
+export function createStudySessionCompletionSummary(
+  state: StudySessionState,
+  learningStates: ReadonlyArray<StudySessionLearningState> | null,
+  currentArticleId: string | null = state.activeArticleId,
+): StudySessionCompletionSummary {
+  if (learningStates === null) {
+    const items = state.items.map((item) => ({ item, status: "unknown" as const }));
+    return {
+      statusAvailable: false,
+      items,
+      current: items.find((entry) => entry.item.articleId === currentArticleId) ?? null,
+      completedCount: null,
+      remainingCount: null,
+      isComplete: null,
+      nextIncomplete: null,
+    };
+  }
+
+  const statusByArticle = new Map<string, StudySessionLearningStatus>();
+  for (const learningState of learningStates) {
+    if (
+      learningState
+      && typeof learningState.article_id === "string"
+      && isStudySessionLearningStatus(learningState.status)
+    ) {
+      statusByArticle.set(learningState.article_id, learningState.status);
+    }
+  }
+
+  const items: StudySessionCompletionItem[] = state.items.map((item) => ({
+    item,
+    status: statusByArticle.get(item.articleId) ?? "unread",
+  }));
+  const currentIndex = items.findIndex((entry) => entry.item.articleId === currentArticleId);
+  const completedCount = items.filter((entry) => entry.status === "completed").length;
+  let nextIncomplete: StudySessionItem | null = null;
+
+  if (currentIndex >= 0) {
+    for (let offset = 1; offset < items.length; offset += 1) {
+      const candidate = items[(currentIndex + offset) % items.length];
+      if (candidate.status !== "completed") {
+        nextIncomplete = candidate.item;
+        break;
+      }
+    }
+  }
+
+  return {
+    statusAvailable: true,
+    items,
+    current: currentIndex >= 0 ? items[currentIndex] : null,
+    completedCount,
+    remainingCount: items.length - completedCount,
+    isComplete: items.length > 0 && completedCount === items.length,
+    nextIncomplete,
+  };
+}
+
 export function createStudySessionReaderHref(item: StudySessionItem): string {
   return createArticleReturnHref(item.articleId, "/session", item.sectionId);
+}
+
+function isStudySessionLearningStatus(value: unknown): value is StudySessionLearningStatus {
+  return value === "unread" || value === "reading" || value === "completed";
 }
 
 export function loadStudySession(): StudySessionLoadResult {

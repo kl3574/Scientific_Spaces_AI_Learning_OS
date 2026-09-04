@@ -8,6 +8,7 @@ import {
   addStudySessionItem,
   clearStudySession,
   createEmptyStudySession,
+  createStudySessionCompletionSummary,
   createStudySessionReaderHref,
   getStudySessionPosition,
   moveStudySessionItem,
@@ -282,3 +283,91 @@ test("session Reader destinations retain the canonical session return path", () 
     "/articles/attention-basics?from=%2Fsession#scaled-attention",
   );
 });
+
+test("completion summary retains queue order and treats successful omissions as unread", () => {
+  const state = sessionState("article-b");
+  const summary = createStudySessionCompletionSummary(state, [
+    { article_id: "article-a", status: "completed" },
+    { article_id: "article-c", status: "reading" },
+  ]);
+
+  assert.equal(summary.statusAvailable, true);
+  assert.deepEqual(summary.items.map((entry) => [entry.item.articleId, entry.status]), [
+    ["article-a", "completed"],
+    ["article-b", "unread"],
+    ["article-c", "reading"],
+  ]);
+  assert.equal(summary.completedCount, 1);
+  assert.equal(summary.remainingCount, 2);
+  assert.equal(summary.isComplete, false);
+  assert.equal(summary.current?.item.articleId, "article-b");
+  assert.equal(summary.nextIncomplete?.articleId, "article-c");
+});
+
+test("guided successor wraps once, skips completed Articles, and never returns current", () => {
+  const state = sessionState("article-c");
+  const summary = createStudySessionCompletionSummary(state, [
+    { article_id: "article-a", status: "reading" },
+    { article_id: "article-b", status: "completed" },
+    { article_id: "article-c", status: "completed" },
+  ]);
+
+  assert.equal(summary.nextIncomplete?.articleId, "article-a");
+
+  const currentOnly = createStudySessionCompletionSummary(sessionState("article-a"), [
+    { article_id: "article-a", status: "reading" },
+    { article_id: "article-b", status: "completed" },
+    { article_id: "article-c", status: "completed" },
+  ]);
+  assert.equal(currentOnly.nextIncomplete, null);
+  assert.equal(currentOnly.isComplete, false);
+});
+
+test("all confirmed completed Articles make a nonempty retained queue terminal", () => {
+  const state = sessionState("article-b");
+  const summary = createStudySessionCompletionSummary(state, state.items.map((item) => ({
+    article_id: item.articleId,
+    status: "completed" as const,
+  })));
+
+  assert.equal(summary.completedCount, 3);
+  assert.equal(summary.remainingCount, 0);
+  assert.equal(summary.isComplete, true);
+  assert.equal(summary.nextIncomplete, null);
+  assert.equal(summary.items.length, 3);
+});
+
+test("empty and unavailable completion inputs never produce a false terminal claim", () => {
+  const empty = createStudySessionCompletionSummary(createEmptyStudySession(), []);
+  assert.equal(empty.statusAvailable, true);
+  assert.equal(empty.completedCount, 0);
+  assert.equal(empty.remainingCount, 0);
+  assert.equal(empty.isComplete, false);
+
+  const unknown = createStudySessionCompletionSummary(sessionState("article-a"), null);
+  assert.equal(unknown.statusAvailable, false);
+  assert.equal(unknown.completedCount, null);
+  assert.equal(unknown.remainingCount, null);
+  assert.equal(unknown.isComplete, null);
+  assert.equal(unknown.nextIncomplete, null);
+  assert.ok(unknown.items.every((entry) => entry.status === "unknown"));
+});
+
+test("an Article outside the retained queue cannot acquire a guided successor", () => {
+  const summary = createStudySessionCompletionSummary(sessionState("article-a"), [], "stale-article");
+  assert.equal(summary.current, null);
+  assert.equal(summary.nextIncomplete, null);
+});
+
+function sessionState(activeArticleId: string): ReturnType<typeof createEmptyStudySession> {
+  return {
+    version: 1,
+    activeArticleId,
+    updatedAt: SECOND_TIME,
+    items: [
+      { articleId: "article-a", title: "Article A", sectionId: null, addedAt: FIRST_TIME },
+      { articleId: "article-b", title: "Article B", sectionId: null, addedAt: FIRST_TIME },
+      { articleId: "article-c", title: "Article C", sectionId: null, addedAt: FIRST_TIME },
+    ],
+  };
+}

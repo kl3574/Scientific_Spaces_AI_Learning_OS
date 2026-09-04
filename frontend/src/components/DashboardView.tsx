@@ -14,7 +14,7 @@ import {
   selectContinueLearning,
   type DashboardStudySession,
 } from "@/lib/dashboard";
-import { LearningStats, fetchLearningStats } from "@/lib/learning";
+import { LearningState, LearningStats, fetchLearningStates, fetchLearningStats } from "@/lib/learning";
 import { ReadingHistoryItem, loadReadingHistory } from "@/lib/readingHistory";
 import {
   STUDY_SESSION_CHANGE_EVENT,
@@ -51,6 +51,7 @@ const NEXT_ACTIONS = [
 export function DashboardView() {
   const [articleQuery, setArticleQuery] = useState<ArticleListResponse | null>(null);
   const [stats, setStats] = useState<LearningStats | null>(null);
+  const [learningStates, setLearningStates] = useState<LearningState[] | null>(null);
   const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
   const [progressItems, setProgressItems] = useState<ReaderProgressState[]>([]);
   const [sessionLoad, setSessionLoad] = useState<StudySessionLoadResult | null>(null);
@@ -79,9 +80,10 @@ export function DashboardView() {
   async function loadDashboard() {
     setRemoteState("loading");
     setRemoteErrors([]);
-    const [articleResult, statsResult] = await Promise.allSettled([
+    const [articleResult, statsResult, statesResult] = await Promise.allSettled([
       fetchArticles({ page: 1, page_size: 5, sort: "date_desc" }),
       fetchLearningStats(),
+      fetchLearningStates(),
     ]);
     const errors: string[] = [];
 
@@ -95,9 +97,15 @@ export function DashboardView() {
     } else {
       errors.push(errorMessage(statsResult.reason, "Learning statistics are unavailable"));
     }
+    if (statesResult.status === "fulfilled") {
+      setLearningStates(statesResult.value.items);
+    } else {
+      setLearningStates(null);
+      errors.push(errorMessage(statesResult.reason, "Learning completion states are unavailable"));
+    }
 
     setRemoteErrors(errors);
-    setRemoteState(errors.length === 0 ? "loaded" : errors.length === 2 ? "error" : "partial");
+    setRemoteState(errors.length === 0 ? "loaded" : errors.length === 3 ? "error" : "partial");
   }
 
   const articles = articleQuery?.items ?? [];
@@ -110,12 +118,12 @@ export function DashboardView() {
     [articles, history, stats],
   );
   const continueItem = useMemo(
-    () => selectContinueLearning(history, progressItems, titles),
-    [history, progressItems, titles],
+    () => selectContinueLearning(history, progressItems, titles, learningStates),
+    [history, learningStates, progressItems, titles],
   );
   const focusedSession = useMemo(
-    () => sessionLoad ? createDashboardStudySession(sessionLoad.state, progressItems) : null,
-    [progressItems, sessionLoad],
+    () => sessionLoad ? createDashboardStudySession(sessionLoad.state, progressItems, learningStates) : null,
+    [learningStates, progressItems, sessionLoad],
   );
   const activity = useMemo(
     () => buildDashboardActivity(stats, history, titles),
@@ -190,7 +198,7 @@ function FocusedSession({
       <div className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between sm:gap-4">
         <div>
           <h2 className="text-base font-semibold" id="dashboard-study-session-title">Focused Session</h2>
-          <p className="mt-1 text-xs text-slate-500">Keep a bounded reading queue and return to its exact current Article.</p>
+          <p className="mt-1 text-xs text-slate-500">Review canonical completion and continue through the bounded queue.</p>
         </div>
         {summary ? (
           <p className="text-xs font-semibold text-sky-800">
@@ -241,7 +249,18 @@ function FocusedSession({
             <p className="mt-1 break-words text-lg font-semibold text-slate-950">{summary.currentTitle}</p>
             <p className="mt-1 break-words text-xs text-slate-500">
               {sessionProgressLabel(summary)}
-              {summary.nextTitle ? ` · Next: ${summary.nextTitle}` : " · Final queue item"}
+              {summary.statusAvailable
+                ? summary.isComplete
+                  ? " · Session complete"
+                  : summary.nextTitle
+                    ? ` · Next unfinished: ${summary.nextTitle}`
+                    : " · Complete current Article to finish"
+                : " · Completion status unavailable"}
+            </p>
+            <p className="mt-2 text-xs font-semibold text-sky-900">
+              {summary.statusAvailable
+                ? `${summary.completedCount} completed · ${summary.remainingCount} remaining`
+                : "Completed and remaining counts unavailable"}
             </p>
             {summary.progress !== null ? (
               <div
@@ -258,17 +277,10 @@ function FocusedSession({
           </div>
           <div className="flex flex-col gap-2 sm:flex-row lg:justify-end">
             <Link
-              className="w-fit rounded border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-slate-50"
+              className="w-fit rounded bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
               href="/session"
             >
-              Open session
-            </Link>
-            <Link
-              aria-label={`Continue current Article: ${summary.currentTitle}`}
-              className="w-fit rounded bg-slate-950 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-              href={summary.currentHref}
-            >
-              Continue current Article
+              {summary.isComplete ? "Review completed session" : "Open session"}
             </Link>
           </div>
         </div>
@@ -393,6 +405,11 @@ function ContinueLearning({
           <p className="mt-1 break-words text-xs text-slate-500">
             {item.sectionTitle ?? "Article start"} · {item.progress}% read
           </p>
+          {!item.statusAvailable ? (
+            <p className="mt-2 text-xs font-semibold text-amber-800">
+              Completion status is unavailable. This manual Reader link remains available.
+            </p>
+          ) : null}
           <div
             aria-label={`Reading progress for ${item.title}`}
             aria-valuemax={100}

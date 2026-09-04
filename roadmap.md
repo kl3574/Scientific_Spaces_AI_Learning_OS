@@ -11,10 +11,10 @@ Current task:
 `docs/tasks/CURRENT_TASK.md`
 
 Current milestone:
-P3-003 Structured Reference Extraction Pilot
+P3-025 Focused Session Completion and Guided Advance
 
 Status:
-ALIGNMENT REQUIRED
+LOCAL GATES PASS / EXACT-SHA CI PENDING
 
 ## Historical Notes
 

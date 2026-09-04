@@ -11,7 +11,7 @@ import {
   createDashboardStudySession,
   selectContinueLearning,
 } from "../src/lib/dashboard";
-import type { LearningStats } from "../src/lib/learning";
+import type { LearningState, LearningStats } from "../src/lib/learning";
 import type { ReadingHistoryItem } from "../src/lib/readingHistory";
 import type { StudySessionState } from "../src/lib/studySession";
 
@@ -52,7 +52,12 @@ test("selectContinueLearning chooses the newest exact Reader position", () => {
     readerProgress("article-a", "proof", "Proof", 43, "2026-08-31T10:00:00Z"),
     readerProgress("article-b", null, null, 12, "2026-08-30T10:00:00Z"),
   ];
-  const selected = selectContinueLearning(history, progress, new Map(history.map((item) => [item.id, item.title])));
+  const selected = selectContinueLearning(
+    history,
+    progress,
+    new Map(history.map((item) => [item.id, item.title])),
+    [learningState("article-b", "completed")],
+  );
 
   assert.deepEqual(selected, {
     articleId: "article-a",
@@ -61,6 +66,7 @@ test("selectContinueLearning chooses the newest exact Reader position", () => {
     sectionTitle: "Proof",
     progress: 43,
     updatedAt: "2026-08-31T10:00:00Z",
+    statusAvailable: true,
   });
 });
 
@@ -68,7 +74,7 @@ test("createDashboardStudySession resolves the active queue position and exact R
   const session = studySession({ activeArticleId: "article-b" });
   const summary = createDashboardStudySession(session, [
     readerProgress("article-b", "proof", "Main proof", 47, "2026-09-01T11:00:00Z"),
-  ]);
+  ], [learningState("article-a", "completed"), learningState("article-b", "reading")]);
 
   assert.deepEqual(summary, {
     count: 2,
@@ -76,6 +82,10 @@ test("createDashboardStudySession resolves the active queue position and exact R
     currentTitle: "Article B",
     currentHref: "/articles/article-b?from=%2Fsession#proof",
     nextTitle: null,
+    completedCount: 1,
+    remainingCount: 1,
+    isComplete: false,
+    statusAvailable: true,
     progress: 47,
     sectionTitle: "Main proof",
     updatedAt: "2026-09-01T10:00:00Z",
@@ -84,12 +94,15 @@ test("createDashboardStudySession resolves the active queue position and exact R
 
 test("createDashboardStudySession falls back safely and exposes the next Article", () => {
   const session = studySession({ activeArticleId: "missing-article" });
-  const summary = createDashboardStudySession(session, []);
+  const summary = createDashboardStudySession(session, [], [learningState("article-a", "completed")]);
 
   assert.equal(summary?.position, 1);
   assert.equal(summary?.currentTitle, "Article A");
   assert.equal(summary?.currentHref, "/articles/article-a?from=%2Fsession#introduction");
   assert.equal(summary?.nextTitle, "Article B");
+  assert.equal(summary?.completedCount, 1);
+  assert.equal(summary?.remainingCount, 1);
+  assert.equal(summary?.isComplete, false);
   assert.equal(summary?.progress, null);
   assert.equal(summary?.sectionTitle, null);
 });
@@ -99,9 +112,43 @@ test("createDashboardStudySession returns null for an empty queue", () => {
     createDashboardStudySession(
       { version: 1, items: [], activeArticleId: null, updatedAt: "2026-09-01T10:00:00Z" },
       [],
+      [],
     ),
     null,
   );
+});
+
+test("Dashboard completion remains unknown when canonical states are unavailable", () => {
+  const summary = createDashboardStudySession(studySession(), [], null);
+
+  assert.equal(summary?.statusAvailable, false);
+  assert.equal(summary?.completedCount, null);
+  assert.equal(summary?.remainingCount, null);
+  assert.equal(summary?.isComplete, null);
+  assert.equal(summary?.nextTitle, null);
+});
+
+test("Dashboard Continue excludes confirmed completed Articles", () => {
+  const history = [
+    historyItem("article-a", "Article A", "2026-09-01T12:00:00Z"),
+    historyItem("article-b", "Article B", "2026-09-01T11:00:00Z"),
+  ];
+  const selected = selectContinueLearning(
+    history,
+    [],
+    new Map(history.map((item) => [item.id, item.title])),
+    [learningState("article-a", "completed")],
+  );
+
+  assert.equal(selected?.articleId, "article-b");
+  const unavailable = selectContinueLearning(
+    history,
+    [],
+    new Map(history.map((item) => [item.id, item.title])),
+    null,
+  );
+  assert.equal(unavailable?.articleId, "article-a");
+  assert.equal(unavailable?.statusAvailable, false);
 });
 
 test("buildDashboardActivity merges title-resolved events and suppresses duplicate history", () => {
@@ -238,6 +285,17 @@ function learningStats(overrides: Partial<LearningStats> = {}): LearningStats {
     recent_articles: [],
     recent_sessions: [],
     ...overrides,
+  };
+}
+
+function learningState(articleId: string, status: LearningState["status"]): LearningState {
+  return {
+    article_id: articleId,
+    status,
+    last_read_at: null,
+    completed_at: status === "completed" ? "2026-09-01T12:00:00Z" : null,
+    read_count: status === "unread" ? 0 : 1,
+    updated_at: "2026-09-01T12:00:00Z",
   };
 }
 

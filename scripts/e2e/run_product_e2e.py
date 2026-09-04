@@ -41,6 +41,8 @@ CRB_ARTICLE_ID = "crb-formula"
 CRB_TITLE = "CRB公式与估计下界"
 ATTENTION_ARTICLE_ID = "attention-basics"
 ATTENTION_TITLE = "Attention机制入门"
+RESEARCH_ARTICLE_ID = "local-research-map"
+RESEARCH_TITLE = "本地研究路径与来源边界"
 ATTENTION_CONCEPT_ID = "concept:attention"
 ATTENTION_CONCEPT_RETURN = "/graph?node_id=concept%3Aattention"
 EXPECTED_ARTICLE_COUNT = 3
@@ -917,14 +919,18 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     page.get_by_role("link", name="Dashboard", exact=True).click()
     expect(page.get_by_role("heading", name="Continue Learning", exact=True)).to_be_visible()
-    continue_link = page.get_by_role("link", name=re.compile(r"^Continue learning CRB"))
-    continue_href = continue_link.get_attribute("href") or ""
-    _require("#" in continue_href, "Continue Reading does not retain a section anchor")
+    expect(page.get_by_text("No article in progress.", exact=True)).to_be_visible()
+    _require(
+        page.get_by_role("link", name=re.compile(r"^Continue learning CRB")).count() == 0,
+        "Dashboard Continue still includes a confirmed completed Article",
+    )
+    continue_href = f"/articles/{CRB_ARTICLE_ID}#{target_section_id}"
     expect(page.get_by_role("heading", name="Learning Activity", exact=True)).to_be_visible()
     expect(page.get_by_role("heading", name="New in Library", exact=True)).to_be_visible()
     expect(page.get_by_test_id("dashboard-activity")).to_contain_text(CRB_TITLE)
     expect(page.get_by_test_id("dashboard-activity")).not_to_contain_text(CRB_ARTICLE_ID)
     checks["dashboard_history"] = True
+    checks["dashboard_excludes_completed_continue"] = True
 
     attention_state_response = context.request.put(
         f"{API_URL}/learning/state/{ATTENTION_ARTICLE_ID}",
@@ -1002,12 +1008,9 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(dashboard_session).to_have_attribute("data-state", "ready")
     expect(dashboard_session).to_contain_text("2 Articles")
     expect(dashboard_session).to_contain_text(ATTENTION_TITLE)
-    expect(
-        dashboard_session.get_by_role(
-            "link", name=f"Continue current Article: {ATTENTION_TITLE}", exact=True
-        )
-    ).to_have_attribute(
-        "href", re.compile(rf"^/articles/{ATTENTION_ARTICLE_ID}\?from=%2Fsession")
+    expect(dashboard_session).to_contain_text("1 completed · 1 remaining")
+    expect(dashboard_session.get_by_role("link", name="Open session", exact=True)).to_have_attribute(
+        "href", "/session"
     )
     expect(page.get_by_role("link", name="Resume focused session", exact=True)).to_be_visible()
     checks["saved_learning_library"] = True
@@ -1016,10 +1019,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
     expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "session")
     expect(page.get_by_test_id("study-session-summary")).to_contain_text("2 Articles")
+    expect(page.get_by_test_id("study-session-summary")).to_contain_text("Completed")
+    expect(page.get_by_test_id("study-session-summary")).to_contain_text("Remaining")
+    expect(page.get_by_test_id("study-session-item").filter(has_text=ATTENTION_TITLE).first).to_contain_text(
+        "Current · Reading"
+    )
     crb_queue_item = page.get_by_test_id("study-session-item").filter(has_text=CRB_TITLE).first
     crb_queue_item.get_by_role("button", name=f"Move {CRB_TITLE} up", exact=True).click()
     crb_queue_item.get_by_role("button", name=f"Set {CRB_TITLE} as current", exact=True).click()
-    expect(crb_queue_item).to_contain_text("Current")
+    expect(crb_queue_item).to_contain_text("Current · Completed")
     page.wait_for_load_state("networkidle")
     page.evaluate(
         "() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
@@ -1030,23 +1038,47 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
     crb_queue_item = page.get_by_test_id("study-session-item").first
     expect(crb_queue_item).to_contain_text(CRB_TITLE)
-    expect(crb_queue_item).to_contain_text("Current")
+    expect(crb_queue_item).to_contain_text("Current · Completed")
     _require(not page_errors, f"Study Session hard reload emitted page errors: {page_errors}")
     page.get_by_role(
-        "link", name=f"Continue current Article: {CRB_TITLE}", exact=True
+        "link", name=f"Review current Article: {CRB_TITLE}", exact=True
     ).click()
-    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    crb_heading = page.get_by_role("heading", name=CRB_TITLE, exact=True)
+    expect(crb_heading).to_be_visible(timeout=30_000)
+    expect(crb_heading).to_be_focused(timeout=30_000)
     session_reader_navigation = page.get_by_test_id("study-session-reader-navigation")
     expect(session_reader_navigation).to_contain_text("Article 1 of 2")
-    next_session_article = session_reader_navigation.get_by_role(
+    expect(session_reader_navigation.get_by_role(
         "link", name=f"Next in session: {ATTENTION_TITLE}", exact=True
+    )).to_be_visible()
+    completion_region = page.get_by_test_id("focused-session-completion")
+    expect(completion_region).to_be_visible()
+    completion_status = page.get_by_test_id("focused-session-completion-status")
+    expect(completion_status).to_have_attribute("aria-live", "polite")
+    expect(completion_status).to_have_attribute("aria-atomic", "true")
+    crb_state_before = _api_json(context, "GET", f"/learning/state/{CRB_ARTICLE_ID}")
+    mark_complete = completion_region.get_by_role("button", name="Mark Article complete", exact=True)
+    expect(mark_complete).to_be_enabled(timeout=30_000)
+    page.keyboard.press("Tab")
+    expect(mark_complete).to_be_focused()
+    mark_complete.press("Enter")
+    expect(completion_region).to_have_attribute("data-state", "ready-to-advance", timeout=30_000)
+    expect(completion_region).to_be_focused(timeout=30_000)
+    expect(completion_status).to_contain_text("Article completion is confirmed")
+    expect(completion_region.get_by_role("button", name="Article completion confirmed", exact=True)).to_be_disabled()
+    expect(page.get_by_role("button", name="End session", exact=True)).to_be_disabled(timeout=30_000)
+    crb_state_after = _api_json(context, "GET", f"/learning/state/{CRB_ARTICLE_ID}")
+    _require(
+        crb_state_after["read_count"] == crb_state_before["read_count"],
+        "confirming an already completed Article duplicated its completion write",
     )
-    current_queue_reader_session = page.get_by_role("button", name="End session", exact=True)
-    expect(current_queue_reader_session).to_be_enabled(timeout=30_000)
-    current_queue_reader_session.click()
-    expect(current_queue_reader_session).to_be_disabled()
-    next_session_article.click()
-    expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    open_next = completion_region.get_by_role("button", name="Open next unfinished Article", exact=True)
+    page.keyboard.press("Tab")
+    expect(open_next).to_be_focused()
+    open_next.press("Enter")
+    attention_heading = page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
+    expect(attention_heading).to_be_visible(timeout=30_000)
+    expect(attention_heading).to_be_focused(timeout=30_000)
     session_reader_navigation = page.get_by_test_id("study-session-reader-navigation")
     expect(session_reader_navigation).to_contain_text("Article 2 of 2")
     expect(
@@ -1054,11 +1086,57 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             "link", name=f"Previous in session: {CRB_TITLE}", exact=True
         )
     ).to_be_visible()
-    next_queue_reader_session = page.get_by_role("button", name="End session", exact=True)
-    expect(next_queue_reader_session).to_be_enabled(timeout=30_000)
-    next_queue_reader_session.click()
-    expect(next_queue_reader_session).to_be_disabled()
-    page.get_by_role("link", name="Back to study session", exact=True).first.click()
+    persisted_guided_session = page.evaluate(
+        "JSON.parse(localStorage.getItem('scientific-spaces-study-session-v1'))"
+    )
+    _require(
+        persisted_guided_session["active_article_id"] == ATTENTION_ARTICLE_ID,
+        f"guided advance did not persist the next active Article: {persisted_guided_session}",
+    )
+    attention_state_before = _api_json(context, "GET", f"/learning/state/{ATTENTION_ARTICLE_ID}")
+    completion_region = page.get_by_test_id("focused-session-completion")
+    attention_mark_complete = completion_region.get_by_role(
+        "button", name="Mark Article complete", exact=True
+    )
+    expect(attention_mark_complete).to_be_enabled(timeout=30_000)
+    completion_region.focus()
+    page.keyboard.press("Tab")
+    expect(attention_mark_complete).to_be_focused()
+    attention_mark_complete.press("Enter")
+    expect(completion_region).to_have_attribute("data-state", "ready-to-advance", timeout=30_000)
+    expect(completion_region).to_be_focused(timeout=30_000)
+    attention_state_after = _api_json(context, "GET", f"/learning/state/{ATTENTION_ARTICLE_ID}")
+    _require(
+        attention_state_after["status"] == "completed"
+        and attention_state_after["read_count"] == attention_state_before["read_count"] + 1,
+        f"Attention completion was not persisted exactly once: {attention_state_after}",
+    )
+    terminal_url = page.url
+    terminal_action = completion_region.get_by_role(
+        "button", name="Open next unfinished Article", exact=True
+    )
+    page.keyboard.press("Tab")
+    expect(terminal_action).to_be_focused()
+    terminal_action.press("Enter")
+    expect(completion_region).to_have_attribute("data-state", "complete", timeout=30_000)
+    expect(completion_region).to_be_focused(timeout=30_000)
+    expect(completion_region).to_contain_text("Every queued Article is confirmed complete")
+    _require(page.url == terminal_url, "terminal completion navigated without an unfinished Article")
+    completion_region.get_by_role("link", name="Review completed session", exact=True).click()
+    expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("study-session-summary")).to_contain_text("2")
+    expect(page.get_by_test_id("study-session-complete")).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("study-session-item")).to_have_count(2)
+    checks["focused_session_completion_and_guided_advance"] = True
+    checks["focused_session_duplicate_safe_completion"] = True
+    checks["focused_session_retained_terminal_queue"] = True
+
+    page.get_by_role("link", name="Dashboard", exact=True).click()
+    dashboard_session = page.get_by_test_id("dashboard-study-session")
+    expect(dashboard_session).to_contain_text("2 completed · 0 remaining", timeout=30_000)
+    expect(dashboard_session).to_contain_text("Session complete")
+    expect(page.get_by_text("No article in progress.", exact=True)).to_be_visible()
+    dashboard_session.get_by_role("link", name="Review completed session", exact=True).click()
     expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
     crb_queue_item = page.get_by_test_id("study-session-item").filter(has_text=CRB_TITLE).first
     crb_queue_item.get_by_role(
@@ -1677,6 +1755,52 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["dashboard_partial_failure"] = True
     page.close()
 
+    page = _new_observed_page(
+        context,
+        console_errors,
+        page_errors,
+        label="dashboard-completion-status-unavailable",
+    )
+    dashboard_completion_console_start = len(console_errors)
+    page.route(
+        re.compile(r".*/learning/state$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional P3-025 completion-state list failure"}',
+        ),
+        times=1,
+    )
+    page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    expect(page.get_by_test_id("dashboard-remote-state")).to_have_attribute(
+        "data-state", "partial"
+    )
+    continue_region = page.get_by_test_id("continue-reading")
+    expect(continue_region).to_contain_text("Completion status is unavailable")
+    expect(
+        continue_region.get_by_role("link", name=re.compile(r"^Continue learning "))
+    ).to_be_visible()
+    page.get_by_role("button", name="Retry", exact=True).click()
+    expect(page.get_by_test_id("dashboard-remote-state")).to_have_count(0, timeout=30_000)
+    expect(page.get_by_text("No article in progress.", exact=True)).to_be_visible()
+    expected_dashboard_completion_console = console_errors[
+        dashboard_completion_console_start:
+    ]
+    _require(
+        len(expected_dashboard_completion_console) == 1
+        and "status of 503" in expected_dashboard_completion_console[0],
+        "unexpected Dashboard completion-state fallback console output: "
+        f"{expected_dashboard_completion_console}",
+    )
+    del console_errors[dashboard_completion_console_start:]
+    _require(
+        not page_errors,
+        f"Dashboard completion-state fallback emitted page errors: {page_errors}",
+    )
+    checks["dashboard_completion_status_fallback"] = True
+    page.close()
+
     page = _new_observed_page(context, console_errors, page_errors, label="library-partial")
     page.route(
         re.compile(r".*/learning/bookmarks$"),
@@ -1796,9 +1920,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     recovered_session_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
     _wait_for_application_shell(recovered_session_page)
-    expect(recovered_session_page.get_by_role("status")).to_contain_text(
-        "The saved queue was recovered safely"
-    )
+    expect(
+        recovered_session_page.get_by_text(
+            re.compile(r"^The saved queue was recovered safely\.")
+        )
+    ).to_be_visible()
     expect(recovered_session_page.get_by_test_id("study-session-summary")).to_contain_text(
         "1 Article"
     )
@@ -1915,6 +2041,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
                       "section_id": "regularity",
                       "added_at": "2026-08-31T02:01:00.000Z",
                   },
+                  {
+                      "article_id": "p3-025-advance-target",
+                      "title": "Guided advance target",
+                      "section_id": None,
+                      "added_at": "2026-08-31T02:02:00.000Z",
+                  },
               ],
           }, ensure_ascii=False))}
         );
@@ -1946,6 +2078,82 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "browser-local storage could not save it"
     )
     write_failure_page.close()
+    write_failure_context.route(
+        re.compile(r".*/learning/sessions$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "session_id": "p3-025-write-failure-timer",
+                    "article_id": ATTENTION_ARTICLE_ID,
+                    "started_at": "2026-09-04T06:00:00Z",
+                    "ended_at": None,
+                    "duration_seconds": None,
+                    "source": "reader",
+                }
+            ),
+        ),
+        times=1,
+    )
+    write_failure_context.route(
+        re.compile(r".*/learning/sessions/p3-025-write-failure-timer/end$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "session_id": "p3-025-write-failure-timer",
+                    "article_id": ATTENTION_ARTICLE_ID,
+                    "started_at": "2026-09-04T06:00:00Z",
+                    "ended_at": "2026-09-04T06:01:00Z",
+                    "duration_seconds": 60,
+                    "source": "reader",
+                }
+            ),
+        ),
+        times=1,
+    )
+    write_failure_page = _new_observed_page(
+        write_failure_context,
+        console_errors,
+        page_errors,
+        label="guided-advance-storage-write-failure",
+    )
+    write_failure_page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}?from=%2Fsession",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(write_failure_page)
+    write_failure_completion = write_failure_page.get_by_test_id(
+        "focused-session-completion"
+    )
+    write_failure_mark = write_failure_completion.get_by_role(
+        "button", name="Mark Article complete", exact=True
+    )
+    expect(write_failure_mark).to_be_enabled(timeout=30_000)
+    write_failure_mark.focus()
+    write_failure_mark.press("Enter")
+    expect(write_failure_completion).to_have_attribute(
+        "data-state", "ready-to-advance", timeout=30_000
+    )
+    expect(write_failure_completion).to_be_focused(timeout=30_000)
+    write_failure_url = write_failure_page.url
+    write_failure_advance = write_failure_completion.get_by_role(
+        "button", name="Open next unfinished Article", exact=True
+    )
+    write_failure_advance.focus()
+    write_failure_advance.press("Enter")
+    expect(write_failure_completion.get_by_role("alert")).to_contain_text(
+        "Navigation was cancelled", timeout=30_000
+    )
+    expect(write_failure_completion).to_be_focused(timeout=30_000)
+    _require(
+        write_failure_page.url == write_failure_url,
+        "guided advance navigated after browser-local pointer persistence failed",
+    )
+    checks["focused_session_advance_write_failure"] = True
+    write_failure_page.close()
     write_failure_page = _new_observed_page(
         write_failure_context,
         console_errors,
@@ -1967,6 +2175,863 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["study_session_storage_write_failure"] = True
     checks["concept_study_set_storage_write_failure"] = True
     write_failure_context.close()
+
+    timer_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    timer_context.add_init_script(
+        script=f"""
+        localStorage.setItem(
+          "scientific-spaces-study-session-v1",
+          {json.dumps(json.dumps({
+              "version": 1,
+              "active_article_id": CRB_ARTICLE_ID,
+              "updated_at": "2026-09-04T06:00:00.000Z",
+              "items": [
+                  {
+                      "article_id": CRB_ARTICLE_ID,
+                      "title": CRB_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T06:00:00.000Z",
+                  },
+                  {
+                      "article_id": RESEARCH_ARTICLE_ID,
+                      "title": RESEARCH_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T06:01:00.000Z",
+                  },
+              ],
+          }, ensure_ascii=False))}
+        );
+        """
+    )
+    _install_network_guard(timer_context, blocked_external)
+    timer_record = {
+        "session_id": "p3-025-retry-timer",
+        "article_id": CRB_ARTICLE_ID,
+        "started_at": "2026-09-04T06:00:00Z",
+        "ended_at": None,
+        "duration_seconds": None,
+        "source": "reader",
+    }
+    timer_end_attempts = {"count": 0}
+
+    def fulfill_timer_collection(route) -> None:
+        payload = timer_record if route.request.method == "POST" else {
+            "items": [timer_record],
+            "total": 1,
+        }
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(payload))
+
+    def fulfill_timer_end(route) -> None:
+        timer_end_attempts["count"] += 1
+        if timer_end_attempts["count"] == 1:
+            route.fulfill(
+                status=503,
+                content_type="application/json",
+                body='{"detail":"intentional uncertain timer end"}',
+            )
+            return
+        timer_record["ended_at"] = "2026-09-04T06:02:00Z"
+        timer_record["duration_seconds"] = 120
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(timer_record),
+        )
+
+    timer_context.route(re.compile(r".*/learning/sessions$"), fulfill_timer_collection)
+    timer_context.route(
+        re.compile(r".*/learning/sessions/p3-025-retry-timer/end$"),
+        fulfill_timer_end,
+    )
+    timer_console_start = len(console_errors)
+    timer_page = _new_observed_page(
+        timer_context,
+        console_errors,
+        page_errors,
+        label="focused-session-timer-reconciliation",
+    )
+    timer_page.goto(
+        f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(timer_page)
+    timer_completion = timer_page.get_by_test_id("focused-session-completion")
+    timer_mark_complete = timer_completion.get_by_role(
+        "button", name="Mark Article complete", exact=True
+    )
+    expect(timer_mark_complete).to_be_enabled(timeout=30_000)
+    timer_mark_complete.focus()
+    timer_mark_complete.press("Enter")
+    expect(timer_page.get_by_test_id("focused-session-timer-warning")).to_contain_text(
+        "exact timer is still open", timeout=30_000
+    )
+    expect(timer_completion).to_be_focused(timeout=30_000)
+    _require(
+        timer_end_attempts["count"] == 1,
+        f"uncertain timer end was replayed without user action: {timer_end_attempts}",
+    )
+    timer_retry = timer_completion.get_by_role("button", name="Retry timer check", exact=True)
+    timer_retry.focus()
+    timer_retry.press("Enter")
+    expect(timer_page.get_by_test_id("focused-session-timer-warning")).to_have_count(
+        0, timeout=30_000
+    )
+    expect(timer_completion).to_contain_text("Reader timer end confirmed")
+    expect(timer_completion).to_be_focused(timeout=30_000)
+    _require(
+        timer_end_attempts["count"] == 2,
+        f"confirmed-open timer retry did not perform exactly one end request: {timer_end_attempts}",
+    )
+    timer_completion.get_by_role(
+        "button", name="Open next unfinished Article", exact=True
+    ).click()
+    research_heading = timer_page.get_by_role("heading", name=RESEARCH_TITLE, exact=True)
+    expect(research_heading).to_be_visible(timeout=30_000)
+    expect(research_heading).to_be_focused(timeout=30_000)
+    checks["focused_session_timer_reconciliation"] = True
+    timer_context.close()
+    expected_timer_console = console_errors[timer_console_start:]
+    _require(
+        len(expected_timer_console) == 1
+        and "status of 503" in expected_timer_console[0],
+        f"unexpected timer-reconciliation console output: {expected_timer_console}",
+    )
+    del console_errors[timer_console_start:]
+
+    manual_timer_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    manual_timer_context.add_init_script(
+        script=f"""
+        localStorage.setItem(
+          "scientific-spaces-study-session-v1",
+          {json.dumps(json.dumps({
+              "version": 1,
+              "active_article_id": CRB_ARTICLE_ID,
+              "updated_at": "2026-09-04T06:30:00.000Z",
+              "items": [
+                  {
+                      "article_id": CRB_ARTICLE_ID,
+                      "title": CRB_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T06:30:00.000Z",
+                  },
+                  {
+                      "article_id": RESEARCH_ARTICLE_ID,
+                      "title": RESEARCH_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T06:31:00.000Z",
+                  },
+              ],
+          }, ensure_ascii=False))}
+        );
+        """
+    )
+    _install_network_guard(manual_timer_context, blocked_external)
+    manual_timer_record = {
+        "session_id": "p3-025-manual-uncertain-timer",
+        "article_id": CRB_ARTICLE_ID,
+        "started_at": "2026-09-04T06:30:00Z",
+        "ended_at": None,
+        "duration_seconds": None,
+        "source": "reader",
+    }
+    manual_timer_gets = {"count": 0}
+    manual_timer_ends = {"count": 0}
+
+    def fulfill_manual_timer_collection(route) -> None:
+        if route.request.method == "POST":
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps(manual_timer_record),
+            )
+            return
+        manual_timer_gets["count"] += 1
+        if manual_timer_gets["count"] == 2:
+            route.fulfill(
+                status=503,
+                content_type="application/json",
+                body='{"detail":"intentional manual timer readback failure"}',
+            )
+            return
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({"items": [manual_timer_record], "total": 1}),
+        )
+
+    def fulfill_manual_timer_end(route) -> None:
+        manual_timer_ends["count"] += 1
+        if manual_timer_ends["count"] == 1:
+            route.fulfill(
+                status=503,
+                content_type="application/json",
+                body='{"detail":"intentional manual timer uncertainty"}',
+            )
+            return
+        manual_timer_record["ended_at"] = "2026-09-04T06:34:00Z"
+        manual_timer_record["duration_seconds"] = 240
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(manual_timer_record),
+        )
+
+    manual_timer_context.route(
+        re.compile(r".*/learning/sessions$"), fulfill_manual_timer_collection
+    )
+    manual_timer_context.route(
+        re.compile(r".*/learning/sessions/p3-025-manual-uncertain-timer/end$"),
+        fulfill_manual_timer_end,
+    )
+    manual_timer_console_start = len(console_errors)
+    manual_timer_page = _new_observed_page(
+        manual_timer_context,
+        console_errors,
+        page_errors,
+        label="manual-timer-uncertainty",
+    )
+    manual_timer_page.goto(
+        f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(manual_timer_page)
+    manual_end = manual_timer_page.get_by_role("button", name="End session", exact=True)
+    expect(manual_end).to_be_enabled(timeout=30_000)
+    manual_end.click()
+    expect(manual_timer_page.get_by_text("Learning request failed: 503", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    manual_completion = manual_timer_page.get_by_test_id("focused-session-completion")
+    manual_mark = manual_completion.get_by_role(
+        "button", name="Mark Article complete", exact=True
+    )
+    expect(manual_mark).to_be_enabled(timeout=30_000)
+    manual_mark.press("Enter")
+    expect(manual_timer_page.get_by_test_id("focused-session-timer-warning")).to_contain_text(
+        "exact timer is still open", timeout=30_000
+    )
+    _require(
+        manual_timer_ends["count"] == 1,
+        f"completion blindly replayed an uncertain manual timer end: {manual_timer_ends}",
+    )
+    manual_retry = manual_completion.get_by_role(
+        "button", name="Retry timer check", exact=True
+    )
+    manual_retry.focus()
+    manual_retry.press("Enter")
+    expect(manual_timer_page.get_by_test_id("focused-session-timer-warning")).to_have_count(
+        0, timeout=30_000
+    )
+    _require(
+        manual_timer_ends["count"] == 2,
+        f"explicit timer retry did not issue exactly one new end request: {manual_timer_ends}",
+    )
+    checks["focused_session_manual_timer_uncertainty"] = True
+    manual_timer_context.close()
+    expected_manual_timer_console = console_errors[manual_timer_console_start:]
+    _require(
+        len(expected_manual_timer_console) == 2
+        and all("status of 503" in message for message in expected_manual_timer_console),
+        f"unexpected manual timer uncertainty console output: {expected_manual_timer_console}",
+    )
+    del console_errors[manual_timer_console_start:]
+
+    uncertain_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    uncertain_context.add_init_script(
+        script=f"""
+        localStorage.setItem(
+          "scientific-spaces-study-session-v1",
+          {json.dumps(json.dumps({
+              "version": 1,
+              "active_article_id": RESEARCH_ARTICLE_ID,
+              "updated_at": "2026-09-04T07:00:00.000Z",
+              "items": [
+                  {
+                      "article_id": RESEARCH_ARTICLE_ID,
+                      "title": RESEARCH_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T07:00:00.000Z",
+                  },
+                  {
+                      "article_id": CRB_ARTICLE_ID,
+                      "title": CRB_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T07:01:00.000Z",
+                  },
+              ],
+          }, ensure_ascii=False))}
+        );
+        """
+    )
+    _install_network_guard(uncertain_context, blocked_external)
+    uncertain_state = {"completed": False, "put_count": 0}
+
+    def uncertain_learning_state_payload() -> dict[str, object]:
+        completed = bool(uncertain_state["completed"])
+        return {
+            "article_id": RESEARCH_ARTICLE_ID,
+            "status": "completed" if completed else "unread",
+            "last_read_at": "2026-09-04T07:02:00Z" if completed else None,
+            "completed_at": "2026-09-04T07:02:00Z" if completed else None,
+            "read_count": 1 if completed else 0,
+            "updated_at": "2026-09-04T07:02:00Z" if completed else None,
+        }
+
+    def fulfill_uncertain_state(route) -> None:
+        if route.request.method == "PUT":
+            uncertain_state["completed"] = True
+            uncertain_state["put_count"] += 1
+            route.fulfill(
+                status=503,
+                content_type="application/json",
+                body='{"detail":"intentional lost completion response"}',
+            )
+            return
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(uncertain_learning_state_payload()),
+        )
+
+    uncertain_context.route(
+        re.compile(rf".*/learning/state/{RESEARCH_ARTICLE_ID}$"),
+        fulfill_uncertain_state,
+    )
+    uncertain_context.route(
+        re.compile(r".*/learning/state$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "items": [
+                        uncertain_learning_state_payload(),
+                        {
+                            "article_id": CRB_ARTICLE_ID,
+                            "status": "completed",
+                            "last_read_at": "2026-09-04T07:00:00Z",
+                            "completed_at": "2026-09-04T07:00:00Z",
+                            "read_count": 1,
+                            "updated_at": "2026-09-04T07:00:00Z",
+                        },
+                    ],
+                    "total": 2,
+                }
+            ),
+        ),
+    )
+    uncertain_timer = {
+        "session_id": "p3-025-uncertain-completion-timer",
+        "article_id": RESEARCH_ARTICLE_ID,
+        "started_at": "2026-09-04T07:00:00Z",
+        "ended_at": None,
+        "duration_seconds": None,
+        "source": "reader",
+    }
+    uncertain_context.route(
+        re.compile(r".*/learning/sessions$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(uncertain_timer),
+        ),
+        times=1,
+    )
+    uncertain_context.route(
+        re.compile(r".*/learning/sessions/p3-025-uncertain-completion-timer/end$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    **uncertain_timer,
+                    "ended_at": "2026-09-04T07:03:00Z",
+                    "duration_seconds": 180,
+                }
+            ),
+        ),
+        times=1,
+    )
+    uncertain_console_start = len(console_errors)
+    uncertain_page = _new_observed_page(
+        uncertain_context,
+        console_errors,
+        page_errors,
+        label="focused-session-completion-reconciliation",
+    )
+    uncertain_page.goto(
+        f"{FRONTEND_URL}/articles/{RESEARCH_ARTICLE_ID}?from=%2Fsession",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(uncertain_page)
+    uncertain_completion = uncertain_page.get_by_test_id("focused-session-completion")
+    uncertain_mark = uncertain_completion.get_by_role(
+        "button", name="Mark Article complete", exact=True
+    )
+    expect(uncertain_mark).to_be_enabled(timeout=30_000)
+    uncertain_mark.focus()
+    uncertain_mark.press("Enter")
+    expect(uncertain_completion).to_have_attribute(
+        "data-state", "ready-to-advance", timeout=30_000
+    )
+    expect(uncertain_completion).to_be_focused(timeout=30_000)
+    _require(
+        uncertain_state["put_count"] == 1,
+        f"uncertain completion response caused duplicate writes: {uncertain_state}",
+    )
+    uncertain_advance = uncertain_completion.get_by_role(
+        "button", name="Open next unfinished Article", exact=True
+    )
+    uncertain_advance.focus()
+    uncertain_advance.press("Enter")
+    expect(uncertain_completion).to_have_attribute("data-state", "complete", timeout=30_000)
+    expect(uncertain_completion).to_be_focused(timeout=30_000)
+    checks["focused_session_uncertain_completion_reconciliation"] = True
+    uncertain_context.close()
+    expected_uncertain_console = console_errors[uncertain_console_start:]
+    _require(
+        len(expected_uncertain_console) == 1
+        and "status of 503" in expected_uncertain_console[0],
+        f"unexpected completion-reconciliation console output: {expected_uncertain_console}",
+    )
+    del console_errors[uncertain_console_start:]
+
+    race_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    race_context.add_init_script(
+        script=f"""
+        localStorage.setItem(
+          "scientific-spaces-study-session-v1",
+          {json.dumps(json.dumps({
+              "version": 1,
+              "active_article_id": CRB_ARTICLE_ID,
+              "updated_at": "2026-09-04T07:30:00.000Z",
+              "items": [
+                  {
+                      "article_id": CRB_ARTICLE_ID,
+                      "title": CRB_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T07:30:00.000Z",
+                  },
+                  {
+                      "article_id": ATTENTION_ARTICLE_ID,
+                      "title": ATTENTION_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T07:31:00.000Z",
+                  },
+              ],
+          }, ensure_ascii=False))}
+        );
+        window.__p3025CompletionRace = {{ exactGets: 0 }};
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = async (...args) => {{
+          const request = args[0];
+          const init = args[1] || {{}};
+          const url = typeof request === "string"
+            ? request
+            : request instanceof URL
+              ? request.toString()
+              : request && typeof request.url === "string"
+                ? request.url
+                : String(request);
+          const method = String(
+            init.method || (request instanceof Request ? request.method : "GET")
+          ).toUpperCase();
+          const response = await originalFetch(...args);
+          if (method === "POST" && url.endsWith("/learning/sessions")) {{
+            await new Promise(resolve => setTimeout(resolve, 2000));
+          }}
+          if (method === "GET" && url.endsWith("/learning/state/{CRB_ARTICLE_ID}")) {{
+            window.__p3025CompletionRace.exactGets += 1;
+            if (window.__p3025CompletionRace.exactGets > 1) {{
+              await new Promise(resolve => setTimeout(resolve, 800));
+            }}
+          }}
+          return response;
+        }};
+        """
+    )
+    _install_network_guard(race_context, blocked_external)
+    race_state = {"put_count": 0}
+
+    def fulfill_race_state(route) -> None:
+        if route.request.method == "PUT":
+            race_state["put_count"] += 1
+            status = "completed"
+        else:
+            status = "unread"
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "article_id": CRB_ARTICLE_ID,
+                    "status": status,
+                    "last_read_at": None,
+                    "completed_at": None,
+                    "read_count": 0,
+                    "updated_at": None,
+                }
+            ),
+        )
+
+    race_context.route(
+        re.compile(rf".*/learning/state/{CRB_ARTICLE_ID}$"),
+        fulfill_race_state,
+    )
+    race_sessions: list[dict[str, object]] = []
+
+    def fulfill_race_sessions(route) -> None:
+        if route.request.method == "POST":
+            request_payload = route.request.post_data_json
+            session = {
+                "session_id": f"p3-025-race-timer-{len(race_sessions) + 1}",
+                "article_id": request_payload["article_id"],
+                "started_at": "2026-09-04T07:32:00Z",
+                "ended_at": None,
+                "duration_seconds": None,
+                "source": "reader",
+            }
+            race_sessions.append(session)
+            payload: object = session
+        else:
+            payload = {"items": race_sessions, "total": len(race_sessions)}
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(payload))
+
+    def fulfill_race_timer_end(route) -> None:
+        session_id = route.request.url.rsplit("/", 2)[-2]
+        session = next(item for item in race_sessions if item["session_id"] == session_id)
+        session["ended_at"] = "2026-09-04T07:33:00Z"
+        session["duration_seconds"] = 60
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(session))
+
+    race_context.route(re.compile(r".*/learning/sessions$"), fulfill_race_sessions)
+    race_context.route(
+        re.compile(r".*/learning/sessions/[^/]+/end$"),
+        fulfill_race_timer_end,
+    )
+    race_page = _new_observed_page(
+        race_context,
+        console_errors,
+        page_errors,
+        label="focused-session-navigation-race",
+    )
+    race_page.goto(
+        f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(race_page)
+    race_completion = race_page.get_by_test_id("focused-session-completion")
+    expect(race_completion).to_be_visible(timeout=30_000)
+    expect(race_completion).to_have_attribute("data-state", "preparing", timeout=1_000)
+    race_mark = race_completion.get_by_role(
+        "button", name="Mark Article complete", exact=True
+    )
+    expect(race_mark).to_be_disabled()
+    expect(race_mark).to_be_enabled(timeout=30_000)
+    checks["focused_session_initial_readiness_gate"] = True
+    race_mark.press("Enter")
+    race_next = race_page.get_by_test_id("study-session-reader-navigation").get_by_role(
+        "link", name=f"Next in session: {ATTENTION_TITLE}", exact=True
+    )
+    expect(race_next).to_have_attribute("aria-disabled", "true")
+    race_url = race_page.url
+    race_next.click(force=True)
+    _require(race_page.url == race_url, "manual navigation escaped while completion was pending")
+    expect(race_completion).to_have_attribute(
+        "data-state", "ready-to-advance", timeout=30_000
+    )
+    expect(race_completion).to_be_focused(timeout=30_000)
+    expect(race_next).to_have_attribute("aria-disabled", "false")
+    _require(
+        race_state["put_count"] == 1,
+        f"completion did not persist exactly once after the pending-navigation guard: {race_state}",
+    )
+    race_next.click()
+    expect(
+        race_page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
+    ).to_be_visible(timeout=30_000)
+    expect(race_page.get_by_test_id("focused-session-completion")).to_have_count(0)
+    race_session = race_page.evaluate(
+        "JSON.parse(localStorage.getItem('scientific-spaces-study-session-v1'))"
+    )
+    _require(
+        race_session["active_article_id"] == CRB_ARTICLE_ID,
+        f"manual review navigation changed active state: {race_session}",
+    )
+    expect(race_page.get_by_test_id("study-session-reader-navigation")).to_contain_text(
+        "Review-only view"
+    )
+    race_page.get_by_test_id("study-session-reader-navigation").get_by_role(
+        "link", name=f"Previous in session: {CRB_TITLE}", exact=True
+    ).click()
+    expect(race_page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    stale_completion = race_page.get_by_test_id("focused-session-completion")
+    stale_mark = stale_completion.get_by_role(
+        "button", name="Mark Article complete", exact=True
+    )
+    expect(stale_mark).to_be_enabled(timeout=30_000)
+    race_page.evaluate(
+        """
+        const state = JSON.parse(localStorage.getItem('scientific-spaces-study-session-v1'));
+        state.active_article_id = 'attention-basics';
+        state.updated_at = new Date().toISOString();
+        localStorage.setItem('scientific-spaces-study-session-v1', JSON.stringify(state));
+        """
+    )
+    stale_mark.click()
+    expect(stale_completion.get_by_role("alert")).to_contain_text(
+        "no longer the active item", timeout=30_000
+    )
+    expect(stale_completion).to_be_focused(timeout=30_000)
+    expect(stale_completion).to_have_count(1)
+    _require(
+        race_state["put_count"] == 1,
+        f"stale active validation issued another completion write: {race_state}",
+    )
+    checks["focused_session_manual_navigation_review_only"] = True
+    checks["focused_session_navigation_race_guard"] = True
+    checks["focused_session_stale_active_failure_focus"] = True
+    race_context.close()
+
+    advance_cancel_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    advance_cancel_context.add_init_script(
+        script=f"""
+        localStorage.setItem(
+          "scientific-spaces-study-session-v1",
+          {json.dumps(json.dumps({
+              "version": 1,
+              "active_article_id": CRB_ARTICLE_ID,
+              "updated_at": "2026-09-04T07:45:00.000Z",
+              "items": [
+                  {
+                      "article_id": CRB_ARTICLE_ID,
+                      "title": CRB_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T07:45:00.000Z",
+                  },
+                  {
+                      "article_id": ATTENTION_ARTICLE_ID,
+                      "title": ATTENTION_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T07:46:00.000Z",
+                  },
+              ],
+          }, ensure_ascii=False))}
+        );
+        const originalFetch = window.fetch.bind(window);
+        window.fetch = async (...args) => {{
+          const request = args[0];
+          const init = args[1] || {{}};
+          const url = typeof request === "string"
+            ? request
+            : request instanceof URL
+              ? request.toString()
+              : request && typeof request.url === "string"
+                ? request.url
+                : String(request);
+          const method = String(
+            init.method || (request instanceof Request ? request.method : "GET")
+          ).toUpperCase();
+          const response = await originalFetch(...args);
+          if (method === "GET" && url.endsWith("/learning/state")) {{
+            await new Promise(resolve => setTimeout(resolve, 1200));
+          }}
+          return response;
+        }};
+        """
+    )
+    _install_network_guard(advance_cancel_context, blocked_external)
+    advance_cancel_state = {
+        "article_id": CRB_ARTICLE_ID,
+        "status": "completed",
+        "last_read_at": "2026-09-04T07:45:00Z",
+        "completed_at": "2026-09-04T07:45:30Z",
+        "read_count": 1,
+        "updated_at": "2026-09-04T07:45:30Z",
+    }
+    advance_cancel_context.route(
+        re.compile(rf".*/learning/state/{CRB_ARTICLE_ID}$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(advance_cancel_state),
+        ),
+    )
+    advance_cancel_context.route(
+        re.compile(r".*/learning/state$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "items": [
+                        advance_cancel_state,
+                        {
+                            "article_id": ATTENTION_ARTICLE_ID,
+                            "status": "unread",
+                            "last_read_at": None,
+                            "completed_at": None,
+                            "read_count": 0,
+                            "updated_at": None,
+                        },
+                    ],
+                    "total": 2,
+                }
+            ),
+        ),
+    )
+    advance_cancel_timer = {
+        "session_id": "p3-025-cancelled-advance-timer",
+        "article_id": CRB_ARTICLE_ID,
+        "started_at": "2026-09-04T07:45:00Z",
+        "ended_at": None,
+        "duration_seconds": None,
+        "source": "reader",
+    }
+
+    def fulfill_advance_cancel_sessions(route) -> None:
+        payload = advance_cancel_timer if route.request.method == "POST" else {
+            "items": [advance_cancel_timer],
+            "total": 1,
+        }
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(payload))
+
+    def fulfill_advance_cancel_timer_end(route) -> None:
+        advance_cancel_timer["ended_at"] = "2026-09-04T07:46:00Z"
+        advance_cancel_timer["duration_seconds"] = 60
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(advance_cancel_timer),
+        )
+
+    advance_cancel_context.route(
+        re.compile(r".*/learning/sessions$"), fulfill_advance_cancel_sessions
+    )
+    advance_cancel_context.route(
+        re.compile(r".*/learning/sessions/p3-025-cancelled-advance-timer/end$"),
+        fulfill_advance_cancel_timer_end,
+    )
+    advance_cancel_page = _new_observed_page(
+        advance_cancel_context,
+        console_errors,
+        page_errors,
+        label="focused-session-cancelled-advance",
+    )
+    advance_cancel_page.goto(
+        f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(advance_cancel_page)
+    advance_cancel_completion = advance_cancel_page.get_by_test_id(
+        "focused-session-completion"
+    )
+    advance_cancel_mark = advance_cancel_completion.get_by_role(
+        "button", name="Mark Article complete", exact=True
+    )
+    expect(advance_cancel_mark).to_be_enabled(timeout=30_000)
+    advance_cancel_mark.click()
+    expect(advance_cancel_completion).to_have_attribute(
+        "data-state", "ready-to-advance", timeout=30_000
+    )
+    advance_cancel_completion.get_by_role(
+        "button", name="Open next unfinished Article", exact=True
+    ).click()
+    advance_cancel_page.get_by_role("link", name="Dashboard", exact=True).click()
+    expect(
+        advance_cancel_page.get_by_role(
+            "heading", name="Scientific Spaces AI Learning OS", exact=True
+        )
+    ).to_be_visible(timeout=30_000)
+    advance_cancel_page.wait_for_timeout(1800)
+    _require(
+        advance_cancel_page.url == f"{FRONTEND_URL}/",
+        f"stale guided advance overrode newer Dashboard navigation: {advance_cancel_page.url}",
+    )
+    cancelled_advance_session = advance_cancel_page.evaluate(
+        "JSON.parse(localStorage.getItem('scientific-spaces-study-session-v1'))"
+    )
+    _require(
+        cancelled_advance_session["active_article_id"] == CRB_ARTICLE_ID,
+        f"stale guided advance rewrote the active queue pointer: {cancelled_advance_session}",
+    )
+    checks["focused_session_cancelled_advance_guard"] = True
+    advance_cancel_context.close()
+
+    completion_retry_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    completion_retry_context.add_init_script(
+        script=f"""
+        localStorage.setItem(
+          "scientific-spaces-study-session-v1",
+          {json.dumps(json.dumps({
+              "version": 1,
+              "active_article_id": CRB_ARTICLE_ID,
+              "updated_at": "2026-09-04T08:00:00.000Z",
+              "items": [
+                  {
+                      "article_id": CRB_ARTICLE_ID,
+                      "title": CRB_TITLE,
+                      "section_id": None,
+                      "added_at": "2026-09-04T08:00:00.000Z",
+                  },
+              ],
+          }, ensure_ascii=False))}
+        );
+        """
+    )
+    _install_network_guard(completion_retry_context, blocked_external)
+    completion_retry_context.route(
+        re.compile(r".*/learning/state$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional completion-list failure"}',
+        ),
+        times=1,
+    )
+    completion_retry_console_start = len(console_errors)
+    completion_retry_page = _new_observed_page(
+        completion_retry_context,
+        console_errors,
+        page_errors,
+        label="focused-session-completion-list-retry",
+    )
+    completion_retry_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
+    _wait_for_application_shell(completion_retry_page)
+    expect(
+        completion_retry_page.get_by_text("Completion status is unavailable.", exact=True)
+    ).to_be_visible(timeout=30_000)
+    expect(completion_retry_page.get_by_test_id("study-session-item")).to_contain_text(
+        "Status unavailable"
+    )
+    expect(completion_retry_page.get_by_test_id("study-session-complete")).to_have_count(0)
+    completion_retry_page.get_by_role("button", name="Retry status", exact=True).click()
+    expect(completion_retry_page.get_by_test_id("study-session-complete")).to_be_visible(
+        timeout=30_000
+    )
+    checks["focused_session_completion_status_retry"] = True
+    completion_retry_context.close()
+    expected_completion_retry_console = console_errors[completion_retry_console_start:]
+    _require(
+        len(expected_completion_retry_console) == 1
+        and "status of 503" in expected_completion_retry_console[0],
+        f"unexpected completion-list retry console output: {expected_completion_retry_console}",
+    )
+    del console_errors[completion_retry_console_start:]
 
     full_session_context = browser.new_context(
         viewport={"width": 1440, "height": 900}, locale="zh-CN"
@@ -2191,6 +3256,123 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["graph_selected_detail_390px_deep_link"] = True
     deep_link_context.close()
 
+    for viewport_width, viewport_height, viewport_label in (
+        (1440, 900, "desktop"),
+        (390, 844, "mobile"),
+        (320, 844, "narrow"),
+        (720, 450, "zoom-equivalent"),
+    ):
+        completion_viewport_context = browser.new_context(
+            viewport={"width": viewport_width, "height": viewport_height},
+            screen={"width": 1440, "height": 900}
+            if viewport_label == "zoom-equivalent"
+            else None,
+            locale="zh-CN",
+            is_mobile=viewport_width <= 390,
+            reduced_motion="reduce",
+        )
+        completion_viewport_context.add_init_script(
+            script=f"""
+            localStorage.setItem(
+              "scientific-spaces-study-session-v1",
+              {json.dumps(json.dumps({
+                  "version": 1,
+                  "active_article_id": CRB_ARTICLE_ID,
+                  "updated_at": "2026-09-04T09:00:00.000Z",
+                  "items": [
+                      {
+                          "article_id": CRB_ARTICLE_ID,
+                          "title": CRB_TITLE,
+                          "section_id": None,
+                          "added_at": "2026-09-04T09:00:00.000Z",
+                      },
+                      {
+                          "article_id": RESEARCH_ARTICLE_ID,
+                          "title": RESEARCH_TITLE,
+                          "section_id": None,
+                          "added_at": "2026-09-04T09:01:00.000Z",
+                      },
+                  ],
+              }, ensure_ascii=False))}
+            );
+            """
+        )
+        _install_network_guard(completion_viewport_context, blocked_external)
+        viewport_timer = {
+            "session_id": f"p3-025-{viewport_label}-timer",
+            "article_id": CRB_ARTICLE_ID,
+            "started_at": "2026-09-04T09:00:00Z",
+            "ended_at": None,
+            "duration_seconds": None,
+            "source": "reader",
+        }
+        completion_viewport_context.route(
+            re.compile(r".*/learning/sessions$"),
+            lambda route: route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps(viewport_timer),
+            ),
+            times=1,
+        )
+        completion_viewport_page = _new_observed_page(
+            completion_viewport_context,
+            console_errors,
+            page_errors,
+            label=f"focused-completion-{viewport_label}",
+        )
+        completion_viewport_page.goto(
+            f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+            wait_until="domcontentloaded",
+        )
+        _wait_for_application_shell(completion_viewport_page)
+        viewport_heading = completion_viewport_page.get_by_role(
+            "heading", name=CRB_TITLE, exact=True
+        )
+        expect(viewport_heading).to_be_focused(timeout=30_000)
+        heading_box = viewport_heading.bounding_box()
+        _require(
+            heading_box is not None
+            and heading_box["y"] < viewport_height
+            and heading_box["y"] + heading_box["height"] > 0,
+            f"{viewport_label} guided Reader heading does not intersect the viewport: {heading_box}",
+        )
+        viewport_completion = completion_viewport_page.get_by_test_id(
+            "focused-session-completion"
+        )
+        viewport_completion.scroll_into_view_if_needed()
+        completion_box = viewport_completion.bounding_box()
+        _require(
+            completion_box is not None
+            and completion_box["x"] >= 0
+            and completion_box["x"] + completion_box["width"] <= viewport_width,
+            f"{viewport_label} completion region is horizontally clipped: {completion_box}",
+        )
+        for action_name in ("Mark Article complete", "Open next unfinished Article"):
+            action_box = viewport_completion.get_by_role(
+                "button", name=action_name, exact=True
+            ).bounding_box()
+            _require(
+                action_box is not None
+                and completion_box is not None
+                and action_box["x"] >= completion_box["x"]
+                and action_box["x"] + action_box["width"]
+                <= completion_box["x"] + completion_box["width"],
+                f"{viewport_label} completion action is clipped: {action_box}",
+            )
+        _require(
+            _document_width(completion_viewport_page) <= viewport_width,
+            f"{viewport_label} focused Reader overflows horizontally",
+        )
+        viewport_mark = viewport_completion.get_by_role(
+            "button", name="Mark Article complete", exact=True
+        )
+        expect(viewport_mark).to_be_enabled(timeout=30_000)
+        completion_viewport_page.keyboard.press("Tab")
+        expect(viewport_mark).to_be_focused()
+        checks[f"focused_session_completion_{viewport_label}_viewport"] = True
+        completion_viewport_context.close()
+
     mobile_context = browser.new_context(
         viewport={"width": 390, "height": 844},
         locale="zh-CN",
@@ -2315,14 +3497,16 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "nodes => nodes.map(node => node.getBoundingClientRect()).map(box => ({x: box.x, y: box.y}))"
     )
     _require(len({round(item["x"]) for item in stat_boxes}) == 2, "mobile dashboard statistics are not two columns")
+    expect(mobile_page.get_by_text("No article in progress.", exact=True)).to_be_visible()
     continue_learning_action = mobile_page.get_by_role(
         "link",
-        name=re.compile(r"^Continue learning "),
+        name="Resume focused session",
+        exact=True,
     ).bounding_box()
     _require(
         continue_learning_action is not None
         and continue_learning_action["y"] + continue_learning_action["height"] <= 844,
-        "Continue Learning action is clipped by the first mobile viewport",
+        "Focused Session resume action is clipped by the first mobile viewport",
     )
     _require(_document_width(mobile_page) <= 390, "mobile Dashboard overflows the viewport")
     expect(mobile_page.get_by_role("heading", name="Next Actions", exact=True)).to_be_visible()
@@ -2337,9 +3521,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(mobile_page.get_by_test_id("application-shell")).to_have_attribute(
         "data-workspace", "library"
     )
-    expect(mobile_page.get_by_role("heading", name="Continue Learning", exact=True)).to_be_visible(
+    expect(mobile_page.get_by_role("button", name="Continue (0)", exact=True)).to_be_visible(
         timeout=30_000
     )
+    expect(mobile_page.get_by_role("heading", name="Continue Learning", exact=True)).to_have_count(0)
     expect(mobile_page.get_by_role("heading", name="Bookmarked", exact=True)).to_be_visible()
     expect(mobile_page.get_by_role("heading", name="Recently Read", exact=True)).to_be_visible()
     library_stat_boxes = mobile_page.locator('[data-testid="saved-library-summary"] > div').evaluate_all(
@@ -2596,7 +3781,7 @@ def verify_backend_restart_persistence(
         stats = _read_json_url(f"{API_URL}/learning/stats")
         sessions = _read_json_url(f"{API_URL}/learning/sessions")
         checks = {
-            "completed_state": stats.get("completed_count") == 1,
+            "completed_states": stats.get("completed_count") == 2,
             "bookmark": stats.get("bookmark_count") == 1,
             "note": stats.get("note_count") == 1,
             "ended_sessions": sessions.get("total") == 8

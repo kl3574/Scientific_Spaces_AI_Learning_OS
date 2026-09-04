@@ -1,161 +1,185 @@
-# P3-024 Graph Master-Detail Navigation and Focus Continuity Alignment
+# P3-025 Focused Session Completion and Guided Advance Alignment
 
 Canonical task:
-`docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`
+`docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL GATES PASS / EXACT-SHA CI PENDING**
 
-ORDINARY FRONTEND / TEST / DOCUMENTATION WORK, LOCAL READ-ONLY ARTICLE AND
-GRAPH VALIDATION, TEMPORARY ISOLATED FAKE-PROVIDER RUNTIME, LOCAL COMMITS,
-NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED AFTER
-THE DOCS-ONLY CLOSURE COMMIT**
+FRONTEND, FOCUSED TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION, ISOLATED
+LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE PUSH TO `main`, AND
+EXACT-SHA CI READBACK: **GRANTED**
 
-BACKEND / FROZEN M1 / SOURCE RECORD / ARTICLE RECORD / DERIVED ASSET /
-DEPENDENCY / LOCKFILE / WORKFLOW / PUBLISHED API CONTRACT MODIFICATION:
-**NOT GRANTED**
+BACKEND, FROZEN M1, SOURCE OR ARTICLE RECORDS, DERIVED ASSETS, DEPENDENCIES,
+LOCKFILES, WORKFLOWS, PUBLISHED API CONTRACTS, CANDIDATE, TAG, RELEASE, AND
+ATTESTATION CHANGES: **NOT GRANTED**
 
-SOURCE NETWORK / EXTERNAL SEARCH / PRIVATE ZOTERO / REAL OR PAID PROVIDER /
-CANDIDATE / TAG / RELEASE / ATTESTATION / DESTRUCTIVE GIT ACTION:
-**NOT GRANTED**
+SOURCE NETWORK, EXTERNAL SEARCH, PRIVATE ZOTERO, REAL OR PAID PROVIDERS,
+DESTRUCTIVE GIT ACTIONS, AND HISTORY REWRITING: **NOT GRANTED**
 
 ## 1. Background
 
-- P3-015 introduced the bounded Graph explorer, and P3-023 added a Concept
-  Study Set inside the selected-node inspector.
-- A current production-browser audit found that at 390 px the selected detail
-  starts about 2,900 CSS px below the page top, after all 20 result cards;
-  Knowledge Context is farther below. The current E2E checks prove rendering
-  and width, but not viewport reachability, focus continuity, or URL state.
-- Selecting a node updates only component state. It does not synchronize the
-  canonical `node_id`, move focus, announce the change, or provide a bounded
-  mobile return path.
+- P3-021 created a bounded browser-local Focused Session queue. P3-022 exposed
+  it on Dashboard, but neither surface understands canonical completion.
+- The Reader has server-backed `LearningState`, a separate scroll position,
+  and a separate reading timer. These signals currently remain disconnected.
+- Repeating `PUT completed` increments `read_count`; repeating timer end rewrites
+  its end time. Completion and timer mutations therefore require read-before-
+  write and uncertain-response reconciliation.
 - Entry branch is `main`; entry commit and cached `origin/main` are both
-  `5448ca90ce8557e99d15d5ff4b3768910a3a5cc6`; ahead / behind is `0 / 0`.
-- Entry worktree, index, and untracked set are clean after temporary audit
-  screenshots and Playwright metadata were removed. REWORK and `.audit` are
-  absent. No v1.2 candidate is assigned.
-- Two independent sub-agents reviewed the revised task scope and both returned
-  PASS. The repository standing authorization therefore applies without a
-  separate user plan-confirmation loop.
+  `a493f55f47d5db1e443e28a13312c48371feb2d8`; ahead / behind is `0 / 0`.
+- Entry worktree, index, and untracked set are clean. `REWORK.md` and `.audit`
+  are absent. No v1.2 candidate is assigned.
+- Two independent scope reviews passed after resolving queue retention, status
+  omission, timer uncertainty, and guarded-advance semantics. The user's
+  standing instruction authorizes automatic implementation after review.
 
 ## 2. Objective
 
-Make Graph node results, selected detail, and bounded Knowledge Context a
-coherent master-detail workspace whose selection, focus, responsive layout,
-and browser history remain synchronized without changing Graph data or API
-semantics.
+Turn the existing Focused Session into a completion-aware learning workflow:
+the learner explicitly completes the current Article, then explicitly opens
+the next unfinished Article, while Dashboard and Session show truthful derived
+progress and all partial failures remain recoverable.
 
-## 3. In Scope
+## 3. Canonical State Contract
 
-- an Explore / Knowledge Context segmented workspace mode
-- desktop list-left/detail-right layout with a bounded, scrollable sticky
-  inspector
-- mobile and zoom Results / Selected segmented navigation with only the active
-  panel exposed to the accessibility tree
-- persistent detail focus target across idle, loading, loaded, and error states
-- originating-result focus restoration with a deterministic heading fallback
-- canonical node-selection URL construction and push/replace history rules
-- reload and Back/Forward restoration without request or history loops
-- bounded safe-label live announcements
-- wiring the existing Concept Study Set context action into workspace mode
-- focused Frontend tests, Product E2E, read-only real local Graph validation,
-  evidence documentation, commits, push, and exact-SHA CI closure
+1. Article completion is confirmed only by
+   `LearningState.status === "completed"`.
+2. Reader scroll progress is position only. Timer end is activity only. Neither
+   can complete an Article or a Focused Session.
+3. The queue schema, order, items, and manual controls remain unchanged.
+   Completed items are retained for review.
+4. A nonempty Focused Session is complete only when every queued Article has a
+   confirmed completed state. An empty queue is not complete.
+5. A successful learning-state list that omits a queued Article means canonical
+   `unread`. A failed or unavailable list means unknown; unknown never proves a
+   terminal session.
+6. Guided advance scans strictly after the current Article, wraps once, skips
+   confirmed completed Articles, selects the first unread or reading Article,
+   and never selects the current Article.
 
-## 4. URL And Interaction Contract
+## 4. Reader Workflow
 
-1. Explicit selection of a different node creates one history entry; selecting
-   the current node is a no-op.
-2. Canonicalization uses replace only. Route restoration never creates a new
-   history entry. Workspace and panel mode changes never mutate the URL.
-3. The canonical URL contains only validated `node_id`, normalized applied
-   `q`, and validated Article workflow fields: `article_id`, `article_title`,
-   and `return_to`. Unknown or unsafe parameters are discarded.
-4. A node-only URL change preserves in-memory query, type, and page state. A
-   changed URL query or reload may reset filters and pagination.
-5. Back/Forward and reload make the URL authoritative for selection.
-6. Result activation opens Selected on narrow layouts. Mobile or keyboard
-   activation focuses the persistent detail region. Back to results preserves
-   selection and URL, then restores the originating result if mounted or the
-   Results heading fallback otherwise.
-7. Context-map or relationship-list selection stays in Context, updates the
-   canonical URL, and preserves existing map recentering. Inspect selected
-   enters Explore / Selected.
+The two-step workflow appears only when the Reader was entered with canonical
+`from=/session` and the current Article is present and active in that queue.
 
-## 5. Out of Scope
+### Step 1 - Mark Article complete
 
-- Graph ranking, page size, traversal bounds, entity or relationship semantics
-- Backend, schema, API, Graph builder, derived Graph asset, persistence, source,
-  Article, or frozen M1 changes
-- Concept Study Set, Tutor, Reader, Session, or learning-state contract changes
-- dependencies, lockfiles, workflows, global navigation redesign, or broad
-  visual restyling
-- source access, external search, private Zotero, or real/paid Provider calls
-- candidate, tag, Release, attestation, force push, or history rewriting
-- Focused Session completion; retain it as a later candidate task
+1. Reload and validate browser-local queue and active identity.
+2. Read the current canonical Learning State.
+3. Skip the PUT when already completed; otherwise PUT completed once.
+4. If the PUT result is uncertain, GET the state before offering any replay.
+5. Completion never mutates queue order, active pointer, or navigation.
+6. After the completion attempt, end a known open Reader timer once. An
+   uncertain timer response is reconciled through the sessions list before any
+   retry.
 
-## 6. Planned Execution
+### Step 2 - Open next unfinished Article
 
-1. Persist this alignment, canonical task, and active repository status.
-2. Add failing pure tests for canonical URL ownership and history decisions.
-3. Implement the minimal Graph workspace navigation model.
-4. Integrate responsive modes, stable focus, URL synchronization, live status,
-   and bounded sticky detail into the existing Graph components.
-5. Extend Product E2E for real viewport intersection, focus restoration,
-   canonical history, reload, Back/Forward, context selection, and errors.
-6. Validate desktop, 390 x 844, 320 CSS px, and 720 x 450 zoom-equivalent
-   behavior in a production browser with no non-loopback requests.
-7. Run full regression, build, Product E2E, security, artifact, and protected
-   path gates; obtain two independent final implementation reviews.
-8. Commit and push implementation, verify exact-SHA CI, then create and push a
-   docs-only closure commit and verify its exact-SHA CI.
+1. Reload the queue and a successful complete Learning State list.
+2. Reconfirm the current Article is completed.
+3. Recompute the successor from current queue order and canonical statuses.
+4. Persist the successor as active before `router.replace` navigation.
+5. A persistence failure must not navigate.
+6. With no successor, expose an explicit action back to `/session`; never
+   redirect automatically.
 
-## 7. Deliverables
+Known timer failures expose deterministic recovery:
 
-- updated `alignment.md`
-- `docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`
-- updated `docs/tasks/CURRENT_TASK.md`
-- Graph workspace implementation under `frontend/src/`
-- focused Frontend tests and expanded `scripts/e2e/run_product_e2e.py`
-- `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md`
-- updated `README.md`, `docs/00_PROJECT_STATE.md`, and
-  `docs/V1_2_ROADMAP.md`
-- implementation and docs-only closure commits with exact-SHA CI evidence
+- confirmed-open timer: Retry end rereads first and performs at most one PUT;
+- unknown readback: status-check retry only, with no blind PUT replay;
+- absent or unconfirmed timer creation: preserve confirmed Article completion
+  and allow an explicit warned continuation without claiming timer success;
+- every timer-warning continuation reuses the complete guarded Step 2 path.
 
-## 8. Acceptance Criteria
+Definitive Article 404 continues to use the existing unavailable state. Its
+queue item is retained for review or manual removal.
 
-- A valid deep link presents Selected immediately at 390 x 844, 320 CSS px,
-  and 720 x 450 zoom-equivalent without traversing the Results page.
-- Explicit result selection changes the canonical URL once, reaches the
-  persistent detail focus target as specified, and Back to results restores a
-  deterministic focus target without changing selection or history.
-- Back/Forward and reload keep URL and selected UI consistent while preserving
-  safe query and Article return context.
-- Knowledge Context is one explicit mode action away; Map/List selection,
-  recentering, and Inspect selected work without exposing raw IDs.
-- Desktop retains simultaneous list/detail exploration. The sticky inspector
-  does not clip long details; its first and last controls remain keyboard
-  reachable through local scrolling.
-- Segmented controls expose complete button-group semantics with `aria-pressed`,
-  labelled regions, visible focus, and DOM/focus order matching visual order.
-- Deep-link, long-detail, loading, error, retry, same-node, missing-origin,
-  context, history, and viewport-intersection cases have automated evidence.
-- Three isolated production Product E2E runs pass with zero external requests,
-  zero unexpected console/page errors, and no horizontal overflow.
-- Backend full tests, focused Frontend tests, production build, workflow,
-  suppression, dependency, secret, SBOM, artifact, and protected-path gates
-  pass without changing protected code, data, dependencies, or contracts.
-- Implementation and closure commits pass exact-SHA main CI; final `main` is
-  clean and synchronized.
+## 5. Surface Consistency
 
-## Confirmed Test Seams
+- Session and Dashboard request the full Learning State list and show completed
+  count, remaining count, next unfinished Article, and truthful terminal state.
+- Status-fetch failure preserves manual navigation, shows Retry, and makes no
+  terminal claim.
+- Dashboard generic Continue excludes confirmed completed Articles. Dashboard
+  routes to Session and never mutates the active queue pointer.
+- Existing Library consistency is required when its canonical state request
+  succeeds. Cross-tab live refresh during partial failure is out of scope.
+- Manual Reader Previous and Next remain adjacency/review links and never
+  mutate completion or active queue state.
 
-1. Pure canonical Graph URL and workspace navigation decisions.
-2. Browser-visible Graph result/detail/context, focus, and history workflow.
+## 6. Accessibility And Responsive Contract
 
-## Stop Conditions
+- The Reader action region stays mounted with `tabIndex=-1` and a polite,
+  atomic live region.
+- Success, terminal, failure, and retry states receive deterministic focus.
+  Definitive mutation failures use `role=alert`.
+- A router-replaced session Reader focuses its Article heading and proves
+  viewport intersection.
+- Required viewports: 1440 x 900, 390 x 844, 320 x 844, and 720 x 450.
+- Labels and controls must fit without horizontal overflow.
+
+## 7. Allowed Changes
+
+- `frontend/src/lib/studySession.ts`
+- `frontend/src/lib/dashboard.ts`
+- `frontend/src/lib/learning.ts`
+- `frontend/src/components/StudySessionView.tsx`
+- `frontend/src/components/ArticleDetailView.tsx`
+- `frontend/src/components/DashboardView.tsx`
+- focused Frontend tests and test runners
+- `scripts/e2e/run_product_e2e.py`
+- this task's canonical, status, roadmap, README, alignment, and report files
+
+## 8. Out Of Scope
+
+- Backend, API, schema, persistence, learning-store, or M1 changes
+- queue schema migration or removal of completed queue entries
+- Article/source/derived-asset mutation
+- Library redesign, recommendation ranking, AI-guided ordering, or new domain
+  entities
+- dependencies, lockfiles, workflows, source access, external search, private
+  Zotero, real/paid Providers, candidate, tag, Release, or attestation
+
+## 9. Execution Plan
+
+1. Persist this alignment and current-task status.
+2. Add failing pure tests for derived completion, omission/unknown behavior,
+   wrapped successor selection, and completed-aware Dashboard resume.
+3. Implement the minimal pure state model and existing API client seam.
+4. Integrate Session, Dashboard, and the Reader's explicit two-step workflow.
+5. Extend Product E2E for duplicate-safe writes, stale state, failures, focus,
+   terminal state, responsive geometry, and cross-surface consistency.
+6. Run focused tests, full Frontend tests, build, Backend regression, three
+   isolated Product E2E runs, and repository security/artifact gates.
+7. Obtain two independent implementation reviews and repair in-scope findings.
+8. Commit and push implementation, verify exact-SHA CI, then commit and push a
+   docs-only closure and verify its exact-SHA CI.
+
+## 10. Acceptance Criteria
+
+- Completion and successor pure tests cover unread, reading, completed,
+  omission, unknown, empty, stale active, wrap, and terminal cases.
+- Repeated completion actions do not duplicate a completed-state PUT.
+- Uncertain completion and timer responses reconcile before any mutation retry.
+- Session and Dashboard retain the queue and expose truthful completed,
+  remaining, next, terminal, unavailable, and Retry states.
+- Dashboard Continue never selects a confirmed completed Article.
+- Reader Step 2 cannot navigate before successful local active-pointer save.
+- Manual Previous/Next remain review-only.
+- Keyboard focus and viewport intersection pass at every required viewport.
+- Three isolated production Product E2E runs pass with zero non-loopback
+  requests, zero unexpected console/page errors, and no horizontal overflow.
+- Full Backend tests, Frontend tests, production build, workflow, dependency,
+  secret, SBOM, artifact, and protected-path gates pass.
+- Two independent implementation reviews pass.
+- Implementation and closure commits each pass exact-SHA main CI; final `main`
+  is clean and synchronized.
+
+## 11. Stop Conditions
 
 - An unknown worktree change or conflict appears.
-- Existing contracts cannot support the workflow without a protected change.
+- The workflow requires a Backend, API, persistence, schema, dependency,
+  lockfile, workflow, frozen M1, source, Article, or derived-asset change.
 - Required evidence needs source access, private Zotero, external search, or a
   real/paid Provider call.
 - A test, build, browser, secret, artifact, review, or CI gate fails without an
@@ -163,33 +187,18 @@ semantics.
 - A candidate, tag, Release, attestation, force push, or history rewrite becomes
   necessary.
 
-## Completion Evidence
+## 12. Local Completion Evidence
 
-- initial implementation commit:
-  `86a63bd3c0641e2d3c0e8128a2bd61783fd3ff04`
-- initial exact-SHA CI run
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33851459994`
-  exposed intermittent production React hydration error 418 in Product E2E
-- bounded hydration repair commit:
-  `690573eebccc08dc7a73dd7ef4f17fa1eebdd75e`
-- repair exact-SHA main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33878201626`
 - Backend: 600 passed / 4 skipped
-- focused Frontend: 101 passed; production build: PASS
-- Product E2E: 10/10 local runs, 73 checks each, zero external requests and
-  zero unexpected console/page errors
-- hard-reload, responsive, performance, workflow, dependency, secret, SBOM,
-  artifact, and protected-path gates: PASS
-- final independent implementation reviews: 2 PASS; hydration repair review:
-  PASS
-- evidence report: `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md`
-- docs-only closure commit: this commit; exact-SHA main CI required before
-  final reporting
+- focused Frontend: 108 passed
+- production build: PASS, 11 routes
+- Product E2E: 3/3 runs, 92 checks each, zero external requests and zero
+  unexpected console/page errors
+- workflow, suppression, dependency, secret, temporary SBOM, artifact, and
+  protected-path gates: PASS
+- independent final implementation reviews: 2 PASS
+- evidence report:
+  `docs/P3_025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE_REPORT.md`
+- implementation commit and exact-SHA main CI: pending
 - candidate, tag, Release, attestation, source, private Zotero, and real
   Provider actions: not performed
-
-## Next Task Staging
-
-`docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md` is staged
-as **ALIGNMENT REQUIRED / NOT GRANTED**. This closure grants no P3-025
-implementation, runtime access, commit, push, CI, external, or release action.

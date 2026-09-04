@@ -125,6 +125,10 @@ export async function endSession(sessionId: string): Promise<LearningSession> {
   return requestJson<LearningSession>(`/learning/sessions/${sessionId}/end`, { method: "PUT" });
 }
 
+export async function fetchLearningSessions(): Promise<ListResponse<LearningSession>> {
+  return requestJson<ListResponse<LearningSession>>("/learning/sessions");
+}
+
 async function requestJson<T>(path: string, init: RequestInit = {}): Promise<T> {
   const response = await fetch(new URL(path, API_BASE_URL).toString(), {
     ...init,

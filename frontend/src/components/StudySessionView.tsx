@@ -4,10 +4,12 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import { WorkspaceState } from "@/components/WorkspaceState";
+import { fetchLearningStates, type LearningState } from "@/lib/learning";
 import {
   STUDY_SESSION_CHANGE_EVENT,
   activateStudySessionItem,
   clearStudySession,
+  createStudySessionCompletionSummary,
   createStudySessionReaderHref,
   getStudySessionPosition,
   loadStudySession,
@@ -23,22 +25,44 @@ export function StudySessionView() {
   const [snapshot, setSnapshot] = useState<StudySessionLoadResult | null>(null);
   const [persistenceWarning, setPersistenceWarning] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
+  const [learningStates, setLearningStates] = useState<LearningState[] | null>(null);
+  const [completionState, setCompletionState] = useState<"loading" | "loaded" | "error">("loading");
+  const [completionError, setCompletionError] = useState<string | null>(null);
 
   useEffect(() => {
     const refresh = () => setSnapshot(loadStudySession());
     refresh();
     window.addEventListener("storage", refresh);
     window.addEventListener(STUDY_SESSION_CHANGE_EVENT, refresh);
+    void refreshCompletion();
     return () => {
       window.removeEventListener("storage", refresh);
       window.removeEventListener(STUDY_SESSION_CHANGE_EVENT, refresh);
     };
   }, []);
 
+  async function refreshCompletion() {
+    setCompletionState("loading");
+    setCompletionError(null);
+    try {
+      const response = await fetchLearningStates();
+      setLearningStates(response.items);
+      setCompletionState("loaded");
+    } catch (error) {
+      setLearningStates(null);
+      setCompletionError(error instanceof Error ? error.message : "Learning states are unavailable");
+      setCompletionState("error");
+    }
+  }
+
   const activePosition = useMemo(() => {
     const state = snapshot?.state;
     return state?.activeArticleId ? getStudySessionPosition(state, state.activeArticleId) : null;
   }, [snapshot?.state]);
+  const completion = useMemo(
+    () => snapshot ? createStudySessionCompletionSummary(snapshot.state, learningStates) : null,
+    [learningStates, snapshot],
+  );
 
   function persist(nextState: StudySessionState) {
     setSnapshot((current) => current ? { ...current, state: nextState } : current);
@@ -122,6 +146,22 @@ export function StudySessionView() {
         </p>
       ) : null}
 
+      {snapshot?.storageAvailable && completionState === "error" ? (
+        <div className="flex flex-col gap-3 border border-amber-300 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between" role="alert">
+          <div>
+            <p className="text-sm font-semibold text-amber-950">Completion status is unavailable.</p>
+            <p className="mt-1 text-xs text-amber-900">{completionError}</p>
+          </div>
+          <button
+            className="w-fit rounded border border-amber-700 bg-white px-3 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100"
+            type="button"
+            onClick={() => void refreshCompletion()}
+          >
+            Retry status
+          </button>
+        </div>
+      ) : null}
+
       {snapshot?.storageAvailable && snapshot.state.items.length === 0 ? (
         <WorkspaceState
           action={<Link className="text-sm font-semibold text-emerald-800" href="/library">Browse saved learning</Link>}
@@ -134,11 +174,23 @@ export function StudySessionView() {
 
       {snapshot?.storageAvailable && snapshot.state.items.length > 0 ? (
         <>
-          <section className="grid gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-2" data-testid="study-session-summary">
+          <section className="grid gap-px overflow-hidden border border-slate-200 bg-slate-200 sm:grid-cols-2 lg:grid-cols-4" data-testid="study-session-summary">
             <div className="bg-white p-4">
               <p className="text-xs font-medium text-slate-500">Queue</p>
               <p className="mt-1 text-2xl font-semibold text-slate-950">
                 {snapshot.state.items.length} {snapshot.state.items.length === 1 ? "Article" : "Articles"}
+              </p>
+            </div>
+            <div className="bg-white p-4">
+              <p className="text-xs font-medium text-slate-500">Completed</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">
+                {completion?.completedCount ?? "—"}
+              </p>
+            </div>
+            <div className="bg-white p-4">
+              <p className="text-xs font-medium text-slate-500">Remaining</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">
+                {completion?.remainingCount ?? "—"}
               </p>
             </div>
             <div className="bg-white p-4">
@@ -149,14 +201,33 @@ export function StudySessionView() {
             </div>
           </section>
 
+          {completionState === "loading" ? (
+            <p className="border-y border-slate-200 py-3 text-sm text-slate-600" role="status">
+              Refreshing canonical completion status...
+            </p>
+          ) : null}
+
+          {completion?.isComplete === true ? (
+            <div className="border-l-4 border-emerald-700 bg-emerald-50 px-4 py-3" data-testid="study-session-complete" role="status">
+              <p className="font-semibold text-emerald-950">Focused Session complete</p>
+              <p className="mt-1 text-sm text-emerald-900">All queued Articles are complete. They remain available for review.</p>
+            </div>
+          ) : completion?.nextIncomplete ? (
+            <p className="border-l-4 border-sky-700 bg-sky-50 px-4 py-3 text-sm text-sky-950" data-testid="study-session-next">
+              Next unfinished: <span className="font-semibold">{completion.nextIncomplete.title}</span>
+            </p>
+          ) : null}
+
           {activePosition ? (
             <Link
-              aria-label={`Continue current Article: ${activePosition.current.title}`}
+              aria-label={`${completion?.current?.status === "completed" ? "Review" : "Continue"} current Article: ${activePosition.current.title}`}
               className="flex min-w-0 items-center justify-between gap-4 border-l-4 border-emerald-700 bg-emerald-50 px-4 py-3 text-emerald-950 hover:bg-emerald-100"
               href={createStudySessionReaderHref(activePosition.current)}
             >
               <span className="min-w-0">
-                <span className="block text-xs font-semibold uppercase">Continue current Article</span>
+                <span className="block text-xs font-semibold uppercase">
+                  {completion?.current?.status === "completed" ? "Review current Article" : "Continue current Article"}
+                </span>
                 <span className="mt-1 block break-words text-base font-semibold">{activePosition.current.title}</span>
               </span>
               <span aria-hidden="true" className="shrink-0 text-xl">&#8594;</span>
@@ -204,6 +275,7 @@ export function StudySessionView() {
             <ol className="mt-3 divide-y divide-slate-200 border-y border-slate-200">
               {snapshot.state.items.map((item, index) => {
                 const isCurrent = item.articleId === snapshot.state.activeArticleId;
+                const completionItem = completion?.items.find((entry) => entry.item.articleId === item.articleId);
                 return (
                   <li className="min-w-0 py-4" data-testid="study-session-item" key={item.articleId}>
                     <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -216,7 +288,7 @@ export function StudySessionView() {
                             {item.title}
                           </Link>
                           <p className={`mt-1 text-xs font-semibold ${isCurrent ? "text-emerald-800" : "text-slate-500"}`}>
-                            {isCurrent ? "Current" : "Queued"}
+                            {isCurrent ? "Current" : "Queued"} · {completionLabel(completionItem?.status ?? "unknown")}
                           </p>
                         </div>
                       </div>
@@ -269,4 +341,17 @@ export function StudySessionView() {
       ) : null}
     </section>
   );
+}
+
+function completionLabel(status: "unread" | "reading" | "completed" | "unknown"): string {
+  if (status === "completed") {
+    return "Completed";
+  }
+  if (status === "reading") {
+    return "Reading";
+  }
+  if (status === "unread") {
+    return "Unread";
+  }
+  return "Status unavailable";
 }

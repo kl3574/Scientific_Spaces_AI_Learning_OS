@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ComponentPropsWithoutRef, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -40,6 +41,8 @@ import {
   endSession,
   fetchBookmarks,
   fetchLearningState,
+  fetchLearningSessions,
+  fetchLearningStates,
   fetchNotes,
   updateLearningState,
   updateNote,
@@ -48,6 +51,7 @@ import { ReadingHistoryItem, loadReadingHistory, recordReading } from "@/lib/rea
 import { createLearningToolHref } from "@/lib/learningWorkflow";
 import {
   activateStudySessionItem,
+  createStudySessionCompletionSummary,
   createStudySessionReaderHref,
   getStudySessionPosition,
   loadStudySession,
@@ -58,6 +62,11 @@ import { StructuredReferencesPanel } from "@/components/StructuredReferencesPane
 import { WorkspaceState } from "@/components/WorkspaceState";
 import { ZoteroLinksPanel } from "@/components/ZoteroLinksPanel";
 
+type ArticleOperation = {
+  articleId: string;
+  generation: number;
+};
+
 export function ArticleDetailView({
   articleId,
   listReturnTo,
@@ -65,6 +74,7 @@ export function ArticleDetailView({
   articleId: string;
   listReturnTo: string;
 }>) {
+  const router = useRouter();
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [learningState, setLearningState] = useState<LearningState | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -81,9 +91,28 @@ export function ArticleDetailView({
   const [readerPreferences, setReaderPreferences] = useState<ReaderPreferences>(DEFAULT_READER_PREFERENCES);
   const [studySessionPosition, setStudySessionPosition] = useState<StudySessionPosition | null>(null);
   const [studySessionWarning, setStudySessionWarning] = useState<string | null>(null);
+  const [studySessionEligible, setStudySessionEligible] = useState(false);
+  const [completionRegionMounted, setCompletionRegionMounted] = useState(false);
+  const [completionPrepared, setCompletionPrepared] = useState(false);
+  const [completionPending, setCompletionPending] = useState<"complete" | "advance" | "timer" | null>(null);
+  const [completionMessage, setCompletionMessage] = useState<string | null>(null);
+  const [completionError, setCompletionError] = useState<string | null>(null);
+  const [completionTerminal, setCompletionTerminal] = useState(false);
+  const [timerWarning, setTimerWarning] = useState<"confirmed-open" | "unknown" | "unavailable" | null>(null);
+  const [sessionLoadState, setSessionLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+  const [learningMutationPending, setLearningMutationPending] = useState(false);
+  const [sessionEndPending, setSessionEndPending] = useState(false);
   const learningLoadArticleRef = useRef<string | null>(null);
+  const articleIdRef = useRef(articleId);
+  const articleGenerationRef = useRef(0);
+  const completionOperationRef = useRef<ArticleOperation | null>(null);
+  const learningMutationRef = useRef<ArticleOperation | null>(null);
+  const sessionEndOperationRef = useRef<ArticleOperation | null>(null);
   const articleRootRef = useRef<HTMLElement | null>(null);
+  const articleHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const completionRegionRef = useRef<HTMLElement | null>(null);
   const explicitSectionRef = useRef<ArticleOutlineItem | null>(null);
+  articleIdRef.current = articleId;
   const returnLabel = listReturnTo === "/session"
     ? "Back to study session"
     : listReturnTo.startsWith("/library")
@@ -93,6 +122,8 @@ export function ArticleDetailView({
       : "Back to articles";
 
   useEffect(() => {
+    const generation = articleGenerationRef.current + 1;
+    articleGenerationRef.current = generation;
     setArticle(null);
     setError(null);
     setActiveSectionId(null);
@@ -104,16 +135,55 @@ export function ArticleDetailView({
     setLearningError(null);
     setStudySessionPosition(null);
     setStudySessionWarning(null);
+    setStudySessionEligible(false);
+    setCompletionRegionMounted(false);
+    setCompletionPrepared(false);
+    setCompletionPending(null);
+    setCompletionMessage(null);
+    setCompletionError(null);
+    setCompletionTerminal(false);
+    setTimerWarning(null);
+    setSessionLoadState("idle");
+    setLearningMutationPending(false);
+    setSessionEndPending(false);
+    completionOperationRef.current = null;
+    learningMutationRef.current = null;
+    sessionEndOperationRef.current = null;
     learningLoadArticleRef.current = null;
     explicitSectionRef.current = null;
     setHistory(loadReadingHistory());
-    fetchArticle(articleId)
+    const requestedArticleId = articleId;
+    fetchArticle(requestedArticleId)
       .then((loadedArticle) => {
+        if (
+          articleIdRef.current !== requestedArticleId
+          || articleGenerationRef.current !== generation
+        ) {
+          return;
+        }
         setArticle(loadedArticle);
         setHistory(recordReading(loadedArticle));
-        void loadLearningContext(loadedArticle.id);
+        void loadLearningContext(loadedArticle.id, generation);
       })
-      .catch((err) => setError(err instanceof Error ? err.message : "Failed to load article"));
+      .catch((err) => {
+        if (
+          articleIdRef.current === requestedArticleId
+          && articleGenerationRef.current === generation
+        ) {
+          setError(err instanceof Error ? err.message : "Failed to load article");
+        }
+      });
+    return () => {
+      if (articleGenerationRef.current === generation) {
+        articleGenerationRef.current = generation + 1;
+      }
+      completionOperationRef.current = null;
+      learningMutationRef.current = null;
+      sessionEndOperationRef.current = null;
+      if (learningLoadArticleRef.current === requestedArticleId) {
+        learningLoadArticleRef.current = null;
+      }
+    };
   }, [articleId]);
 
   useEffect(() => {
@@ -121,9 +191,11 @@ export function ArticleDetailView({
   }, []);
 
   useEffect(() => {
-    if (listReturnTo !== "/session" || !article?.id) {
+    if (listReturnTo !== "/session") {
       setStudySessionPosition(null);
       setStudySessionWarning(null);
+      setStudySessionEligible(false);
+      setCompletionRegionMounted(false);
       return;
     }
 
@@ -131,58 +203,160 @@ export function ArticleDetailView({
     if (!snapshot.storageAvailable) {
       setStudySessionPosition(null);
       setStudySessionWarning("The focused session could not be recovered from browser-local storage.");
+      setStudySessionEligible(false);
       return;
     }
-    const currentPosition = getStudySessionPosition(snapshot.state, article.id);
+    const currentPosition = getStudySessionPosition(snapshot.state, articleId);
     if (!currentPosition) {
       setStudySessionPosition(null);
       setStudySessionWarning("This Article is no longer present in the focused session queue.");
+      setStudySessionEligible(false);
       return;
     }
 
-    const activeState = activateStudySessionItem(snapshot.state, article.id, new Date().toISOString());
-    setStudySessionPosition(getStudySessionPosition(activeState, article.id));
+    const isActive = snapshot.state.activeArticleId === articleId;
+    setStudySessionPosition(currentPosition);
+    setStudySessionEligible(isActive);
+    setCompletionRegionMounted(isActive);
     setStudySessionWarning(
-      activeState !== snapshot.state && !saveStudySession(activeState)
-        ? "The current queue position changed on this page but could not be saved."
-        : null,
+      isActive
+        ? null
+        : "Review-only view. Set this Article as current in Focused Session to use completion actions.",
     );
+  }, [articleId, listReturnTo]);
+
+  useEffect(() => {
+    if (listReturnTo !== "/session" || !article?.id) {
+      return;
+    }
+    let firstFrame = 0;
+    let secondFrame = 0;
+    firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        articleHeadingRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
+        articleHeadingRef.current?.focus({ preventScroll: true });
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      window.cancelAnimationFrame(secondFrame);
+    };
   }, [article?.id, listReturnTo]);
 
-  async function loadLearningContext(nextArticleId: string) {
-    if (learningLoadArticleRef.current === nextArticleId) {
+  async function loadLearningContext(nextArticleId: string, generation: number) {
+    if (
+      learningLoadArticleRef.current === nextArticleId
+      && articleGenerationRef.current === generation
+    ) {
       return;
     }
     learningLoadArticleRef.current = nextArticleId;
     setLearningError(null);
+    setSessionLoadState("loading");
+    const [stateResult, bookmarkResult, noteResult] = await Promise.allSettled([
+      fetchLearningState(nextArticleId),
+      fetchBookmarks(),
+      fetchNotes(nextArticleId),
+    ]);
+    if (
+      learningLoadArticleRef.current !== nextArticleId
+      || articleGenerationRef.current !== generation
+    ) {
+      return;
+    }
+    const errors: string[] = [];
+    if (stateResult.status === "fulfilled") {
+      setLearningState(stateResult.value);
+    } else {
+      errors.push(errorText(stateResult.reason, "Failed to load learning state"));
+    }
+    if (bookmarkResult.status === "fulfilled") {
+      setIsBookmarked(bookmarkResult.value.items.some((bookmark) => bookmark.article_id === nextArticleId));
+    } else {
+      errors.push(errorText(bookmarkResult.reason, "Failed to load bookmarks"));
+    }
+    if (noteResult.status === "fulfilled") {
+      setNotes(noteResult.value.items);
+    } else {
+      errors.push(errorText(noteResult.reason, "Failed to load notes"));
+    }
     try {
-      const [state, bookmarkResponse, noteResponse] = await Promise.all([
-        fetchLearningState(nextArticleId),
-        fetchBookmarks(),
-        fetchNotes(nextArticleId),
-      ]);
       const session = await createSession(nextArticleId, "reader");
-      setLearningState(state);
-      setIsBookmarked(bookmarkResponse.items.some((bookmark) => bookmark.article_id === nextArticleId));
-      setNotes(noteResponse.items);
-      setActiveSession(session);
-    } catch (err) {
-      if (learningLoadArticleRef.current === nextArticleId) {
-        learningLoadArticleRef.current = null;
+      if (
+        learningLoadArticleRef.current !== nextArticleId
+        || articleGenerationRef.current !== generation
+      ) {
+        return;
       }
-      setLearningError(err instanceof Error ? err.message : "Failed to load learning state");
+      setActiveSession(session);
+      setSessionLoadState("loaded");
+    } catch (sessionError) {
+      if (
+        learningLoadArticleRef.current !== nextArticleId
+        || articleGenerationRef.current !== generation
+      ) {
+        return;
+      }
+      setActiveSession(null);
+      setSessionLoadState("error");
+      errors.push(errorText(sessionError, "Reader timer could not be started"));
+    }
+    if (
+      learningLoadArticleRef.current === nextArticleId
+      && articleGenerationRef.current === generation
+    ) {
+      setLearningError(errors.length ? errors.join(" · ") : null);
     }
   }
 
   async function handleStatusChange(nextStatus: LearningStatus) {
-    if (!article) {
+    if (
+      !article
+      || completionOperationRef.current
+      || learningMutationRef.current
+      || learningState?.status === nextStatus
+    ) {
       return;
     }
+    const operation: ArticleOperation = {
+      articleId: article.id,
+      generation: articleGenerationRef.current,
+    };
+    learningMutationRef.current = operation;
+    setLearningMutationPending(true);
     setLearningError(null);
     try {
-      setLearningState(await updateLearningState(article.id, nextStatus));
+      let updatedState: LearningState;
+      try {
+        updatedState = await updateLearningState(operation.articleId, nextStatus);
+      } catch (writeError) {
+        if (!isCurrentOperation(learningMutationRef, operation)) {
+          return;
+        }
+        const readback = await fetchLearningState(operation.articleId);
+        if (readback.status !== nextStatus) {
+          throw writeError;
+        }
+        updatedState = readback;
+      }
+      if (isCurrentOperation(learningMutationRef, operation)) {
+        setLearningState(updatedState);
+        if (updatedState.status !== "completed") {
+          setCompletionPrepared(false);
+          setCompletionTerminal(false);
+          setCompletionMessage(null);
+          setCompletionError(null);
+        }
+      }
     } catch (err) {
-      setLearningError(err instanceof Error ? err.message : "Failed to update learning state");
+      if (isCurrentOperation(learningMutationRef, operation)) {
+        setLearningError(err instanceof Error ? err.message : "Failed to update learning state");
+      }
+    } finally {
+      if (isCurrentOperation(learningMutationRef, operation)) {
+        learningMutationRef.current = null;
+        setLearningMutationPending(false);
+      }
     }
   }
 
@@ -245,14 +419,436 @@ export function ArticleDetailView({
   }
 
   async function handleEndSession() {
-    if (!activeSession || activeSession.ended_at) {
+    if (
+      !article
+      || !activeSession
+      || activeSession.ended_at
+      || completionOperationRef.current
+      || sessionEndOperationRef.current
+    ) {
       return;
     }
+    const operation: ArticleOperation = {
+      articleId: article.id,
+      generation: articleGenerationRef.current,
+    };
+    const sessionId = activeSession.session_id;
+    sessionEndOperationRef.current = operation;
+    setSessionEndPending(true);
     setLearningError(null);
+    let warningRecorded = false;
     try {
-      setActiveSession(await endSession(activeSession.session_id));
+      const sessions = await fetchLearningSessions();
+      if (!isCurrentOperation(sessionEndOperationRef, operation)) {
+        return;
+      }
+      const exactSession = sessions.items.find((item) => item.session_id === sessionId);
+      if (!exactSession) {
+        warningRecorded = true;
+        setTimerWarning("unavailable");
+        throw new Error("The exact Reader timer could not be found, so no end request was sent.");
+      }
+      if (exactSession.ended_at) {
+        setActiveSession(exactSession);
+        setTimerWarning(null);
+        return;
+      }
+      try {
+        const ended = await endSession(sessionId);
+        if (isCurrentOperation(sessionEndOperationRef, operation)) {
+          setActiveSession(ended);
+          setTimerWarning(null);
+        }
+      } catch (endError) {
+        let readback;
+        try {
+          readback = await fetchLearningSessions();
+        } catch {
+          if (isCurrentOperation(sessionEndOperationRef, operation)) {
+            warningRecorded = true;
+            setTimerWarning("unknown");
+          }
+          throw endError;
+        }
+        if (!isCurrentOperation(sessionEndOperationRef, operation)) {
+          return;
+        }
+        const reconciled = readback.items.find((item) => item.session_id === sessionId);
+        if (reconciled?.ended_at) {
+          setActiveSession(reconciled);
+          setTimerWarning(null);
+          return;
+        }
+        if (reconciled) {
+          setActiveSession(reconciled);
+          warningRecorded = true;
+          setTimerWarning("confirmed-open");
+          throw new Error("The Reader timer is still open. Retry End session to try once more.");
+        }
+        warningRecorded = true;
+        setTimerWarning("unavailable");
+        throw endError;
+      }
     } catch (err) {
-      setLearningError(err instanceof Error ? err.message : "Failed to end session");
+      if (isCurrentOperation(sessionEndOperationRef, operation)) {
+        if (!warningRecorded) {
+          setTimerWarning("unknown");
+        }
+        setLearningError(err instanceof Error ? err.message : "Failed to end session");
+      }
+    } finally {
+      if (isCurrentOperation(sessionEndOperationRef, operation)) {
+        sessionEndOperationRef.current = null;
+        setSessionEndPending(false);
+      }
+    }
+  }
+
+  function focusCompletionRegion() {
+    window.requestAnimationFrame(() => completionRegionRef.current?.focus({ preventScroll: true }));
+  }
+
+  function isCurrentOperation(
+    operationRef: { current: ArticleOperation | null },
+    operation: ArticleOperation,
+  ) {
+    return operationRef.current === operation
+      && articleIdRef.current === operation.articleId
+      && articleGenerationRef.current === operation.generation;
+  }
+
+  function loadEligibleSessionState(targetArticleId: string) {
+    if (articleIdRef.current !== targetArticleId) {
+      return null;
+    }
+    const snapshot = loadStudySession();
+    const position = getStudySessionPosition(snapshot.state, targetArticleId);
+    if (!snapshot.storageAvailable) {
+      setStudySessionEligible(false);
+      setCompletionError("Browser-local session storage is unavailable.");
+      focusCompletionRegion();
+      return null;
+    }
+    if (!position || snapshot.state.activeArticleId !== targetArticleId) {
+      setStudySessionEligible(false);
+      setCompletionError("This Article is no longer the active item in the focused session.");
+      focusCompletionRegion();
+      return null;
+    }
+    setStudySessionPosition(position);
+    setStudySessionEligible(true);
+    return snapshot.state;
+  }
+
+  async function endReaderTimerAfterCompletion(
+    operation: ArticleOperation,
+  ): Promise<"closed" | "warning" | "stale"> {
+    if (!isCurrentOperation(completionOperationRef, operation)) {
+      return "stale";
+    }
+    const session = activeSession;
+    if (session?.ended_at) {
+      setTimerWarning(null);
+      return "closed";
+    }
+    if (!session || session.article_id !== operation.articleId || sessionLoadState !== "loaded") {
+      setTimerWarning("unavailable");
+      return "warning";
+    }
+    if (timerWarning) {
+      try {
+        const sessions = await fetchLearningSessions();
+        if (!isCurrentOperation(completionOperationRef, operation)) {
+          return "stale";
+        }
+        const readback = sessions.items.find((item) => item.session_id === session.session_id);
+        if (readback?.ended_at) {
+          setActiveSession(readback);
+          setTimerWarning(null);
+          return "closed";
+        }
+        if (readback) {
+          setActiveSession(readback);
+          setTimerWarning("confirmed-open");
+        } else {
+          setTimerWarning("unavailable");
+        }
+      } catch {
+        if (isCurrentOperation(completionOperationRef, operation)) {
+          setTimerWarning("unknown");
+        }
+      }
+      return "warning";
+    }
+    try {
+      const ended = await endSession(session.session_id);
+      if (!isCurrentOperation(completionOperationRef, operation)) {
+        return "stale";
+      }
+      setActiveSession(ended);
+      setTimerWarning(null);
+      return "closed";
+    } catch {
+      try {
+        const sessions = await fetchLearningSessions();
+        if (!isCurrentOperation(completionOperationRef, operation)) {
+          return "stale";
+        }
+        const readback = sessions.items.find((item) => item.session_id === session.session_id);
+        if (readback?.ended_at) {
+          setActiveSession(readback);
+          setTimerWarning(null);
+        } else if (readback) {
+          setActiveSession(readback);
+          setTimerWarning("confirmed-open");
+        } else {
+          setTimerWarning("unavailable");
+        }
+      } catch {
+        if (isCurrentOperation(completionOperationRef, operation)) {
+          setTimerWarning("unknown");
+        }
+      }
+      return "warning";
+    }
+  }
+
+  async function handlePrepareCompletion() {
+    if (
+      !article
+      || completionOperationRef.current
+      || learningMutationRef.current
+      || sessionEndOperationRef.current
+      || (sessionLoadState !== "loaded" && sessionLoadState !== "error")
+    ) {
+      return;
+    }
+    const operation: ArticleOperation = {
+      articleId: article.id,
+      generation: articleGenerationRef.current,
+    };
+    completionOperationRef.current = operation;
+    if (!loadEligibleSessionState(operation.articleId)) {
+      completionOperationRef.current = null;
+      return;
+    }
+    setCompletionPending("complete");
+    setCompletionError(null);
+    setCompletionMessage("Checking canonical completion status...");
+    setCompletionTerminal(false);
+
+    try {
+      let canonicalState = await fetchLearningState(operation.articleId);
+      if (!isCurrentOperation(completionOperationRef, operation)) {
+        return;
+      }
+      if (canonicalState.status !== "completed") {
+        try {
+          canonicalState = await updateLearningState(operation.articleId, "completed");
+        } catch (writeError) {
+          if (!isCurrentOperation(completionOperationRef, operation)) {
+            return;
+          }
+          const readback = await fetchLearningState(operation.articleId);
+          if (readback.status !== "completed") {
+            throw writeError;
+          }
+          canonicalState = readback;
+        }
+      }
+      if (!isCurrentOperation(completionOperationRef, operation)) {
+        return;
+      }
+      setLearningState(canonicalState);
+      setCompletionPrepared(true);
+      setCompletionMessage("Article completion confirmed. Finishing this Reader timer...");
+      const timerResult = await endReaderTimerAfterCompletion(operation);
+      if (!isCurrentOperation(completionOperationRef, operation)) {
+        return;
+      }
+      setCompletionMessage(
+        timerResult === "closed"
+          ? "Article completion is confirmed. You can now open the next unfinished Article."
+          : "Article completion is confirmed. Resolve the Reader timer or use the warned continuation.",
+      );
+    } catch (completionFailure) {
+      if (isCurrentOperation(completionOperationRef, operation)) {
+        setCompletionPrepared(false);
+        setCompletionMessage(null);
+        setCompletionError(errorText(completionFailure, "Article completion could not be confirmed"));
+      }
+    } finally {
+      if (isCurrentOperation(completionOperationRef, operation)) {
+        completionOperationRef.current = null;
+        setCompletionPending(null);
+        focusCompletionRegion();
+      }
+    }
+  }
+
+  async function handleRetryTimer() {
+    if (
+      !article
+      || !activeSession
+      || activeSession.ended_at
+      || completionOperationRef.current
+      || learningMutationRef.current
+      || sessionEndOperationRef.current
+    ) {
+      setTimerWarning(activeSession?.ended_at ? null : "unavailable");
+      focusCompletionRegion();
+      return;
+    }
+    const operation: ArticleOperation = {
+      articleId: article.id,
+      generation: articleGenerationRef.current,
+    };
+    const sessionId = activeSession.session_id;
+    completionOperationRef.current = operation;
+    const previousWarning = timerWarning;
+    setCompletionPending("timer");
+    setCompletionError(null);
+    setCompletionMessage("Checking the exact Reader timer...");
+    try {
+      const sessions = await fetchLearningSessions();
+      if (!isCurrentOperation(completionOperationRef, operation)) {
+        return;
+      }
+      const readback = sessions.items.find((item) => item.session_id === sessionId);
+      if (!readback) {
+        setTimerWarning("unavailable");
+        setCompletionMessage("The exact Reader timer could not be found. Article completion remains confirmed.");
+        return;
+      }
+      setActiveSession(readback);
+      if (readback.ended_at) {
+        setTimerWarning(null);
+        setCompletionMessage("Reader timer end confirmed. You can open the next unfinished Article.");
+        return;
+      }
+      if (previousWarning !== "confirmed-open") {
+        setTimerWarning("confirmed-open");
+        setCompletionMessage("The Reader timer is still open. Retry once to end this confirmed timer.");
+        return;
+      }
+
+      try {
+        const ended = await endSession(readback.session_id);
+        if (!isCurrentOperation(completionOperationRef, operation)) {
+          return;
+        }
+        setActiveSession(ended);
+        setTimerWarning(null);
+        setCompletionMessage("Reader timer end confirmed. You can open the next unfinished Article.");
+      } catch {
+        const finalReadback = await fetchLearningSessions();
+        if (!isCurrentOperation(completionOperationRef, operation)) {
+          return;
+        }
+        const finalSession = finalReadback.items.find((item) => item.session_id === readback.session_id);
+        if (finalSession?.ended_at) {
+          setActiveSession(finalSession);
+          setTimerWarning(null);
+          setCompletionMessage("Reader timer end confirmed. You can open the next unfinished Article.");
+        } else {
+          setTimerWarning(finalSession ? "confirmed-open" : "unavailable");
+          setCompletionMessage("Article completion remains confirmed, but the Reader timer did not close.");
+        }
+      }
+    } catch (timerFailure) {
+      if (isCurrentOperation(completionOperationRef, operation)) {
+        setTimerWarning("unknown");
+        setCompletionMessage(null);
+        setCompletionError(errorText(timerFailure, "Reader timer status could not be confirmed"));
+      }
+    } finally {
+      if (isCurrentOperation(completionOperationRef, operation)) {
+        completionOperationRef.current = null;
+        setCompletionPending(null);
+        focusCompletionRegion();
+      }
+    }
+  }
+
+  async function handleOpenNextUnfinished(allowUnconfirmedTimer = false) {
+    if (
+      !article
+      || completionOperationRef.current
+      || learningMutationRef.current
+      || sessionEndOperationRef.current
+      || !completionPrepared
+    ) {
+      return;
+    }
+    if (timerWarning && !allowUnconfirmedTimer) {
+      setCompletionError("Resolve the Reader timer or explicitly continue without timer confirmation.");
+      focusCompletionRegion();
+      return;
+    }
+    const operation: ArticleOperation = {
+      articleId: article.id,
+      generation: articleGenerationRef.current,
+    };
+    completionOperationRef.current = operation;
+    if (!loadEligibleSessionState(operation.articleId)) {
+      completionOperationRef.current = null;
+      return;
+    }
+
+    setCompletionPending("advance");
+    setCompletionError(null);
+    setCompletionMessage("Refreshing completion status and finding the next unfinished Article...");
+    let navigationStarted = false;
+    try {
+      const [currentState, stateResponse] = await Promise.all([
+        fetchLearningState(operation.articleId),
+        fetchLearningStates(),
+      ]);
+      if (!isCurrentOperation(completionOperationRef, operation)) {
+        return;
+      }
+      setLearningState(currentState);
+      const latestQueueState = loadEligibleSessionState(operation.articleId);
+      if (!latestQueueState) {
+        return;
+      }
+      const completion = createStudySessionCompletionSummary(
+        latestQueueState,
+        stateResponse.items,
+        operation.articleId,
+      );
+      if (currentState.status !== "completed" || completion.current?.status !== "completed") {
+        setCompletionPrepared(false);
+        throw new Error("The current Article is not confirmed complete. Complete it before advancing.");
+      }
+      if (completion.isComplete || !completion.nextIncomplete) {
+        setCompletionTerminal(true);
+        setCompletionMessage("Focused Session complete. Every queued Article is confirmed complete.");
+        return;
+      }
+
+      const nextState = activateStudySessionItem(
+        latestQueueState,
+        completion.nextIncomplete.articleId,
+        new Date().toISOString(),
+      );
+      if (nextState === latestQueueState || !saveStudySession(nextState)) {
+        throw new Error("The next Article could not be saved as current. Navigation was cancelled.");
+      }
+      setCompletionMessage(`Opening ${completion.nextIncomplete.title}...`);
+      router.replace(createStudySessionReaderHref({ ...completion.nextIncomplete, sectionId: null }));
+      navigationStarted = true;
+    } catch (advanceFailure) {
+      if (isCurrentOperation(completionOperationRef, operation)) {
+        setCompletionMessage(null);
+        setCompletionError(errorText(advanceFailure, "The next unfinished Article could not be opened"));
+      }
+    } finally {
+      if (isCurrentOperation(completionOperationRef, operation) && !navigationStarted) {
+        completionOperationRef.current = null;
+        setCompletionPending(null);
+        focusCompletionRegion();
+      }
     }
   }
 
@@ -422,26 +1018,159 @@ export function ArticleDetailView({
     setReaderPreferences(saved);
   }
 
+  const completionContextReady = Boolean(article)
+    && (sessionLoadState === "loaded" || sessionLoadState === "error");
+  const focusedCompletionPanel = listReturnTo === "/session" && completionRegionMounted ? (
+    <section
+      ref={completionRegionRef}
+      aria-labelledby="focused-completion-heading"
+      className="mt-4 scroll-mt-24 border-l-4 border-sky-700 bg-sky-50 px-4 py-4 outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
+      data-state={
+        error
+          ? "unavailable"
+          : !completionContextReady
+            ? "preparing"
+            : completionTerminal
+              ? "complete"
+              : completionPrepared
+                ? "ready-to-advance"
+                : "ready-to-complete"
+      }
+      data-testid="focused-session-completion"
+      tabIndex={-1}
+    >
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase text-sky-800">Focused Session</p>
+          <h2 className="mt-1 text-base font-semibold text-sky-950" id="focused-completion-heading">
+            Complete, then continue
+          </h2>
+        </div>
+        <span className="text-xs font-semibold text-sky-900">
+          {error
+            ? "Article unavailable"
+            : !completionContextReady
+              ? "Preparing Reader state"
+              : learningState?.status === "completed"
+                ? "Canonical status: completed"
+                : "Completion not yet confirmed"}
+        </span>
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <button
+          className="min-h-11 rounded bg-sky-800 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-900 disabled:cursor-not-allowed disabled:bg-slate-300"
+          disabled={
+            !article
+            || !studySessionEligible
+            || !completionContextReady
+            || completionPrepared
+            || completionPending !== null
+            || learningMutationPending
+            || sessionEndPending
+          }
+          type="button"
+          onClick={() => void handlePrepareCompletion()}
+        >
+          {completionPending === "complete"
+            ? "Confirming completion..."
+            : completionPrepared
+              ? "Article completion confirmed"
+              : "Mark Article complete"}
+        </button>
+        <button
+          className="min-h-11 rounded border border-sky-700 bg-white px-4 py-2 text-sm font-semibold text-sky-950 hover:bg-sky-100 disabled:cursor-not-allowed disabled:border-slate-300 disabled:text-slate-400"
+          disabled={
+            !article
+            || !studySessionEligible
+            || !completionContextReady
+            || !completionPrepared
+            || completionTerminal
+            || timerWarning !== null
+            || completionPending !== null
+            || learningMutationPending
+            || sessionEndPending
+          }
+          type="button"
+          onClick={() => void handleOpenNextUnfinished()}
+        >
+          {completionPending === "advance" ? "Finding next Article..." : "Open next unfinished Article"}
+        </button>
+      </div>
+
+      {completionPrepared && timerWarning ? (
+        <div
+          className="mt-3 border border-amber-300 bg-amber-50 p-3"
+          data-testid="focused-session-timer-warning"
+        >
+          <p className="text-sm font-semibold text-amber-950">Article completion is safe, but the Reader timer is not confirmed closed.</p>
+          <p className="mt-1 text-xs leading-5 text-amber-900">{timerWarningText(timerWarning)}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {activeSession ? (
+              <button
+                className="rounded border border-amber-700 bg-white px-3 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:text-slate-400"
+                disabled={completionPending !== null || learningMutationPending || sessionEndPending}
+                type="button"
+                onClick={() => void handleRetryTimer()}
+              >
+                {completionPending === "timer" ? "Checking timer..." : "Retry timer check"}
+              </button>
+            ) : null}
+            <button
+              className="rounded bg-amber-800 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-900 disabled:bg-slate-300"
+              disabled={completionPending !== null || learningMutationPending || sessionEndPending}
+              type="button"
+              onClick={() => void handleOpenNextUnfinished(true)}
+            >
+              Continue without timer confirmation
+            </button>
+          </div>
+        </div>
+      ) : null}
+
+      {completionTerminal ? (
+        <Link className="mt-3 inline-block text-sm font-semibold text-emerald-800 underline underline-offset-2" href="/session">
+          Review completed session
+        </Link>
+      ) : null}
+
+      <p aria-atomic="true" aria-live="polite" className="mt-3 text-sm text-sky-950" data-testid="focused-session-completion-status">
+        {completionMessage ?? "Completion and timer state are checked independently before guided navigation."}
+      </p>
+      {completionError ? (
+        <p className="mt-2 text-sm font-semibold text-red-800" role="alert">{completionError}</p>
+      ) : null}
+    </section>
+  ) : null;
+
   if (error) {
     return (
-      <WorkspaceState
-        action={
-          <Link
-            className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-900 hover:border-red-500"
-            href={listReturnTo}
-          >
-            {returnLabel}
-          </Link>
-        }
-        detail={error}
-        title="Article unavailable"
-        tone="error"
-      />
+      <section className="grid gap-4">
+        {focusedCompletionPanel}
+        <WorkspaceState
+          action={
+            <Link
+              className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-900 hover:border-red-500"
+              href={listReturnTo}
+            >
+              {returnLabel}
+            </Link>
+          }
+          detail={error}
+          title="Article unavailable"
+          tone="error"
+        />
+      </section>
     );
   }
 
   if (!article) {
-    return <WorkspaceState title="Loading article" tone="loading" />;
+    return (
+      <section className="grid gap-4">
+        {focusedCompletionPanel}
+        <WorkspaceState title="Loading article" tone="loading" />
+      </section>
+    );
   }
 
   const workflowContext = {
@@ -453,20 +1182,26 @@ export function ArticleDetailView({
 
   return (
     <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
-      <article
-        ref={articleRootRef}
-        id="article-start"
-        className="reader-workspace min-w-0 rounded border border-slate-200 bg-white p-5"
-        data-reader-size={readerPreferences.textSize}
-        data-reader-width={readerPreferences.width}
-      >
+      <div className="min-w-0 space-y-4">
+        <article
+          ref={articleRootRef}
+          id="article-start"
+          className="reader-workspace min-w-0 rounded border border-slate-200 bg-white p-5"
+          data-reader-size={readerPreferences.textSize}
+          data-reader-width={readerPreferences.width}
+        >
         <Link className="text-sm text-slate-600 hover:text-slate-950" href={listReturnTo}>
           {returnLabel}
         </Link>
         {listReturnTo === "/session" ? (
-          <StudySessionReaderNavigation position={studySessionPosition} warning={studySessionWarning} />
+          <StudySessionReaderNavigation
+            locked={completionPending !== null || learningMutationPending || sessionEndPending}
+            position={studySessionPosition}
+            warning={studySessionWarning}
+          />
         ) : null}
-        <h1 className="mt-4 break-words text-2xl font-semibold leading-tight">{article.title}</h1>
+        <h1 ref={articleHeadingRef} className="mt-4 scroll-mt-24 break-words text-2xl font-semibold leading-tight outline-none focus-visible:ring-2 focus-visible:ring-sky-700" tabIndex={-1}>{article.title}</h1>
+        {focusedCompletionPanel}
         <p className="mt-2 text-sm text-slate-500">{formatMetadata(article.metadata)}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <a
@@ -504,7 +1239,8 @@ export function ArticleDetailView({
           </div>
         </div>
         <StructuredReferencesPanel articleId={article.id} />
-      </article>
+        </article>
+      </div>
 
       <aside
         id="reading-tools"
@@ -550,11 +1286,13 @@ export function ArticleDetailView({
             {(["unread", "reading", "completed"] as LearningStatus[]).map((status) => (
               <button
                 key={status}
+                aria-pressed={learningState?.status === status}
                 className={
                   learningState?.status === status
                     ? "rounded border border-slate-950 bg-slate-950 px-2 py-2 text-xs font-medium text-white"
                     : "rounded border border-slate-300 bg-white px-2 py-2 text-xs font-medium text-slate-700 hover:bg-slate-50"
                 }
+                disabled={completionPending !== null || learningMutationPending || learningState?.status === status}
                 type="button"
                 onClick={() => void handleStatusChange(status)}
               >
@@ -612,11 +1350,16 @@ export function ArticleDetailView({
           </dl>
           <button
             className="mt-3 rounded bg-slate-950 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-            disabled={!activeSession || Boolean(activeSession.ended_at)}
+            disabled={
+              !activeSession
+              || Boolean(activeSession.ended_at)
+              || sessionEndPending
+              || completionPending !== null
+            }
             type="button"
             onClick={() => void handleEndSession()}
           >
-            End session
+            {sessionEndPending ? "Ending session..." : "End session"}
           </button>
         </section>
 
@@ -748,9 +1491,11 @@ export function ArticleDetailView({
 }
 
 function StudySessionReaderNavigation({
+  locked,
   position,
   warning,
 }: Readonly<{
+  locked: boolean;
   position: StudySessionPosition | null;
   warning: string | null;
 }>) {
@@ -770,8 +1515,11 @@ function StudySessionReaderNavigation({
             {position.previous ? (
               <Link
                 aria-label={`Previous in session: ${position.previous.title}`}
-                className="text-emerald-800 hover:text-emerald-950"
+                aria-disabled={locked}
+                className={locked ? "cursor-not-allowed text-slate-400" : "text-emerald-800 hover:text-emerald-950"}
                 href={createStudySessionReaderHref(position.previous)}
+                tabIndex={locked ? -1 : undefined}
+                onClick={locked ? (event) => event.preventDefault() : undefined}
               >
                 Previous
               </Link>
@@ -779,8 +1527,11 @@ function StudySessionReaderNavigation({
             {position.next ? (
               <Link
                 aria-label={`Next in session: ${position.next.title}`}
-                className="text-emerald-800 hover:text-emerald-950"
+                aria-disabled={locked}
+                className={locked ? "cursor-not-allowed text-slate-400" : "text-emerald-800 hover:text-emerald-950"}
                 href={createStudySessionReaderHref(position.next)}
+                tabIndex={locked ? -1 : undefined}
+                onClick={locked ? (event) => event.preventDefault() : undefined}
               >
                 Next
               </Link>
@@ -797,6 +1548,20 @@ function formatDate(value: string | null | undefined): string {
     return "Not recorded";
   }
   return new Date(value).toLocaleString();
+}
+
+function errorText(value: unknown, fallback: string): string {
+  return value instanceof Error ? value.message : fallback;
+}
+
+function timerWarningText(status: "confirmed-open" | "unknown" | "unavailable"): string {
+  if (status === "confirmed-open") {
+    return "The exact timer is still open. Retry performs a fresh read before at most one end request.";
+  }
+  if (status === "unknown") {
+    return "The exact timer could not be read back. Retry checks status only and never replays the end request blindly.";
+  }
+  return "No exact timer can be confirmed for this Reader. Continuing will not claim that a timer ended.";
 }
 
 type MarkdownItem = {
