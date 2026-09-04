@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-027 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-027 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; P3-028 is LOCAL PASS / IMPLEMENTATION READY with exact-SHA implementation CI pending; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -787,6 +787,27 @@ passed exact-SHA main CI run
 including Frontend, Backend, Product E2E, dependency, secret, SBOM, workflow,
 and suppression gates with zero uploaded artifacts.
 
+### P3-028 - Graph-Reader Round-Trip Reliability
+
+Status: **LOCAL PASS / IMPLEMENTATION READY; EXACT-SHA CI PENDING**.
+
+P3-028 preserves canonical Graph node/query context across selected-node,
+provenance, and Concept Study Set Article entry. Reader and Graph own visible
+keyboard destinations across explicit return, hard reload, and repeated
+Back/Forward. Bounded timeout/retry and latest-generation ownership prevent
+stale render, history, learning-context, or session side effects. Storage
+read/write denial, missing origin controls, Graph detail errors, and saved
+Reader progress fail safely without changing Backend or published contracts.
+
+Local evidence passes 125 focused Frontend tests, 600 Backend tests with 4
+skipped, the 11-route production build, three Product E2E runs with 154 checks
+each, and 100/100 corrected Graph-to-Reader transitions under CPU throttle 4
+with cache disabled. External requests and unexpected console/page errors are
+zero. Two independent final reviews report zero Critical or Important
+findings. The canonical task is
+`docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md`; evidence is in
+`docs/P3_028_GRAPH_READER_ROUND_TRIP_RELIABILITY_REPORT.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -819,8 +840,11 @@ and suppression gates with zero uploaded artifacts.
 
 ## Next Recommended Task
 
-First verify the P3-027 docs-only closure commit through exact-SHA main CI.
-Then reassess the bounded Graph-to-Reader/Application Shell transition stress
-debt and remaining product convergence evidence. No v1.2 candidate is
-currently staged. Tag, Release, attestation, real Provider, source access,
-external search, and private Zotero actions remain unauthorized.
+Create and push the P3-028 implementation commit and require exact-SHA main CI.
+Only after that run passes may a docs-only closure commit mark P3-028 PASS /
+CLOSED. The local implementation, regression, browser, stress, safety, and
+independent-review gates are complete.
+
+No v1.2 candidate is currently staged. Tag, Release, attestation, real
+Provider, source access, external search, and private Zotero actions remain
+unauthorized.

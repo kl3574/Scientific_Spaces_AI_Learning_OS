@@ -21,12 +21,14 @@ const DEFAULT_LIST_STATE: ArticleListState = { q: "", sort: "date_desc", page: 1
 const VALID_SORTS = new Set<ArticleListSort>(["date_desc", "archive_desc", "title_asc", "relevance"]);
 const LOCAL_ORIGIN = "http://scientific-spaces.local";
 const MAX_QUERY_LENGTH = 200;
+const MAX_GRAPH_QUERY_LENGTH = 120;
 const MAX_TITLE_LENGTH = 240;
 const MAX_PATH_LENGTH = 1200;
 const SAFE_ID = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/;
 const SAFE_SECTION = /^[^\u0000-\u001f\u007f?#]{1,240}$/;
 const LIBRARY_VIEWS = new Set(["all", "continue", "bookmarked", "recent"]);
 const LIBRARY_SORTS = new Set(["recent", "title", "progress"]);
+const SAFE_GRAPH_RETURN_NODE_ID = /^(?:article|section|concept|formula|zotero_item):[\p{L}\p{N}._:-]+$/u;
 
 export function parseArticleListState(input: SearchParamInput): ArticleListState {
   const q = normalizeText(readParam(input, "q"), MAX_QUERY_LENGTH);
@@ -86,7 +88,7 @@ export function sanitizeArticleEntryReturnPath(value: string | null | undefined)
     return "/session";
   }
   if (parsed.pathname === "/graph") {
-    return createGraphConceptReturnPath(parsed.searchParams.get("node_id"));
+    return createGraphReturnPath(parsed.searchParams);
   }
   return "/articles";
 }
@@ -247,15 +249,33 @@ function createLibraryReturnPath(input: URLSearchParams): string {
   return suffix ? `/library?${suffix}` : "/library";
 }
 
-function createGraphConceptReturnPath(value: string | null): string {
-  const nodeId = value?.trim() ?? "";
-  if (
-    !nodeId.startsWith("concept:")
-    || nodeId.length === "concept:".length
-    || nodeId.length > 200
-    || /[\u0000-\u001f\u007f/\\?#]/u.test(nodeId)
-  ) {
+function createGraphReturnPath(input: URLSearchParams): string {
+  const rawNodeId = input.get("node_id");
+  const nodeId = normalizeGraphReturnNodeId(rawNodeId);
+  if (rawNodeId !== null && !nodeId) {
     return "/articles";
   }
-  return `/graph?${new URLSearchParams({ node_id: nodeId }).toString()}`;
+
+  const params = new URLSearchParams();
+  if (nodeId) {
+    params.set("node_id", nodeId);
+  }
+  const query = normalizeText(input.get("q") ?? "", MAX_GRAPH_QUERY_LENGTH);
+  if (query) {
+    params.set("q", query);
+  }
+  const suffix = params.toString();
+  return suffix ? `/graph?${suffix}` : "/graph";
+}
+
+function normalizeGraphReturnNodeId(value: string | null): string | null {
+  const nodeId = value?.trim() ?? "";
+  if (
+    !nodeId
+    || nodeId.length > 200
+    || !SAFE_GRAPH_RETURN_NODE_ID.test(nodeId)
+  ) {
+    return null;
+  }
+  return nodeId;
 }

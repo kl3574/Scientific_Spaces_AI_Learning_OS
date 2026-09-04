@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md`
 
 ## Staged Task
 
@@ -16,6 +16,7 @@ None
 
 - P3-026: PASS / CLOSED
 - P3-027: PASS / CLOSED
+- P3-028: LOCAL PASS / IMPLEMENTATION READY; EXACT-SHA CI PENDING
 
 ## Authorization
 
@@ -33,6 +34,9 @@ None
   documentation, isolated fake-runtime validation, local commits, non-force
   push, and exact-SHA CI execution: CONSUMED / CLOSED after this docs-only
   closure commit
+- P3-028 bounded Graph/Reader Frontend implementation, focused tests,
+  governance documentation, isolated fake-runtime validation, local commits,
+  non-force push, and exact-SHA CI execution: GRANTED
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -89,9 +93,31 @@ None
 - docs-only closure commit: this commit; exact-SHA main CI required before
   final reporting
 
+## P3-027 Closure CI
+
+- exact-SHA closure run:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33915076653`
+- required jobs: PASS; normal-main Docker/release jobs skipped as designed;
+  uploaded artifacts: 0
+
+## P3-028 Local Evidence
+
+- focused Frontend: 125 passed
+- production build: PASS, 11 routes
+- Backend: 600 passed / 4 skipped
+- Product E2E: 3/3 runs, 154 checks each, restart persistence PASS
+- corrected Graph-to-Reader stress: 100/100 PASS with CPU throttle 4 and
+  cache disabled; 301 Article responses, all HTTP 200
+- exact return paths, selected/provenance/Study Set origins, Back/Forward,
+  hard reload, saved progress, storage denial, error fallback, timeout/retry,
+  stale side effects, visible focus, and four viewports: PASS
+- external requests, unexpected console errors, and page errors: 0
+- independent final reviews: 2 PASS, 0 Critical / 0 Important
+- evidence report:
+  `docs/P3_028_GRAPH_READER_ROUND_TRIP_RELIABILITY_REPORT.md`
+
 ## Next Gate
 
-Verify this P3-027 docs-only closure commit through exact-SHA main CI. Then
-reassess the bounded Graph-to-Reader/Application Shell transition stress debt
-before selecting another product convergence task. No v1.2 candidate is
+Create and push the P3-028 implementation commit, then require exact-SHA main
+CI before preparing the docs-only closure commit. No v1.2 candidate is
 assigned.

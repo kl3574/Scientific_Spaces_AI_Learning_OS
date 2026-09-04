@@ -15,7 +15,7 @@ import time
 import traceback
 from typing import Iterator
 from urllib.error import URLError
-from urllib.parse import unquote, urlencode, urlparse
+from urllib.parse import parse_qs, unquote, urlencode, urlparse
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,6 +46,7 @@ RESEARCH_ARTICLE_ID = "local-research-map"
 RESEARCH_TITLE = "本地研究路径与来源边界"
 ATTENTION_CONCEPT_ID = "concept:attention"
 ATTENTION_CONCEPT_RETURN = "/graph?node_id=concept%3Aattention"
+ATTENTION_CONCEPT_QUERY_RETURN = f"{ATTENTION_CONCEPT_RETURN}&q=Attention"
 EXPECTED_ARTICLE_COUNT = 3
 
 
@@ -979,7 +980,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"Graph return context is incomplete: {graph_return_href}",
     )
     graph_return.click()
-    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    page.wait_for_function(
+        "expected => location.pathname + location.search + location.hash === expected",
+        arg=graph_return_href,
+        timeout=30_000,
+    )
+    returned_reader = page.locator("article#article-start")
+    expect(returned_reader.locator(":scope > h1")).to_have_text(
+        CRB_TITLE,
+        timeout=30_000
+    )
+    expect(page.get_by_role("status").filter(has_text="Loading article")).to_have_count(0)
     expect(page.get_by_test_id("article-outline").locator('[aria-current="location"]')).to_be_visible()
     graph_return_session = page.get_by_role("button", name="End session", exact=True)
     expect(graph_return_session).to_be_enabled(timeout=30_000)
@@ -1295,7 +1306,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     expect(concept_article_link).to_have_attribute(
         "href",
-        f"/articles/{ATTENTION_ARTICLE_ID}?from=%2Fgraph%3Fnode_id%3Dconcept%253Aattention",
+        f"/articles/{ATTENTION_ARTICLE_ID}?"
+        + urlencode({"from": ATTENTION_CONCEPT_QUERY_RETURN}),
     )
     page.route(
         re.compile(r".*/learning/sessions$"),
@@ -1316,16 +1328,37 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         times=1,
     )
     _focus_via_tab(page, concept_article_link)
+    concept_article_href = str(concept_article_link.get_attribute("href") or "")
     concept_article_link.press("Enter")
-    expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
-        timeout=30_000
+    page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=concept_article_href,
+        timeout=30_000,
     )
+    concept_reader_heading = page.locator("article#article-start > h1")
+    expect(concept_reader_heading).to_have_text(ATTENTION_TITLE, timeout=30_000)
+    expect(concept_reader_heading).to_be_focused()
+    _require_visible_focus(concept_reader_heading, "Concept Study Set Reader heading")
     reader_concept_return = page.get_by_role("link", name="Back to concept", exact=True).first
-    expect(reader_concept_return).to_have_attribute("href", ATTENTION_CONCEPT_RETURN)
+    expect(reader_concept_return).to_have_attribute("href", ATTENTION_CONCEPT_QUERY_RETURN)
     _focus_via_tab(page, reader_concept_return)
     reader_concept_return.press("Enter")
+    page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=ATTENTION_CONCEPT_QUERY_RETURN,
+        timeout=30_000,
+    )
     expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
-    expect(page.get_by_test_id("concept-study-set")).to_be_visible(timeout=30_000)
+    returned_concept_study_set = page.get_by_test_id("concept-study-set")
+    expect(returned_concept_study_set).to_be_visible(timeout=30_000)
+    returned_concept_article_link = returned_concept_study_set.get_by_role(
+        "link", name=ATTENTION_TITLE, exact=True
+    )
+    expect(returned_concept_article_link).to_be_focused(timeout=30_000)
+    _require_visible_focus(
+        returned_concept_article_link,
+        "returned Concept Study Set Article action",
+    )
 
     concept_ask_payloads: list[dict[str, object]] = []
 
@@ -1535,6 +1568,86 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["concept_study_set_session_append"] = True
     checks["concept_study_set_keyboard_focus"] = True
 
+    concept_graph_return = page.evaluate(
+        """
+        () => {
+          const source = new URLSearchParams(location.search);
+          const target = new URLSearchParams();
+          const nodeId = source.get("node_id");
+          const query = source.get("q");
+          if (nodeId) target.set("node_id", nodeId);
+          if (query) target.set("q", query);
+          return `/graph?${target.toString()}`;
+        }
+        """
+    )
+    provenance_article_links = page.get_by_role("link", name="Open article", exact=True)
+    _require(
+        provenance_article_links.count() > 0,
+        "Concept provenance did not expose an Article link",
+    )
+    for index in range(provenance_article_links.count()):
+        provenance_href = provenance_article_links.nth(index).get_attribute("href") or ""
+        provenance_from = parse_qs(urlparse(provenance_href).query).get("from", [])
+        _require(
+            provenance_from == [concept_graph_return],
+            f"Concept provenance Article link lost Graph context: {provenance_href}",
+        )
+    provenance_article_link = provenance_article_links.first
+    provenance_article_href = str(provenance_article_link.get_attribute("href") or "")
+    _focus_via_tab(page, provenance_article_link)
+    provenance_article_link.press("Enter")
+    page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=provenance_article_href,
+        timeout=30_000,
+    )
+    provenance_reader = page.locator("article#article-start")
+    provenance_reader_heading = provenance_reader.locator(":scope > h1")
+    expect(provenance_reader_heading).to_be_visible(timeout=30_000)
+    expect(provenance_reader_heading).to_be_focused()
+    _require_visible_focus(provenance_reader_heading, "provenance-origin Reader heading")
+    provenance_return = page.get_by_role("link", name="Back to concept", exact=True).first
+    expect(provenance_return).to_have_attribute("href", concept_graph_return)
+    provenance_session = page.get_by_role("button", name="End session", exact=True)
+    expect(provenance_session).to_be_enabled(timeout=30_000)
+    provenance_session.click()
+    expect(provenance_session).to_be_disabled()
+    _focus_via_tab(page, provenance_return)
+    provenance_return.press("Enter")
+    page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=concept_graph_return,
+        timeout=30_000,
+    )
+    returned_provenance_link = page.locator(
+        '[data-graph-article-focus="provenance-0"]'
+    )
+    expect(returned_provenance_link).to_be_focused(timeout=30_000)
+    _require_visible_focus(returned_provenance_link, "returned provenance Article action")
+    checks["graph_provenance_article_return_context"] = True
+
+    page.evaluate(
+        """
+        ([key, value]) => sessionStorage.setItem(key, JSON.stringify(value))
+        """,
+        [
+            "scientific-spaces:graph-article-return-focus:v1",
+            {
+                "articleId": ATTENTION_ARTICLE_ID,
+                "focusTarget": "provenance-9",
+                "returnTo": concept_graph_return,
+            },
+        ],
+    )
+    page.reload(wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    missing_origin_region = page.get_by_test_id("graph-selected-region")
+    expect(missing_origin_region).to_be_visible(timeout=30_000)
+    expect(missing_origin_region).to_be_focused(timeout=30_000)
+    _require_visible_focus(missing_origin_region, "missing provenance origin fallback")
+    checks["graph_missing_exact_origin_focus_fallback"] = True
+
     page.get_by_role("group", name="Graph workspace view").get_by_role(
         "button", name="Knowledge context", exact=True
     ).click()
@@ -1557,10 +1670,128 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.get_by_role("button", name="Inspect selected", exact=True).click()
     graph_article_link = page.get_by_role("link", name="Open article").first
     expect(graph_article_link).to_be_visible()
+    graph_article_return = page.evaluate(
+        """
+        () => {
+          const source = new URLSearchParams(location.search);
+          const target = new URLSearchParams();
+          const nodeId = source.get("node_id");
+          const query = source.get("q");
+          if (nodeId) target.set("node_id", nodeId);
+          if (query) target.set("q", query);
+          return target.size ? `/graph?${target.toString()}` : "/graph";
+        }
+        """
+    )
+    graph_article_href = str(graph_article_link.get_attribute("href") or "")
+    parsed_graph_article_href = urlparse(graph_article_href)
     _require(
-        str(graph_article_link.get_attribute("href") or "").startswith("/articles/"),
+        parsed_graph_article_href.path.startswith("/articles/")
+        and parse_qs(parsed_graph_article_href.query).get("from") == [graph_article_return],
         "Graph Article deep link is invalid",
     )
+    graph_browser_origin = page.evaluate("location.pathname + location.search")
+    graph_history_before_article = page.evaluate("history.length")
+    graph_article_link.focus()
+    expect(graph_article_link).to_be_focused()
+    graph_article_link.press("Enter")
+    page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=graph_article_href,
+        timeout=30_000,
+    )
+    graph_reader = page.locator("article#article-start")
+    graph_reader_heading = graph_reader.locator(":scope > h1")
+    expect(graph_reader_heading).to_be_visible(timeout=30_000)
+    expect(graph_reader_heading).to_be_focused(timeout=30_000)
+    _require_visible_focus(graph_reader_heading, "Graph-origin Reader heading")
+    _require(
+        page.evaluate("history.length") == graph_history_before_article + 1,
+        "Graph Article navigation did not create exactly one history entry",
+    )
+    expect(page.get_by_role("status").filter(has_text="Loading article")).to_have_count(0)
+    graph_reader_return = page.get_by_role("link", name="Return to graph", exact=True)
+    expect(graph_reader_return).to_have_attribute("href", graph_article_return)
+    graph_reader_session = page.get_by_role("button", name="End session", exact=True)
+    expect(graph_reader_session).to_be_enabled(timeout=30_000)
+    graph_reader_session.click()
+    expect(graph_reader_session).to_be_disabled()
+    page.go_back()
+    page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=graph_browser_origin,
+        timeout=30_000,
+    )
+    browser_back_article_link = page.locator(
+        '[data-graph-article-focus="selected-node"]'
+    )
+    expect(browser_back_article_link).to_be_focused(timeout=30_000)
+    _require_visible_focus(browser_back_article_link, "browser-Back Graph Article action")
+    _require(
+        page.evaluate("history.length") == graph_history_before_article + 1,
+        "browser Back changed Graph-Reader history length",
+    )
+    page.go_forward()
+    page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=graph_article_href,
+        timeout=30_000,
+    )
+    forward_reader_heading = page.locator("article#article-start > h1")
+    expect(forward_reader_heading).to_be_focused(timeout=30_000)
+    _require_visible_focus(forward_reader_heading, "browser-Forward Reader heading")
+    forward_reader_session = page.get_by_role("button", name="End session", exact=True)
+    expect(forward_reader_session).to_be_enabled(timeout=30_000)
+    forward_reader_session.click()
+    expect(forward_reader_session).to_be_disabled()
+    page.go_back()
+    page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=graph_browser_origin,
+        timeout=30_000,
+    )
+    repeated_back_article_link = page.locator(
+        '[data-graph-article-focus="selected-node"]'
+    )
+    expect(repeated_back_article_link).to_be_focused(timeout=30_000)
+    _require_visible_focus(repeated_back_article_link, "repeated browser-Back Graph Article action")
+    page.go_forward()
+    page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=graph_article_href,
+        timeout=30_000,
+    )
+    repeated_forward_heading = page.locator("article#article-start > h1")
+    expect(repeated_forward_heading).to_be_focused(timeout=30_000)
+    _require_visible_focus(repeated_forward_heading, "repeated browser-Forward Reader heading")
+    repeated_forward_session = page.get_by_role("button", name="End session", exact=True)
+    expect(repeated_forward_session).to_be_enabled(timeout=30_000)
+    repeated_forward_session.click()
+    expect(repeated_forward_session).to_be_disabled()
+    page.reload(wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    expect(page.locator("article#article-start > h1")).to_be_visible(timeout=30_000)
+    graph_reader_return = page.get_by_role("link", name="Return to graph", exact=True)
+    expect(graph_reader_return).to_have_attribute("href", graph_article_return)
+    graph_reader_session = page.get_by_role("button", name="End session", exact=True)
+    expect(graph_reader_session).to_be_enabled(timeout=30_000)
+    graph_reader_session.click()
+    expect(graph_reader_session).to_be_disabled()
+    graph_reader_return.click()
+    page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=graph_article_return,
+        timeout=30_000,
+    )
+    returned_graph_article_link = page.locator(
+        '[data-graph-article-focus="selected-node"]'
+    )
+    expect(returned_graph_article_link).to_be_visible(timeout=30_000)
+    expect(returned_graph_article_link).to_be_focused(timeout=30_000)
+    _require_visible_focus(returned_graph_article_link, "restored Graph Article action")
+    checks["graph_reader_exact_round_trip"] = True
+    checks["graph_reader_keyboard_focus"] = True
+    checks["graph_reader_reload_return"] = True
     page.get_by_role("group", name="Graph workspace view").get_by_role(
         "button", name="Knowledge context", exact=True
     ).click()
@@ -2182,6 +2413,18 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     page = _new_observed_page(context, console_errors, page_errors, label="graph-controlled-error")
     graph_error_console_start = len(console_errors)
+    page.add_init_script(
+        script=f"""
+        sessionStorage.setItem(
+          "scientific-spaces:graph-article-return-focus:v1",
+          {json.dumps(json.dumps({
+              "articleId": ATTENTION_ARTICLE_ID,
+              "focusTarget": "provenance-0",
+              "returnTo": ATTENTION_CONCEPT_RETURN,
+          }))}
+        );
+        """
+    )
     page.route(
         re.compile(r".*/graph/nodes/concept%3Aattention$"),
         lambda route: route.fulfill(
@@ -2197,6 +2440,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(graph_error_region.get_by_role("alert")).to_contain_text(
         "Graph request failed: 503", timeout=30_000
     )
+    expect(graph_error_region).to_be_focused()
+    _require_visible_focus(graph_error_region, "returned Graph detail error region")
     graph_error_region.get_by_role("button", name="Retry", exact=True).click()
     expect(graph_error_region).to_be_focused()
     expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(
@@ -2517,6 +2762,239 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["article_result_stale_success_sort_page_retry_guard"] = True
     checks["article_result_failure_retry_and_selection_reset"] = True
     article_race_context.close()
+
+    article_recovery_context = browser.new_context(
+        viewport={"width": 320, "height": 844}, locale="zh-CN", is_mobile=True
+    )
+    article_recovery_context.add_init_script(
+        script="""
+        (() => {
+          const originalFetch = window.fetch.bind(window);
+          let deferOnce = true;
+          window.__p3028LateArticleResolved = false;
+          window.fetch = async (...args) => {
+            const input = args[0];
+            const target = new URL(
+              typeof input === "string" || input instanceof URL ? input : input.url,
+              window.location.href
+            );
+            if (deferOnce && target.pathname === "/articles/crb-formula") {
+              deferOnce = false;
+              return new Promise((resolve) => {
+                window.setTimeout(() => {
+                  window.__p3028LateArticleResolved = true;
+                  resolve(new Response(JSON.stringify({
+                    id: "crb-formula",
+                    title: "STALE ARTICLE RESPONSE",
+                    url: "https://spaces.ac.cn/archives/stale",
+                    content: "# Stale response",
+                    metadata: { date: null, category: null, references: [], images: [] },
+                  }), {
+                    status: 200,
+                    headers: { "Content-Type": "application/json" },
+                  }));
+                }, 12_000);
+              });
+            }
+            return originalFetch(...args);
+          };
+        })();
+        """
+    )
+    _install_network_guard(article_recovery_context, blocked_external)
+    article_recovery_page = _new_observed_page(
+        article_recovery_context,
+        console_errors,
+        page_errors,
+        label="graph-reader-recovery",
+    )
+    graph_recovery_return = "/graph?node_id=article%3Acrb-formula&q=CRB"
+    graph_recovery_reader = (
+        f"/articles/{CRB_ARTICLE_ID}?"
+        + urlencode({"from": graph_recovery_return})
+    )
+    recovery_session_posts: list[str] = []
+    recovery_learning_gets: list[str] = []
+
+    def track_recovery_session(request) -> None:
+        request_path = urlparse(request.url).path
+        if request.method == "POST" and request_path == "/learning/sessions":
+            recovery_session_posts.append(request.url)
+        if request.method == "GET" and request_path in {
+            f"/learning/state/{CRB_ARTICLE_ID}",
+            "/learning/bookmarks",
+            f"/learning/notes/{CRB_ARTICLE_ID}",
+        }:
+            recovery_learning_gets.append(request_path)
+
+    article_recovery_page.on("request", track_recovery_session)
+    article_recovery_page.goto(
+        f"{FRONTEND_URL}{graph_recovery_reader}", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(article_recovery_page)
+    recovery_loading = article_recovery_page.get_by_role("status").filter(
+        has_text="Loading article"
+    )
+    expect(recovery_loading).to_have_count(1)
+    expect(recovery_loading.locator("xpath=parent::section")).to_have_attribute(
+        "aria-busy", "true"
+    )
+    expect(
+        recovery_loading.get_by_role("link", name="Return to graph", exact=True)
+    ).to_have_attribute("href", graph_recovery_return)
+    _require(
+        not recovery_session_posts,
+        "pending Article request created a learning session before Article acceptance",
+    )
+    expect(
+        article_recovery_page.get_by_text("Article unavailable", exact=True)
+    ).to_be_visible(timeout=30_000)
+    expect(article_recovery_page.get_by_text("Article loading timed out. Try again.")).to_be_visible()
+    recovery_retry = article_recovery_page.get_by_role(
+        "button", name="Retry article", exact=True
+    )
+    recovery_return = article_recovery_page.get_by_role(
+        "link", name="Return to graph", exact=True
+    )
+    expect(recovery_retry).to_be_visible()
+    expect(recovery_retry).to_be_focused()
+    _require_visible_focus(recovery_retry, "narrow Article retry action")
+    expect(recovery_return).to_have_attribute("href", graph_recovery_return)
+    recovery_retry.scroll_into_view_if_needed()
+    recovery_return.scroll_into_view_if_needed()
+    _require_viewport_containment(
+        recovery_retry.bounding_box(), 320, 844, "narrow Article retry action"
+    )
+    _require_viewport_containment(
+        recovery_return.bounding_box(), 320, 844, "narrow Article return action"
+    )
+    _require(
+        _document_width(article_recovery_page) <= 320,
+        "narrow Article recovery surface overflows horizontally",
+    )
+    recovery_retry.press("Enter")
+    recovery_heading = article_recovery_page.locator("article#article-start > h1")
+    expect(recovery_heading).to_have_text(CRB_TITLE, timeout=30_000)
+    expect(recovery_heading).to_be_focused()
+    _require_visible_focus(recovery_heading, "retried Graph-origin Reader heading")
+    _require(
+        len(recovery_session_posts) == 1,
+        f"Article retry created an unexpected number of learning sessions: {recovery_session_posts}",
+    )
+    history_before_late_response = article_recovery_page.evaluate(
+        "localStorage.getItem('scientific-spaces-reading-history-v1')"
+    )
+    learning_gets_before_late_response = list(recovery_learning_gets)
+    article_recovery_page.wait_for_function(
+        "() => window.__p3028LateArticleResolved === true",
+        timeout=30_000,
+    )
+    expect(recovery_heading).to_have_text(CRB_TITLE)
+    expect(article_recovery_page.get_by_text("STALE ARTICLE RESPONSE", exact=True)).to_have_count(0)
+    _require(
+        len(recovery_session_posts) == 1,
+        "late stale Article success created a second learning session",
+    )
+    _require(
+        article_recovery_page.evaluate(
+            "localStorage.getItem('scientific-spaces-reading-history-v1')"
+        )
+        == history_before_late_response,
+        "late stale Article success changed reading history",
+    )
+    _require(
+        recovery_learning_gets == learning_gets_before_late_response,
+        "late stale Article success started learning-context reads",
+    )
+    recovery_end_session = article_recovery_page.get_by_role(
+        "button", name="End session", exact=True
+    )
+    expect(recovery_end_session).to_be_enabled(timeout=30_000)
+    recovery_end_session.click()
+    expect(recovery_end_session).to_be_disabled()
+    checks["graph_reader_loading_and_recovery"] = True
+    checks["graph_reader_latest_generation_side_effects"] = True
+    article_recovery_context.close()
+
+    stale_session_context = browser.new_context(
+        viewport={"width": 1440, "height": 900}, locale="zh-CN"
+    )
+    stale_session_context.add_init_script(
+        script="""
+        (() => {
+          const originalFetch = window.fetch.bind(window);
+          let deferSessionOnce = true;
+          window.__p3028StaleSessionId = null;
+          window.fetch = async (...args) => {
+            const input = args[0];
+            const target = new URL(
+              typeof input === "string" || input instanceof URL ? input : input.url,
+              window.location.href
+            );
+            const method = (
+              input instanceof Request ? input.method : args[1]?.method ?? "GET"
+            ).toUpperCase();
+            if (deferSessionOnce && method === "POST" && target.pathname === "/learning/sessions") {
+              deferSessionOnce = false;
+              const response = await originalFetch(...args);
+              const payload = await response.clone().json();
+              window.__p3028StaleSessionId = payload.session_id;
+              await new Promise((resolve) => window.setTimeout(resolve, 1_500));
+              return response;
+            }
+            return originalFetch(...args);
+          };
+        })();
+        """
+    )
+    _install_network_guard(stale_session_context, blocked_external)
+    stale_session_page = _new_observed_page(
+        stale_session_context,
+        console_errors,
+        page_errors,
+        label="graph-reader-stale-session",
+    )
+    stale_session_page.goto(
+        f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(stale_session_page)
+    expect(stale_session_page.locator("article#article-start > h1")).to_have_text(
+        CRB_TITLE, timeout=30_000
+    )
+    stale_session_page.wait_for_function(
+        "() => typeof window.__p3028StaleSessionId === 'string'",
+        timeout=30_000,
+    )
+    stale_session_id = str(stale_session_page.evaluate("window.__p3028StaleSessionId"))
+
+    def is_stale_session_end(response) -> bool:
+        return (
+            response.request.method == "PUT"
+            and urlparse(response.url).path == f"/learning/sessions/{stale_session_id}/end"
+        )
+
+    with stale_session_page.expect_response(is_stale_session_end, timeout=30_000) as stale_end_info:
+        stale_session_page.get_by_role("link", name="Back to articles", exact=True).first.click()
+    stale_end_response = stale_end_info.value
+    _require(stale_end_response.ok, "stale Reader session reconciliation failed")
+    stale_session_page.wait_for_function(
+        "() => location.pathname === '/articles'", timeout=30_000
+    )
+    persisted_sessions = _api_json(stale_session_context, "GET", "/learning/sessions")
+    reconciled_session = next(
+        (
+            item
+            for item in persisted_sessions.get("items", [])
+            if item.get("session_id") == stale_session_id
+        ),
+        None,
+    )
+    _require(
+        reconciled_session is not None and reconciled_session.get("ended_at"),
+        "stale Reader session remained open after navigation",
+    )
+    checks["graph_reader_stale_session_reconciled"] = True
+    stale_session_context.close()
 
     learning_partial_context = browser.new_context(
         viewport={"width": 1440, "height": 900}, locale="zh-CN"
@@ -4831,6 +5309,264 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         checks[f"tutor_empty_quiz_feedback_{viewport_label}"] = True
         completion_viewport_context.close()
 
+    graph_round_trip_path = "/graph?node_id=article%3Acrb-formula&q=CRB"
+    for viewport_width, viewport_height, viewport_label in (
+        (1440, 900, "desktop"),
+        (390, 844, "mobile"),
+        (320, 844, "narrow"),
+        (720, 450, "zoom-equivalent"),
+    ):
+        graph_reader_context = browser.new_context(
+            viewport={"width": viewport_width, "height": viewport_height},
+            locale="zh-CN",
+            is_mobile=viewport_width <= 390,
+            reduced_motion="reduce",
+        )
+        if viewport_label == "desktop":
+            graph_reader_context.add_init_script(
+                script=f"""
+                localStorage.setItem(
+                  "scientific-spaces-reader-progress-v1",
+                  {json.dumps(json.dumps({
+                      "version": 1,
+                      "items": [{
+                          "article_id": CRB_ARTICLE_ID,
+                          "section_id": "regularity",
+                          "section_title": "正则条件",
+                          "progress": 42,
+                          "updated_at": "2026-08-31T02:00:00.000Z",
+                      }],
+                  }, ensure_ascii=False))}
+                );
+                """
+            )
+        _install_network_guard(graph_reader_context, blocked_external)
+        graph_reader_page = _new_observed_page(
+            graph_reader_context,
+            console_errors,
+            page_errors,
+            label=f"graph-reader-{viewport_label}",
+        )
+        graph_reader_page.goto(
+            f"{FRONTEND_URL}{graph_round_trip_path}", wait_until="domcontentloaded"
+        )
+        _wait_for_application_shell(graph_reader_page)
+        saved_reader_progress = (
+            graph_reader_page.evaluate(
+                "localStorage.getItem('scientific-spaces-reader-progress-v1')"
+            )
+            if viewport_label == "desktop"
+            else None
+        )
+        selected_region = graph_reader_page.get_by_test_id("graph-selected-region")
+        expect(selected_region).to_be_visible(timeout=30_000)
+        viewport_article_link = selected_region.get_by_role(
+            "link", name="Open article", exact=True
+        ).first
+        expect(viewport_article_link).to_be_visible(timeout=30_000)
+        selected_region.scroll_into_view_if_needed()
+        viewport_article_link.scroll_into_view_if_needed()
+        selected_box = selected_region.bounding_box()
+        graph_link_box = viewport_article_link.bounding_box()
+        _require_viewport_intersection(
+            selected_box,
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} selected Graph region",
+        )
+        _require_viewport_containment(
+            graph_link_box,
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} Graph Article action",
+        )
+        _focus_via_tab(graph_reader_page, viewport_article_link, max_steps=40)
+        viewport_article_link.press("Enter")
+        graph_reader_page.wait_for_function(
+            "articleId => location.pathname === `/articles/${articleId}`",
+            arg=CRB_ARTICLE_ID,
+            timeout=30_000,
+        )
+        viewport_reader_heading = graph_reader_page.locator("article#article-start > h1")
+        expect(viewport_reader_heading).to_have_text(CRB_TITLE, timeout=30_000)
+        expect(viewport_reader_heading).to_be_focused()
+        _require_visible_focus(
+            viewport_reader_heading, f"{viewport_label} Graph-origin Reader heading"
+        )
+        if viewport_label == "desktop":
+            graph_reader_page.evaluate("window.dispatchEvent(new Event('resize'))")
+            graph_reader_page.wait_for_timeout(450)
+            _require_viewport_containment(
+                viewport_reader_heading.bounding_box(),
+                viewport_width,
+                viewport_height,
+                "Graph-origin Reader heading with saved progress",
+            )
+            _require(
+                graph_reader_page.evaluate(
+                    "localStorage.getItem('scientific-spaces-reader-progress-v1')"
+                )
+                == saved_reader_progress,
+                "Graph-origin Reader overwrote saved progress before user movement",
+            )
+            checks["graph_reader_saved_progress_heading_focus"] = True
+        viewport_return = graph_reader_page.get_by_role(
+            "link", name="Return to graph", exact=True
+        )
+        expect(viewport_return).to_have_attribute("href", graph_round_trip_path)
+        viewport_reader_heading.scroll_into_view_if_needed()
+        viewport_return.scroll_into_view_if_needed()
+        _require_viewport_containment(
+            viewport_reader_heading.bounding_box(),
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} Reader heading",
+        )
+        _require_viewport_containment(
+            viewport_return.bounding_box(),
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} Reader return action",
+        )
+        _require(
+            _document_width(graph_reader_page) <= viewport_width,
+            f"{viewport_label} Graph-origin Reader overflows horizontally",
+        )
+        viewport_end_session = graph_reader_page.get_by_role(
+            "button", name="End session", exact=True
+        )
+        expect(viewport_end_session).to_be_enabled(timeout=30_000)
+        viewport_end_session.click()
+        expect(viewport_end_session).to_be_disabled()
+        viewport_return.press("Enter")
+        graph_reader_page.wait_for_function(
+            "expected => location.pathname + location.search === expected",
+            arg=graph_round_trip_path,
+            timeout=30_000,
+        )
+        returned_viewport_link = graph_reader_page.get_by_role(
+            "link", name="Open article", exact=True
+        ).first
+        expect(returned_viewport_link).to_be_focused(timeout=30_000)
+        _require_visible_focus(
+            returned_viewport_link, f"{viewport_label} restored Graph Article action"
+        )
+        if viewport_label == "desktop":
+            _require(
+                graph_reader_page.evaluate(
+                    "localStorage.getItem('scientific-spaces-reader-progress-v1')"
+                )
+                == saved_reader_progress,
+                "Graph-origin Reader cleanup overwrote saved progress without scrolling",
+            )
+        returned_viewport_link.scroll_into_view_if_needed()
+        _require_viewport_containment(
+            returned_viewport_link.bounding_box(),
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} restored Graph Article action",
+        )
+        _require(
+            _document_width(graph_reader_page) <= viewport_width,
+            f"{viewport_label} returned Graph workspace overflows horizontally",
+        )
+        checks[f"graph_reader_{viewport_label}_viewport"] = True
+        graph_reader_context.close()
+
+    storage_denied_context = browser.new_context(
+        viewport={"width": 320, "height": 844},
+        locale="zh-CN",
+        is_mobile=True,
+        reduced_motion="reduce",
+    )
+    storage_denied_context.add_init_script(
+        script="""
+        (() => {
+          const originalSetItem = Storage.prototype.setItem;
+          Storage.prototype.setItem = function (key, value) {
+            if (this === window.sessionStorage) {
+              throw new DOMException("session storage write denied", "QuotaExceededError");
+            }
+            if (key === "scientific-spaces-reading-history-v1") {
+              throw new DOMException("reading history denied", "QuotaExceededError");
+            }
+            return originalSetItem.call(this, key, value);
+          };
+        })();
+        """
+    )
+    _install_network_guard(storage_denied_context, blocked_external)
+    storage_denied_page = _new_observed_page(
+        storage_denied_context,
+        console_errors,
+        page_errors,
+        label="graph-reader-storage-denied",
+    )
+    storage_denied_reader = (
+        f"/articles/{CRB_ARTICLE_ID}?"
+        + urlencode({"from": graph_round_trip_path})
+    )
+    storage_denied_page.goto(
+        f"{FRONTEND_URL}{storage_denied_reader}", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(storage_denied_page)
+    storage_denied_page.wait_for_function(
+        "articleId => location.pathname === `/articles/${articleId}`",
+        arg=CRB_ARTICLE_ID,
+        timeout=30_000,
+    )
+    storage_denied_heading = storage_denied_page.locator("article#article-start > h1")
+    expect(storage_denied_heading).to_have_text(CRB_TITLE, timeout=30_000)
+    expect(storage_denied_heading).to_be_focused()
+    _require_visible_focus(storage_denied_heading, "storage-denied Reader heading")
+    expect(
+        storage_denied_page.get_by_text(
+            "Reading history is unavailable in this browser session.", exact=True
+        )
+    ).to_be_visible()
+    expect(
+        storage_denied_page.get_by_text("Article unavailable", exact=True)
+    ).to_have_count(0)
+    storage_denied_return = storage_denied_page.get_by_role(
+        "link", name="Return to graph", exact=True
+    )
+    expect(storage_denied_return).to_have_attribute("href", graph_round_trip_path)
+    storage_denied_end_session = storage_denied_page.get_by_role(
+        "button", name="End session", exact=True
+    )
+    expect(storage_denied_end_session).to_be_enabled(timeout=30_000)
+    storage_denied_end_session.click()
+    expect(storage_denied_end_session).to_be_disabled()
+    _focus_via_tab(storage_denied_page, storage_denied_return)
+    storage_denied_return.press("Enter")
+    storage_denied_page.wait_for_function(
+        "expected => location.pathname + location.search === expected",
+        arg=graph_round_trip_path,
+        timeout=30_000,
+    )
+    storage_denied_selected_region = storage_denied_page.get_by_test_id(
+        "graph-selected-region"
+    )
+    expect(storage_denied_selected_region).to_be_visible(timeout=30_000)
+    expect(storage_denied_selected_region).to_be_focused(timeout=30_000)
+    _require_visible_focus(
+        storage_denied_selected_region,
+        "storage-denied returned Graph selected region",
+    )
+    storage_denied_selected_region.scroll_into_view_if_needed()
+    _require_viewport_containment(
+        storage_denied_selected_region.bounding_box(),
+        320,
+        844,
+        "storage-denied returned Graph selected region",
+    )
+    _require(
+        _document_width(storage_denied_page) <= 320,
+        "storage-denied Graph round trip overflows horizontally",
+    )
+    checks["graph_reader_storage_unavailable_fallback"] = True
+    storage_denied_context.close()
+
     mobile_context = browser.new_context(
         viewport={"width": 390, "height": 844},
         locale="zh-CN",
@@ -5242,7 +5978,7 @@ def verify_backend_restart_persistence(
             "completed_states": stats.get("completed_count") == 2,
             "bookmark": stats.get("bookmark_count") == 1,
             "note": stats.get("note_count") == 1,
-            "ended_sessions": sessions.get("total") == 8
+            "ended_sessions": sessions.get("total") == 20
             and all(item.get("ended_at") for item in sessions.get("items", [])),
         }
         _require(all(checks.values()), f"restart persistence checks failed: {checks}")
@@ -5505,6 +6241,38 @@ def _require_box_inside(
         and child["x"] + child["width"] <= container["x"] + container["width"]
         and child["y"] + child["height"] <= container["y"] + container["height"],
         f"{label} is clipped or outside its canvas: container={container}, child={child}",
+    )
+
+
+def _require_viewport_intersection(
+    box: dict[str, float] | None,
+    viewport_width: int,
+    viewport_height: int,
+    label: str,
+) -> None:
+    _require(
+        box is not None
+        and box["x"] >= 0
+        and box["x"] + box["width"] <= viewport_width
+        and box["y"] < viewport_height
+        and box["y"] + box["height"] > 0,
+        f"{label} is clipped or outside the viewport: {box}",
+    )
+
+
+def _require_viewport_containment(
+    box: dict[str, float] | None,
+    viewport_width: int,
+    viewport_height: int,
+    label: str,
+) -> None:
+    _require(
+        box is not None
+        and box["x"] >= 0
+        and box["x"] + box["width"] <= viewport_width
+        and box["y"] >= 0
+        and box["y"] + box["height"] <= viewport_height,
+        f"{label} is clipped or outside the viewport: {box}",
     )
 
 

@@ -3,6 +3,8 @@ import Link from "next/link";
 
 import { ConceptStudySetPanel } from "@/components/ConceptStudySetPanel";
 import type { GraphNode, GraphSubgraphResponse } from "@/lib/graph";
+import { createArticleDetailHref } from "@/lib/learningWorkflow";
+import { isSameTabNavigation } from "@/lib/graphWorkspace";
 import {
   ConceptSource,
   getConceptProvenance,
@@ -27,6 +29,8 @@ type GraphNodeDetailProps = {
   onBackToResults: () => void;
   onRetry: () => void;
   onShowContext: () => void;
+  articleReturnTo: string;
+  onOpenArticle: (articleId: string, focusTarget: string) => void;
 };
 
 type GraphContextListProps = {
@@ -46,6 +50,8 @@ export function GraphNodeDetail({
   onBackToResults,
   onRetry,
   onShowContext,
+  articleReturnTo,
+  onOpenArticle,
 }: Readonly<GraphNodeDetailProps>) {
   return (
     <aside className="min-w-0">
@@ -83,7 +89,13 @@ export function GraphNodeDetail({
           </p>
         ) : null}
         {detailStatus === "loaded" && node ? (
-          <NodeContent key={node.node_id} node={node} onShowContext={onShowContext} />
+          <NodeContent
+            key={node.node_id}
+            articleReturnTo={articleReturnTo}
+            node={node}
+            onOpenArticle={onOpenArticle}
+            onShowContext={onShowContext}
+          />
         ) : null}
       </section>
     </aside>
@@ -132,9 +144,16 @@ export function GraphContextList({
 }
 
 function NodeContent({
+  articleReturnTo,
   node,
+  onOpenArticle,
   onShowContext,
-}: Readonly<{ node: GraphNode; onShowContext: () => void }>) {
+}: Readonly<{
+  articleReturnTo: string;
+  node: GraphNode;
+  onOpenArticle: (articleId: string, focusTarget: string) => void;
+  onShowContext: () => void;
+}>) {
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const label = getSafeDisplayText(node.label) ?? "Untitled node";
   const provenance = getConceptProvenance(node);
@@ -147,7 +166,7 @@ function NodeContent({
           {formatNodeType(node.node_type)}
         </span>
         <h3 className="mt-2 min-w-0 break-words text-lg font-semibold leading-7 [overflow-wrap:anywhere]">{label}</h3>
-        <NodeLinks node={node} />
+        <NodeLinks articleReturnTo={articleReturnTo} node={node} onOpenArticle={onOpenArticle} />
       </div>
 
       {provenance ? (
@@ -163,7 +182,12 @@ function NodeContent({
             <ol className="mt-4 divide-y divide-slate-100 border-y border-slate-100">
               {sourceView.sources.map((source, index) => (
                 <li key={`${source.articleId ?? "source"}-${source.sourceType ?? "unknown"}-${index}`} className="py-3">
-                  <ProvenanceSourceItem source={source} />
+                  <ProvenanceSourceItem
+                    articleReturnTo={articleReturnTo}
+                    focusTarget={`provenance-${index}`}
+                    onOpenArticle={onOpenArticle}
+                    source={source}
+                  />
                 </li>
               ))}
             </ol>
@@ -192,13 +216,26 @@ function NodeContent({
       ) : null}
 
       {node.node_type === "concept" ? (
-        <ConceptStudySetPanel node={node} onShowContext={onShowContext} />
+        <ConceptStudySetPanel
+          articleReturnTo={articleReturnTo}
+          node={node}
+          onOpenArticle={onOpenArticle}
+          onShowContext={onShowContext}
+        />
       ) : null}
     </div>
   );
 }
 
-function NodeLinks({ node }: Readonly<{ node: GraphNode }>) {
+function NodeLinks({
+  articleReturnTo,
+  node,
+  onOpenArticle,
+}: Readonly<{
+  articleReturnTo: string;
+  node: GraphNode;
+  onOpenArticle: (articleId: string, focusTarget: string) => void;
+}>) {
   const articleId = node.node_type === "article" ? getSafeArticleId(node.source_id) : null;
   const sourceUrl = getSafeExternalUrl(node.source_url);
   const showZotero = node.node_type === "zotero_item";
@@ -210,7 +247,17 @@ function NodeLinks({ node }: Readonly<{ node: GraphNode }>) {
   return (
     <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-sm">
       {articleId ? (
-        <Link className="font-medium text-slate-600 hover:text-slate-950 hover:underline" href={`/articles/${encodeURIComponent(articleId)}`}>
+        <Link
+          className="font-medium text-slate-600 hover:text-slate-950 hover:underline focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700"
+          data-graph-article-id={articleId}
+          data-graph-article-focus="selected-node"
+          href={createArticleDetailHref(articleId, articleReturnTo)}
+          onClick={(event) => {
+            if (isSameTabNavigation(event)) {
+              onOpenArticle(articleId, "selected-node");
+            }
+          }}
+        >
           Open article
         </Link>
       ) : null}
@@ -237,8 +284,19 @@ function ProvenanceFact({ label, value }: Readonly<{ label: string; value: numbe
   );
 }
 
-function ProvenanceSourceItem({ source }: Readonly<{ source: ConceptSource }>) {
+function ProvenanceSourceItem({
+  articleReturnTo,
+  focusTarget,
+  onOpenArticle,
+  source,
+}: Readonly<{
+  articleReturnTo: string;
+  focusTarget: string;
+  onOpenArticle: (articleId: string, focusTarget: string) => void;
+  source: ConceptSource;
+}>) {
   const title = source.articleTitle ?? source.sectionTitle ?? "Article source";
+  const articleId = source.articleId;
 
   return (
     <div className="min-w-0 text-sm">
@@ -258,10 +316,20 @@ function ProvenanceSourceItem({ source }: Readonly<{ source: ConceptSource }>) {
       {source.evidence ? (
         <p className="mt-1 break-words text-xs leading-5 text-slate-500 [overflow-wrap:anywhere]">Evidence: {source.evidence}</p>
       ) : null}
-      {source.articleId || source.articleUrl ? (
+      {articleId || source.articleUrl ? (
         <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-          {source.articleId ? (
-            <Link className="font-medium text-slate-600 hover:text-slate-950 hover:underline" href={`/articles/${encodeURIComponent(source.articleId)}`}>
+          {articleId ? (
+            <Link
+              className="font-medium text-slate-600 hover:text-slate-950 hover:underline focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700"
+              data-graph-article-id={articleId}
+              data-graph-article-focus={focusTarget}
+              href={createArticleDetailHref(articleId, articleReturnTo)}
+              onClick={(event) => {
+                if (isSameTabNavigation(event)) {
+                  onOpenArticle(articleId, focusTarget);
+                }
+              }}
+            >
               Open article
             </Link>
           ) : null}

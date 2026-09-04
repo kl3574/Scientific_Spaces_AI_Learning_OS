@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ComponentPropsWithoutRef, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import type { MouseEvent as ReactMouseEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import { Components } from "react-markdown";
@@ -48,6 +49,11 @@ import {
   updateNote,
 } from "@/lib/learning";
 import { ReadingHistoryItem, loadReadingHistory, recordReading } from "@/lib/readingHistory";
+import {
+  getGraphSessionStorage,
+  isSameTabNavigation,
+  rememberGraphArticleReturnFocus,
+} from "@/lib/graphWorkspace";
 import { createLearningToolHref } from "@/lib/learningWorkflow";
 import {
   activateStudySessionItem,
@@ -67,6 +73,8 @@ type ArticleOperation = {
   generation: number;
 };
 
+const ARTICLE_LOAD_TIMEOUT_MS = 10_000;
+
 export function ArticleDetailView({
   articleId,
   listReturnTo,
@@ -84,7 +92,9 @@ export function ArticleDetailView({
   const [editingContent, setEditingContent] = useState("");
   const [activeSession, setActiveSession] = useState<LearningSession | null>(null);
   const [history, setHistory] = useState<ReadingHistoryItem[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [articleRevision, setArticleRevision] = useState(0);
   const [learningError, setLearningError] = useState<string | null>(null);
   const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
   const [readingProgress, setReadingProgress] = useState(0);
@@ -110,6 +120,7 @@ export function ArticleDetailView({
   const sessionEndOperationRef = useRef<ArticleOperation | null>(null);
   const articleRootRef = useRef<HTMLElement | null>(null);
   const articleHeadingRef = useRef<HTMLHeadingElement | null>(null);
+  const articleRetryRef = useRef<HTMLButtonElement | null>(null);
   const completionRegionRef = useRef<HTMLElement | null>(null);
   const explicitSectionRef = useRef<ArticleOutlineItem | null>(null);
   articleIdRef.current = articleId;
@@ -119,13 +130,26 @@ export function ArticleDetailView({
       ? "Back to saved library"
       : listReturnTo.startsWith("/graph?node_id=concept%3A")
         ? "Back to concept"
+        : listReturnTo.startsWith("/graph")
+          ? "Return to graph"
       : "Back to articles";
+
+  function prepareGraphReturnFocus(event: ReactMouseEvent<HTMLAnchorElement>) {
+    if (isSameTabNavigation(event) && listReturnTo.startsWith("/graph")) {
+      rememberGraphArticleReturnFocus(
+        getGraphSessionStorage(window),
+        listReturnTo,
+        article?.id ?? articleId,
+      );
+    }
+  }
 
   useEffect(() => {
     const generation = articleGenerationRef.current + 1;
     articleGenerationRef.current = generation;
     setArticle(null);
     setError(null);
+    setHistoryError(null);
     setActiveSectionId(null);
     setReadingProgress(0);
     setLearningState(null);
@@ -153,8 +177,22 @@ export function ArticleDetailView({
     explicitSectionRef.current = null;
     setHistory(loadReadingHistory());
     const requestedArticleId = articleId;
-    fetchArticle(requestedArticleId)
+    const controller = new AbortController();
+    let timedOut = false;
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      if (
+        articleIdRef.current === requestedArticleId
+        && articleGenerationRef.current === generation
+      ) {
+        articleGenerationRef.current = generation + 1;
+        setError("Article loading timed out. Try again.");
+      }
+      controller.abort();
+    }, ARTICLE_LOAD_TIMEOUT_MS);
+    fetchArticle(requestedArticleId, { signal: controller.signal })
       .then((loadedArticle) => {
+        window.clearTimeout(timeout);
         if (
           articleIdRef.current !== requestedArticleId
           || articleGenerationRef.current !== generation
@@ -162,18 +200,31 @@ export function ArticleDetailView({
           return;
         }
         setArticle(loadedArticle);
-        setHistory(recordReading(loadedArticle));
+        try {
+          setHistory(recordReading(loadedArticle));
+        } catch {
+          setHistory(loadReadingHistory());
+          setHistoryError("Reading history is unavailable in this browser session.");
+        }
         void loadLearningContext(loadedArticle.id, generation);
       })
       .catch((err) => {
+        window.clearTimeout(timeout);
         if (
           articleIdRef.current === requestedArticleId
           && articleGenerationRef.current === generation
         ) {
-          setError(err instanceof Error ? err.message : "Failed to load article");
+          setError(
+            timedOut
+              ? "Article loading timed out. Try again."
+              : err instanceof Error
+                ? err.message
+                : "Failed to load article",
+          );
         }
       });
     return () => {
+      window.clearTimeout(timeout);
       if (articleGenerationRef.current === generation) {
         articleGenerationRef.current = generation + 1;
       }
@@ -183,12 +234,24 @@ export function ArticleDetailView({
       if (learningLoadArticleRef.current === requestedArticleId) {
         learningLoadArticleRef.current = null;
       }
+      controller.abort();
     };
-  }, [articleId]);
+  }, [articleId, articleRevision]);
 
   useEffect(() => {
     setReaderPreferences(loadReaderPreferences());
   }, []);
+
+  useEffect(() => {
+    if (!error) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      articleRetryRef.current?.scrollIntoView({ behavior: "auto", block: "nearest" });
+      articleRetryRef.current?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [error]);
 
   useEffect(() => {
     if (listReturnTo !== "/session") {
@@ -226,8 +289,18 @@ export function ArticleDetailView({
   }, [articleId, listReturnTo]);
 
   useEffect(() => {
-    if (listReturnTo !== "/session" || !article?.id) {
+    if (
+      (listReturnTo !== "/session" && !listReturnTo.startsWith("/graph"))
+      || !article?.id
+    ) {
       return;
+    }
+    if (listReturnTo.startsWith("/graph")) {
+      rememberGraphArticleReturnFocus(
+        getGraphSessionStorage(window),
+        listReturnTo,
+        article.id,
+      );
     }
     let firstFrame = 0;
     let secondFrame = 0;
@@ -286,6 +359,11 @@ export function ArticleDetailView({
         learningLoadArticleRef.current !== nextArticleId
         || articleGenerationRef.current !== generation
       ) {
+        try {
+          await endSession(session.session_id);
+        } catch {
+          // The stale Reader no longer owns a surface where cleanup failure can be reported.
+        }
         return;
       }
       setActiveSession(session);
@@ -870,8 +948,13 @@ export function ArticleDetailView({
     }
 
     let restored = false;
+    let positionTrackingArmed = false;
+    let positionDirty = false;
+    let pendingPositionPersistence = false;
     let frame = 0;
     let restoreFrame = 0;
+    let trackingArmFrame = 0;
+    let trackingArmFollowupFrame = 0;
     let persistenceTimer: ReturnType<typeof setTimeout> | null = null;
     let pendingState = {
       article_id: currentArticleId,
@@ -882,7 +965,7 @@ export function ArticleDetailView({
     };
 
     const persist = () => {
-      if (!restored) {
+      if (!restored || !positionDirty) {
         return;
       }
       if (persistenceTimer) {
@@ -896,6 +979,7 @@ export function ArticleDetailView({
         section_title: explicitSection?.label ?? pendingState.section_title,
         updated_at: new Date().toISOString(),
       });
+      positionDirty = false;
     };
 
     const schedulePersist = () => {
@@ -910,6 +994,8 @@ export function ArticleDetailView({
       if (!restored) {
         return;
       }
+      const shouldPersistPosition = pendingPositionPersistence;
+      pendingPositionPersistence = false;
 
       const readingLine = Math.min(180, Math.max(96, window.innerHeight * 0.2));
       let nextSection: ArticleOutlineItem | null = null;
@@ -934,13 +1020,20 @@ export function ArticleDetailView({
         nextProgress,
         new Date().toISOString(),
       );
+      positionDirty = positionDirty || shouldPersistPosition;
       if (explicitSectionRef.current?.id === nextSection?.id) {
         explicitSectionRef.current = null;
       }
-      schedulePersist();
+      if (shouldPersistPosition) {
+        schedulePersist();
+      }
     };
 
-    const schedulePositionUpdate = () => {
+    const schedulePositionUpdate = (event: Event) => {
+      if (!positionTrackingArmed) {
+        return;
+      }
+      pendingPositionPersistence = pendingPositionPersistence || event.type === "scroll";
       if (!frame) {
         frame = window.requestAnimationFrame(updateReadingPosition);
       }
@@ -949,18 +1042,34 @@ export function ArticleDetailView({
     const restorePosition = () => {
       const saved = loadReaderProgress(currentArticleId);
       const hashSection = decodeHash(window.location.hash);
-      const targetSection = hashSection && outline.some((item) => item.id === hashSection)
-        ? hashSection
-        : saved?.section_id;
+      const graphOrigin = listReturnTo.startsWith("/graph");
+      const targetSection = graphOrigin
+        ? null
+        : hashSection && outline.some((item) => item.id === hashSection)
+          ? hashSection
+          : saved?.section_id;
       const target = targetSection ? document.getElementById(targetSection) : null;
       if (target) {
         target.scrollIntoView({ behavior: "auto", block: "start" });
         setActiveSectionId(targetSection ?? null);
       }
       if (saved) {
-        setReadingProgress(saved.progress);
+        pendingState = saved;
+        if (!graphOrigin) {
+          setReadingProgress(saved.progress);
+        }
       }
       restored = true;
+      if (graphOrigin) {
+        trackingArmFrame = window.requestAnimationFrame(() => {
+          trackingArmFollowupFrame = window.requestAnimationFrame(() => {
+            positionTrackingArmed = true;
+          });
+        });
+        return;
+      }
+      positionTrackingArmed = true;
+      pendingPositionPersistence = true;
       updateReadingPosition();
     };
 
@@ -989,9 +1098,15 @@ export function ArticleDetailView({
       if (restoreFrame) {
         window.cancelAnimationFrame(restoreFrame);
       }
+      if (trackingArmFrame) {
+        window.cancelAnimationFrame(trackingArmFrame);
+      }
+      if (trackingArmFollowupFrame) {
+        window.cancelAnimationFrame(trackingArmFollowupFrame);
+      }
       persist();
     };
-  }, [article?.id, outline]);
+  }, [article?.id, listReturnTo, outline]);
 
   function handleOutlineNavigate(sectionId: string) {
     const target = document.getElementById(sectionId);
@@ -1149,12 +1264,23 @@ export function ArticleDetailView({
         {focusedCompletionPanel}
         <WorkspaceState
           action={
-            <Link
-              className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-900 hover:border-red-500"
-              href={listReturnTo}
-            >
-              {returnLabel}
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <button
+                className="rounded-md border border-red-400 bg-red-900 px-3 py-2 text-sm font-semibold text-white hover:bg-red-950 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-red-900"
+                ref={articleRetryRef}
+                type="button"
+                onClick={() => setArticleRevision((current) => current + 1)}
+              >
+                Retry article
+              </button>
+              <Link
+                className="rounded-md border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-900 hover:border-red-500"
+                href={listReturnTo}
+                onClick={prepareGraphReturnFocus}
+              >
+                {returnLabel}
+              </Link>
+            </div>
           }
           detail={error}
           title="Article unavailable"
@@ -1166,9 +1292,21 @@ export function ArticleDetailView({
 
   if (!article) {
     return (
-      <section className="grid gap-4">
+      <section aria-busy="true" className="grid gap-4">
         {focusedCompletionPanel}
-        <WorkspaceState title="Loading article" tone="loading" />
+        <WorkspaceState
+          action={
+            <Link
+              className="text-sm font-semibold text-slate-700 underline underline-offset-2"
+              href={listReturnTo}
+              onClick={prepareGraphReturnFocus}
+            >
+              {returnLabel}
+            </Link>
+          }
+          title="Loading article"
+          tone="loading"
+        />
       </section>
     );
   }
@@ -1190,7 +1328,11 @@ export function ArticleDetailView({
           data-reader-size={readerPreferences.textSize}
           data-reader-width={readerPreferences.width}
         >
-        <Link className="text-sm text-slate-600 hover:text-slate-950" href={listReturnTo}>
+        <Link
+          className="text-sm text-slate-600 hover:text-slate-950"
+          href={listReturnTo}
+          onClick={prepareGraphReturnFocus}
+        >
           {returnLabel}
         </Link>
         {listReturnTo === "/session" ? (
@@ -1200,7 +1342,7 @@ export function ArticleDetailView({
             warning={studySessionWarning}
           />
         ) : null}
-        <h1 ref={articleHeadingRef} className="mt-4 scroll-mt-24 break-words text-2xl font-semibold leading-tight outline-none focus-visible:ring-2 focus-visible:ring-sky-700" tabIndex={-1}>{article.title}</h1>
+        <h1 ref={articleHeadingRef} className="mt-4 scroll-mt-24 break-words text-2xl font-semibold leading-tight focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-700" tabIndex={-1}>{article.title}</h1>
         {focusedCompletionPanel}
         <p className="mt-2 text-sm text-slate-500">{formatMetadata(article.metadata)}</p>
         <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -1466,6 +1608,9 @@ export function ArticleDetailView({
 
         <section className="rounded border border-slate-200 bg-white p-4">
           <h2 className="text-base font-semibold">Recent Reading</h2>
+          {historyError ? (
+            <p className="mt-2 text-sm text-amber-900" role="status">{historyError}</p>
+          ) : null}
           <div className="mt-3 grid gap-2">
             {history.length ? (
               history.slice(0, 5).map((item) => (

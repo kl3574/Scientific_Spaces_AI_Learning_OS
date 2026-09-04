@@ -88,3 +88,19 @@ test("fetchArticle continues to use legacy detail endpoint", async () => {
   const url = new URL(calls[0].input);
   assert.equal(url.pathname, "/articles/article-1");
 });
+
+test("fetchArticle forwards cancellation without changing the detail contract", async () => {
+  const calls = installFetchStub({
+    id: "article-1",
+    title: "Article",
+    url: "https://example.com/article-1",
+    content: "Hello",
+    metadata: {},
+  });
+  const controller = new AbortController();
+
+  await fetchArticle("article-1", { signal: controller.signal });
+
+  assert.equal(calls[0].init?.cache, "no-store");
+  assert.equal(calls[0].init?.signal, controller.signal);
+});

@@ -11,10 +11,10 @@ Current task:
 `docs/tasks/CURRENT_TASK.md`
 
 Current milestone:
-None; P3-027 is the last closed task
+P3-028 Graph-Reader Round-Trip Reliability
 
 Status:
-P3-027 PASS / CLOSED; docs-only closure exact-SHA CI pending
+P3-028 LOCAL PASS / IMPLEMENTATION READY; EXACT-SHA IMPLEMENTATION CI PENDING
 
 ## Historical Notes
 

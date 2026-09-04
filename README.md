@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-027 PASS / CLOSED`
+- Status: `P3-028 LOCAL PASS / IMPLEMENTATION READY`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-027 exact-SHA implementation CI PASS`
-- Current task: `None; bounded Shell/navigation stress reassessment pending`
+- Latest gate: `P3-028 local implementation and independent review PASS`
+- Current task: `P3-028 Graph-Reader Round-Trip Reliability; exact-SHA implementation CI pending`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -46,6 +46,8 @@ P3-026 evidence: `docs/P3_026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION_REPORT.md` (P
 P3-026 canonical task: `docs/tasks/P3-026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION.md` (PASS / CLOSED).
 P3-027 evidence: `docs/P3_027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_REPORT.md` (PASS / CLOSED).
 P3-027 canonical task: `docs/tasks/P3-027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md` (PASS / CLOSED).
+P3-028 evidence: `docs/P3_028_GRAPH_READER_ROUND_TRIP_RELIABILITY_REPORT.md` (LOCAL PASS; exact-SHA CI pending).
+P3-028 canonical task: `docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md` (IMPLEMENTATION READY).
 
 v1.2 planning specifications:
 
@@ -186,9 +188,9 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `None`
+- Active task: `P3-028 Graph-Reader Round-Trip Reliability`
 - Staged task: `None`
-- Status: `P3-027 PASS / CLOSED; closure exact-SHA CI readback pending`
+- Status: `P3-028 LOCAL PASS / IMPLEMENTATION READY; exact-SHA implementation CI pending`
 - Last closed task: `docs/tasks/P3-027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`

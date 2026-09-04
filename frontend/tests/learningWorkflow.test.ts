@@ -63,18 +63,60 @@ test("Article detail accepts only the canonical local Study Session return path"
   );
 });
 
-test("Article detail accepts only a canonical Graph Concept return path", () => {
-  const graphPath = "/graph?node_id=concept%3A%E6%B3%A8%E6%84%8F%E5%8A%9B%E6%9C%BA%E5%88%B6";
+test("Article detail retains canonical Graph node and query state", () => {
+  const graphPath = "/graph?node_id=article%3Acrb-formula&q=CRB";
   assert.equal(sanitizeArticleEntryReturnPath(graphPath), graphPath);
   assert.equal(
-    sanitizeArticleEntryReturnPath(`${graphPath}&token=secret&q=private`),
+    sanitizeArticleEntryReturnPath(`${graphPath}&token=secret&article_id=recursive&return_to=%2Farticles%2Fprivate`),
     graphPath,
   );
-  assert.equal(sanitizeArticleEntryReturnPath("/graph?node_id=formula%3Asecret"), "/articles");
+  assert.equal(
+    sanitizeArticleEntryReturnPath("/graph?node_id=concept%3A%E6%B3%A8%E6%84%8F%E5%8A%9B&q=%20Attention%20%20model%20"),
+    "/graph?node_id=concept%3A%E6%B3%A8%E6%84%8F%E5%8A%9B&q=Attention+model",
+  );
+  assert.equal(
+    sanitizeArticleEntryReturnPath("/graph?node_id=formula%3Afisher-information&q=CRB"),
+    "/graph?node_id=formula%3Afisher-information&q=CRB",
+  );
+  assert.equal(
+    sanitizeArticleEntryReturnPath("/graph?node_id=zotero_item%3AABC_123&q=CRB"),
+    "/graph?node_id=zotero_item%3AABC_123&q=CRB",
+  );
   assert.equal(sanitizeArticleEntryReturnPath("https://example.com/graph?node_id=concept%3Ax"), "/articles");
   assert.equal(
     createArticleDetailHref("attention-basics", graphPath),
     `/articles/attention-basics?from=${encodeURIComponent(graphPath)}`,
+  );
+  const maximumNodeId = `article:${"x".repeat(192)}`;
+  const maximumQuery = "q".repeat(120);
+  assert.equal(
+    sanitizeArticleEntryReturnPath(
+      `/graph?${new URLSearchParams({ node_id: maximumNodeId, q: maximumQuery }).toString()}`,
+    ),
+    `/graph?${new URLSearchParams({ node_id: maximumNodeId, q: maximumQuery }).toString()}`,
+  );
+  assert.equal(
+    sanitizeArticleEntryReturnPath(`/graph?node_id=article%3Ax&q=${"q".repeat(121)}`),
+    `/graph?node_id=article%3Ax&q=${"q".repeat(120)}`,
+  );
+});
+
+test("Article detail rejects unsafe Graph return state without preserving recursive parameters", () => {
+  assert.equal(sanitizeArticleEntryReturnPath("/graph?node_id=unknown%3Aprivate&q=CRB"), "/articles");
+  assert.equal(sanitizeArticleEntryReturnPath("/graph?node_id=article%3A..%2Fprivate&q=CRB"), "/articles");
+  assert.equal(sanitizeArticleEntryReturnPath("/graph?node_id=article%3A%ZZ&q=CRB"), "/articles");
+  assert.equal(sanitizeArticleEntryReturnPath("/graph?node_id=article%3A%C3%28&q=CRB"), "/articles");
+  assert.equal(sanitizeArticleEntryReturnPath("/graph?node_id=article%3Ahello+world&q=CRB"), "/articles");
+  assert.equal(sanitizeArticleEntryReturnPath("/graph?node_id=concept%3Aattention!&q=CRB"), "/articles");
+  assert.equal(
+    sanitizeArticleEntryReturnPath(`/graph?node_id=article%3A${"x".repeat(193)}&q=CRB`),
+    "/articles",
+  );
+  assert.equal(sanitizeArticleEntryReturnPath("/graph?node_id=article%3Ax#private"), "/articles");
+  assert.equal(sanitizeArticleEntryReturnPath(` /graph?node_id=article%3Ax&q=${"x".repeat(1_300)}`), "/articles");
+  assert.equal(
+    sanitizeArticleEntryReturnPath("/graph?q=CRB&article_id=private&article_title=secret&return_to=%2Farticles%2Fprivate"),
+    "/graph?q=CRB",
   );
 });
 

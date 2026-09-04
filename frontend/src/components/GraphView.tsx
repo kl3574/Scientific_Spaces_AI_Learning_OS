@@ -25,10 +25,13 @@ import {
 } from "@/lib/globalSearch";
 import { getSafeDisplayText } from "@/lib/graphPresentation";
 import {
+  consumeGraphArticleReturnFocus,
   createGraphWorkspaceHref,
+  getGraphSessionStorage,
   getGraphCanonicalizationAction,
   getGraphInitialPanel,
   getGraphSelectionHistoryAction,
+  rememberGraphArticleReturnFocus,
   type GraphExplorePanel,
   type GraphWorkspaceMode,
 } from "@/lib/graphWorkspace";
@@ -197,6 +200,49 @@ export function GraphView({
     });
     return () => window.cancelAnimationFrame(frame);
   }, [detailStatus, explorePanel, focusRevision, nodePage, nodeStatus, summaryStatus, workspaceMode]);
+
+  const articleReturnTo = createGraphWorkspaceHref({
+    nodeId: selectedNodeId,
+    query: appliedQuery,
+    context: null,
+  });
+
+  useEffect(() => {
+    if (
+      (detailStatus !== "loaded" && detailStatus !== "error")
+      || (detailStatus === "loaded" && !selectedNode)
+    ) {
+      return;
+    }
+    const returnFocus = consumeGraphArticleReturnFocus(
+      getGraphSessionStorage(window),
+      articleReturnTo,
+    );
+    if (returnFocus.status === "missing") {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      const articleLinks = Array.from(
+        detailRegionRef.current?.querySelectorAll<HTMLElement>("[data-graph-article-id]") ?? [],
+      );
+      const articleLink = returnFocus.status === "found"
+        ? returnFocus.focusTarget
+          ? articleLinks.find(
+            (candidate) => (
+              candidate.dataset.graphArticleFocus === returnFocus.focusTarget
+              && candidate.dataset.graphArticleId === returnFocus.articleId
+            ),
+          )
+          : articleLinks.find(
+            (candidate) => candidate.dataset.graphArticleId === returnFocus.articleId,
+          )
+        : null;
+      const target = articleLink ?? detailRegionRef.current;
+      target?.focus({ preventScroll: true });
+      target?.scrollIntoView({ behavior: "auto", block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [articleReturnTo, detailStatus, pathname, routeSearch, selectedNode]);
 
   useEffect(() => {
     if (
@@ -707,10 +753,19 @@ export function GraphView({
             tabIndex={-1}
           >
             <GraphNodeDetail
+              articleReturnTo={articleReturnTo}
               detailError={detailError}
               detailStatus={detailStatus}
               node={selectedNode}
               onBackToResults={showResults}
+              onOpenArticle={(articleId, focusTarget) => {
+                rememberGraphArticleReturnFocus(
+                  getGraphSessionStorage(window),
+                  articleReturnTo,
+                  articleId,
+                  focusTarget,
+                );
+              }}
               onRetry={() => {
                 requestFocus("detail");
                 setSelectionRevision((current) => current + 1);

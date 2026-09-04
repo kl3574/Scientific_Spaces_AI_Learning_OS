@@ -73,9 +73,13 @@ export async function fetchArticles(queryOrOptions?: string | ArticleListRequest
   return response.json() as Promise<ArticleListResponse>;
 }
 
-export async function fetchArticle(articleId: string): Promise<ArticleDetail> {
+export async function fetchArticle(
+  articleId: string,
+  options: Readonly<{ signal?: AbortSignal }> = {},
+): Promise<ArticleDetail> {
   const response = await fetch(new URL(`/articles/${articleId}`, API_BASE_URL).toString(), {
     cache: "no-store",
+    signal: options.signal,
   });
   if (response.status === 404) {
     throw new Error("Article not found");

@@ -3,9 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
-import { createConceptTutorHref, createConceptGraphHref } from "@/lib/conceptLearningLaunch";
+import { createConceptTutorHref } from "@/lib/conceptLearningLaunch";
 import { createConceptStudySet, type ConceptStudyArticle } from "@/lib/conceptStudySet";
 import type { GraphNode } from "@/lib/graph";
+import { isSameTabNavigation } from "@/lib/graphWorkspace";
 import { createArticleDetailHref } from "@/lib/learningWorkflow";
 import {
   STUDY_SESSION_CHANGE_EVENT,
@@ -18,9 +19,16 @@ import {
 } from "@/lib/studySession";
 
 export function ConceptStudySetPanel({
+  articleReturnTo,
   node,
+  onOpenArticle,
   onShowContext,
-}: Readonly<{ node: GraphNode; onShowContext?: () => void }>) {
+}: Readonly<{
+  articleReturnTo: string;
+  node: GraphNode;
+  onOpenArticle: (articleId: string, focusTarget: string) => void;
+  onShowContext?: () => void;
+}>) {
   const studySet = useMemo(() => createConceptStudySet(node), [node]);
   const [session, setSession] = useState<StudySessionLoadResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -58,7 +66,6 @@ export function ConceptStudySetPanel({
   const sessionCount = session?.state.items.length ?? 0;
   const sessionFull = sessionCount >= STUDY_SESSION_ITEM_LIMIT;
   const storageReady = session?.storageAvailable === true;
-  const returnTo = createConceptGraphHref(studySet.conceptNodeId);
 
   function addArticles(articles: readonly ConceptStudyArticle[]) {
     if (!session?.storageAvailable) {
@@ -131,14 +138,22 @@ export function ConceptStudySetPanel({
         <StudyStep index={2} title="Read returned Articles">
           {studySet.articles.length ? (
             <ul className="mt-2 divide-y divide-slate-100 border-y border-slate-100">
-              {studySet.articles.map((article) => {
+              {studySet.articles.map((article, index) => {
                 const queued = queuedIds.has(article.articleId);
                 const addDisabled = !storageReady || queued || sessionFull;
+                const focusTarget = `concept-study-${index}`;
                 return (
                   <li className="min-w-0 py-3" key={article.articleId} data-testid="concept-study-article">
                     <Link
                       className="break-words text-sm font-semibold text-slate-950 hover:underline [overflow-wrap:anywhere]"
-                      href={createArticleDetailHref(article.articleId, returnTo)}
+                      data-graph-article-id={article.articleId}
+                      data-graph-article-focus={focusTarget}
+                      href={createArticleDetailHref(article.articleId, articleReturnTo)}
+                      onClick={(event) => {
+                        if (isSameTabNavigation(event)) {
+                          onOpenArticle(article.articleId, focusTarget);
+                        }
+                      }}
                     >
                       {article.title}
                     </Link>
