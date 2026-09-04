@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-023 APPROVED / IN PROGRESS`
+- Status: `P3-023 PASS / CLOSED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-023 independent revised-scope reviews PASS`
-- Current task: `P3-023 Concept Study Set and Learning Launch`
+- Latest gate: `P3-023 implementation exact-SHA main CI PASS`
+- Current task: `None; next task requires alignment`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -37,7 +37,7 @@ P3-019 global search evidence: `docs/P3_019_GLOBAL_SEARCH_AND_QUICK_NAVIGATION_R
 P3-020 saved learning evidence: `docs/P3_020_SAVED_LEARNING_LIBRARY_REPORT.md` (PASS / CLOSED).
 P3-021 focused study session evidence: `docs/P3_021_FOCUSED_STUDY_SESSION_REPORT.md` (PASS / CLOSED).
 P3-022 session-aware Dashboard evidence: `docs/P3_022_IMPLEMENTATION_REPORT.md` (PASS / CLOSED).
-P3-023 canonical task: `docs/tasks/P3-023_CONCEPT_STUDY_SET_AND_LEARNING_LAUNCH.md` (IN PROGRESS).
+P3-023 concept study set evidence: `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md` (PASS / CLOSED).
 
 v1.2 planning specifications:
 
@@ -178,9 +178,9 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `P3-023 Concept Study Set and Learning Launch`
-- Status: `APPROVED / IN PROGRESS`
-- Last closed task: `docs/tasks/P3-022_LEARNING_DASHBOARD.md`
+- Active task: `None`
+- Status: `P3-023 PASS / CLOSED; next task ALIGNMENT REQUIRED / NOT GRANTED`
+- Last closed task: `docs/tasks/P3-023_CONCEPT_STUDY_SET_AND_LEARNING_LAUNCH.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`

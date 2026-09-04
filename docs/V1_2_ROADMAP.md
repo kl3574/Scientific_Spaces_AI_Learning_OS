@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-022 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; P3-023 Concept Study Set and Learning Launch is APPROVED / IN PROGRESS; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-023 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -675,7 +675,7 @@ including three Product E2E runs; uploaded artifacts were zero. Evidence is in
 
 ### P3-023 - Concept Study Set and Learning Launch
 
-Status: **APPROVED / IN PROGRESS**.
+Status: **PASS / CLOSED**.
 
 P3-023 connects a selected Graph Concept to a bounded set of unique readable
 Articles derived only from returned provenance, safe Tutor Explain and Quiz
@@ -689,6 +689,18 @@ network, and real Providers remain protected. Two independent scope reviews
 passed after unsupported completeness, Paper/Experiment, prerequisite, and
 Quiz Graph-grounding claims were removed. The canonical task is
 `docs/tasks/P3-023_CONCEPT_STUDY_SET_AND_LEARNING_LAUNCH.md`.
+
+Local evidence passed 600 Backend tests with 4 skipped, 92 focused Frontend
+tests, the production build, three Product E2E runs with 63 checks each, and a
+real local 1,314-Article and installed-Graph probe. Browser checks included
+actual Tab focus, two-axis 200-percent zoom equivalence, mobile layout, all
+Reader/Tutor/Session round trips, zero external requests, and zero unexpected
+console/page errors. Two independent final reviews, workflow policy,
+dependency, secret, SBOM, artifact, and protected-path gates passed.
+Implementation commit `fceadc512c266de2670d5c426dc201b9e580924b`
+passed exact-SHA main CI run
+[`33834027640`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33834027640).
+Evidence is in `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md`.
 
 ## Release Criteria
 
@@ -722,8 +734,7 @@ Quiz Graph-grounding claims were removed. The canonical task is
 
 ## Next Recommended Task
 
-P3-023 Concept Study Set and Learning Launch is the active product-convergence
-task. Complete local implementation and acceptance evidence, then exact-SHA
-implementation and docs-only closure CI. No v1.2 candidate is assigned. Tag,
+No next implementation task is assigned. A new canonical task and alignment
+are required before further product work. No v1.2 candidate is assigned. Tag,
 Release, attestation, real Provider, source access, external search, and private
 Zotero actions remain unauthorized.
