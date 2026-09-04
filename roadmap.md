@@ -11,10 +11,10 @@ Current task:
 `docs/tasks/CURRENT_TASK.md`
 
 Current milestone:
-P3-027 Tutor Request Ownership and Accessible Feedback
+None; P3-027 is the last closed task
 
 Status:
-P3-027 local acceptance PASS; implementation exact-SHA CI pending
+P3-027 PASS / CLOSED; docs-only closure exact-SHA CI pending
 
 ## Historical Notes
 

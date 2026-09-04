@@ -1,6 +1,6 @@
 # P3-027 Tutor Request Ownership and Accessible Feedback Report
 
-Status: **LOCAL ACCEPTANCE PASS / IMPLEMENTATION EXACT-SHA CI PENDING**
+Status: **PASS / CLOSED**
 
 ## 1. Scope And Boundaries
 
@@ -155,10 +155,32 @@ viewports.
   separately bounded Shell/navigation stress debt, not a Tutor ownership
   failure.
 
-## 11. Current Decision
+## 11. Exact-SHA Main CI
 
-P3-027 local acceptance is PASS. Focused tests, the production build, full
-Backend regression, three-run Product E2E, local security/artifact gates, and
-two independent reviews pass. The implementation commit and exact-SHA main CI
-remain required before the task can be marked PASS / CLOSED. No v1.2 candidate
-is assigned.
+Implementation commit:
+`b0679da2fd0c70d9148538a08ef942787846c895`.
+
+Exact-SHA main CI:
+[`33914369113`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33914369113).
+
+- Frontend build: PASS
+- Backend pytest: PASS
+- Product E2E: PASS, 3/3 runs
+- dependency audit: PASS
+- secret audit: PASS
+- SBOM validation: PASS
+- workflow and suppression policy: PASS
+- Docker compose smoke: skipped as designed for a normal `main` push
+- release evidence dry-run: skipped as designed
+- uploaded artifacts: 0
+
+The run used event `push`, branch `main`, and exact head SHA
+`b0679da2fd0c70d9148538a08ef942787846c895`.
+
+## 12. Current Decision
+
+P3-027 is PASS / CLOSED. Focused tests, the production build, full Backend
+regression, three-run Product E2E, local security/artifact gates, two
+independent reviews, and exact-SHA implementation CI pass. This docs-only
+closure commit requires its own exact-SHA CI readback before final reporting.
+No v1.2 candidate is assigned.
