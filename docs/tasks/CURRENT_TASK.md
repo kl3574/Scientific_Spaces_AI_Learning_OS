@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md`
 
 ## Staged Task
 
@@ -15,6 +15,7 @@ None
 ## Status
 
 - P3-026: PASS / CLOSED
+- P3-027: LOCAL ACCEPTANCE PASS / IMPLEMENTATION EXACT-SHA CI PENDING
 
 ## Authorization
 
@@ -28,6 +29,9 @@ None
   documentation, isolated fake-runtime validation, local commits, non-force
   push, and exact-SHA CI execution: CONSUMED / CLOSED after this docs-only
   closure commit
+- P3-027 bounded Tutor Frontend implementation, focused tests, governance
+  documentation, isolated fake-runtime validation, local commits, non-force
+  push, and exact-SHA CI execution: GRANTED / ACTIVE
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -52,12 +56,31 @@ None
   skipped as designed; uploaded artifacts: 0
 - evidence report:
   `docs/P3_026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION_REPORT.md`
-- docs-only closure commit: this commit; exact-SHA main CI required before
-  final reporting
+- docs-only closure commit:
+  `5b1de79f6176db00e2dd2f557ce255f7070b0293`
+- docs-only closure exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33905442849`
+- required closure CI jobs: PASS; normal-main Docker/release jobs skipped as
+  designed; uploaded artifacts: 0
+
+## P3-027 Local Evidence
+
+- Backend: 600 passed / 4 skipped
+- focused Frontend: 121 passed, including 22 Tutor tests
+- production build: PASS, 11 routes
+- Product E2E: 3/3 runs, 140 checks each, restart persistence PASS,
+  0 external requests, unexpected console errors, or page errors
+- immutable request ownership, activity/readback ordering, deterministic
+  result and Quiz focus, coherent mode semantics, and four required responsive
+  viewports: PASS
+- independent final reviews: 2 PASS
+- local workflow, suppression, secret, SBOM, artifact, and protected-path
+  gates: PASS; dependency audit remains an exact-SHA CI gate
+- evidence report:
+  `docs/P3_027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_REPORT.md`
 
 ## Next Gate
 
-Verify this docs-only closure commit through exact-SHA main CI, then run a
-bounded product and GUI audit to define the next convergence task. The audit
-must include the recorded transient Graph-to-Reader transition and Tutor
-result/Quiz accessibility debt. No v1.2 candidate is assigned.
+Create the P3-027 implementation commit and verify it through exact-SHA main
+CI. Only after that evidence passes may the docs-only closure commit mark the
+task PASS / CLOSED. No v1.2 candidate is assigned.

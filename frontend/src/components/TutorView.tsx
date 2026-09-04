@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { fetchArticle } from "@/lib/articles";
 import {
@@ -32,8 +32,11 @@ import {
 } from "@/lib/tutorPresentation";
 import {
   getTutorModeLabel,
+  createTutorRequestContext,
+  isTutorRequestContextCurrent,
   type TutorArticleSelection,
   type TutorQuizAnswers,
+  type TutorRequestContext,
 } from "@/lib/tutorWorkspace";
 
 import { TutorActivity } from "./TutorActivity";
@@ -43,6 +46,7 @@ import { TutorQuizWorkspace } from "./TutorQuizWorkspace";
 import { TutorSourceList } from "./TutorSourceList";
 
 const modes: TutorMode[] = ["explain", "derive", "qa", "quiz", "research"];
+const ACTIVITY_UPDATE_ERROR = "The answer is ready, but recent activity could not be updated.";
 
 type TutorFlowStatus = "idle" | "loading" | "ready" | "error";
 type SessionStatus = "idle" | "loading" | "loaded" | "error";
@@ -91,48 +95,70 @@ export function TutorView({
   const [sessionsError, setSessionsError] = useState<string | null>(null);
   const activeRequestId = useRef(0);
   const sessionsRequestId = useRef(0);
+  const mountedRef = useRef(false);
   const questionRef = useRef<HTMLTextAreaElement>(null);
+  const resultRegionRef = useRef<HTMLElement>(null);
+  const errorRegionRef = useRef<HTMLDivElement>(null);
+  const currentRequestContext = createTutorRequestContext({
+    mode,
+    question,
+    articleId: selectedArticle?.id,
+    nodeId,
+  });
+  const currentRequestContextRef = useRef<TutorRequestContext>(currentRequestContext);
+  currentRequestContextRef.current = currentRequestContext;
+
+  useLayoutEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      activeRequestId.current += 1;
+      sessionsRequestId.current += 1;
+    };
+  }, []);
 
   useEffect(() => {
     void fetchSessions();
   }, []);
 
-  useEffect(() => {
-    if (!initialConcept) {
-      return;
-    }
-    activeRequestId.current += 1;
-    const reset = createTutorModeResetState();
-    setMode(initialConcept.mode);
-    setQuestion(initialConcept.prompt);
-    setNodeId(initialConcept.conceptNodeId);
-    setStatus(reset.status);
-    setError(reset.error);
-    setResponse(reset.response);
-    setQuiz(reset.quiz);
-    setQuizAnswers({});
-    setQuizSubmitted(false);
-    setSelectedArticle(
-      initialConcept.primaryArticle
-        ? {
-            id: initialConcept.primaryArticle.articleId,
-            title: initialConcept.primaryArticle.title,
-            metadata: {},
-          }
-        : null,
-    );
-    if (initialConcept.primaryArticle) {
-      setArticleTitles((current) => ({
-        ...current,
-        [initialConcept.primaryArticle!.articleId]: initialConcept.primaryArticle!.title,
-      }));
-    }
-  }, [initialConcept]);
+  useLayoutEffect(() => {
+    invalidateTutorOutcome();
+    let cancelled = false;
 
-  useEffect(() => {
-    if (!initialContext?.articleId) {
-      return;
+    if (initialConcept) {
+      setMode(initialConcept.mode);
+      setQuestion(initialConcept.prompt);
+      setNodeId(initialConcept.conceptNodeId);
+      setSelectedArticle(
+        initialConcept.primaryArticle
+          ? {
+              id: initialConcept.primaryArticle.articleId,
+              title: initialConcept.primaryArticle.title,
+              metadata: {},
+            }
+          : null,
+      );
+      if (initialConcept.primaryArticle) {
+        setArticleTitles((current) => ({
+          ...current,
+          [initialConcept.primaryArticle!.articleId]: initialConcept.primaryArticle!.title,
+        }));
+      }
+      return () => {
+        cancelled = true;
+      };
     }
+
+    setMode("explain");
+    setQuestion("");
+    if (!initialContext?.articleId) {
+      setNodeId("");
+      setSelectedArticle(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
     setSelectedArticle({
       id: initialContext.articleId,
       title: initialContext.articleTitle ?? "Current article",
@@ -144,7 +170,6 @@ export function TutorView({
       return;
     }
 
-    let cancelled = false;
     void fetchArticle(initialContext.articleId)
       .then((article) => {
         if (cancelled) {
@@ -161,7 +186,29 @@ export function TutorView({
     return () => {
       cancelled = true;
     };
-  }, [initialContext]);
+  }, [initialConcept, initialContext]);
+
+  useEffect(() => {
+    if (status !== "ready" || (mode === "quiz" && quiz.length > 0)) {
+      return;
+    }
+    const focusFrame = window.requestAnimationFrame(() => {
+      resultRegionRef.current?.focus({ preventScroll: true });
+      resultRegionRef.current?.scrollIntoView({ behavior: "auto", block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [mode, quiz.length, response, status]);
+
+  useEffect(() => {
+    if (status !== "error") {
+      return;
+    }
+    const focusFrame = window.requestAnimationFrame(() => {
+      errorRegionRef.current?.focus({ preventScroll: true });
+      errorRegionRef.current?.scrollIntoView({ behavior: "auto", block: "nearest" });
+    });
+    return () => window.cancelAnimationFrame(focusFrame);
+  }, [status]);
 
   useEffect(() => {
     if (!sessions?.items.length) {
@@ -196,20 +243,31 @@ export function TutorView({
     };
   }, [sessions, articleTitles]);
 
-  async function fetchSessions() {
+  async function fetchSessions(expectedTutorRequestId?: number) {
     const requestId = sessionsRequestId.current + 1;
     sessionsRequestId.current = requestId;
-    setSessionsStatus("loading");
-    setSessionsError(null);
+    if (expectedTutorRequestId === undefined) {
+      setSessionsStatus("loading");
+      setSessionsError(null);
+    }
     try {
       const nextSessions = await fetchTutorSessions();
-      if (sessionsRequestId.current !== requestId) {
+      if (
+        sessionsRequestId.current !== requestId
+        || (expectedTutorRequestId !== undefined
+          && activeRequestId.current !== expectedTutorRequestId)
+      ) {
         return;
       }
       setSessions(nextSessions);
       setSessionsStatus("loaded");
+      setSessionsError(null);
     } catch {
-      if (sessionsRequestId.current !== requestId) {
+      if (
+        sessionsRequestId.current !== requestId
+        || (expectedTutorRequestId !== undefined
+          && activeRequestId.current !== expectedTutorRequestId)
+      ) {
         return;
       }
       setSessionsStatus("error");
@@ -217,17 +275,24 @@ export function TutorView({
     }
   }
 
-  async function recordTutorActivity(activeMode: TutorMode) {
+  async function recordTutorActivity(context: TutorRequestContext, tutorRequestId: number) {
     try {
       await createTutorSession({
-        mode: activeMode,
-        article_id: selectedArticle?.id,
-        node_id: nodeId.trim() || undefined,
+        mode: context.mode,
+        article_id: context.articleId ?? undefined,
+        node_id: context.nodeId || undefined,
       });
-      await fetchSessions();
+      if (!mountedRef.current || activeRequestId.current !== tutorRequestId) {
+        return;
+      }
+      await fetchSessions(tutorRequestId);
     } catch {
+      if (!mountedRef.current || activeRequestId.current !== tutorRequestId) {
+        return;
+      }
+      sessionsRequestId.current += 1;
       setSessionsStatus("error");
-      setSessionsError("The answer is ready, but recent activity could not be updated.");
+      setSessionsError(ACTIVITY_UPDATE_ERROR);
     }
   }
 
@@ -240,7 +305,30 @@ export function TutorView({
 
   const articleQuestionLabel = mode === "quiz" ? "Prompt" : "Question";
 
+  function clearActivityUpdateError() {
+    if (sessionsError !== ACTIVITY_UPDATE_ERROR) {
+      return;
+    }
+    setSessionsStatus(sessions ? "loaded" : "idle");
+    setSessionsError(null);
+  }
+
+  function invalidateTutorOutcome() {
+    activeRequestId.current += 1;
+    const reset = createTutorModeResetState();
+    setStatus(reset.status);
+    setError(reset.error);
+    setResponse(reset.response);
+    setQuiz(reset.quiz);
+    setQuizAnswers({});
+    setQuizSubmitted(false);
+    clearActivityUpdateError();
+  }
+
   function chooseArticle(article: TutorArticleSelection | null) {
+    if (article?.id !== selectedArticle?.id) {
+      invalidateTutorOutcome();
+    }
     setSelectedArticle(article);
     if (article) {
       setArticleTitles((current) => ({ ...current, [article.id]: article.title }));
@@ -251,15 +339,8 @@ export function TutorView({
     if (nextMode === mode) {
       return;
     }
-    activeRequestId.current += 1;
-    const reset = createTutorModeResetState();
+    invalidateTutorOutcome();
     setMode(nextMode);
-    setStatus(reset.status);
-    setError(reset.error);
-    setResponse(reset.response);
-    setQuiz(reset.quiz);
-    setQuizAnswers({});
-    setQuizSubmitted(false);
     if (initialConcept && nextMode === "quiz") {
       setQuestion(initialConcept.conceptTitle);
     } else if (initialConcept && nextMode === "explain") {
@@ -267,10 +348,31 @@ export function TutorView({
     }
   }
 
+  function changeQuestion(nextQuestion: string) {
+    if (nextQuestion !== question) {
+      invalidateTutorOutcome();
+    }
+    setQuestion(nextQuestion);
+  }
+
+  function changeNodeId(nextNodeId: string) {
+    if (nextNodeId !== nodeId) {
+      invalidateTutorOutcome();
+    }
+    setNodeId(nextNodeId);
+  }
+
   async function runTutorQuery(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
+    clearActivityUpdateError();
     const requestId = activeRequestId.current + 1;
     activeRequestId.current = requestId;
+    const submittedContext = createTutorRequestContext({
+      mode,
+      question,
+      articleId: selectedArticle?.id,
+      nodeId,
+    });
     setStatus("loading");
     setError(null);
     setResponse(null);
@@ -289,7 +391,10 @@ export function TutorView({
           num_questions: 3,
           topic: normalizeTutorQuizTopic(question),
         });
-        if (activeRequestId.current !== requestId) {
+        if (
+          activeRequestId.current !== requestId
+          || !isTutorRequestContextCurrent(submittedContext, currentRequestContextRef.current)
+        ) {
           return;
         }
         setQuiz(quizResponse.questions);
@@ -303,15 +408,21 @@ export function TutorView({
           include_graph_context: true,
           include_zotero_context: true,
         });
-        if (activeRequestId.current !== requestId) {
+        if (
+          activeRequestId.current !== requestId
+          || !isTutorRequestContextCurrent(submittedContext, currentRequestContextRef.current)
+        ) {
           return;
         }
         setResponse(tutorResponse);
       }
       setStatus("ready");
-      void recordTutorActivity(mode);
+      void recordTutorActivity(submittedContext, requestId);
     } catch (reason) {
-      if (activeRequestId.current !== requestId) {
+      if (
+        activeRequestId.current !== requestId
+        || !isTutorRequestContextCurrent(submittedContext, currentRequestContextRef.current)
+      ) {
         return;
       }
       setError(reason instanceof Error ? reason.message : "Failed to run tutor request");
@@ -329,9 +440,24 @@ export function TutorView({
   const isResearchMode = response?.mode === "research";
   const researchLocalOnly = response ? isResearchLocalOnly(response) : false;
   const researchEvidenceGap = response ? isResearchEvidenceGap(response) : false;
+  const statusAnnouncement = status === "loading"
+    ? "Tutor request in progress."
+    : status === "ready"
+      ? mode === "quiz"
+        ? quiz.length
+          ? `Quiz ready with ${quiz.length} questions.`
+          : "Quiz request completed without questions."
+        : response
+          ? `${hasRefusalState ? "Tutor refusal" : "Tutor answer"} ready.`
+          : "Tutor request completed without a response."
+      : "";
 
   return (
-    <section className="space-y-6" data-testid="guided-tutor-workspace">
+    <>
+      <p aria-atomic="true" aria-live="polite" className="sr-only" data-testid="tutor-request-status" role="status">
+        {statusAnnouncement}
+      </p>
+      <section aria-busy={status === "loading"} className="space-y-6" data-testid="guided-tutor-workspace">
       <div className="space-y-2 border-b border-slate-300 pb-5">
         <p className="text-xs font-semibold uppercase text-emerald-800">Guided study workspace</p>
         <h1 className="text-2xl font-semibold">AI Research Tutor</h1>
@@ -374,9 +500,9 @@ export function TutorView({
       <TutorArticlePicker selected={selectedArticle} onSelect={chooseArticle} />
 
       <form className="grid gap-4 border-y border-slate-200 bg-white px-4 py-5" onSubmit={runTutorQuery}>
-        <fieldset className="space-y-2">
+        <fieldset className="space-y-2" data-testid="tutor-mode-group">
           <legend className="text-sm font-medium">Study mode</legend>
-          <div className="grid w-full grid-cols-2 gap-1 rounded border border-slate-300 p-1 sm:grid-cols-5" role="tablist" aria-label="Tutor mode">
+          <div className="grid w-full grid-cols-2 gap-1 rounded border border-slate-300 p-1 sm:grid-cols-5">
             {modes.map((item) => {
               const active = mode === item;
               return (
@@ -407,7 +533,7 @@ export function TutorView({
               <input
                 className="rounded border border-slate-300 px-3 py-2 outline-none focus:border-slate-950"
                 value={nodeId}
-                onChange={(event) => setNodeId(event.target.value)}
+                onChange={(event) => changeNodeId(event.target.value)}
                 placeholder="Optional, for example concept:attention"
               />
             </label>
@@ -420,7 +546,7 @@ export function TutorView({
             ref={questionRef}
             className="min-h-28 rounded border border-slate-300 px-3 py-2 outline-none focus:border-slate-950"
             value={question}
-            onChange={(event) => setQuestion(event.target.value)}
+            onChange={(event) => changeQuestion(event.target.value)}
             placeholder={mode === "quiz" ? "Optional topic for this knowledge check" : "Ask a grounded question"}
           />
         </label>
@@ -442,7 +568,13 @@ export function TutorView({
       {status === "loading" ? <div className="border-l-4 border-slate-300 bg-white px-4 py-3"><p className="text-sm text-slate-700">Running tutor request...</p></div> : null}
 
       {status === "error" ? (
-        <div className="border-l-4 border-red-500 bg-red-50 px-4 py-3" role="alert">
+        <div
+          ref={errorRegionRef}
+          className="scroll-mt-24 border-l-4 border-red-500 bg-red-50 px-4 py-3 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-red-700"
+          data-testid="tutor-error"
+          role="alert"
+          tabIndex={-1}
+        >
           <p className="text-sm text-red-700">{error ?? "Tutor request failed."}</p>
           <button className="mt-2 rounded bg-slate-900 px-3 py-2 text-xs font-medium text-white" onClick={() => void runTutorQuery()} type="button">Retry request</button>
         </div>
@@ -462,15 +594,32 @@ export function TutorView({
             submitted={quizSubmitted}
           />
         ) : (
-          <div className="border-y border-slate-200 bg-white py-4 text-sm text-slate-600">No quiz questions returned. Choose an Article with answerable evidence and retry.</div>
+          <div
+            ref={(node) => {
+              resultRegionRef.current = node;
+            }}
+            className="scroll-mt-24 border-y border-slate-200 bg-white py-4 text-sm text-slate-600 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700"
+            data-testid="tutor-empty-result"
+            tabIndex={-1}
+          >
+            No quiz questions returned. Choose an Article with answerable evidence and retry.
+          </div>
         )
       ) : null}
 
       {status === "ready" && response ? (
         <section className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
-          <article className="min-w-0 border-y border-slate-200 bg-white py-4">
+          <article
+            ref={(node) => {
+              resultRegionRef.current = node;
+            }}
+            aria-labelledby="tutor-result-heading"
+            className="min-w-0 scroll-mt-24 border-y border-slate-200 bg-white py-4 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700"
+            data-testid="tutor-result"
+            tabIndex={-1}
+          >
             <div className="flex items-center justify-between gap-3">
-              <h2 className="text-base font-semibold">{hasRefusalState ? "Refusal" : "Answer"}</h2>
+              <h2 className="text-base font-semibold" id="tutor-result-heading">{hasRefusalState ? "Refusal" : "Answer"}</h2>
               {hasRefusalState && refusalMessage ? <span className="rounded border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700">Refusal</span> : null}
             </div>
             <div className="mt-3">
@@ -503,7 +652,18 @@ export function TutorView({
         </section>
       ) : null}
 
-      {status === "ready" && mode !== "quiz" && !response ? <div className="border-y border-slate-200 bg-white py-4 text-sm text-slate-600">No response for this request. Retry or adjust your inputs.</div> : null}
+      {status === "ready" && mode !== "quiz" && !response ? (
+        <div
+          ref={(node) => {
+            resultRegionRef.current = node;
+          }}
+          className="scroll-mt-24 border-y border-slate-200 bg-white py-4 text-sm text-slate-600 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700"
+          data-testid="tutor-empty-result"
+          tabIndex={-1}
+        >
+          No response for this request. Retry or adjust your inputs.
+        </div>
+      ) : null}
 
       <TutorActivity
         articleTitles={articleTitles}
@@ -512,7 +672,8 @@ export function TutorView({
         sessions={sessions?.items ?? []}
         status={sessionsStatus}
       />
-    </section>
+      </section>
+    </>
   );
 }
 

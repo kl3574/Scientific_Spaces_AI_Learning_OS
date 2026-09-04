@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-026 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-026 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; P3-027 local acceptance and independent reviews pass with implementation exact-SHA CI pending; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -765,6 +765,22 @@ on attempt 2. The first attempt observed one transient existing
 Graph-to-Reader loading timeout after a successful Article API response; it did
 not recur in 10 complete single-core local runs or the unchanged-SHA CI rerun.
 
+### P3-027 - Tutor Request Ownership and Accessible Feedback
+
+Status: **LOCAL ACCEPTANCE PASS / IMPLEMENTATION EXACT-SHA CI PENDING**.
+
+P3-027 binds Tutor Answer, Quiz, error, and activity outcomes to the exact
+submitted mode, prompt, Article, and Graph context. It adds truthful live/busy
+status, deterministic result and Quiz focus, coherent pressed-button mode
+semantics, and responsive containment without changing Backend, published
+APIs, Tutor persistence, Providers, or data contracts. Local evidence passes
+600 Backend tests with 4 skipped, 121 focused Frontend tests, the production
+build, three Product E2E runs with 140 checks each, four required viewports,
+security/artifact gates, and two independent final reviews. The canonical task
+is `docs/tasks/P3-027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md`;
+evidence is in
+`docs/P3_027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_REPORT.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -797,10 +813,9 @@ not recur in 10 complete single-core local runs or the unchanged-SHA CI rerun.
 
 ## Next Recommended Task
 
-First verify the P3-026 docs-only closure commit through exact-SHA main CI.
-Then run a bounded product and GUI audit to select the next convergence task.
-The audit must compare the recorded transient Graph-to-Reader transition with
-the Tutor result/Quiz accessibility debt rather than folding either into
-P3-026. No v1.2 candidate is currently staged. Tag, Release, attestation, real
-Provider, source access, external search, and private Zotero actions remain
-unauthorized.
+Create and push the P3-027 implementation commit, verify exact-SHA main CI,
+then create the docs-only closure commit and verify that exact SHA. After
+closure, reassess the bounded Graph-to-Reader/Application Shell transition
+stress debt and remaining product convergence evidence. No v1.2 candidate is
+currently staged. Tag, Release, attestation, real Provider, source access,
+external search, and private Zotero actions remain unauthorized.

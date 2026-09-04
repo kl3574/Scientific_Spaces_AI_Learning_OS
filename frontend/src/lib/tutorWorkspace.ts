@@ -13,6 +13,13 @@ export type TutorArticleSelection = {
 
 export type TutorQuizAnswers = Record<number, string>;
 
+export type TutorRequestContext = {
+  mode: TutorMode;
+  question: string;
+  articleId: string | null;
+  nodeId: string;
+};
+
 export type TutorQuizScore = {
   answered: number;
   correct: number;
@@ -27,6 +34,35 @@ export type TutorActivityItem = {
   prompt: string;
   updatedAt: string;
 };
+
+export function createTutorRequestContext({
+  mode,
+  question,
+  articleId,
+  nodeId,
+}: Readonly<{
+  mode: TutorMode;
+  question: string;
+  articleId: string | null | undefined;
+  nodeId: string;
+}>): TutorRequestContext {
+  return {
+    mode,
+    question,
+    articleId: articleId || null,
+    nodeId: nodeId.trim(),
+  };
+}
+
+export function isTutorRequestContextCurrent(
+  submitted: TutorRequestContext,
+  current: TutorRequestContext,
+): boolean {
+  return submitted.mode === current.mode
+    && submitted.question === current.question
+    && submitted.articleId === current.articleId
+    && submitted.nodeId === current.nodeId;
+}
 
 const MODE_LABELS: Record<TutorMode, string> = {
   explain: "Explain",

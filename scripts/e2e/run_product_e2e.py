@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 import re
+import signal
 import subprocess
 import sys
 import tempfile
@@ -14,7 +15,7 @@ import time
 import traceback
 from typing import Iterator
 from urllib.error import URLError
-from urllib.parse import unquote, urlparse
+from urllib.parse import unquote, urlencode, urlparse
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -259,6 +260,7 @@ def product_servers(
                 env=environment,
                 stdout=backend_handle,
                 stderr=subprocess.STDOUT,
+                start_new_session=True,
                 text=True,
             )
             _wait_for_url(f"{API_URL}/health", backend_process, backend_log)
@@ -280,6 +282,7 @@ def product_servers(
                 env=environment,
                 stdout=frontend_handle,
                 stderr=subprocess.STDOUT,
+                start_new_session=True,
                 text=True,
             )
             _wait_for_url(FRONTEND_URL, frontend_process, frontend_log, timeout=60)
@@ -1638,6 +1641,130 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             "refusal_reason": None,
         },
     }
+    tutor_workflow_query = urlencode(
+        {
+            "article_id": CRB_ARTICLE_ID,
+            "article_title": CRB_TITLE,
+            "return_to": f"/articles/{CRB_ARTICLE_ID}",
+        }
+    )
+    stale_markdown_response = {
+        **markdown_response,
+        "answer": "P3-027 stale Article response must never be displayed.",
+    }
+    stale_activity_posts: list[str] = []
+
+    def track_stale_activity(request) -> None:
+        if request.method == "POST" and urlparse(request.url).path == "/tutor/sessions":
+            stale_activity_posts.append(request.url)
+
+    page.on("request", track_stale_activity)
+    _install_fetch_response_gate(page, "/tutor/ask")
+    page.route(
+        re.compile(r".*/tutor/ask$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(stale_markdown_response, ensure_ascii=False),
+        ),
+        times=1,
+    )
+    page.get_by_label("Question").fill("Stale Article request that must not publish")
+    page.get_by_role("button", name="Ask tutor", exact=True).click()
+    expect(page.get_by_test_id("guided-tutor-workspace")).to_have_attribute("aria-busy", "true")
+    expect(page.get_by_test_id("tutor-request-status")).to_have_text(
+        "Tutor request in progress."
+    )
+    page.get_by_label("Search articles").fill("Attention")
+    page.get_by_role("button", name="Search library", exact=True).click()
+    page.get_by_role("button", name=f"Select {ATTENTION_TITLE}", exact=True).click()
+    expect(page.get_by_test_id("tutor-selected-article")).to_contain_text(ATTENTION_TITLE)
+    expect(page.get_by_test_id("guided-tutor-workspace")).to_have_attribute("aria-busy", "false")
+    _release_fetch_response_gate(page)
+    _require(
+        page.get_by_test_id("tutor-result").count() == 0
+        and page.get_by_text("P3-027 stale Article response must never be displayed.").count() == 0,
+        "stale Tutor response published after the selected Article changed",
+    )
+    _require(
+        not stale_activity_posts,
+        f"stale Tutor response wrote recent activity: {stale_activity_posts}",
+    )
+    _restore_fetch_response_gate(page)
+    page.get_by_label("Search articles").fill("CRB")
+    page.get_by_role("button", name="Search library", exact=True).click()
+    page.get_by_role("button", name=f"Select {CRB_TITLE}", exact=True).click()
+    page.get_by_label("Question").fill("什么是 CRB 和 Fisher 信息下界？")
+    checks["tutor_article_request_and_activity_ownership"] = True
+
+    page.get_by_text("Advanced context", exact=True).click()
+    page.get_by_label("Graph concept key").fill("concept:crb")
+    stale_failure_console_start = len(console_errors)
+    _install_fetch_response_gate(page, "/tutor/ask")
+    page.route(
+        re.compile(r".*/tutor/ask$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional stale Tutor failure"}',
+        ),
+        times=1,
+    )
+    page.get_by_role("button", name="Ask tutor", exact=True).click()
+    page.get_by_label("Question").fill("Updated prompt after stale failure submission")
+    page.get_by_label("Graph concept key").fill("concept:attention")
+    _release_fetch_response_gate(page)
+    _require(
+        page.get_by_test_id("tutor-error").count() == 0,
+        "stale Tutor failure published after prompt and Graph context changed",
+    )
+    expect(page.get_by_test_id("guided-tutor-workspace")).to_have_attribute("aria-busy", "false")
+    stale_failure_console = console_errors[stale_failure_console_start:]
+    _require(
+        len(stale_failure_console) == 1 and "status of 503" in stale_failure_console[0],
+        f"unexpected stale Tutor failure console output: {stale_failure_console}",
+    )
+    del console_errors[stale_failure_console_start:]
+    _restore_fetch_response_gate(page)
+    page.get_by_label("Graph concept key").fill("")
+
+    stale_quiz_response = {
+        "questions": [
+            {
+                "question": "P3-027 stale Quiz must never be displayed",
+                "options": ["Stale", "Current"],
+                "correct_answer": "Current",
+                "explanation": "This delayed Quiz belongs to an invalidated mode.",
+                "sources": [],
+            }
+        ],
+        "total": 1,
+    }
+    page.get_by_role("button", name="Quiz", exact=True).click()
+    page.get_by_label("Prompt").fill("stale quiz")
+    _install_fetch_response_gate(page, "/tutor/quiz")
+    page.route(
+        re.compile(r".*/tutor/quiz$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(stale_quiz_response),
+        ),
+        times=1,
+    )
+    page.get_by_role("button", name="Generate quiz", exact=True).click()
+    page.get_by_role("button", name="Explain", exact=True).click()
+    _release_fetch_response_gate(page)
+    _require(
+        page.get_by_test_id("tutor-quiz-workspace").count() == 0
+        and page.get_by_text("P3-027 stale Quiz must never be displayed").count() == 0,
+        "stale Quiz published after the Tutor mode changed",
+    )
+    expect(page.get_by_test_id("guided-tutor-workspace")).to_have_attribute("aria-busy", "false")
+    _restore_fetch_response_gate(page)
+    page.get_by_label("Question").fill("什么是 CRB 和 Fisher 信息下界？")
+    checks["tutor_prompt_node_failure_and_mode_quiz_ownership"] = True
+
     page.route(
         re.compile(r".*/tutor/ask$"),
         lambda route: route.fulfill(
@@ -1647,9 +1774,22 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         ),
         times=1,
     )
-    page.get_by_label("Question").fill("什么是 CRB 和 Fisher 信息下界？")
+    tutor_follow_up_console_start = len(console_errors)
+    _install_fetch_response_gate(page, "/tutor/sessions", method="POST")
+    page.route(
+        re.compile(r".*/tutor/sessions$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional delayed Tutor activity failure"}',
+        ),
+        times=1,
+    )
     page.get_by_role("button", name="Ask tutor", exact=True).click()
     expect(page.get_by_role("heading", name="Answer", exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("tutor-result")).to_be_focused()
+    expect(page.get_by_test_id("tutor-request-status")).to_have_text("Tutor answer ready.")
+    expect(page.get_by_test_id("guided-tutor-workspace")).to_have_attribute("aria-busy", "false")
     expect(page.get_by_test_id("tutor-answer").locator("strong")).to_contain_text("Fisher information")
     expect(page.get_by_test_id("tutor-answer").locator(".katex").first).to_be_visible()
     expect(page.get_by_test_id("tutor-answer").locator("code")).to_contain_text("fisher_information")
@@ -1663,21 +1803,86 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_label("Question")).to_have_value("How is the lower bound derived?")
     expect(page.get_by_label("Question")).to_be_focused()
     expect(page.get_by_role("heading", name="Answer", exact=True)).to_be_visible()
-    expect(page.get_by_test_id("tutor-activity")).to_contain_text(CRB_TITLE, timeout=30_000)
-    expect(page.get_by_test_id("tutor-activity")).not_to_contain_text(CRB_ARTICLE_ID)
+    _release_fetch_response_gate(page)
+    expect(
+        page.get_by_text(
+            "The answer is ready, but recent activity could not be updated.", exact=True
+        )
+    ).to_be_visible(timeout=30_000)
+    tutor_follow_up_console = console_errors[tutor_follow_up_console_start:]
+    _require(
+        len(tutor_follow_up_console) == 1
+        and "status of 503" in tutor_follow_up_console[0],
+        f"unexpected delayed Tutor activity failure console output: {tutor_follow_up_console}",
+    )
+    del console_errors[tutor_follow_up_console_start:]
+    _restore_fetch_response_gate(page)
     checks["tutor_explain"] = True
     checks["guided_tutor_article_markdown_and_follow_up"] = True
+    checks["tutor_follow_up_preserves_activity_failure"] = True
+    page.get_by_role("button", name="Ask tutor", exact=True).click()
+    expect(page.get_by_test_id("tutor-activity").get_by_role("alert")).to_have_count(0)
+    expect(page.get_by_test_id("tutor-result")).to_be_focused(timeout=30_000)
+    checks["tutor_follow_up_submission_clears_previous_activity_failure"] = True
 
     page.get_by_role("button", name="Derive", exact=True).click()
+    page.get_by_label("Question").fill("Activity completion that will become stale")
+    stale_activity_console_start = len(console_errors)
+    _install_fetch_response_gate(page, "/tutor/sessions", method="POST")
+    page.route(
+        re.compile(r".*/tutor/sessions$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional stale Tutor activity failure"}',
+        ),
+        times=1,
+    )
+    page.get_by_role("button", name="Ask tutor", exact=True).click()
+    expect(page.get_by_test_id("tutor-result")).to_be_focused(timeout=30_000)
+    page.get_by_label("Question").fill("Superseding ordinary prompt edit")
+    _release_fetch_response_gate(page)
+    _require(
+        page.get_by_text(
+            "The answer is ready, but recent activity could not be updated.", exact=True
+        ).count()
+        == 0,
+        "superseded Tutor activity failure published after an ordinary prompt edit",
+    )
+    stale_activity_console = console_errors[stale_activity_console_start:]
+    _require(
+        len(stale_activity_console) == 1
+        and "status of 503" in stale_activity_console[0],
+        f"unexpected stale Tutor activity console output: {stale_activity_console}",
+    )
+    del console_errors[stale_activity_console_start:]
+    _restore_fetch_response_gate(page)
+    checks["tutor_superseded_activity_completion_is_silent"] = True
+
     page.get_by_label("Question").fill("根据文章公式推导 CRB 下界")
     page.get_by_role("button", name="Ask tutor", exact=True).click()
     expect(page.get_by_role("heading", name="Answer", exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("tutor-activity")).to_contain_text(CRB_TITLE, timeout=30_000)
+    expect(page.get_by_test_id("tutor-activity")).not_to_contain_text(CRB_ARTICLE_ID)
     checks["tutor_derive"] = True
 
     page.get_by_role("button", name="Quiz", exact=True).click()
     page.get_by_label("Prompt").fill("CRB")
     page.get_by_role("button", name="Generate quiz", exact=True).click()
     expect(page.get_by_role("heading", name="Quiz", exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("tutor-quiz-workspace")).to_be_focused()
+    expect(page.get_by_test_id("tutor-request-status")).to_contain_text("Quiz ready with")
+    tutor_mode_group = page.get_by_test_id("tutor-mode-group")
+    expect(tutor_mode_group.locator("legend")).to_have_text("Study mode")
+    _require(
+        tutor_mode_group.locator('button[aria-pressed]').count() == 5,
+        "Tutor mode group does not expose five pressed buttons",
+    )
+    _require(
+        tutor_mode_group.locator('button[aria-pressed="true"]').count() == 1,
+        "Tutor mode group does not expose exactly one active mode",
+    )
+    _require(page.get_by_role("tablist").count() == 0, "Tutor mode exposes a partial tab pattern")
     _require(page.get_by_text(re.compile(r"^Correct answer:")).count() == 0, "Quiz disclosed answers before submission")
     quiz_articles = page.get_by_test_id("tutor-quiz-workspace").locator("article")
     _require(quiz_articles.count() >= 2, "Quiz did not return enough grounded questions for choices")
@@ -1685,12 +1890,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         quiz_articles.nth(quiz_index).locator('input[type="radio"]').first.check()
     page.get_by_role("button", name="Check answers", exact=True).click()
     expect(page.get_by_test_id("tutor-quiz-score")).to_be_visible()
+    expect(page.get_by_test_id("tutor-quiz-score")).to_be_focused()
+    expect(page.get_by_test_id("tutor-quiz-score")).to_have_attribute("role", "status")
+    expect(page.get_by_test_id("tutor-quiz-score")).to_have_attribute("aria-live", "polite")
     expect(page.get_by_text(re.compile(r"^Correct answer:")).first).to_be_visible()
     expect(page.get_by_role("heading", name="题目来源", exact=True).first).to_be_visible()
     page.get_by_role("button", name="Try again", exact=True).click()
     _require(page.get_by_text(re.compile(r"^Correct answer:")).count() == 0, "Quiz retry retained answer disclosure")
+    expect(quiz_articles.first.locator('input[type="radio"]').first).to_be_focused()
     checks["tutor_quiz"] = True
     checks["tutor_quiz_hidden_review_and_score"] = True
+    checks["tutor_accessible_result_and_quiz_focus"] = True
 
     page.get_by_role("button", name="Research", exact=True).click()
     page.get_by_label("Question").fill("基于本地资料给出 CRB 研究方向")
@@ -1713,8 +1923,201 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["tutor_research"] = True
     checks["tutor_session_failure_isolation"] = True
 
+    page.get_by_role("button", name="Q&A", exact=True).click()
+    expect(page.get_by_test_id("tutor-activity").get_by_role("alert")).to_have_count(0)
+    checks["tutor_context_change_clears_previous_activity_failure"] = True
+    page.get_by_label("Question").fill("Trigger one controlled Tutor failure")
+    tutor_error_console_start = len(console_errors)
+    page.route(
+        re.compile(r".*/tutor/ask$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional Tutor request failure"}',
+        ),
+        times=1,
+    )
+    page.get_by_role("button", name="Ask tutor", exact=True).click()
+    expect(page.get_by_test_id("tutor-error")).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("tutor-error")).to_be_focused()
+    expect(page.get_by_test_id("guided-tutor-workspace")).to_have_attribute("aria-busy", "false")
+    page.route(
+        re.compile(r".*/tutor/ask$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps({**markdown_response, "mode": "qa"}, ensure_ascii=False),
+        ),
+        times=1,
+    )
+    page.get_by_role("button", name="Retry request", exact=True).press("Enter")
+    expect(page.get_by_test_id("tutor-result")).to_be_focused(timeout=30_000)
+    tutor_error_console = console_errors[tutor_error_console_start:]
+    _require(
+        len(tutor_error_console) == 1 and "status of 503" in tutor_error_console[0],
+        f"unexpected controlled Tutor failure console output: {tutor_error_console}",
+    )
+    del console_errors[tutor_error_console_start:]
+    checks["tutor_accessible_error_and_retry_focus"] = True
+
     _require(not page_errors, f"primary workflow emitted page errors: {page_errors}")
     page.close()
+
+    activity_order_page = _new_observed_page(
+        context, console_errors, page_errors, label="tutor-activity-read-order"
+    )
+    activity_order_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    _wait_for_application_shell(activity_order_page)
+    _install_fetch_response_gate(activity_order_page, "/tutor/sessions", method="GET")
+    activity_order_page.get_by_role("link", name="Tutor", exact=True).click()
+    expect(
+        activity_order_page.get_by_role(
+            "heading", name="AI Research Tutor", exact=True
+        )
+    ).to_be_visible(timeout=30_000)
+    _wait_for_fetch_response_gate_pending(activity_order_page)
+    activity_order_console_start = len(console_errors)
+    activity_order_page.route(
+        re.compile(r".*/tutor/sessions$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional activity ordering failure"}',
+        ),
+        times=1,
+    )
+    activity_order_page.get_by_label("Question").fill(
+        "Keep the newer activity failure after an older read completes"
+    )
+    activity_order_page.get_by_role("button", name="Ask tutor", exact=True).click()
+    expect(
+        activity_order_page.get_by_text(
+            "The answer is ready, but recent activity could not be updated.", exact=True
+        )
+    ).to_be_visible(timeout=30_000)
+    _release_fetch_response_gate(activity_order_page)
+    expect(
+        activity_order_page.get_by_text(
+            "The answer is ready, but recent activity could not be updated.", exact=True
+        )
+    ).to_be_visible()
+    activity_order_console = console_errors[activity_order_console_start:]
+    _require(
+        len(activity_order_console) == 1
+        and "status of 503" in activity_order_console[0],
+        f"unexpected Tutor activity ordering console output: {activity_order_console}",
+    )
+    del console_errors[activity_order_console_start:]
+    _restore_fetch_response_gate(activity_order_page)
+    checks["tutor_newer_activity_failure_supersedes_older_read"] = True
+    activity_order_page.close()
+
+    route_context_page = _new_observed_page(
+        context, console_errors, page_errors, label="tutor-route-context-removal"
+    )
+    route_context_page.goto(
+        f"{FRONTEND_URL}/tutor?{tutor_workflow_query}", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(route_context_page)
+    expect(route_context_page.get_by_test_id("tutor-selected-article")).to_contain_text(
+        CRB_TITLE
+    )
+    same_route_activity_posts: list[str] = []
+
+    def track_same_route_activity(request) -> None:
+        if request.method == "POST" and urlparse(request.url).path == "/tutor/sessions":
+            same_route_activity_posts.append(request.url)
+
+    route_context_page.on("request", track_same_route_activity)
+    _install_fetch_response_gate(route_context_page, "/tutor/ask")
+    route_context_page.route(
+        re.compile(r".*/tutor/ask$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    **markdown_response,
+                    "answer": "P3-027 stale same-route response must not publish.",
+                },
+                ensure_ascii=False,
+            ),
+        ),
+        times=1,
+    )
+    route_context_page.get_by_label("Question").fill(
+        "Pending response before same-route context removal"
+    )
+    route_context_page.get_by_role("button", name="Ask tutor", exact=True).click()
+    expect(route_context_page.get_by_test_id("guided-tutor-workspace")).to_have_attribute(
+        "aria-busy", "true"
+    )
+    route_context_page.get_by_role("link", name="Tutor", exact=True).click()
+    expect(route_context_page).to_have_url(f"{FRONTEND_URL}/tutor")
+    expect(route_context_page.get_by_test_id("tutor-selected-article")).to_have_count(0)
+    expect(route_context_page.get_by_label("Question")).to_have_value("")
+    _release_fetch_response_gate(route_context_page)
+    expect(route_context_page.get_by_test_id("tutor-result")).to_have_count(0)
+    expect(route_context_page.get_by_test_id("tutor-error")).to_have_count(0)
+    _require(
+        route_context_page.get_by_text(
+            "P3-027 stale same-route response must not publish.", exact=True
+        ).count()
+        == 0,
+        "same-route context removal published a stale Tutor response",
+    )
+    _require(
+        not same_route_activity_posts,
+        f"same-route context removal wrote stale Tutor activity: {same_route_activity_posts}",
+    )
+    _restore_fetch_response_gate(route_context_page)
+    checks["tutor_route_context_removal"] = True
+    route_context_page.close()
+
+    unmount_page = _new_observed_page(
+        context, console_errors, page_errors, label="tutor-pending-navigation"
+    )
+    pending_navigation_activity: list[str] = []
+
+    def track_pending_navigation_activity(request) -> None:
+        if request.method == "POST" and urlparse(request.url).path == "/tutor/sessions":
+            pending_navigation_activity.append(request.url)
+
+    unmount_page.on("request", track_pending_navigation_activity)
+    unmount_page.goto(
+        f"{FRONTEND_URL}/tutor?{tutor_workflow_query}", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(unmount_page)
+    _install_fetch_response_gate(unmount_page, "/tutor/ask")
+    unmount_page.route(
+        re.compile(r".*/tutor/ask$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    **markdown_response,
+                    "answer": "P3-027 pending navigation response must not persist.",
+                },
+                ensure_ascii=False,
+            ),
+        ),
+        times=1,
+    )
+    unmount_page.get_by_label("Question").fill("Navigate away before this completes")
+    unmount_page.get_by_role("button", name="Ask tutor", exact=True).click()
+    unmount_page.get_by_role("link", name="Articles", exact=True).click()
+    expect(
+        unmount_page.get_by_role("heading", name="Article List", exact=True)
+    ).to_be_visible(timeout=30_000)
+    _release_fetch_response_gate(unmount_page)
+    _require(
+        not pending_navigation_activity,
+        f"unmounted Tutor request persisted activity: {pending_navigation_activity}",
+    )
+    checks["tutor_pending_navigation_has_no_activity"] = True
+    _restore_fetch_response_gate(unmount_page)
+    unmount_page.close()
 
     page = _new_observed_page(context, console_errors, page_errors, label="graph-route-boundary")
     page.goto(FRONTEND_URL, wait_until="domcontentloaded")
@@ -3937,6 +4340,27 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["graph_selected_detail_390px_deep_link"] = True
     deep_link_context.close()
 
+    responsive_tutor_response = {
+        **markdown_response,
+        "answer": (
+            f"{markdown_response['answer']}\n\n"
+            "## Extended grounded explanation\n\n"
+            + "\n\n".join(
+                "This local evidence paragraph keeps the scientific explanation readable on narrow screens "
+                "while preserving cited context, inline notation $I(\\theta)$, and explicit uncertainty."
+                for _ in range(8)
+            )
+        ),
+    }
+    responsive_tutor_body = json.dumps(responsive_tutor_response, ensure_ascii=False)
+    tutor_workflow_query = urlencode(
+        {
+            "article_id": CRB_ARTICLE_ID,
+            "article_title": CRB_TITLE,
+            "return_to": f"/articles/{CRB_ARTICLE_ID}",
+        }
+    )
+
     for viewport_width, viewport_height, viewport_label in (
         (1440, 900, "desktop"),
         (390, 844, "mobile"),
@@ -4184,6 +4608,227 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         )
         checks[f"article_session_capture_{viewport_label}_viewport"] = True
         checks[f"article_session_capture_{viewport_label}_keyboard_feedback"] = True
+
+        completion_viewport_context.route(
+            re.compile(r".*/tutor/ask$"),
+            lambda route: route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=responsive_tutor_body,
+            ),
+            times=1,
+        )
+        completion_viewport_page.goto(
+            f"{FRONTEND_URL}/tutor?{tutor_workflow_query}",
+            wait_until="domcontentloaded",
+        )
+        _wait_for_application_shell(completion_viewport_page)
+        expect(
+            completion_viewport_page.get_by_role(
+                "heading", name="AI Research Tutor", exact=True
+            )
+        ).to_be_visible(timeout=30_000)
+        viewport_question = completion_viewport_page.get_by_label("Question")
+        viewport_question.fill("Explain the CRB evidence for this responsive check")
+        viewport_ask = completion_viewport_page.get_by_role(
+            "button", name="Ask tutor", exact=True
+        )
+        _focus_via_tab(completion_viewport_page, viewport_ask)
+        viewport_ask.press("Enter")
+        viewport_result = completion_viewport_page.get_by_test_id("tutor-result")
+        expect(viewport_result).to_be_focused(timeout=30_000)
+        expect(
+            completion_viewport_page.get_by_test_id("tutor-request-status")
+        ).to_have_text("Tutor answer ready.")
+        _require_visible_focus(
+            viewport_result, f"{viewport_label} Tutor answer result"
+        )
+        result_box = viewport_result.bounding_box()
+        _require(
+            result_box is not None
+            and result_box["x"] >= 0
+            and result_box["x"] + result_box["width"] <= viewport_width
+            and result_box["y"] < viewport_height
+            and result_box["y"] + result_box["height"] > 0,
+            f"{viewport_label} Tutor answer is clipped or off-screen: {result_box}",
+        )
+        _require(
+            _document_width(completion_viewport_page) <= viewport_width,
+            f"{viewport_label} Tutor answer caused horizontal overflow",
+        )
+
+        viewport_quiz_mode = completion_viewport_page.get_by_role(
+            "button", name="Quiz", exact=True
+        )
+        _focus_via_tab(completion_viewport_page, viewport_quiz_mode)
+        viewport_quiz_mode.press("Enter")
+        completion_viewport_page.get_by_label("Prompt").fill("CRB")
+        viewport_generate = completion_viewport_page.get_by_role(
+            "button", name="Generate quiz", exact=True
+        )
+        _focus_via_tab(completion_viewport_page, viewport_generate)
+        viewport_generate.press("Enter")
+        viewport_quiz = completion_viewport_page.get_by_test_id(
+            "tutor-quiz-workspace"
+        )
+        expect(viewport_quiz).to_be_focused(timeout=30_000)
+        viewport_quiz_articles = viewport_quiz.locator("article")
+        _require(
+            viewport_quiz_articles.count() >= 2,
+            f"{viewport_label} Tutor Quiz returned too few questions",
+        )
+        for quiz_index in range(viewport_quiz_articles.count()):
+            viewport_answer = viewport_quiz_articles.nth(quiz_index).locator(
+                'input[type="radio"]'
+            ).first
+            _focus_via_tab(completion_viewport_page, viewport_answer)
+            viewport_answer.press("Space")
+        viewport_check = completion_viewport_page.get_by_role(
+            "button", name="Check answers", exact=True
+        )
+        _focus_via_tab(completion_viewport_page, viewport_check)
+        viewport_check.press("Enter")
+        viewport_score = completion_viewport_page.get_by_test_id(
+            "tutor-quiz-score"
+        )
+        expect(viewport_score).to_be_focused()
+        _require_visible_focus(
+            viewport_score, f"{viewport_label} Tutor Quiz score"
+        )
+        score_box = viewport_score.bounding_box()
+        _require(
+            score_box is not None
+            and score_box["x"] >= 0
+            and score_box["x"] + score_box["width"] <= viewport_width
+            and score_box["y"] < viewport_height
+            and score_box["y"] + score_box["height"] > 0,
+            f"{viewport_label} Tutor Quiz score is clipped or off-screen: {score_box}",
+        )
+        quiz_document_width = _document_width(completion_viewport_page)
+        quiz_overflowing_elements = completion_viewport_page.evaluate(
+            """
+            (viewportWidth) => Array.from(document.querySelectorAll("body *"))
+              .map((element) => {
+                const rect = element.getBoundingClientRect();
+                return {
+                  tag: element.tagName.toLowerCase(),
+                  testId: element.getAttribute("data-testid"),
+                  className: typeof element.className === "string" ? element.className : "",
+                  left: Math.round(rect.left),
+                  right: Math.round(rect.right),
+                  width: Math.round(rect.width),
+                };
+              })
+              .filter((item) => item.right > viewportWidth + 1 || item.left < -1)
+              .slice(0, 12)
+            """,
+            viewport_width,
+        )
+        _require(
+            quiz_document_width <= viewport_width,
+            f"{viewport_label} Tutor Quiz review caused horizontal overflow to "
+            f"{quiz_document_width}px: {quiz_overflowing_elements}",
+        )
+        viewport_retry = completion_viewport_page.get_by_role(
+            "button", name="Try again", exact=True
+        )
+        _focus_via_tab(completion_viewport_page, viewport_retry)
+        viewport_retry.press("Enter")
+        expect(
+            viewport_quiz_articles.first.locator('input[type="radio"]').first
+        ).to_be_focused()
+
+        viewport_error_console_start = len(console_errors)
+        viewport_explain_mode = completion_viewport_page.get_by_role(
+            "button", name="Explain", exact=True
+        )
+        _focus_via_tab(completion_viewport_page, viewport_explain_mode)
+        viewport_explain_mode.press("Enter")
+        completion_viewport_page.route(
+            re.compile(r".*/tutor/ask$"),
+            lambda route: route.fulfill(
+                status=503,
+                content_type="application/json",
+                body='{"detail":"intentional responsive Tutor failure"}',
+            ),
+            times=1,
+        )
+        viewport_error_submit = completion_viewport_page.get_by_role(
+            "button", name="Ask tutor", exact=True
+        )
+        _focus_via_tab(completion_viewport_page, viewport_error_submit)
+        viewport_error_submit.press("Enter")
+        viewport_error = completion_viewport_page.get_by_test_id("tutor-error")
+        expect(viewport_error).to_be_focused(timeout=30_000)
+        _require_visible_focus(
+            viewport_error, f"{viewport_label} Tutor error feedback"
+        )
+        error_box = viewport_error.bounding_box()
+        _require(
+            error_box is not None
+            and error_box["x"] >= 0
+            and error_box["x"] + error_box["width"] <= viewport_width
+            and error_box["y"] < viewport_height
+            and error_box["y"] + error_box["height"] > 0,
+            f"{viewport_label} Tutor error is clipped or off-screen: {error_box}",
+        )
+        _require(
+            _document_width(completion_viewport_page) <= viewport_width,
+            f"{viewport_label} Tutor error caused horizontal overflow",
+        )
+        viewport_error_console = console_errors[viewport_error_console_start:]
+        _require(
+            len(viewport_error_console) == 1
+            and "status of 503" in viewport_error_console[0],
+            f"unexpected {viewport_label} Tutor error console output: "
+            f"{viewport_error_console}",
+        )
+        del console_errors[viewport_error_console_start:]
+
+        viewport_quiz_mode = completion_viewport_page.get_by_role(
+            "button", name="Quiz", exact=True
+        )
+        _focus_via_tab(completion_viewport_page, viewport_quiz_mode)
+        viewport_quiz_mode.press("Enter")
+        completion_viewport_page.route(
+            re.compile(r".*/tutor/quiz$"),
+            lambda route: route.fulfill(
+                status=200,
+                content_type="application/json",
+                body='{"questions":[],"total":0}',
+            ),
+            times=1,
+        )
+        viewport_empty_submit = completion_viewport_page.get_by_role(
+            "button", name="Generate quiz", exact=True
+        )
+        _focus_via_tab(completion_viewport_page, viewport_empty_submit)
+        viewport_empty_submit.press("Enter")
+        viewport_empty = completion_viewport_page.get_by_test_id(
+            "tutor-empty-result"
+        )
+        expect(viewport_empty).to_be_focused(timeout=30_000)
+        _require_visible_focus(
+            viewport_empty, f"{viewport_label} Tutor empty Quiz feedback"
+        )
+        empty_box = viewport_empty.bounding_box()
+        _require(
+            empty_box is not None
+            and empty_box["x"] >= 0
+            and empty_box["x"] + empty_box["width"] <= viewport_width
+            and empty_box["y"] < viewport_height
+            and empty_box["y"] + empty_box["height"] > 0,
+            f"{viewport_label} Tutor empty Quiz result is clipped or off-screen: "
+            f"{empty_box}",
+        )
+        _require(
+            _document_width(completion_viewport_page) <= viewport_width,
+            f"{viewport_label} Tutor empty Quiz result caused horizontal overflow",
+        )
+        checks[f"tutor_dynamic_{viewport_label}_viewport"] = True
+        checks[f"tutor_keyboard_feedback_{viewport_label}"] = True
+        checks[f"tutor_error_feedback_{viewport_label}"] = True
+        checks[f"tutor_empty_quiz_feedback_{viewport_label}"] = True
         completion_viewport_context.close()
 
     mobile_context = browser.new_context(
@@ -4732,6 +5377,96 @@ def _require_visible_focus(locator, label: str) -> None:
     )
 
 
+def _install_fetch_response_gate(
+    page,
+    endpoint: str,
+    *,
+    method: str | None = None,
+) -> None:
+    page.evaluate(
+        """
+        ({ endpoint, method }) => {
+          if (typeof window.__p3027OriginalFetch === "function") {
+            throw new Error("P3-027 fetch response gate is already installed");
+          }
+          const originalFetch = window.fetch.bind(window);
+          window.__p3027OriginalFetch = originalFetch;
+          window.__p3027FetchGate = {
+            endpoint,
+            pendingCount: 0,
+            completedCount: 0,
+            release: null,
+          };
+          window.fetch = async (...args) => {
+            const response = await originalFetch(...args);
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const requestMethod = String(
+              args[0] instanceof Request ? args[0].method : args[1]?.method ?? "GET"
+            ).toUpperCase();
+            if (target.endsWith(endpoint) && (!method || requestMethod === method)) {
+              const gate = window.__p3027FetchGate;
+              gate.pendingCount += 1;
+              await new Promise((resolve) => {
+                gate.release = resolve;
+              });
+              gate.release = null;
+              gate.completedCount += 1;
+            }
+            return response;
+          };
+        }
+        """,
+        {"endpoint": endpoint, "method": method},
+    )
+
+
+def _wait_for_fetch_response_gate_pending(page) -> None:
+    page.wait_for_function(
+        """
+        () => {
+          const gate = window.__p3027FetchGate;
+          return gate && gate.pendingCount > gate.completedCount
+            && typeof gate.release === "function";
+        }
+        """,
+        timeout=30_000,
+    )
+
+
+def _release_fetch_response_gate(page) -> None:
+    _wait_for_fetch_response_gate_pending(page)
+    expected_count = page.evaluate(
+        """
+        () => {
+          const gate = window.__p3027FetchGate;
+          const release = gate.release;
+          gate.release = null;
+          release();
+          return gate.pendingCount;
+        }
+        """
+    )
+    page.wait_for_function(
+        """expected => window.__p3027FetchGate?.completedCount >= expected""",
+        arg=expected_count,
+        timeout=30_000,
+    )
+
+
+def _restore_fetch_response_gate(page) -> None:
+    page.evaluate(
+        """
+        () => {
+          if (typeof window.__p3027OriginalFetch === "function") {
+            window.fetch = window.__p3027OriginalFetch;
+            delete window.__p3027OriginalFetch;
+            delete window.__p3027FetchGate;
+          }
+        }
+        """
+    )
+
+
 def _unexpected_console_errors(messages: list[str]) -> list[str]:
     expected_statuses = {"404": 1, "503": 8}
     unexpected: list[str] = []
@@ -4811,14 +5546,21 @@ def _wait_for_url(
 
 
 def _stop_process(process: subprocess.Popen[str] | None) -> None:
-    if process is None or process.poll() is not None:
+    if process is None:
         return
-    process.terminate()
+    try:
+        os.killpg(process.pid, signal.SIGTERM)
+    except ProcessLookupError:
+        return
     try:
         process.wait(timeout=10)
     except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait(timeout=5)
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        if process.poll() is None:
+            process.wait(timeout=5)
 
 
 def _bounded_log_summary(path: Path, *, max_lines: int = 30) -> list[str]:

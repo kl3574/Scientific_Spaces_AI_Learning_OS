@@ -19,10 +19,12 @@ import {
 } from "../src/lib/tutorPresentation";
 import {
   buildTutorActivity,
+  createTutorRequestContext,
   createTutorArticleSelection,
   getSafeTutorMarkdownHref,
   getTutorModeLabel,
   getTutorQuizChoices,
+  isTutorRequestContextCurrent,
   scoreTutorQuiz,
 } from "../src/lib/tutorWorkspace";
 import { createTutorSession } from "../src/lib/tutor";
@@ -88,6 +90,57 @@ function quizFactory(answer: string, overrides: Partial<QuizQuestion> = {}): Qui
     ...overrides,
   };
 }
+
+test("Tutor request ownership binds mode, prompt, Article, and normalized Graph context", () => {
+  const submitted = createTutorRequestContext({
+    mode: "explain",
+    question: "Explain CRB",
+    articleId: "crb-formula",
+    nodeId: "  concept:crb  ",
+  });
+
+  assert.deepEqual(submitted, {
+    mode: "explain",
+    question: "Explain CRB",
+    articleId: "crb-formula",
+    nodeId: "concept:crb",
+  });
+  assert.equal(
+    isTutorRequestContextCurrent(
+      submitted,
+      createTutorRequestContext({
+        mode: "explain",
+        question: "Explain CRB",
+        articleId: "crb-formula",
+        nodeId: "concept:crb",
+      }),
+    ),
+    true,
+  );
+});
+
+test("Tutor request ownership rejects every stale visible-context dimension", () => {
+  const submitted = createTutorRequestContext({
+    mode: "explain",
+    question: "Explain CRB",
+    articleId: "crb-formula",
+    nodeId: "concept:crb",
+  });
+  const changes = [
+    { mode: "derive" as const },
+    { question: "Derive CRB" },
+    { articleId: "attention-article" },
+    { nodeId: "concept:attention" },
+  ];
+
+  for (const change of changes) {
+    assert.equal(
+      isTutorRequestContextCurrent(submitted, { ...submitted, ...change }),
+      false,
+      JSON.stringify(change),
+    );
+  }
+});
 
 test("Tutor evidence scope never claims a selected Article when none exists", () => {
   assert.equal(
