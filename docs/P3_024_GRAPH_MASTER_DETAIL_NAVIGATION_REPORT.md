@@ -1,6 +1,6 @@
 # P3-024 Graph Master-Detail Navigation and Focus Continuity Report
 
-Status: **LOCAL VALIDATION PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 ## 1. Scope And Boundaries
 
@@ -228,9 +228,17 @@ completed with Product E2E failure; Backend, Frontend, workflow policy,
 dependency audit, secret audit, and SBOM validation passed. Docker and release
 evidence were skipped as expected for an ordinary `main` push.
 
-Hydration repair commit: pending.
+Hydration repair commit:
+`690573eebccc08dc7a73dd7ef4f17fa1eebdd75e`.
 
-Hydration repair exact-SHA main CI: pending.
+Hydration repair exact-SHA main CI:
+`https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33878201626`.
+
+The repair run completed successfully for the exact repair SHA. Backend pytest,
+Frontend build, three-run Product E2E, workflow and suppression policy,
+dependency audit, secret audit, and SBOM validation all passed. Docker compose
+smoke and release evidence were skipped as designed for an ordinary `main`
+push. Uploaded artifacts: 0.
 
 Required CI evidence:
 
@@ -246,7 +254,8 @@ Required CI evidence:
 
 ## 12. Closure State
 
-All local P3-024 acceptance gates pass. Closure remains pending until the
-implementation commit and a separate docs-only closure commit each pass their
-own exact-SHA main CI. No v1.2 candidate is assigned. Focused Session
-Completion and Guided Advance remains an unapproved next-task candidate.
+P3-024 is PASS / CLOSED. Its implementation and bounded hydration repair pass
+local acceptance and exact-SHA main CI. This docs-only closure commit requires
+its own exact-SHA main CI before final reporting. No v1.2 candidate is assigned.
+P3-025 Focused Session Completion and Guided Advance is staged as ALIGNMENT
+REQUIRED / NOT GRANTED; no P3-025 implementation is part of this closure.

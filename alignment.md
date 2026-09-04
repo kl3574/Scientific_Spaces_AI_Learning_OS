@@ -3,11 +3,12 @@
 Canonical task:
 `docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`
 
-Status: **LOCAL VALIDATION PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 ORDINARY FRONTEND / TEST / DOCUMENTATION WORK, LOCAL READ-ONLY ARTICLE AND
 GRAPH VALIDATION, TEMPORARY ISOLATED FAKE-PROVIDER RUNTIME, LOCAL COMMITS,
-NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **GRANTED FOR P3-024**
+NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED AFTER
+THE DOCS-ONLY CLOSURE COMMIT**
 
 BACKEND / FROZEN M1 / SOURCE RECORD / ARTICLE RECORD / DERIVED ASSET /
 DEPENDENCY / LOCKFILE / WORKFLOW / PUBLISHED API CONTRACT MODIFICATION:
@@ -161,3 +162,34 @@ semantics.
   in-scope deterministic repair.
 - A candidate, tag, Release, attestation, force push, or history rewrite becomes
   necessary.
+
+## Completion Evidence
+
+- initial implementation commit:
+  `86a63bd3c0641e2d3c0e8128a2bd61783fd3ff04`
+- initial exact-SHA CI run
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33851459994`
+  exposed intermittent production React hydration error 418 in Product E2E
+- bounded hydration repair commit:
+  `690573eebccc08dc7a73dd7ef4f17fa1eebdd75e`
+- repair exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33878201626`
+- Backend: 600 passed / 4 skipped
+- focused Frontend: 101 passed; production build: PASS
+- Product E2E: 10/10 local runs, 73 checks each, zero external requests and
+  zero unexpected console/page errors
+- hard-reload, responsive, performance, workflow, dependency, secret, SBOM,
+  artifact, and protected-path gates: PASS
+- final independent implementation reviews: 2 PASS; hydration repair review:
+  PASS
+- evidence report: `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md`
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
+- candidate, tag, Release, attestation, source, private Zotero, and real
+  Provider actions: not performed
+
+## Next Task Staging
+
+`docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md` is staged
+as **ALIGNMENT REQUIRED / NOT GRANTED**. This closure grants no P3-025
+implementation, runtime access, commit, push, CI, external, or release action.

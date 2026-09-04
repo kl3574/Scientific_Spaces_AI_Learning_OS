@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-024 LOCAL VALIDATION PASS; IMPLEMENTATION CI PENDING`
+- Status: `P3-024 PASS / CLOSED; P3-025 ALIGNMENT REQUIRED / NOT GRANTED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-024 local validation PASS; implementation exact-SHA CI pending`
-- Current task: `P3-024 Graph Master-Detail Navigation and Focus Continuity`
+- Latest gate: `P3-024 hydration repair exact-SHA main CI PASS`
+- Current task: `No active implementation; P3-025 staged for alignment`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -38,8 +38,9 @@ P3-020 saved learning evidence: `docs/P3_020_SAVED_LEARNING_LIBRARY_REPORT.md` (
 P3-021 focused study session evidence: `docs/P3_021_FOCUSED_STUDY_SESSION_REPORT.md` (PASS / CLOSED).
 P3-022 session-aware Dashboard evidence: `docs/P3_022_IMPLEMENTATION_REPORT.md` (PASS / CLOSED).
 P3-023 concept study set evidence: `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md` (PASS / CLOSED).
-P3-024 Graph workspace evidence: `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md` (local validation PASS; implementation CI pending).
-P3-024 canonical task: `docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`.
+P3-024 Graph workspace evidence: `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md` (PASS / CLOSED).
+P3-024 canonical task: `docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md` (PASS / CLOSED).
+P3-025 canonical task: `docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md` (ALIGNMENT REQUIRED / NOT GRANTED).
 
 v1.2 planning specifications:
 
@@ -180,9 +181,10 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `P3-024 Graph Master-Detail Navigation and Focus Continuity`
-- Status: `LOCAL VALIDATION PASS / IMPLEMENTATION CI PENDING; two independent final implementation reviews PASS`
-- Last closed task: `docs/tasks/P3-023_CONCEPT_STUDY_SET_AND_LEARNING_LAUNCH.md`
+- Active task: `None`
+- Staged task: `P3-025 Focused Session Completion and Guided Advance`
+- Status: `P3-025 ALIGNMENT REQUIRED / NOT GRANTED`
+- Last closed task: `docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`

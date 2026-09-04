@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-023 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-024 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; P3-025 is ALIGNMENT REQUIRED / NOT GRANTED; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -704,7 +704,7 @@ Evidence is in `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md`.
 
 ### P3-024 - Graph Master-Detail Navigation and Focus Continuity
 
-Status: **LOCAL VALIDATION PASS / IMPLEMENTATION CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-024 addresses a verified Graph workspace defect: on narrow layouts the
 selected-node inspector and bounded context follow the complete 20-node result
@@ -716,16 +716,32 @@ published APIs, dependencies, or learning semantics. Two independent reviews
 passed the revised scope. The canonical task is
 `docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`.
 
-Local evidence passed 600 Backend tests with 4 skipped, 97 focused Frontend
-tests, the production build, and three production Product E2E runs with 73
+Local evidence passed 600 Backend tests with 4 skipped, 101 focused Frontend
+tests, the production build, and ten production Product E2E runs with 73
 checks each. Browser coverage includes canonical selection history,
 Back/Forward and reload, focus restoration, Knowledge Context continuity,
 direct detail reachability at 390 x 844, 320 CSS px, and 720 x 450, and zero
 external requests or unexpected console/page errors. Read-only validation
 kept the 1,314-Article and 53,046-node / 82,584-edge Graph stores unchanged.
-Two independent final reviews and all local security, artifact, and protected
-path gates passed. Exact-SHA implementation and closure CI remain pending.
+Two independent final reviews, one focused hydration repair review, hard-reload
+stress, and all local security, artifact, and protected-path gates passed. The
+initial implementation CI exposed intermittent React hydration error 418; the
+bounded repair commit `690573eebccc08dc7a73dd7ef4f17fa1eebdd75e` passed
+exact-SHA main CI run
+[`33878201626`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33878201626).
 Evidence is in `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md`.
+
+### P3-025 - Focused Session Completion and Guided Advance
+
+Status: **ALIGNMENT REQUIRED / NOT GRANTED**.
+
+P3-025 is staged only as the next task candidate. Its completion semantics,
+guided-advance policy, persistence ownership, cross-workspace continuity,
+accessibility requirements, protected paths, and verification contract must be
+aligned and independently reviewed before implementation. The staging file is
+`docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md`; it grants
+no implementation, runtime access, commit, push, CI, external, candidate, tag,
+or Release action.
 
 ## Release Criteria
 
@@ -759,8 +775,7 @@ Evidence is in `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md`.
 
 ## Next Recommended Task
 
-Complete P3-024 and its exact-SHA CI closure. Focused Session Completion and
-Guided Advance is retained as the next candidate, but is not authorized or
-combined with P3-024. No v1.2 candidate is assigned. Tag, Release, attestation,
-real Provider, source access, external search, and private Zotero actions remain
-unauthorized.
+Align and independently review P3-025 Focused Session Completion and Guided
+Advance. No P3-025 implementation is granted by staging, and no v1.2 candidate
+is assigned. Tag, Release, attestation, real Provider, source access, external
+search, and private Zotero actions remain unauthorized.
