@@ -2,7 +2,7 @@
 
 ## Status
 
-LOCAL GATES PASS / EXACT-SHA CI PENDING
+PASS / CLOSED
 
 ## Objective
 
@@ -98,4 +98,11 @@ All prohibited scope above remains not granted. No v1.2 candidate is assigned.
 - security, artifact, and protected-path gates: PASS
 - independent final implementation reviews: 2 PASS
 - report: `docs/P3_025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE_REPORT.md`
-- implementation commit and exact-SHA main CI: pending
+- implementation commit:
+  `16d7d50759358c217dc5b0546256c967c6be703b`
+- implementation exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33893619547`
+- required CI jobs: PASS; normal-main Docker and release evidence skipped as
+  designed; uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting

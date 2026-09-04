@@ -3,11 +3,11 @@
 Canonical task:
 `docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md`
 
-Status: **LOCAL GATES PASS / EXACT-SHA CI PENDING**
+Status: **PASS / CLOSED**
 
 FRONTEND, FOCUSED TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION, ISOLATED
 LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE PUSH TO `main`, AND
-EXACT-SHA CI READBACK: **GRANTED**
+EXACT-SHA CI READBACK: **CONSUMED / CLOSED AFTER THE DOCS-ONLY CLOSURE COMMIT**
 
 BACKEND, FROZEN M1, SOURCE OR ARTICLE RECORDS, DERIVED ASSETS, DEPENDENCIES,
 LOCKFILES, WORKFLOWS, PUBLISHED API CONTRACTS, CANDIDATE, TAG, RELEASE, AND
@@ -199,6 +199,13 @@ queue item is retained for review or manual removal.
 - independent final implementation reviews: 2 PASS
 - evidence report:
   `docs/P3_025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE_REPORT.md`
-- implementation commit and exact-SHA main CI: pending
+- implementation commit:
+  `16d7d50759358c217dc5b0546256c967c6be703b`
+- implementation exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33893619547`
+- required implementation CI jobs: PASS; normal-main Docker and release
+  evidence skipped as designed; uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
 - candidate, tag, Release, attestation, source, private Zotero, and real
   Provider actions: not performed

@@ -1,6 +1,6 @@
 # P3-025 Focused Session Completion and Guided Advance Report
 
-Status: **LOCAL GATES PASS / EXACT-SHA MAIN CI PENDING**
+Status: **PASS / CLOSED**
 
 ## 1. Scope And Boundaries
 
@@ -153,14 +153,21 @@ announcement path, and real keyboard focus order.
 
 ## 10. Exact-SHA Main CI
 
-The implementation commit and its exact-SHA main CI run are pending. Required
-CI evidence is Backend pytest, Frontend build, three-run Product E2E, workflow
-and suppression policy, dependency audit, secret audit, and SBOM validation.
-Docker compose smoke and release evidence are expected to skip on a normal
-`main` push. Uploaded artifacts must remain zero.
+Implementation commit:
+`16d7d50759358c217dc5b0546256c967c6be703b`.
+
+Exact-SHA main CI:
+`https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33893619547`.
+
+The run completed successfully for the exact implementation SHA. Backend
+pytest, Frontend build, three-run Product E2E, workflow and suppression policy,
+dependency audit, secret audit, and SBOM validation all passed. Docker compose
+smoke and release evidence skipped as designed for an ordinary `main` push.
+Uploaded artifacts: 0.
 
 ## 11. Current Decision
 
-All local implementation gates pass. P3-025 is not closed until the exact
-implementation SHA passes main CI and a separate docs-only closure commit also
-passes exact-SHA main CI. No v1.2 candidate is assigned.
+P3-025 is PASS / CLOSED. Its implementation passed all local gates, two
+independent reviews, and exact-SHA main CI. This docs-only closure commit must
+pass its own exact-SHA main CI before final reporting. No v1.2 candidate is
+assigned.

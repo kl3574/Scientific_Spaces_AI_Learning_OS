@@ -14,7 +14,7 @@ Current milestone:
 P3-025 Focused Session Completion and Guided Advance
 
 Status:
-LOCAL GATES PASS / EXACT-SHA CI PENDING
+PASS / CLOSED
 
 ## Historical Notes
 

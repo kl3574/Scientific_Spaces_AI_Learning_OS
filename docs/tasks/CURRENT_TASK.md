@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-`docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md`
+None
 
 ## Staged Task
 
@@ -10,51 +10,49 @@ None
 
 ## Last Closed Task
 
-`docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`
+`docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md`
 
 ## Status
 
-- P3-024: PASS / CLOSED
-- P3-025: LOCAL GATES PASS / EXACT-SHA CI PENDING
+- P3-025: PASS / CLOSED
 
 ## Authorization
 
 - P3-024 Frontend, tests, governance documentation, local read-only Article and
   Graph validation, isolated fake-provider runtime, local commits, non-force
-  push, and exact-SHA CI authorization: CONSUMED / CLOSED after this docs-only
-  closure commit
+  push, and exact-SHA CI authorization: CONSUMED / CLOSED
 - P3-025 Frontend implementation, focused tests, isolated fake-runtime
-  validation, local commit, non-force push, and exact-SHA CI execution: GRANTED
+  validation, local commit, non-force push, and exact-SHA CI execution:
+  CONSUMED / CLOSED after this docs-only closure commit
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
   candidate, tag, Release, and attestation: NOT GRANTED
 
-## P3-024 Closure Evidence
+## P3-025 Closure Evidence
 
 - Backend: 600 passed / 4 skipped
-- focused Frontend: 101 passed
+- focused Frontend: 108 passed
 - production build: PASS, 11 routes
-- Product E2E: 10/10 local runs, 73 checks each; external requests and
+- Product E2E: 3/3 local runs, 92 checks each; external requests and
   unexpected console/page errors: 0
-- hard-reload stress: Graph 500/500, no-cache Graph 200/200, responsive Graph
-  100/100 at each required viewport, and Articles 200/200
-- final implementation reviews: 2 PASS; hydration repair review: PASS
+- completion, timer reconciliation, stale-state, cancelled-advance, terminal,
+  keyboard, and four required viewport cases: PASS
+- final implementation reviews: 2 PASS
 - workflow, dependency, secret, SBOM, artifact, and protected-path gates: PASS
-- initial implementation commit:
-  `86a63bd3c0641e2d3c0e8128a2bd61783fd3ff04`
-- bounded repair commit:
-  `690573eebccc08dc7a73dd7ef4f17fa1eebdd75e`
-- repair exact-SHA main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33878201626`
-- required repair CI jobs: PASS; normal-main Docker and release evidence
+- implementation commit:
+  `16d7d50759358c217dc5b0546256c967c6be703b`
+- implementation exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33893619547`
+- required implementation CI jobs: PASS; normal-main Docker and release evidence
   skipped as designed; uploaded artifacts: 0
-- evidence report: `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md`
+- evidence report:
+  `docs/P3_025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE_REPORT.md`
 - docs-only closure commit: this commit; exact-SHA main CI required before
   final reporting
 
 ## Next Gate
 
-Commit and push P3-025, verify exact-SHA main CI, then create a separate
-docs-only closure commit and verify its exact SHA. No v1.2 candidate is
-assigned.
+Verify this docs-only closure commit through exact-SHA main CI, then run a
+bounded product and GUI audit to define the next convergence task. No v1.2
+candidate is assigned.
