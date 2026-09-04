@@ -702,6 +702,31 @@ passed exact-SHA main CI run
 [`33834027640`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33834027640).
 Evidence is in `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md`.
 
+### P3-024 - Graph Master-Detail Navigation and Focus Continuity
+
+Status: **LOCAL VALIDATION PASS / IMPLEMENTATION CI PENDING**.
+
+P3-024 addresses a verified Graph workspace defect: on narrow layouts the
+selected-node inspector and bounded context follow the complete 20-node result
+page, while selection, focus, announcements, and the canonical URL can diverge.
+The task adds explicit Explore/Context and mobile Results/Selected modes,
+bounded sticky desktop detail, stable focus restoration, canonical browser
+history, and viewport-level evidence without changing Backend, Graph data,
+published APIs, dependencies, or learning semantics. Two independent reviews
+passed the revised scope. The canonical task is
+`docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`.
+
+Local evidence passed 600 Backend tests with 4 skipped, 97 focused Frontend
+tests, the production build, and three production Product E2E runs with 73
+checks each. Browser coverage includes canonical selection history,
+Back/Forward and reload, focus restoration, Knowledge Context continuity,
+direct detail reachability at 390 x 844, 320 CSS px, and 720 x 450, and zero
+external requests or unexpected console/page errors. Read-only validation
+kept the 1,314-Article and 53,046-node / 82,584-edge Graph stores unchanged.
+Two independent final reviews and all local security, artifact, and protected
+path gates passed. Exact-SHA implementation and closure CI remain pending.
+Evidence is in `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -734,7 +759,8 @@ Evidence is in `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md`.
 
 ## Next Recommended Task
 
-No next implementation task is assigned. A new canonical task and alignment
-are required before further product work. No v1.2 candidate is assigned. Tag,
-Release, attestation, real Provider, source access, external search, and private
-Zotero actions remain unauthorized.
+Complete P3-024 and its exact-SHA CI closure. Focused Session Completion and
+Guided Advance is retained as the next candidate, but is not authorized or
+combined with P3-024. No v1.2 candidate is assigned. Tag, Release, attestation,
+real Provider, source access, external search, and private Zotero actions remain
+unauthorized.

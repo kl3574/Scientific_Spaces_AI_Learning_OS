@@ -2,7 +2,7 @@
 
 ## Task
 
-No active implementation task
+`docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`
 
 ## Last Closed Task
 
@@ -10,38 +10,35 @@ No active implementation task
 
 ## Status
 
-P3-023 PASS / CLOSED
-
-Next task: ALIGNMENT REQUIRED / NOT GRANTED
+P3-024 LOCAL VALIDATION PASS / IMPLEMENTATION CI PENDING
 
 ## Authorization
 
-- Frontend, tests, governance documentation, local Article and Graph reads,
-  browser-local Session writes, fake-provider runtime, local commits, non-force
-  push, and exact-SHA CI inspection: CONSUMED / CLOSED AFTER THE DOCS-ONLY
-  CLOSURE COMMIT
+- Frontend, tests, governance documentation, local read-only Article and Graph
+  validation, isolated fake-provider runtime, local commits, non-force push,
+  and exact-SHA CI inspection: GRANTED FOR P3-024
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, and real/paid Providers: NOT
   GRANTED
 - candidate, tag, Release, and attestation: NOT GRANTED
 
-## Closure Evidence
+## Entry Evidence
 
-- Backend: 600 passed / 4 skipped
-- focused Frontend: 92 passed
-- production build: PASS, 11 routes
-- Product E2E: 3/3 formal runs, 63 checks each; external requests and
-  unexpected console/page errors: 0
-- real local 1,314-Article and installed Graph probe: PASS
-- final independent implementation reviews: 2 PASS
-- workflow, dependency, secret, SBOM, artifact, and protected-path gates: PASS
-- implementation commit:
-  `fceadc512c266de2670d5c426dc201b9e580924b`
-- implementation exact-SHA main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33834027640`
-- implementation CI required jobs: PASS; normal-main Docker and release
-  evidence skipped as designed; uploaded artifacts: 0
-- evidence report: `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md`
-- docs-only closure commit: this commit; exact-SHA main CI required before
-  final reporting
+- entry HEAD and cached `origin/main`:
+  `5448ca90ce8557e99d15d5ff4b3768910a3a5cc6`
+- worktree, index, and untracked set: clean
+- REWORK / `.audit`: absent
+- current production-browser Graph audit: selected mobile detail begins after
+  the 20-result page; focus, live feedback, and URL selection are disconnected
+- independent revised-scope reviews: 2 PASS
+
+## Current Evidence
+
+- Backend: 600 passed, 4 skipped
+- focused Frontend: 97 passed
+- production build: PASS
+- production Product E2E: 3/3 runs, 73 checks per run
+- independent final implementation reviews: 2 PASS
+- security, dependency, secret, SBOM, artifact, and protected-path gates: PASS
+- next gate: implementation commit exact-SHA main CI

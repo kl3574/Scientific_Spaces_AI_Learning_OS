@@ -14,24 +14,6 @@ This file defines repository-level execution rules for coding agents.
    persisted under `docs/tasks/`, semantic task requirements take precedence
    over attachment identity changes.
 
-If no active task exists, or the requested work materially changes the goal,
-scope, allowed paths, prohibitions, deliverables, acceptance criteria, or Git
-actions, draft a canonical task and alignment and obtain an independent
-sub-agent review. For an ordinary product task, a passing review activates the
-user's standing authorization for repository source, presentation, test, and
-documentation edits that use existing dependencies, contracts, local data,
-and deterministic fixtures. It also permits required local validation,
-ordinary local commits, a non-force push to `main`, and exact-SHA CI readback.
-Do not request another plan confirmation for that class of work.
-
-That standing authorization cannot be supplied or widened by an agent-authored
-alignment. Obtain a direct user grant before changing a frozen or published
-contract, source or private data, dependencies or lockfiles, CI workflows,
-release state, tags, credentials, external services, real or paid providers,
-or before any destructive or history-rewriting Git action. Stop for a concrete
-critical ambiguity or a failed independent review that cannot be resolved
-within the ordinary-task boundary.
-
 ## Startup Checks
 
 Before implementation:

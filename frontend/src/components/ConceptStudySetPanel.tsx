@@ -17,7 +17,10 @@ import {
   type StudySessionLoadResult,
 } from "@/lib/studySession";
 
-export function ConceptStudySetPanel({ node }: Readonly<{ node: GraphNode }>) {
+export function ConceptStudySetPanel({
+  node,
+  onShowContext,
+}: Readonly<{ node: GraphNode; onShowContext?: () => void }>) {
   const studySet = useMemo(() => createConceptStudySet(node), [node]);
   const [session, setSession] = useState<StudySessionLoadResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -189,9 +192,19 @@ export function ConceptStudySetPanel({ node }: Readonly<{ node: GraphNode }>) {
 
         <StudyStep index={3} title="Inspect related evidence">
           <p className="text-xs leading-5 text-slate-600">Use the existing map or list to inspect returned Sections, Formulas, Articles, and Zotero items.</p>
-          <a className="mt-2 inline-flex text-xs font-semibold text-slate-700 hover:text-slate-950 hover:underline" href="#graph-context-panel">
-            Go to Knowledge Context
-          </a>
+          {onShowContext ? (
+            <button
+              className="mt-2 inline-flex text-xs font-semibold text-slate-700 hover:text-slate-950 hover:underline"
+              type="button"
+              onClick={onShowContext}
+            >
+              Go to Knowledge Context
+            </button>
+          ) : (
+            <a className="mt-2 inline-flex text-xs font-semibold text-slate-700 hover:text-slate-950 hover:underline" href="#graph-context-panel">
+              Go to Knowledge Context
+            </a>
+          )}
         </StudyStep>
 
         <StudyStep index={4} title="Check understanding">

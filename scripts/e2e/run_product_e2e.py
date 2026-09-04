@@ -337,7 +337,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console",
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
-    page.on("pageerror", lambda error: page_errors.append(f"{page.url}: {error}"))
+    page.on("pageerror", lambda error: _capture_page_error(page_errors, "primary", page, error))
 
     page.goto(FRONTEND_URL, wait_until="domcontentloaded")
     _wait_for_application_shell(page)
@@ -409,7 +409,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console",
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
-    sync_page.on("pageerror", lambda error: page_errors.append(f"{sync_page.url}: {error}"))
+    sync_page.on(
+        "pageerror",
+        lambda error: _capture_page_error(page_errors, "dashboard-cross-tab", sync_page, error),
+    )
     sync_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
     _wait_for_application_shell(sync_page)
     sync_page.evaluate(
@@ -596,6 +599,28 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     _require("node_id=concept%3Aattention" in page.url, f"Graph deep link was not preserved: {page.url}")
     checks["global_search_reference_and_graph_deep_link"] = True
 
+    page.get_by_test_id("global-search-trigger-desktop").click()
+    same_route_search = page.get_by_test_id("global-search-dialog")
+    same_route_search.get_by_label("Search library").fill("CRB")
+    same_route_graph_result = same_route_search.get_by_role(
+        "link", name=re.compile(r"^crb\s+Concept\s+·\s+Knowledge Graph$", re.I)
+    )
+    expect(same_route_graph_result).to_be_visible(timeout=30_000)
+    same_route_graph_result.focus()
+    same_route_graph_result.press("Enter")
+    expect(same_route_search).to_have_count(0)
+    same_route_selected = page.get_by_test_id("graph-selected-region")
+    expect(same_route_selected).to_be_focused(timeout=30_000)
+    _require_visible_focus(same_route_selected, "same-route global-search Graph detail")
+    expect(same_route_selected.get_by_role("heading", name=re.compile(r"^crb$", re.I))).to_be_visible(
+        timeout=30_000
+    )
+    _require(
+        "node_id=concept%3Acrb" in page.url and "q=CRB" in page.url,
+        f"same-route Graph navigation diverged from its URL: {page.url}",
+    )
+    checks["global_search_same_route_graph_navigation"] = True
+
     page.get_by_role("link", name="Dashboard", exact=True).click()
     expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
 
@@ -727,13 +752,55 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
     expect(page.get_by_test_id("learning-workflow-context")).to_contain_text(CRB_TITLE)
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    graph_workspace_modes = page.get_by_role("group", name="Graph workspace view")
+    expect(graph_workspace_modes.get_by_role("button", name="Explore", exact=True)).to_have_attribute(
+        "aria-pressed", "true"
+    )
+    graph_workspace_modes.get_by_role("button", name="Knowledge context", exact=True).click()
+    desktop_context_region = page.locator("#graph-context-workspace")
+    expect(desktop_context_region).to_be_focused()
+    _require_visible_focus(desktop_context_region, "desktop Knowledge Context region")
     expect(page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
-    expect(
-        page.get_by_role("button", name=f"Selected Article: {CRB_TITLE}", exact=True)
-    ).to_be_visible(timeout=30_000)
+    selected_article_map_node = page.get_by_role(
+        "button", name=f"Selected Article: {CRB_TITLE}", exact=True
+    )
+    expect(selected_article_map_node).to_be_visible(timeout=30_000)
+    desktop_canvas_box = page.locator(".knowledge-graph-canvas").bounding_box()
+    desktop_map_node_box = selected_article_map_node.bounding_box()
+    _require_box_inside(
+        desktop_canvas_box,
+        desktop_map_node_box,
+        "desktop selected Graph node",
+        minimum_width=80,
+        minimum_height=30,
+    )
+    page.get_by_placeholder("Title, concept, or formula").fill("Attention")
+    page.locator('select[name="node_type"]').select_option("concept")
+    filter_history_length = page.evaluate("history.length")
+    page.get_by_role("button", name="Apply", exact=True).click()
+    page.wait_for_function("() => new URLSearchParams(location.search).get('q') === 'Attention'")
+    _require(
+        "node_id=article%3Acrb-formula" in page.url,
+        f"Graph filter replacement lost the selected Article: {page.url}",
+    )
+    _require(
+        page.evaluate("history.length") == filter_history_length,
+        "applying Graph filters created a browser history entry",
+    )
+    page.get_by_role("button", name="Clear", exact=True).click()
+    page.wait_for_function("() => !new URLSearchParams(location.search).has('q')")
+    _require(
+        "node_id=article%3Acrb-formula" in page.url,
+        f"clearing Graph filters lost the selected Article: {page.url}",
+    )
+    _require(
+        page.evaluate("history.length") == filter_history_length,
+        "clearing Graph filters created a browser history entry",
+    )
     page.get_by_placeholder("Title, concept, or formula").fill("Attention")
     page.locator('select[name="node_type"]').select_option("concept")
     page.get_by_role("button", name="Apply", exact=True).click()
+    graph_workspace_modes.get_by_role("button", name="Explore", exact=True).click()
     context_graph_node = (
         page.get_by_test_id("graph-node-results")
         .locator("button")
@@ -741,8 +808,77 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         .first
     )
     expect(context_graph_node).to_be_visible(timeout=30_000)
-    context_graph_node.click()
+    context_graph_node.focus()
+    expect(context_graph_node).to_be_focused()
+    history_before_selection = page.evaluate("history.length")
+    context_graph_node.press("Enter")
+    expect(page.get_by_test_id("graph-selected-region")).to_be_focused()
+    _require_visible_focus(page.get_by_test_id("graph-selected-region"), "desktop selected Graph region")
+    _require(
+        "node_id=concept%3Aattention" in page.url
+        and "q=Attention" in page.url
+        and "article_id=crb-formula" in page.url,
+        f"Graph selection URL is incomplete: {page.url}",
+    )
+    _require(
+        page.evaluate("history.length") == history_before_selection + 1,
+        "different-node selection did not create exactly one history entry",
+    )
     expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(timeout=30_000)
+    desktop_detail_region = page.get_by_test_id("graph-selected-region")
+    _require(
+        desktop_detail_region.evaluate("node => getComputedStyle(node).overflowY") == "auto",
+        "desktop selected-node inspector is not independently scrollable",
+    )
+    _require(
+        desktop_detail_region.evaluate("node => getComputedStyle(node).position") == "sticky",
+        "desktop selected-node inspector is not sticky at runtime",
+    )
+    desktop_detail_first_control = desktop_detail_region.get_by_role(
+        "button", name="Knowledge context", exact=True
+    )
+    page.keyboard.press("Tab")
+    expect(desktop_detail_first_control).to_be_focused()
+    desktop_detail_last_control = desktop_detail_region.get_by_role(
+        "link", name="Open concept quiz", exact=True
+    )
+    _focus_via_tab(page, desktop_detail_last_control, max_steps=40)
+    expect(desktop_detail_last_control).to_be_focused()
+    _require(
+        desktop_detail_region.evaluate("node => node.scrollTop") > 0,
+        "keyboard focus did not reveal the final control in the sticky inspector",
+    )
+    checks["graph_sticky_detail_keyboard_reach"] = True
+    selected_history_length = page.evaluate("history.length")
+    context_graph_node.click()
+    _require(
+        page.evaluate("history.length") == selected_history_length,
+        "same-node selection created another history entry",
+    )
+    page.go_back()
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    _require("node_id=article%3Acrb-formula" in page.url, f"Graph Back state diverged: {page.url}")
+    page.go_forward()
+    expect(page.get_by_role("heading", name=re.compile(r"^attention$", re.I))).to_be_visible(timeout=30_000)
+    _require("node_id=concept%3Aattention" in page.url, f"Graph Forward state diverged: {page.url}")
+
+    graph_reload_url = page.url
+    page.close()
+    page = _new_observed_page(context, console_errors, page_errors, label="graph-reload")
+    page.goto(graph_reload_url, wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    expect(page.get_by_role("heading", name=re.compile(r"^attention$", re.I))).to_be_visible(timeout=30_000)
+    page.wait_for_load_state("networkidle")
+    _require(not page_errors, f"Graph deep-link reopen emitted page errors: {page_errors}")
+    page.reload(wait_until="networkidle")
+    _wait_for_application_shell(page)
+    expect(page.get_by_role("heading", name=re.compile(r"^attention$", re.I))).to_be_visible(timeout=30_000)
+    _require(not page_errors, f"Graph hard reload emitted page errors: {page_errors}")
+    expect(page.get_by_placeholder("Title, concept, or formula")).to_have_value("Attention")
+    expect(page.get_by_test_id("learning-workflow-context")).to_contain_text(CRB_TITLE)
+    checks["graph_canonical_history_and_focus"] = True
+    graph_workspace_modes = page.get_by_role("group", name="Graph workspace view")
+    graph_workspace_modes.get_by_role("button", name="Knowledge context", exact=True).click()
     expect(
         page.get_by_role("button", name=re.compile(r"^Selected Concept: Attention", re.I))
     ).to_be_visible(timeout=30_000)
@@ -884,12 +1020,18 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     crb_queue_item.get_by_role("button", name=f"Move {CRB_TITLE} up", exact=True).click()
     crb_queue_item.get_by_role("button", name=f"Set {CRB_TITLE} as current", exact=True).click()
     expect(crb_queue_item).to_contain_text("Current")
-    page.reload(wait_until="domcontentloaded")
+    page.wait_for_load_state("networkidle")
+    page.evaluate(
+        "() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
+    )
+    _require(not page_errors, f"Study Session state update emitted page errors: {page_errors}")
+    page.reload(wait_until="networkidle")
     _wait_for_application_shell(page)
     expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
     crb_queue_item = page.get_by_test_id("study-session-item").first
     expect(crb_queue_item).to_contain_text(CRB_TITLE)
     expect(crb_queue_item).to_contain_text("Current")
+    _require(not page_errors, f"Study Session hard reload emitted page errors: {page_errors}")
     page.get_by_role(
         "link", name=f"Continue current Article: {CRB_TITLE}", exact=True
     ).click()
@@ -977,6 +1119,16 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         ATTENTION_CONCEPT_ID not in concept_study_set.inner_text(),
         "Concept Study Set exposes a raw Graph node identifier",
     )
+    concept_study_set.get_by_role("button", name="Go to Knowledge Context", exact=True).click()
+    expect(page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
+    expect(
+        page.get_by_role("group", name="Graph workspace view").get_by_role(
+            "button", name="Knowledge context", exact=True
+        )
+    ).to_have_attribute("aria-pressed", "true")
+    page.get_by_role("button", name="Inspect selected", exact=True).click()
+    expect(page.get_by_test_id("concept-study-set")).to_be_visible()
+    checks["graph_context_mode_and_inspect_selected"] = True
 
     concept_article_link = concept_study_set.get_by_role(
         "link", name=ATTENTION_TITLE, exact=True
@@ -1223,22 +1375,51 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["concept_study_set_session_append"] = True
     checks["concept_study_set_keyboard_focus"] = True
 
+    page.get_by_role("group", name="Graph workspace view").get_by_role(
+        "button", name="Knowledge context", exact=True
+    ).click()
+    concept_context_region = page.locator("#graph-context-workspace")
     expect(page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
     expect(page.get_by_test_id("graph-map-counts")).to_contain_text("relationships")
     graph_article_node = page.get_by_role("button", name=re.compile(r"^Article: ")).first
     expect(graph_article_node).to_be_visible()
     graph_article_node.press("Enter")
+    page.wait_for_function("() => new URL(location.href).searchParams.get('node_id')?.startsWith('article:')")
+    _require_visible_focus(concept_context_region, "desktop Context region after map selection")
     expect(page.get_by_role("button", name=re.compile(r"^Selected Article: ")).first).to_be_visible(
         timeout=30_000
     )
+    expect(
+        page.get_by_role("group", name="Graph workspace view").get_by_role(
+            "button", name="Knowledge context", exact=True
+        )
+    ).to_have_attribute("aria-pressed", "true")
+    page.get_by_role("button", name="Inspect selected", exact=True).click()
     graph_article_link = page.get_by_role("link", name="Open article").first
     expect(graph_article_link).to_be_visible()
     _require(
         str(graph_article_link.get_attribute("href") or "").startswith("/articles/"),
         "Graph Article deep link is invalid",
     )
+    page.get_by_role("group", name="Graph workspace view").get_by_role(
+        "button", name="Knowledge context", exact=True
+    ).click()
     page.get_by_test_id("graph-view-list").click()
     expect(page.get_by_role("heading", name="Bounded Context", exact=True)).to_be_visible()
+    list_selection_url = page.url
+    related_context_node = page.get_by_test_id("graph-context-list").locator("button").first
+    expect(related_context_node).to_be_visible(timeout=30_000)
+    related_context_node.press("Enter")
+    page.wait_for_function("previous => location.href !== previous", arg=list_selection_url)
+    _require_visible_focus(concept_context_region, "desktop Context region after list selection")
+    expect(
+        page.get_by_role("group", name="Graph workspace view").get_by_role(
+            "button", name="Knowledge context", exact=True
+        )
+    ).to_have_attribute("aria-pressed", "true")
+    expect(page.get_by_role("heading", name="Bounded Context", exact=True)).to_be_visible(
+        timeout=30_000
+    )
     page.get_by_test_id("graph-view-map").click()
     expect(page.get_by_test_id("graph-visualization")).to_be_visible()
     checks["knowledge_graph"] = True
@@ -1377,7 +1558,25 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     _require(not page_errors, f"primary workflow emitted page errors: {page_errors}")
     page.close()
-    page = _new_observed_page(context, console_errors, page_errors)
+
+    page = _new_observed_page(context, console_errors, page_errors, label="graph-route-boundary")
+    page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    page.get_by_role("link", name="Graph", exact=True).click()
+    expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
+    page.go_back()
+    expect(
+        page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
+    ).to_be_visible(timeout=30_000)
+    _require(
+        page.url.rstrip("/") == FRONTEND_URL,
+        f"Graph popstate handler replaced a non-Graph destination: {page.url}",
+    )
+    _require(not page_errors, f"Graph route-boundary Back emitted page errors: {page_errors}")
+    checks["graph_route_boundary_back"] = True
+    page.close()
+
+    page = _new_observed_page(context, console_errors, page_errors, label="article-not-found")
 
     page.goto(f"{FRONTEND_URL}/articles/not-a-real-article", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
@@ -1386,7 +1585,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["article_not_found_state"] = True
     page.close()
 
-    page = _new_observed_page(context, console_errors, page_errors)
+    page = _new_observed_page(context, console_errors, page_errors, label="route-not-found")
     not_found_console_start = len(console_errors)
     page.goto(f"{FRONTEND_URL}/not-a-product-route", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
@@ -1404,7 +1603,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["route_not_found_state"] = True
     page.close()
 
-    page = _new_observed_page(context, console_errors, page_errors)
+    page = _new_observed_page(context, console_errors, page_errors, label="article-controlled-error")
     page.route(
         re.compile(r".*/v1\.1/articles(?:\?.*)?$"),
         lambda route: route.fulfill(
@@ -1421,7 +1620,41 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["controlled_backend_error_state"] = True
     page.close()
 
-    page = _new_observed_page(context, console_errors, page_errors)
+    page = _new_observed_page(context, console_errors, page_errors, label="graph-controlled-error")
+    graph_error_console_start = len(console_errors)
+    page.route(
+        re.compile(r".*/graph/nodes/concept%3Aattention$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional P3-024 Graph detail failure"}',
+        ),
+        times=1,
+    )
+    page.goto(f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    graph_error_region = page.get_by_test_id("graph-selected-region")
+    expect(graph_error_region.get_by_role("alert")).to_contain_text(
+        "Graph request failed: 503", timeout=30_000
+    )
+    graph_error_region.get_by_role("button", name="Retry", exact=True).click()
+    expect(graph_error_region).to_be_focused()
+    expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    expect(page.get_by_test_id("graph-selection-status")).to_contain_text("Details ready.")
+    expected_graph_console = console_errors[graph_error_console_start:]
+    _require(
+        expected_graph_console
+        and all("status of 503" in message for message in expected_graph_console),
+        f"unexpected Graph failure console output: {expected_graph_console}",
+    )
+    del console_errors[graph_error_console_start:]
+    _require(not page_errors, f"Graph detail recovery emitted page errors: {page_errors}")
+    checks["graph_detail_error_focus_and_retry"] = True
+    page.close()
+
+    page = _new_observed_page(context, console_errors, page_errors, label="dashboard-partial")
     page.route(
         re.compile(r".*/learning/stats$"),
         lambda route: route.fulfill(
@@ -1444,7 +1677,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["dashboard_partial_failure"] = True
     page.close()
 
-    page = _new_observed_page(context, console_errors, page_errors)
+    page = _new_observed_page(context, console_errors, page_errors, label="library-partial")
     page.route(
         re.compile(r".*/learning/bookmarks$"),
         lambda route: route.fulfill(
@@ -1488,7 +1721,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
     unavailable_page.on(
-        "pageerror", lambda error: page_errors.append(f"{unavailable_page.url}: {error}")
+        "pageerror",
+        lambda error: _capture_page_error(
+            page_errors, "session-storage-unavailable", unavailable_page, error
+        ),
     )
     unavailable_page.goto(f"{FRONTEND_URL}/library", wait_until="domcontentloaded")
     _wait_for_application_shell(unavailable_page)
@@ -1537,13 +1773,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         """
     )
     _install_network_guard(recovered_session_context, blocked_external)
-    recovered_session_page = recovered_session_context.new_page()
-    recovered_session_page.on(
-        "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
-    )
-    recovered_session_page.on(
-        "pageerror", lambda error: page_errors.append(f"{recovered_session_page.url}: {error}")
+    recovered_session_page = _new_observed_page(
+        recovered_session_context,
+        console_errors,
+        page_errors,
+        label="dashboard-storage-recovery",
     )
     recovered_session_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
     _wait_for_application_shell(recovered_session_page)
@@ -1553,6 +1787,13 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(recovered_dashboard_session).to_have_attribute("data-state", "recovered")
     expect(recovered_dashboard_session).to_contain_text(CRB_TITLE)
     expect(recovered_dashboard_session).not_to_contain_text("raw-title-id")
+    recovered_session_page.close()
+    recovered_session_page = _new_observed_page(
+        recovered_session_context,
+        console_errors,
+        page_errors,
+        label="session-storage-recovery",
+    )
     recovered_session_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
     _wait_for_application_shell(recovered_session_page)
     expect(recovered_session_page.get_by_role("status")).to_contain_text(
@@ -1564,6 +1805,13 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(recovered_session_page.get_by_test_id("study-session-item")).to_contain_text(CRB_TITLE)
     expect(recovered_session_page.get_by_test_id("focused-study-session")).not_to_contain_text(
         "raw-title-id"
+    )
+    recovered_session_page.close()
+    recovered_session_page = _new_observed_page(
+        recovered_session_context,
+        console_errors,
+        page_errors,
+        label="concept-storage-recovery",
     )
     recovered_session_page.goto(
         f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded"
@@ -1593,13 +1841,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         """
     )
     _install_network_guard(read_failure_context, blocked_external)
-    read_failure_page = read_failure_context.new_page()
-    read_failure_page.on(
-        "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
-    )
-    read_failure_page.on(
-        "pageerror", lambda error: page_errors.append(f"{read_failure_page.url}: {error}")
+    read_failure_page = _new_observed_page(
+        read_failure_context,
+        console_errors,
+        page_errors,
+        label="dashboard-storage-read-failure",
     )
     read_failure_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
     _wait_for_application_shell(read_failure_page)
@@ -1607,9 +1853,23 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "data-state", "unavailable"
     )
     expect(read_failure_page.get_by_role("heading", name="Learning Overview", exact=True)).to_be_visible()
+    read_failure_page.close()
+    read_failure_page = _new_observed_page(
+        read_failure_context,
+        console_errors,
+        page_errors,
+        label="session-storage-read-failure",
+    )
     read_failure_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
     _wait_for_application_shell(read_failure_page)
     expect(read_failure_page.get_by_test_id("study-session-unavailable")).to_be_visible()
+    read_failure_page.close()
+    read_failure_page = _new_observed_page(
+        read_failure_context,
+        console_errors,
+        page_errors,
+        label="concept-storage-read-failure",
+    )
     read_failure_page.goto(
         f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded"
     )
@@ -1667,13 +1927,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         """
     )
     _install_network_guard(write_failure_context, blocked_external)
-    write_failure_page = write_failure_context.new_page()
-    write_failure_page.on(
-        "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
-    )
-    write_failure_page.on(
-        "pageerror", lambda error: page_errors.append(f"{write_failure_page.url}: {error}")
+    write_failure_page = _new_observed_page(
+        write_failure_context,
+        console_errors,
+        page_errors,
+        label="session-storage-write-failure",
     )
     write_failure_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
     _wait_for_application_shell(write_failure_page)
@@ -1686,6 +1944,13 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(write_failure_page.get_by_test_id("study-session-item").first).to_contain_text(CRB_TITLE)
     expect(write_failure_page.get_by_role("status")).to_contain_text(
         "browser-local storage could not save it"
+    )
+    write_failure_page.close()
+    write_failure_page = _new_observed_page(
+        write_failure_context,
+        console_errors,
+        page_errors,
+        label="concept-storage-write-failure",
     )
     write_failure_page.goto(
         f"{FRONTEND_URL}/graph?node_id=concept%3Aresearch", wait_until="domcontentloaded"
@@ -1735,7 +2000,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
     full_session_page.on(
-        "pageerror", lambda error: page_errors.append(f"{full_session_page.url}: {error}")
+        "pageerror",
+        lambda error: _capture_page_error(
+            page_errors, "session-full-capacity", full_session_page, error
+        ),
     )
     full_session_page.goto(
         f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded"
@@ -1776,11 +2044,28 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console",
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
-    zoom_page.on("pageerror", lambda error: page_errors.append(f"{zoom_page.url}: {error}"))
-    zoom_page.goto(f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded")
+    zoom_page.on(
+        "pageerror", lambda error: _capture_page_error(page_errors, "graph-zoom", zoom_page, error)
+    )
+    zoom_page.goto(
+        f"{FRONTEND_URL}/graph?unknown=discard&node_id=concept%3Aattention&q=%20Attention%20#unknown",
+        wait_until="domcontentloaded",
+    )
     _wait_for_application_shell(zoom_page)
+    zoom_page.wait_for_function(
+        "() => location.pathname + location.search + location.hash === "
+        "'/graph?node_id=concept%3Aattention&q=Attention'"
+    )
     zoom_concept_set = zoom_page.get_by_test_id("concept-study-set")
     expect(zoom_concept_set).to_be_visible(timeout=30_000)
+    _wait_for_test_id_near_viewport_top(zoom_page, "graph-selected-region")
+    zoom_selected_box = zoom_page.get_by_test_id("graph-selected-region").bounding_box()
+    _require(
+        zoom_selected_box is not None
+        and zoom_selected_box["y"] < 200
+        and zoom_selected_box["y"] + zoom_selected_box["height"] > 0,
+        f"200-percent zoom-equivalent selected detail is below the viewport: {zoom_selected_box}",
+    )
     expect(zoom_concept_set.get_by_role("link", name="Explain concept", exact=True)).to_be_visible()
     expect(zoom_concept_set.get_by_role("link", name="Open concept quiz", exact=True)).to_be_visible()
     zoom_metrics = zoom_page.evaluate(
@@ -1825,6 +2110,86 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["concept_study_set_200_percent_reflow"] = True
     checks["concept_study_set_200_percent_zoom_equivalent"] = True
     zoom_context.close()
+
+    narrow_context = browser.new_context(
+        viewport={"width": 320, "height": 640},
+        locale="zh-CN",
+        is_mobile=True,
+        reduced_motion="reduce",
+    )
+    _install_network_guard(narrow_context, blocked_external)
+    narrow_context.add_init_script(
+        script="""
+        (() => {
+          const originalFetch = window.fetch.bind(window);
+          window.fetch = (...args) => {
+            const url = String(args[0]);
+            if (url.includes('/graph/summary')) {
+              return new Promise(() => {});
+            }
+            return originalFetch(...args);
+          };
+        })();
+        """
+    )
+    narrow_page = narrow_context.new_page()
+    narrow_page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    narrow_page.on(
+        "pageerror",
+        lambda error: _capture_page_error(page_errors, "graph-320", narrow_page, error),
+    )
+    narrow_page.goto(f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded")
+    _wait_for_application_shell(narrow_page)
+    expect(narrow_page.get_by_text("Loading graph summary...", exact=True)).to_be_visible()
+    expect(narrow_page.get_by_test_id("concept-study-set")).to_be_visible(timeout=30_000)
+    _wait_for_test_id_near_viewport_top(narrow_page, "graph-selected-region")
+    narrow_selected_box = narrow_page.get_by_test_id("graph-selected-region").bounding_box()
+    _require(
+        narrow_selected_box is not None
+        and narrow_selected_box["y"] < 200
+        and narrow_selected_box["y"] + narrow_selected_box["height"] > 0,
+        f"320px Graph selected detail is below the viewport: {narrow_selected_box}",
+    )
+    _require(_document_width(narrow_page) <= 320, "320px Graph workspace overflows horizontally")
+    checks["graph_selected_detail_320px"] = True
+    checks["graph_detail_reachability_with_pending_summary"] = True
+    narrow_context.close()
+
+    deep_link_context = browser.new_context(
+        viewport={"width": 390, "height": 844},
+        locale="zh-CN",
+        is_mobile=True,
+        reduced_motion="reduce",
+    )
+    _install_network_guard(deep_link_context, blocked_external)
+    deep_link_page = _new_observed_page(
+        deep_link_context, console_errors, page_errors, label="graph-390-deep-link"
+    )
+    deep_link_page.goto(
+        f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}", wait_until="domcontentloaded"
+    )
+    _wait_for_application_shell(deep_link_page)
+    deep_link_selected = deep_link_page.get_by_test_id("graph-selected-region")
+    expect(deep_link_selected.get_by_role("heading", name=re.compile(r"^attention$", re.I))).to_be_visible(
+        timeout=30_000
+    )
+    _wait_for_test_id_near_viewport_top(deep_link_page, "graph-selected-region")
+    deep_link_selected_box = deep_link_selected.bounding_box()
+    _require(
+        deep_link_selected_box is not None
+        and deep_link_selected_box["y"] < 200
+        and deep_link_selected_box["y"] + deep_link_selected_box["height"] > 0,
+        f"390px deep-linked Graph detail is below the viewport: {deep_link_selected_box}",
+    )
+    _require(
+        _document_width(deep_link_page) <= 390,
+        "390px deep-linked Graph workspace overflows horizontally",
+    )
+    checks["graph_selected_detail_390px_deep_link"] = True
+    deep_link_context.close()
 
     mobile_context = browser.new_context(
         viewport={"width": 390, "height": 844},
@@ -1886,7 +2251,9 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console",
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
-    mobile_page.on("pageerror", lambda error: page_errors.append(f"{mobile_page.url}: {error}"))
+    mobile_page.on(
+        "pageerror", lambda error: _capture_page_error(page_errors, "mobile", mobile_page, error)
+    )
     mobile_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
     _wait_for_application_shell(mobile_page)
     expect(
@@ -2079,7 +2446,21 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     expect(mobile_graph_node).to_be_visible(timeout=30_000)
     mobile_graph_node.click()
-    expect(mobile_page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
+    mobile_selected_region = mobile_page.get_by_test_id("graph-selected-region")
+    expect(mobile_selected_region).to_be_focused(timeout=30_000)
+    _require_visible_focus(mobile_selected_region, "mobile selected Graph region")
+    _wait_for_test_id_near_viewport_top(mobile_page, "graph-selected-region")
+    mobile_selected_box = mobile_selected_region.bounding_box()
+    _require(
+        mobile_selected_box is not None
+        and mobile_selected_box["y"] < 200
+        and mobile_selected_box["y"] + mobile_selected_box["height"] > 0,
+        f"mobile selected detail does not intersect the viewport: {mobile_selected_box}",
+    )
+    _require(
+        "node_id=concept%3Aattention" in mobile_page.url and "q=Attention" in mobile_page.url,
+        f"mobile Graph selection URL is incomplete: {mobile_page.url}",
+    )
     mobile_concept_set = mobile_page.get_by_test_id("concept-study-set")
     expect(mobile_concept_set).to_be_visible(timeout=30_000)
     expect(mobile_concept_set.get_by_role("link", name="Explain concept", exact=True)).to_be_visible()
@@ -2091,14 +2472,52 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         and mobile_concept_box["x"] + mobile_concept_box["width"] <= 390,
         f"mobile Concept Study Set is clipped: {mobile_concept_box}",
     )
-    mobile_graph_box = mobile_page.locator(".knowledge-graph-canvas").bounding_box()
     mobile_graph_width = _document_width(mobile_page)
+    _require(mobile_graph_width <= 390, f"mobile Graph page overflowed to {mobile_graph_width}px")
+    checks["mobile_concept_study_set"] = True
+    mobile_page.get_by_role("button", name="Back to results", exact=True).click()
+    expect(mobile_graph_node).to_be_focused()
+    mobile_page.get_by_placeholder("Title, concept, or formula").fill("No matching graph node")
+    mobile_page.get_by_role("button", name="Apply", exact=True).click()
+    expect(mobile_page.get_by_text("No nodes match the current filters.", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    mobile_page.get_by_role("group", name="Explore panel").get_by_role(
+        "button", name="Selected", exact=True
+    ).click()
+    expect(mobile_selected_region).to_be_focused()
+    mobile_page.get_by_role("button", name="Back to results", exact=True).click()
+    expect(mobile_page.get_by_role("heading", name="Nodes", exact=True)).to_be_focused()
+    mobile_page.get_by_placeholder("Title, concept, or formula").fill("Attention")
+    mobile_page.get_by_role("button", name="Apply", exact=True).click()
+    expect(mobile_graph_node).to_be_visible(timeout=30_000)
+    checks["mobile_graph_missing_origin_focus_fallback"] = True
+    mobile_graph_node.click()
+    expect(mobile_selected_region).to_be_focused()
+    mobile_page.get_by_role("group", name="Graph workspace view").get_by_role(
+        "button", name="Knowledge context", exact=True
+    ).click()
+    mobile_context_region = mobile_page.locator("#graph-context-workspace")
+    expect(mobile_context_region).to_be_focused()
+    _require_visible_focus(mobile_context_region, "mobile Knowledge Context region")
+    expect(mobile_page.get_by_test_id("graph-context-explorer")).to_be_visible()
+    expect(mobile_page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
+    mobile_graph_box = mobile_page.locator(".knowledge-graph-canvas").bounding_box()
+    mobile_map_node_box = mobile_page.get_by_role(
+        "button", name=re.compile(r"^Selected Concept: Attention", re.I)
+    ).bounding_box()
     _require(
         mobile_graph_box is not None and mobile_graph_box["width"] <= 390,
         f"mobile visual Graph canvas overflowed: {mobile_graph_box}",
     )
-    _require(mobile_graph_width <= 390, f"mobile Graph page overflowed to {mobile_graph_width}px")
-    checks["mobile_concept_study_set"] = True
+    _require_box_inside(
+        mobile_graph_box,
+        mobile_map_node_box,
+        "mobile selected Graph node",
+        minimum_width=80,
+        minimum_height=30,
+    )
+    expect(mobile_page.locator("#graph-context-workspace")).to_be_focused()
     expect(mobile_page.locator(".react-flow__controls")).to_be_visible()
     mobile_page.get_by_test_id("graph-view-list").click()
     expect(mobile_page.get_by_role("heading", name="Bounded Context", exact=True)).to_be_visible()
@@ -2204,14 +2623,25 @@ def _read_json_url(url: str) -> dict[str, object]:
     return payload
 
 
-def _new_observed_page(context, console_errors: list[str], page_errors: list[str]):
+def _new_observed_page(
+    context,
+    console_errors: list[str],
+    page_errors: list[str],
+    *,
+    label: str,
+):
     page = context.new_page()
     page.on(
         "console",
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
-    page.on("pageerror", lambda error: page_errors.append(f"{page.url}: {error}"))
+    page.on("pageerror", lambda error: _capture_page_error(page_errors, label, page, error))
     return page
+
+
+def _capture_page_error(page_errors: list[str], label: str, page, error: Exception) -> None:
+    stack = getattr(error, "stack", None) or str(error)
+    page_errors.append(f"{label} [{page.url}]: {stack}")
 
 
 def _focus_via_tab(page, locator, *, max_steps: int = 160) -> None:
@@ -2268,6 +2698,42 @@ def _document_width(page) -> int:
     )
 
 
+def _wait_for_test_id_near_viewport_top(page, test_id: str, *, max_top: int = 200) -> None:
+    page.wait_for_function(
+        """
+        ({ testId, maxTop }) => {
+          const node = document.querySelector(`[data-testid="${testId}"]`);
+          if (!(node instanceof HTMLElement)) return false;
+          const box = node.getBoundingClientRect();
+          return box.top < maxTop && box.bottom > 0;
+        }
+        """,
+        arg={"testId": test_id, "maxTop": max_top},
+        timeout=30_000,
+    )
+
+
+def _require_visible_focus(locator, label: str) -> None:
+    focus_state = locator.evaluate(
+        """
+        node => {
+          const style = getComputedStyle(node);
+          return {
+            active: node === document.activeElement,
+            outlineStyle: style.outlineStyle,
+            outlineWidth: style.outlineWidth,
+          };
+        }
+        """
+    )
+    _require(
+        focus_state["active"]
+        and focus_state["outlineStyle"] != "none"
+        and focus_state["outlineWidth"] != "0px",
+        f"{label} lacks a visible focus indicator: {focus_state}",
+    )
+
+
 def _unexpected_console_errors(messages: list[str]) -> list[str]:
     expected_statuses = {"404": 1, "503": 8}
     unexpected: list[str] = []
@@ -2286,6 +2752,27 @@ def _unexpected_console_errors(messages: list[str]) -> list[str]:
 def _reset_mutable_runtime(runtime: dict[str, Path | dict[str, str]]) -> None:
     Path(runtime["learning"]).unlink(missing_ok=True)
     Path(runtime["tutor"]).unlink(missing_ok=True)
+
+
+def _require_box_inside(
+    container: dict[str, float] | None,
+    child: dict[str, float] | None,
+    label: str,
+    *,
+    minimum_width: float,
+    minimum_height: float,
+) -> None:
+    _require(container is not None and child is not None, f"{label} has no rendered geometry")
+    assert container is not None and child is not None
+    _require(
+        child["width"] >= minimum_width
+        and child["height"] >= minimum_height
+        and child["x"] >= container["x"]
+        and child["y"] >= container["y"]
+        and child["x"] + child["width"] <= container["x"] + container["width"]
+        and child["y"] + child["height"] <= container["y"] + container["height"],
+        f"{label} is clipped or outside its canvas: container={container}, child={child}",
+    )
 
 
 def _require(condition: bool, message: str) -> None:

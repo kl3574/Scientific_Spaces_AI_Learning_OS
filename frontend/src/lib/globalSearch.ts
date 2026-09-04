@@ -286,7 +286,7 @@ function boundedDisplayText(
   return (clean || fallback).slice(0, maxLength);
 }
 
-function normalizeGraphNodeId(value: string | null | undefined): string | null {
+export function normalizeGraphNodeId(value: string | null | undefined): string | null {
   const clean = value?.trim() ?? "";
   if (
     !clean ||

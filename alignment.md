@@ -1,14 +1,13 @@
-# P3-023 Concept Study Set and Learning Launch Alignment
+# P3-024 Graph Master-Detail Navigation and Focus Continuity Alignment
 
 Canonical task:
-`docs/tasks/P3-023_CONCEPT_STUDY_SET_AND_LEARNING_LAUNCH.md`
+`docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL VALIDATION PASS / IMPLEMENTATION CI PENDING**
 
-ORDINARY FRONTEND / TEST / DOCUMENTATION WORK, LOCAL ARTICLE AND GRAPH READS,
-BROWSER-LOCAL FOCUSED SESSION WRITES, FAKE-PROVIDER LOCAL RUNTIME, TEMPORARY
-ISOLATED MUTABLE STATE, LOCAL COMMITS, NON-FORCE PUSH TO `main`, AND EXACT-SHA
-CI READBACK: **GRANTED FOR P3-023**
+ORDINARY FRONTEND / TEST / DOCUMENTATION WORK, LOCAL READ-ONLY ARTICLE AND
+GRAPH VALIDATION, TEMPORARY ISOLATED FAKE-PROVIDER RUNTIME, LOCAL COMMITS,
+NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **GRANTED FOR P3-024**
 
 BACKEND / FROZEN M1 / SOURCE RECORD / ARTICLE RECORD / DERIVED ASSET /
 DEPENDENCY / LOCKFILE / WORKFLOW / PUBLISHED API CONTRACT MODIFICATION:
@@ -20,177 +19,145 @@ CANDIDATE / TAG / RELEASE / ATTESTATION / DESTRUCTIVE GIT ACTION:
 
 ## 1. Background
 
-- P3-015 provides a bounded visual Graph and concept provenance.
-- P3-017 provides Tutor Explain and Quiz modes with Article selection and an
-  optional Graph node key.
-- P3-021 provides a browser-local, Article-only Focused Session capped at 20
-  unique readable Articles.
-- P3-022 is PASS / CLOSED, but selecting a Concept still leaves provenance,
-  Tutor, Reader, and Session as disconnected surfaces.
-- The Graph does not encode prerequisite order or complete Paper and
-  Experiment entities. This task must not imply those unsupported semantics.
+- P3-015 introduced the bounded Graph explorer, and P3-023 added a Concept
+  Study Set inside the selected-node inspector.
+- A current production-browser audit found that at 390 px the selected detail
+  starts about 2,900 CSS px below the page top, after all 20 result cards;
+  Knowledge Context is farther below. The current E2E checks prove rendering
+  and width, but not viewport reachability, focus continuity, or URL state.
+- Selecting a node updates only component state. It does not synchronize the
+  canonical `node_id`, move focus, announce the change, or provide a bounded
+  mobile return path.
 - Entry branch is `main`; entry commit and cached `origin/main` are both
-  `e5fd14d1292cb6142dca26d0bfdc6eb517d109bb`; entry worktree and index are
-  clean with ahead / behind `0 / 0`.
-- REWORK and `.audit` are absent. No v1.2 candidate is assigned.
-- Two independent sub-agent reviews initially identified scope and contract
-  gaps. After the task was narrowed as recorded here, both returned PASS.
+  `5448ca90ce8557e99d15d5ff4b3768910a3a5cc6`; ahead / behind is `0 / 0`.
+- Entry worktree, index, and untracked set are clean after temporary audit
+  screenshots and Playwright metadata were removed. REWORK and `.audit` are
+  absent. No v1.2 candidate is assigned.
+- Two independent sub-agents reviewed the revised task scope and both returned
+  PASS. The repository standing authorization therefore applies without a
+  separate user plan-confirmation loop.
 
 ## 2. Objective
 
-Turn a selected Graph Concept into a bounded, evidence-transparent Concept
-Study Set and explicit launch points for reading, Tutor Explain, Tutor Quiz,
-and the existing Focused Session without adding a new route, data model,
-persistence contract, or Backend capability.
+Make Graph node results, selected detail, and bounded Knowledge Context a
+coherent master-detail workspace whose selection, focus, responsive layout,
+and browser history remain synchronized without changing Graph data or API
+semantics.
 
-## 3. Product Semantics
+## 3. In Scope
 
-1. A Concept Study Set contains only valid readable Articles present in the
-   provenance records returned by the existing Graph detail response.
-2. Preserve returned source order and deduplicate by Article ID.
-3. Report returned records, unique eligible Articles, omitted source records,
-   and truncation. Never claim completeness.
-4. The display order is deterministic source order, not a pedagogical or
-   prerequisite recommendation.
-5. Existing related Section, Formula, Article, and Zotero nodes remain in the
-   current explorer. Do not relabel them as Paper or Experiment entities.
-6. Tutor Explain may receive the Concept node as supplemental Graph context
-   plus the first eligible source Article. Tutor Quiz receives the Concept
-   topic and first eligible source Article; it is not described as Graph
-   grounded. Neither launch auto-submits a Tutor request.
+- an Explore / Knowledge Context segmented workspace mode
+- desktop list-left/detail-right layout with a bounded, scrollable sticky
+  inspector
+- mobile and zoom Results / Selected segmented navigation with only the active
+  panel exposed to the accessibility tree
+- persistent detail focus target across idle, loading, loaded, and error states
+- originating-result focus restoration with a deterministic heading fallback
+- canonical node-selection URL construction and push/replace history rules
+- reload and Back/Forward restoration without request or history loops
+- bounded safe-label live announcements
+- wiring the existing Concept Study Set context action into workspace mode
+- focused Frontend tests, Product E2E, read-only real local Graph validation,
+  evidence documentation, commits, push, and exact-SHA CI closure
 
-## 4. In Scope
+## 4. URL And Interaction Contract
 
-- pure Concept Study Set extraction and presentation model
-- safe typed Concept Tutor launch builder/parser, separate from Article-origin
-  learning context
-- canonical `/graph?node_id=...` return paths
-- Graph -> Article -> Graph and Graph -> Tutor -> Graph continuity
-- per-Article and one bounded bulk add action using the existing Focused
-  Session store
-- deterministic bulk outcome counts and one persistence write
-- malformed, empty, truncated, full, duplicate, recovered, unavailable, and
-  write-failure states
-- keyboard, focus, semantic, live-announcement, long-CJK, 200-percent zoom,
-  desktop, and 390 px behavior
-- focused Frontend tests, isolated Product E2E, local real-data browser probe,
-  evidence report, commits, push, and exact-SHA CI closure
-- concise repository governance update implementing the user's reviewed-task
-  automatic-execution rule
+1. Explicit selection of a different node creates one history entry; selecting
+   the current node is a no-op.
+2. Canonicalization uses replace only. Route restoration never creates a new
+   history entry. Workspace and panel mode changes never mutate the URL.
+3. The canonical URL contains only validated `node_id`, normalized applied
+   `q`, and validated Article workflow fields: `article_id`, `article_title`,
+   and `return_to`. Unknown or unsafe parameters are discarded.
+4. A node-only URL change preserves in-memory query, type, and page state. A
+   changed URL query or reload may reset filters and pagination.
+5. Back/Forward and reload make the URL authoritative for selection.
+6. Result activation opens Selected on narrow layouts. Mobile or keyboard
+   activation focuses the persistent detail region. Back to results preserves
+   selection and URL, then restores the originating result if mounted or the
+   Results heading fallback otherwise.
+7. Context-map or relationship-list selection stays in Context, updates the
+   canonical URL, and preserves existing map recentering. Inspect selected
+   enters Explore / Selected.
 
 ## 5. Out of Scope
 
-- prerequisite inference or pedagogical ordering
-- completeness claims about related Articles, papers, formulas, or experiments
-- a persistent concept plan, new queue, route, Tutor mode, or persistence model
-- Backend, schema, API, Graph builder, derived asset, Article, source, or M1
-  changes
-- dependency, lockfile, or workflow changes
-- source-site access, external search, private Zotero access, or real/paid
-  Provider calls
-- candidate, tag, Release, attestation, destructive Git, or history rewriting
+- Graph ranking, page size, traversal bounds, entity or relationship semantics
+- Backend, schema, API, Graph builder, derived Graph asset, persistence, source,
+  Article, or frozen M1 changes
+- Concept Study Set, Tutor, Reader, Session, or learning-state contract changes
+- dependencies, lockfiles, workflows, global navigation redesign, or broad
+  visual restyling
+- source access, external search, private Zotero, or real/paid Provider calls
+- candidate, tag, Release, attestation, force push, or history rewriting
+- Focused Session completion; retain it as a later candidate task
 
 ## 6. Planned Execution
 
-1. Persist this alignment, canonical task, and active status.
-2. Add a failing pure-model test for ordered provenance deduplication,
-   disclosure counts, safe primary Article selection, and malformed sources.
-3. Implement the minimal Concept Study Set model.
-4. Add failing tests for typed Explain/Quiz launch URLs and tamper-resistant
-   Graph return paths, then implement the URL contract.
-5. Add failing tests for one-write bulk Session append, preserved active/order,
-   idempotence, and capacity outcomes, then implement the operation.
-6. Integrate the Concept Study Set into the existing Graph detail flow and
-   prefill Tutor without auto-submission.
-7. Add browser assertions for round trips, request envelopes, Session states,
-   focus, announcements, mobile, and zoom behavior.
-8. Validate representative real local Concepts and Articles with fake
-   providers, temporary mutable state, and all non-loopback requests blocked.
-9. Run full regression, build, Product E2E, security, artifact, and protected
-   path gates.
-10. Commit and push implementation, verify exact-SHA CI, then create and push
-    a docs-only closure commit and verify its exact-SHA CI.
+1. Persist this alignment, canonical task, and active repository status.
+2. Add failing pure tests for canonical URL ownership and history decisions.
+3. Implement the minimal Graph workspace navigation model.
+4. Integrate responsive modes, stable focus, URL synchronization, live status,
+   and bounded sticky detail into the existing Graph components.
+5. Extend Product E2E for real viewport intersection, focus restoration,
+   canonical history, reload, Back/Forward, context selection, and errors.
+6. Validate desktop, 390 x 844, 320 CSS px, and 720 x 450 zoom-equivalent
+   behavior in a production browser with no non-loopback requests.
+7. Run full regression, build, Product E2E, security, artifact, and protected
+   path gates; obtain two independent final implementation reviews.
+8. Commit and push implementation, verify exact-SHA CI, then create and push a
+   docs-only closure commit and verify its exact-SHA CI.
 
 ## 7. Deliverables
 
-- updated `AGENTS.md` reviewed-task execution rule
 - updated `alignment.md`
-- `docs/tasks/P3-023_CONCEPT_STUDY_SET_AND_LEARNING_LAUNCH.md`
+- `docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md`
 - updated `docs/tasks/CURRENT_TASK.md`
-- Concept Study Set and launch implementation under `frontend/src/`
+- Graph workspace implementation under `frontend/src/`
 - focused Frontend tests and expanded `scripts/e2e/run_product_e2e.py`
-- `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md`
+- `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md`
 - updated `README.md`, `docs/00_PROJECT_STATE.md`, and
   `docs/V1_2_ROADMAP.md`
 - implementation and docs-only closure commits with exact-SHA CI evidence
 
 ## 8. Acceptance Criteria
 
-- Only a selected Concept exposes the Study Set; other node types retain their
-  existing detail and context behavior.
-- Eligible Articles are safe, readable, source-ordered, and unique by ID.
-- Returned, eligible, omitted, duplicate/invalid, and truncated states are
-  represented without a completeness or recommendation claim.
-- Explain and Quiz launches carry bounded Concept title, validated node ID,
-  optional primary Article, explicit mode, and canonical Graph return path.
-- Tutor fields are prefilled but no request occurs before explicit submission.
-- Explain uses the Concept node only as supplemental context; Quiz does not
-  claim Graph grounding.
-- Provenance Article links round-trip to the exact Concept. Section labels are
-  not converted into unverified Reader anchors.
-- Per-Article and bulk Session adds preserve existing queue order and active
-  item, append in source order, enforce the 20-item limit, are idempotent, and
-  save once per bulk action.
-- Added, already-present, invalid, and capacity-omitted outcomes are announced;
-  persistence failure does not navigate or claim success.
-- Empty, malformed, truncated, unavailable-storage, full-capacity, Graph
-  failure, and Tutor failure states remain controlled and do not expose raw IDs.
-- Keyboard access, visible focus, semantic headings/lists, live status/error
-  feedback, long CJK titles, 1440 x 900, 390 x 844, and 200-percent zoom pass
-  without overlap or horizontal overflow.
-- Three consecutive isolated production Product E2E runs pass with fake
-  providers, temporary state, zero external requests, and zero unexpected
-  console/page errors.
+- A valid deep link presents Selected immediately at 390 x 844, 320 CSS px,
+  and 720 x 450 zoom-equivalent without traversing the Results page.
+- Explicit result selection changes the canonical URL once, reaches the
+  persistent detail focus target as specified, and Back to results restores a
+  deterministic focus target without changing selection or history.
+- Back/Forward and reload keep URL and selected UI consistent while preserving
+  safe query and Article return context.
+- Knowledge Context is one explicit mode action away; Map/List selection,
+  recentering, and Inspect selected work without exposing raw IDs.
+- Desktop retains simultaneous list/detail exploration. The sticky inspector
+  does not clip long details; its first and last controls remain keyboard
+  reachable through local scrolling.
+- Segmented controls expose complete button-group semantics with `aria-pressed`,
+  labelled regions, visible focus, and DOM/focus order matching visual order.
+- Deep-link, long-detail, loading, error, retry, same-node, missing-origin,
+  context, history, and viewport-intersection cases have automated evidence.
+- Three isolated production Product E2E runs pass with zero external requests,
+  zero unexpected console/page errors, and no horizontal overflow.
 - Backend full tests, focused Frontend tests, production build, workflow,
   suppression, dependency, secret, SBOM, artifact, and protected-path gates
-  pass.
-- Backend, frozen M1, source records, Article records, derived assets,
-  dependencies, lockfiles, workflows, and published APIs remain unchanged.
+  pass without changing protected code, data, dependencies, or contracts.
 - Implementation and closure commits pass exact-SHA main CI; final `main` is
   clean and synchronized.
 
 ## Confirmed Test Seams
 
-1. Pure Concept Study Set, typed launch URL, and bounded Session mutation
-   interfaces.
-2. Browser-visible Graph Concept -> Reader/Tutor/Focused Session workflow.
+1. Pure canonical Graph URL and workspace navigation decisions.
+2. Browser-visible Graph result/detail/context, focus, and history workflow.
 
 ## Stop Conditions
 
 - An unknown worktree change or conflict appears.
-- Existing contracts cannot support the accepted workflow without a Backend,
-  schema, dependency, Graph-data, or published-interface change.
+- Existing contracts cannot support the workflow without a protected change.
 - Required evidence needs source access, private Zotero, external search, or a
   real/paid Provider call.
-- A required test, build, browser, secret, artifact, or CI gate fails without
-  an in-scope deterministic repair.
+- A test, build, browser, secret, artifact, review, or CI gate fails without an
+  in-scope deterministic repair.
 - A candidate, tag, Release, attestation, force push, or history rewrite becomes
   necessary.
-
-## Completion Evidence
-
-- implementation commit:
-  `fceadc512c266de2670d5c426dc201b9e580924b`
-- implementation exact-SHA main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33834027640`
-- Backend: 600 passed / 4 skipped
-- focused Frontend: 92 passed; production build: PASS
-- Product E2E: 3/3 runs, 63 checks each, zero external requests and zero
-  unexpected console/page errors
-- final independent implementation reviews: 2 PASS
-- security, SBOM, artifact, and protected-path gates: PASS
-- evidence report: `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md`
-- docs-only closure commit: this commit; exact-SHA main CI required before
-  final reporting
-- candidate, tag, Release, attestation, source, private Zotero, and real
-  Provider actions: not performed

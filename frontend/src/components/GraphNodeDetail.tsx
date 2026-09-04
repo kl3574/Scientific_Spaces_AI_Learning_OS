@@ -24,7 +24,9 @@ type GraphNodeDetailProps = {
   node: GraphNode | null;
   detailStatus: GraphLoadState;
   detailError: string | null;
+  onBackToResults: () => void;
   onRetry: () => void;
+  onShowContext: () => void;
 };
 
 type GraphContextListProps = {
@@ -41,18 +43,30 @@ export function GraphNodeDetail({
   node,
   detailStatus,
   detailError,
+  onBackToResults,
   onRetry,
+  onShowContext,
 }: Readonly<GraphNodeDetailProps>) {
   return (
     <aside className="min-w-0">
       <section className="min-w-0 rounded border border-slate-200 bg-white p-4" aria-busy={detailStatus === "loading"}>
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-base font-semibold">Selected Node</h2>
-          {detailStatus === "error" ? (
-            <button className="text-xs font-medium text-slate-600 hover:text-slate-950" type="button" onClick={onRetry}>
-              Retry
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-base font-semibold" id="graph-selected-node-heading">Selected Node</h2>
+          <div className="flex flex-wrap items-center gap-3 text-xs font-medium">
+            <button className="text-slate-600 hover:text-slate-950 lg:hidden" type="button" onClick={onBackToResults}>
+              Back to results
             </button>
-          ) : null}
+            {node ? (
+              <button className="text-slate-600 hover:text-slate-950" type="button" onClick={onShowContext}>
+                Knowledge context
+              </button>
+            ) : null}
+            {detailStatus === "error" ? (
+              <button className="text-slate-600 hover:text-slate-950" type="button" onClick={onRetry}>
+                Retry
+              </button>
+            ) : null}
+          </div>
         </div>
 
         {detailStatus === "idle" ? (
@@ -68,7 +82,9 @@ export function GraphNodeDetail({
             {detailError}
           </p>
         ) : null}
-        {detailStatus === "loaded" && node ? <NodeContent key={node.node_id} node={node} /> : null}
+        {detailStatus === "loaded" && node ? (
+          <NodeContent key={node.node_id} node={node} onShowContext={onShowContext} />
+        ) : null}
       </section>
     </aside>
   );
@@ -115,7 +131,10 @@ export function GraphContextList({
   );
 }
 
-function NodeContent({ node }: Readonly<{ node: GraphNode }>) {
+function NodeContent({
+  node,
+  onShowContext,
+}: Readonly<{ node: GraphNode; onShowContext: () => void }>) {
   const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const label = getSafeDisplayText(node.label) ?? "Untitled node";
   const provenance = getConceptProvenance(node);
@@ -172,7 +191,9 @@ function NodeContent({ node }: Readonly<{ node: GraphNode }>) {
         </section>
       ) : null}
 
-      {node.node_type === "concept" ? <ConceptStudySetPanel node={node} /> : null}
+      {node.node_type === "concept" ? (
+        <ConceptStudySetPanel node={node} onShowContext={onShowContext} />
+      ) : null}
     </div>
   );
 }

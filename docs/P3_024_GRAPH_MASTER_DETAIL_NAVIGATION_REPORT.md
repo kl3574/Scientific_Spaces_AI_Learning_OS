@@ -1,0 +1,212 @@
+# P3-024 Graph Master-Detail Navigation and Focus Continuity Report
+
+Status: **LOCAL VALIDATION PASS / IMPLEMENTATION CI PENDING**
+
+## 1. Scope And Boundaries
+
+P3-024 turns the existing Graph results, selected-node detail, and Knowledge
+Context into one coherent master-detail workspace. The implementation is
+Frontend-only apart from focused tests, Product E2E, and governance evidence.
+
+Backend code, frozen M1 modules, source and Article records, Graph builders and
+derived assets, dependencies, lockfiles, workflows, published APIs, private
+Zotero data, Provider defaults, and release state remained unchanged. No
+source request, external search, private Zotero action, real Provider call,
+candidate, tag, Release, attestation, force push, or history rewrite occurred.
+
+The user-requested `AGENTS.md` cleanup removed only agent-authored orchestration
+and standing-authorization prose. Repository engineering, data-safety, and Git
+safety rules remain intact.
+
+## 2. Workspace Contract
+
+- Explore and Knowledge Context are explicit workspace modes.
+- Desktop retains simultaneous Results and Selected inspection.
+- Narrow and zoomed layouts expose a Results / Selected segmented control and
+  keep only the active panel in the accessibility tree.
+- The desktop inspector is sticky, height-bounded, and independently
+  scrollable so long details do not hide their final controls.
+- Existing Concept Study Set actions open Knowledge Context without a hash
+  jump or a second navigation model.
+- Context map and relationship-list selection stay in Context and preserve
+  graph recentering; Inspect selected returns to Explore / Selected.
+
+## 3. Canonical URL And History
+
+The pure `graphWorkspace` model owns canonical Graph URL construction and
+history decisions:
+
+- a different valid node selection performs one `pushState`;
+- selecting the current node is a no-op;
+- query Apply/Clear and URL canonicalization use `replaceState`;
+- restoration from reload or Back/Forward never pushes;
+- workspace and responsive panel changes never mutate browser history; and
+- canonical URLs retain only a validated node, normalized applied query, and
+  validated Article workflow context.
+
+Unknown parameters, unsafe identities, and fragments are removed. A node-only
+history transition preserves current in-memory filters and pagination, while
+a changed route query may intentionally reset them. Back across the `/graph`
+route boundary is not intercepted or rewritten.
+
+## 4. Focus And Accessibility
+
+- selection from Results moves focus to one persistent detail region;
+- loading, loaded, and error replacement does not discard that focus target;
+- Back to results restores the originating result when mounted, otherwise the
+  Results heading fallback;
+- Context selection keeps focus in the Context region through asynchronous
+  graph replacement;
+- direct Graph navigation from same-route global search reaches the visible
+  selected detail rather than an inactive panel;
+- segmented controls use button-group semantics and `aria-pressed`;
+- Results, Selected, and Knowledge Context are labelled regions;
+- keyboard focus has a visible nonzero outline; and
+- live selection messages use safe labels bounded to 120 characters and never
+  expose raw node IDs.
+
+## 5. Responsive And Failure Evidence
+
+Automated browser evidence covers desktop, 390 x 844 mobile, 320 CSS px, and
+720 x 450 zoom-equivalent viewports. Valid deep links open Selected directly,
+without traversing the 20-result page. All checked layouts avoid horizontal
+overflow.
+
+The browser suite also covers empty selection, delayed summary loading, detail
+loading, detail failure and retry, same-node selection, missing result origin,
+context selection, canonicalization, reload, Back/Forward, and route-boundary
+Back behavior. Partial failures remain local to their panel and do not create
+false success feedback.
+
+## 6. Real Local Data Evidence
+
+Read-only validation used the installed Article and Graph stores:
+
+- Article count: 1,314
+- Article Store SHA-256:
+  `852ea18fd0f01781d0f8fdb7a4cf5d0ba5c4b9fb161e680a0f56455c03f11846`
+- Graph nodes: 53,046
+- Graph edges: 82,584
+- Graph Store SHA-256:
+  `b39efa24e5ab5b4b625114542fd29aa087e504f578fd899c110a3fe5041cb473`
+- bounded `Attention` query: 5 results
+- bounded selected-node context: 25 nodes / 24 edges
+
+The Article and Graph hashes are unchanged from the P3-023 handoff. A bounded
+local-only browser probe rendered desktop and mobile Graph workspaces with
+valid map geometry, directly reachable mobile detail, zero non-loopback
+requests, and no console or page errors.
+
+## 7. Automated Evidence
+
+### Backend
+
+```text
+uv run --project backend --extra dev pytest -q
+600 passed, 4 skipped in 41.12s
+```
+
+### Frontend
+
+- Article, Reader, workflow, and navigation: 33 passed
+- structured References: 3 passed
+- Tutor: 20 passed
+- Graph, workspace, and Concept Study Set: 23 passed
+- global search: 5 passed
+- Saved Learning Library: 5 passed
+- Focused Session: 8 passed
+- focused total: 97 passed
+- Next.js 15.5.21 production build: PASS, 11 routes
+- `/graph`: 68.3 kB route / 182 kB first load
+- shared first load: 103 kB
+
+### Product E2E
+
+```text
+uv run --project backend python scripts/e2e/run_product_e2e.py \
+  --repeat 3 --frontend-mode start
+```
+
+- formal complete runs: 3
+- formal successful runs: 3
+- checks per run: 73
+- Graph responsive reachability, focus, URL, history, context, and retry:
+  PASS in every run
+- existing Article, Reader, Tutor, Session, Library, Search, and Graph flows:
+  PASS in every run
+- Chromium: 149.0.7827.55
+- external requests: 0 in every run
+- unexpected console errors: 0 in every run
+- page errors: 0 in every run
+
+## 8. Security And Supply Chain
+
+- workflow policy: PASS, 1 workflow / 19 immutable Action uses
+- Action full-SHA pin rate: 100 percent
+- explicit workflow and job permission rate: 100 percent
+- suppression policy: PASS, 0 dependency / 0 secret suppressions
+- dependency audit: PASS, 40 PyPI / 239 npm packages / 0 findings
+- secret audit: PASS, 0 credible / 0 reported / 0 suppressed findings
+- temporary CycloneDX 1.6 SBOM: PASS
+- SBOM components: 40 Backend / 239 Frontend / 281 combined
+- SBOM schema, dependency coverage, and forbidden-value checks: PASS
+- temporary evidence cleanup: PASS
+
+## 9. Artifact And Protected Paths
+
+- Backend implementation changes: 0
+- frozen M1 changes: 0
+- source or Article record changes: 0
+- Graph builder or derived-asset changes: 0
+- dependency, lockfile, or workflow changes: 0
+- published API changes: 0
+- tracked runtime/private artifact additions: 0
+- `.env`, credential, PDF, HTML dump, image, trace, profile, cache, mutable
+  store, corpus, generated SBOM, or local E2E result additions: 0
+
+The tracked `.env.example` template remains the only broad environment-pattern
+match and is not a secret or runtime artifact.
+
+## 10. Independent Review And Known Risks
+
+Two independent final implementation reviews returned PASS after focus
+continuity in Context, same-route global-search handoff, direct 390 x 844 deep
+links, fragment canonicalization, and route-driven Context focus were made
+explicit and covered by tests.
+
+Exploratory production runs previously observed intermittent React hydration
+error 418 during repeated hard-navigation test reuse. Stable page-context
+labels localized the race, and the harness now isolates those navigation and
+storage scenarios in fresh pages. The final current-tree production suite
+passed three consecutive complete runs with zero console or page errors. This
+remains a framework/runtime regression risk, not an active P3-024 blocker.
+
+The Graph remains bounded by existing result and traversal limits, and its
+runtime still depends on external data shape remaining compatible with the
+published contracts. P3-024 does not claim graph completeness or alter
+learning semantics.
+
+## 11. Exact-SHA Main CI
+
+Implementation commit: pending.
+
+Exact-SHA main CI: pending.
+
+Required CI evidence:
+
+- Backend pytest
+- Frontend build
+- three-run Product E2E
+- workflow and suppression policy
+- dependency audit
+- secret audit
+- SBOM validation
+- expected Docker and release-evidence skip behavior for a normal `main` push
+- zero uploaded artifacts
+
+## 12. Closure State
+
+All local P3-024 acceptance gates pass. Closure remains pending until the
+implementation commit and a separate docs-only closure commit each pass their
+own exact-SHA main CI. No v1.2 candidate is assigned. Focused Session
+Completion and Guided Advance remains an unapproved next-task candidate.
