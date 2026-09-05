@@ -110,6 +110,7 @@ type NoteFocusRequest = Readonly<{
 }>;
 
 const ARTICLE_LOAD_TIMEOUT_MS = 10_000;
+let pendingOrdinaryArticleFocusId: string | null = null;
 
 function focusVisibleElement(target: HTMLElement | null) {
   if (!target?.isConnected) {
@@ -211,6 +212,16 @@ export function ArticleDetailView({
     || activeNoteDeleteReconciliation !== null;
 
   useLayoutEffect(() => {
+    if (pendingOrdinaryArticleFocusId !== articleId || article?.id !== articleId) {
+      return;
+    }
+    pendingOrdinaryArticleFocusId = null;
+    if (document.activeElement === document.getElementById("main-content")) {
+      focusVisibleElement(articleHeadingRef.current);
+    }
+  }, [article?.id, articleId]);
+
+  useLayoutEffect(() => {
     articleIdRef.current = articleId;
   }, [articleId]);
 
@@ -294,6 +305,17 @@ export function ArticleDetailView({
         article?.id ?? articleId,
       );
     }
+  }
+
+  function prepareOrdinaryArticleFocus(
+    event: ReactMouseEvent<HTMLAnchorElement>,
+    targetArticleId: string,
+  ) {
+    if (!isSameTabNavigation(event) || targetArticleId === articleId) {
+      return;
+    }
+    pendingOrdinaryArticleFocusId = targetArticleId;
+    focusVisibleElement(document.getElementById("main-content"));
   }
 
   useEffect(() => {
@@ -1811,7 +1833,7 @@ export function ArticleDetailView({
       <aside
         id="reading-tools"
         aria-label="Reading tools"
-        className="scroll-mt-24 space-y-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1"
+        className="min-w-0 scroll-mt-24 space-y-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1"
         tabIndex={-1}
       >
         <div className="flex items-center justify-between gap-3 border-b border-slate-300 pb-2">
@@ -2137,7 +2159,7 @@ export function ArticleDetailView({
           </div>
         </section>
 
-        <ZoteroLinksPanel articleId={article.id} initialQuery={article.title} />
+        <ZoteroLinksPanel key={article.id} articleId={article.id} initialQuery={article.title} />
 
         <section className="rounded border border-slate-200 bg-white p-4">
           <h2 className="text-base font-semibold">Metadata</h2>
@@ -2173,6 +2195,7 @@ export function ArticleDetailView({
                   key={`${item.id}-${item.last_read_at}`}
                   className="rounded border border-slate-100 px-3 py-2 text-sm hover:bg-slate-50"
                   href={`/articles/${item.id}`}
+                  onClick={(event) => prepareOrdinaryArticleFocus(event, item.id)}
                 >
                   <span className="block font-medium">{item.title}</span>
                   <span className="mt-1 block text-xs text-slate-500">

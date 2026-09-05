@@ -1,59 +1,67 @@
-# P3-031 Reader Note Deletion Safety Alignment
+# P3-032 Related-Paper Context Ownership and Accessible Feedback Alignment
 
 Canonical task:
-`docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md`
+`docs/tasks/P3-032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md`
 
-Status: **PASS / CLOSED**
+Status: **IMPLEMENTED / LOCAL PASS / CI PENDING**
 
-BOUNDED READER FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
-ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE PUSH TO `main`,
-AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED**
+BOUNDED RELATED-PAPERS FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE
+DOCUMENTATION, ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE
+PUSH TO `main`, AND EXACT-SHA CI READBACK: **AUTHORIZED / CI PENDING**
 
-BACKEND, API, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE RECORDS,
-CORPUS, GRAPH DATA, DERIVED ASSETS, DEPENDENCIES, LOCKFILES, WORKFLOWS,
-CANDIDATE, TAG, RELEASE, AND ATTESTATION CHANGES: **NOT GRANTED**
+BACKEND, API, PROVIDER, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE
+RECORDS, CORPUS, GRAPH OR REFERENCE DATA, DERIVED ASSETS, DEPENDENCIES, LOCKFILES,
+WORKFLOWS, CANDIDATE, TAG, RELEASE, AND ATTESTATION CHANGES: **NOT GRANTED**
 
 SOURCE NETWORK, EXTERNAL SEARCH, PRIVATE ZOTERO, REAL OR PAID PROVIDERS,
 DESTRUCTIVE GIT ACTIONS, AND HISTORY REWRITING: **NOT GRANTED**
 
 ## Objective
 
-Require an Article/generation/note-owned confirmation before permanent Reader
-note deletion and keep focus, duplicate prevention, and uncertain-result
-feedback coherent through every terminal and stale path.
+Make Related Papers reads, searches, mutations, and exports Article-owned;
+require safe unlink confirmation and truthful reconciliation; and provide
+accessible, responsive loading, feedback, and BibTeX states.
 
 ## Binding Contract
 
-- First Delete activation creates intent and sends zero DELETE requests.
-- Inline confirmation explains that deletion is permanent and cannot be undone.
-- Opening focuses Cancel; deterministic keyboard order reaches Delete permanently.
-- All competing Notes mutation launchers remain locked while confirmation is
-  awaiting a decision or the DELETE is in flight.
-- Cancel and Escape send zero DELETE and restore the exact initiating control.
-- Confirm sends exactly one DELETE through existing P3-029 ownership guards.
-- Pending keeps confirmation mounted; success focuses visible Notes status.
-- Rejection or response loss is unconfirmed, preserves only current rendering,
-  never auto-replays, and instructs reload before retry.
-- Article/history/reload changes invalidate old intent and focus work without a
-  DELETE or cross-Article side effect.
+- Every operation is owned by Article, generation, operation, and relevant
+  query/item/link fingerprint.
+- Loading, empty, unavailable, error, pending, success, and uncertain states are
+  distinct and truthful.
+- Search supersession is latest-owned; duplicate submission is inert.
+- One panel-wide mutation lane prevents duplicate or competing POST/DELETE.
+- Unlink is two-phase; cancel, Escape, and navigation send zero DELETEs;
+  confirmation sends exactly one.
+- Mutation failure performs one read-only reconciliation, never replay, and
+  blocks further mutation only when persistence remains unconfirmed.
+- Provider availability does not hide locally stored project links.
+- BibTeX is a current-link-set-owned accessible disclosure.
+- Stale completion and deferred focus work cannot cross Article generations.
 
 ## Allowed Changes
 
-- `frontend/src/components/ArticleDetailView.tsx`
-- `frontend/src/lib/readerLearningMutations.ts`
-- `frontend/tests/readerLearningMutations.test.ts`
+- `frontend/src/components/ZoteroLinksPanel.tsx`
+- `frontend/src/components/ArticleDetailView.tsx` only for an Article key, the
+  Reading tools grid item's min-width constraint, and a synchronous ordinary
+  Article-to-Article main / destination-heading focus handoff
+- `frontend/src/lib/zotero.ts`
+- `frontend/src/lib/zoteroLinkOperations.ts`
+- `frontend/tests/zoteroLinkOperations.test.ts`
+- `frontend/scripts/test-references.sh`
 - `scripts/e2e/run_product_e2e.py`
-- the exact P3-031 canonical, alignment, current-state, roadmap, README, and
+- the exact P3-032 canonical, alignment, current-state, roadmap, README, and
   report files enumerated by the canonical task
 
 ## Acceptance
 
-- Mouse and keyboard open/cancel/confirm paths satisfy exact request counts.
-- Pending, success, rejection, and response-loss states preserve P3-029
-  identity and uncertainty semantics.
-- Focus never falls to `body`, disconnects, or crosses Article generations.
-- Article change, Back/Forward, reload, and stale completions are inert.
-- Four required viewports have usable controls and no horizontal overflow.
+- Delayed or stale reads cannot mutate another Article or target it with an old
+  item key.
+- Search, Link, Unlink, reconciliation, and export satisfy exact request counts.
+- Unlink confirmation, provider availability, loading/empty/error truth, live
+  feedback, target names, and continuous panel/route focus behavior are
+  accessible.
+- Four required viewports support populated, pending, failure, confirmation,
+  and long BibTeX states without horizontal overflow.
 - Focused/full tests, build, three Product E2E runs, safety gates, and two final
   reviews pass with zero unexpected external/console/page activity.
 - Implementation and docs-only closure commits each pass exact-SHA main CI.
@@ -62,14 +70,14 @@ feedback coherent through every terminal and stale path.
 
 The product owner explicitly directed the agent to stop recurring plan
 confirmations and automatically execute bounded platform and GUI improvements
-after independent sub-agent review. Two independent reviewers approved this
-revised contract with no remaining Critical or Important gaps. This standing
+after sub-agent review. Two independent reviewers converged on this contract;
+their Critical and Important findings are incorporated above. This standing
 direction authorizes only the exact scope above.
 
 ## Stop Conditions
 
 Stop rather than widen scope if correct behavior requires Backend, API,
-persistence, dependency, workflow, external/private, Provider, or release
+provider, persistence, dependency, workflow, external/private, or release
 changes, or if an unknown worktree change, forbidden artifact, unrepairable
 gate, or exact-SHA CI failure appears.
 
@@ -77,23 +85,8 @@ No v1.2 candidate is assigned.
 
 ## Local Gate Result
 
-All local acceptance gates pass: 113 focused Frontend tests, the 11-route
-production build, 600 Backend tests with 4 skipped, three Product E2E runs with
-177 checks each, two final independent reviews, and all local safety gates.
-External requests and unexpected console/page errors are zero.
-
-## Closure Evidence
-
-- implementation commit:
-  `f944d2df79505bcca0f22276b1138d84fe1f161b`
-- exact-SHA implementation main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33956965124`
-- unchanged-SHA attempt 2 passed Frontend, Backend, three-run Product E2E,
-  dependency, workflow/suppression, secret, and SBOM gates
-- normal-main Docker and release evidence jobs skipped as designed
-- uploaded artifacts: 0
-- attempt 1 failed only at a pre-existing P3-028 Graph-origin Reader progress
-  assertion; no P3-031 deletion-safety assertion failed
-- docs-only closure commit: this commit; exact-SHA main CI is required before
-  final reporting
-- next bounded candidate: none staged
+The final worktree passes 120 focused Frontend tests, the 11-route production
+build, 600 Backend tests with 4 skipped, three complete Product E2E runs,
+restart persistence, two independent final reviews, and all local non-network
+safety gates. External requests and unexpected console/page errors are zero.
+Exact-SHA implementation main CI remains required before closure.

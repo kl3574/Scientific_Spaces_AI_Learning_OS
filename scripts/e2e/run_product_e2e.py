@@ -4379,9 +4379,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "button", name=f"Move {CRB_TITLE} up", exact=True
     ).click()
     expect(write_failure_page.get_by_test_id("study-session-item").first).to_contain_text(CRB_TITLE)
-    expect(write_failure_page.get_by_role("status")).to_contain_text(
-        "browser-local storage could not save it"
-    )
+    expect(
+        write_failure_page.get_by_role("status").filter(
+            has_text="browser-local storage could not save it"
+        )
+    ).to_be_visible()
     write_failure_page.close()
     write_failure_context.route(
         re.compile(r".*/learning/sessions$"),
@@ -6683,6 +6685,16 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["mobile_visual_knowledge_explorer"] = True
     mobile_context.close()
 
+    checks.update(
+        _verify_zotero_links_panel_integrity(
+            browser,
+            iteration=iteration,
+            blocked_external=blocked_external,
+            console_errors=console_errors,
+            page_errors=page_errors,
+        )
+    )
+
     _verify_reader_learning_mutation_integrity(
         browser,
         iteration=iteration,
@@ -6715,6 +6727,1544 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console_error_count": len(unexpected_console_errors),
         "page_error_count": len(page_errors),
     }
+
+
+def _verify_zotero_links_panel_integrity(
+    browser,
+    *,
+    iteration: int,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+) -> dict[str, bool]:
+    from playwright.sync_api import expect
+
+    checks: dict[str, bool] = {}
+    kay_title = "Fundamentals of Statistical Signal Processing"
+    session_sequence = 0
+
+    def new_context(
+        *,
+        settings: dict[str, object] | None = None,
+        viewport: dict[str, int] | None = None,
+        is_mobile: bool = False,
+        device_scale_factor: int = 1,
+    ):
+        nonlocal session_sequence
+        context = browser.new_context(
+            viewport=viewport or {"width": 1440, "height": 900},
+            locale="zh-CN",
+            is_mobile=is_mobile,
+            device_scale_factor=device_scale_factor,
+        )
+        _install_network_guard(context, blocked_external)
+
+        def provide_isolated_reader_session(route) -> None:
+            nonlocal session_sequence
+            if route.request.method != "POST":
+                route.continue_()
+                return
+            session_sequence += 1
+            route.fulfill(
+                status=201,
+                content_type="application/json",
+                body=json.dumps(
+                    {
+                        "session_id": f"p3-032-{iteration}-{session_sequence}",
+                        "article_id": json.loads(route.request.post_data or "{}").get(
+                            "article_id"
+                        ),
+                        "started_at": "2026-09-05T00:00:00Z",
+                        "ended_at": None,
+                        "duration_seconds": None,
+                        "source": "reader",
+                    }
+                ),
+            )
+
+        context.route(re.compile(r".*/learning/sessions$"), provide_isolated_reader_session)
+        context.add_init_script(_zotero_panel_controller_script(settings or {}))
+        return context
+
+    def clear_links(context) -> None:
+        for target_article in (ATTENTION_ARTICLE_ID, CRB_ARTICLE_ID):
+            for item_key in ("ABCD1234", "EFGH5678"):
+                response = context.request.delete(
+                    f"{API_URL}/zotero/links/{target_article}/{item_key}"
+                )
+                _require(response.status == 204, "failed to reset isolated Zotero links")
+
+    def seed_link(
+        context,
+        target_article: str,
+        item_key: str,
+        *,
+        relation_type: str = "related",
+        note: str | None = None,
+    ) -> None:
+        response = context.request.post(
+            f"{API_URL}/zotero/links/{target_article}",
+            data={
+                "item_key": item_key,
+                "relation_type": relation_type,
+                "note": note,
+            },
+        )
+        _require(response.status == 200, "failed to seed isolated Zotero link")
+
+    def request_count(page, method: str, path_fragment: str) -> int:
+        return int(
+            page.evaluate(
+                """
+                ([method, pathFragment]) => window.__p3032.requests.filter(
+                  request => request.method === method && request.target.includes(pathFragment)
+                ).length
+                """,
+                [method, path_fragment],
+            )
+        )
+
+    def exact_requests(page, method: str, path: str) -> list[dict[str, object]]:
+        return list(
+            page.evaluate(
+                """
+                ([method, path]) => window.__p3032.requests.filter(
+                  request => request.method === method && request.path === path
+                )
+                """,
+                [method, path],
+            )
+        )
+
+    def exact_requests(page, method: str, path: str) -> list[dict[str, object]]:
+        return list(
+            page.evaluate(
+                """
+                ([method, path]) => window.__p3032.requests.filter(
+                  request => request.method === method && request.path === path
+                )
+                """,
+                [method, path],
+            )
+        )
+
+    def navigate_to_crb_from_recent(page) -> None:
+        recent_section = page.locator("section").filter(
+            has=page.get_by_role("heading", name="Recent Reading", exact=True)
+        )
+        recent_section.get_by_role(
+            "link", name=re.compile(rf"^{re.escape(CRB_TITLE)}")
+        ).click()
+        expect(page.locator("article#article-start > h1")).to_have_text(
+            CRB_TITLE,
+            timeout=30_000,
+        )
+
+    cross_context = new_context(
+        settings={
+            "ignoreLinksAbort": True,
+            "linkDelays": {
+                f"/zotero/links/{ATTENTION_ARTICLE_ID}": 700,
+                f"/zotero/links/{CRB_ARTICLE_ID}": 60,
+            },
+            "history": {
+                "id": CRB_ARTICLE_ID,
+                "title": CRB_TITLE,
+                "url": "https://spaces.ac.cn/archives/11787",
+                "last_read_at": "2026-09-05T10:00:00.000Z",
+            },
+        }
+    )
+    clear_links(cross_context)
+    seed_link(cross_context, ATTENTION_ARTICLE_ID, "ABCD1234", note="Attention context")
+    seed_link(cross_context, CRB_ARTICLE_ID, "EFGH5678", relation_type="background")
+    cross_page = _new_observed_page(
+        cross_context,
+        console_errors,
+        page_errors,
+        label=f"p3-032-cross-article-{iteration}",
+    )
+    cross_page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(cross_page)
+    cross_panel = cross_page.get_by_test_id("zotero-links-panel")
+    expect(cross_panel.get_by_text("Loading related papers...", exact=True)).to_be_visible()
+    recent_section = cross_page.locator("section").filter(
+        has=cross_page.get_by_role("heading", name="Recent Reading", exact=True)
+    )
+    crb_history_link = recent_section.get_by_role(
+        "link", name=re.compile(rf"^{re.escape(CRB_TITLE)}")
+    )
+    expect(crb_history_link).to_be_visible(timeout=30_000)
+    crb_history_link.click()
+    expect(cross_page.locator("article#article-start > h1")).to_have_text(
+        CRB_TITLE,
+        timeout=30_000,
+    )
+    crb_panel = cross_page.get_by_test_id("zotero-links-panel")
+    expect(crb_panel.get_by_role("heading", name=kay_title, exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    cross_page.wait_for_timeout(900)
+    expect(
+        crb_panel.get_by_role("heading", name="Attention Is All You Need", exact=True)
+    ).to_have_count(0)
+    _require(
+        request_count(cross_page, "GET", f"/zotero/links/{CRB_ARTICLE_ID}") == 1,
+        "Article B did not issue exactly one canonical Zotero link-list request",
+    )
+    _require(
+        request_count(cross_page, "POST", "/zotero/links/") == 0
+        and request_count(cross_page, "DELETE", "/zotero/links/") == 0,
+        "Article transition issued an unintended Zotero mutation",
+    )
+    checks["zotero_cross_article_context_ownership"] = True
+    cross_context.close()
+
+    cross_settings = {
+        "history": {
+            "id": CRB_ARTICLE_ID,
+            "title": CRB_TITLE,
+            "url": "https://spaces.ac.cn/archives/11787",
+            "last_read_at": "2026-09-05T10:00:00.000Z",
+        }
+    }
+
+    stale_search_context = new_context(
+        settings={
+            **cross_settings,
+            "ignoreSearchAbort": True,
+            "searchDelays": {"attention": 700},
+        }
+    )
+    clear_links(stale_search_context)
+    seed_link(stale_search_context, ATTENTION_ARTICLE_ID, "ABCD1234")
+    seed_link(stale_search_context, CRB_ARTICLE_ID, "EFGH5678")
+    stale_search_page = _new_observed_page(
+        stale_search_context,
+        console_errors,
+        page_errors,
+        label=f"p3-032-cross-search-{iteration}",
+    )
+    stale_search_page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(stale_search_page)
+    stale_search_panel = stale_search_page.get_by_test_id("zotero-links-panel")
+    expect(stale_search_panel.get_by_role(
+        "heading", name="Attention Is All You Need", exact=True
+    )).to_be_visible(timeout=30_000)
+    stale_search_panel.get_by_label("Paper title or keyword", exact=True).fill("attention")
+    stale_search_panel.get_by_label("Paper title or keyword", exact=True).press("Enter")
+    expect(stale_search_panel.get_by_text("Searching Zotero...", exact=True)).to_be_visible()
+    navigate_to_crb_from_recent(stale_search_page)
+    stale_search_b_panel = stale_search_page.get_by_test_id("zotero-links-panel")
+    expect(stale_search_b_panel.get_by_role(
+        "heading", name=kay_title, exact=True
+    )).to_be_visible(timeout=30_000)
+    stale_search_b_query = stale_search_b_panel.get_by_label(
+        "Paper title or keyword", exact=True
+    )
+    stale_search_b_query.focus()
+    stale_search_page.wait_for_timeout(850)
+    expect(stale_search_b_query).to_be_focused()
+    expect(stale_search_b_panel.get_by_test_id("zotero-search-results")).to_be_empty()
+    expect(stale_search_b_panel.get_by_test_id("zotero-panel-feedback")).to_have_count(0)
+    _require(
+        request_count(stale_search_page, "GET", "/zotero/items?") == 1,
+        "cross-Article delayed search emitted an unexpected request count",
+    )
+    stale_search_context.close()
+
+    stale_export_context = new_context(
+        settings={
+            **cross_settings,
+            "exportDelayMs": 700,
+            "ignoreExportAbort": True,
+        }
+    )
+    clear_links(stale_export_context)
+    seed_link(stale_export_context, ATTENTION_ARTICLE_ID, "ABCD1234")
+    seed_link(stale_export_context, CRB_ARTICLE_ID, "EFGH5678")
+    stale_export_page = _new_observed_page(
+        stale_export_context,
+        console_errors,
+        page_errors,
+        label=f"p3-032-cross-export-{iteration}",
+    )
+    stale_export_page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(stale_export_page)
+    stale_export_panel = stale_export_page.get_by_test_id("zotero-links-panel")
+    expect(stale_export_panel.get_by_role(
+        "heading", name="Attention Is All You Need", exact=True
+    )).to_be_visible(timeout=30_000)
+    stale_export_panel.get_by_role("button", name="Export BibTeX", exact=True).click()
+    expect(stale_export_panel.get_by_text("Requesting BibTeX...", exact=True)).to_be_visible()
+    navigate_to_crb_from_recent(stale_export_page)
+    stale_export_b_panel = stale_export_page.get_by_test_id("zotero-links-panel")
+    expect(stale_export_b_panel.get_by_role(
+        "heading", name=kay_title, exact=True
+    )).to_be_visible(timeout=30_000)
+    stale_export_b_query = stale_export_b_panel.get_by_label(
+        "Paper title or keyword", exact=True
+    )
+    stale_export_b_query.focus()
+    stale_export_page.wait_for_timeout(850)
+    expect(stale_export_b_query).to_be_focused()
+    expect(stale_export_b_panel.get_by_test_id("zotero-bibtex-region")).to_have_count(0)
+    expect(stale_export_b_panel.get_by_test_id("zotero-panel-feedback")).to_have_count(0)
+    _require(
+        request_count(stale_export_page, "POST", "/zotero/export/bibtex") == 1,
+        "cross-Article delayed export emitted an unexpected request count",
+    )
+    stale_export_requests = exact_requests(
+        stale_export_page, "POST", "/zotero/export/bibtex"
+    )
+    _require(
+        len(stale_export_requests) == 1
+        and stale_export_requests[0].get("body") == {"item_keys": ["ABCD1234"]},
+        f"BibTeX export did not carry the exact linked-item set: {stale_export_requests}",
+    )
+    stale_export_context.close()
+
+    stale_intent_context = new_context(settings=cross_settings)
+    clear_links(stale_intent_context)
+    seed_link(stale_intent_context, ATTENTION_ARTICLE_ID, "ABCD1234")
+    seed_link(stale_intent_context, CRB_ARTICLE_ID, "EFGH5678")
+    stale_intent_page = _new_observed_page(
+        stale_intent_context,
+        console_errors,
+        page_errors,
+        label=f"p3-032-cross-unlink-intent-{iteration}",
+    )
+    stale_intent_page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(stale_intent_page)
+    stale_intent_panel = stale_intent_page.get_by_test_id("zotero-links-panel")
+    stale_intent_panel.get_by_role(
+        "button", name="Unlink Attention Is All You Need", exact=True
+    ).click(timeout=30_000)
+    expect(stale_intent_panel.get_by_test_id("zotero-unlink-confirmation")).to_be_visible()
+    expect(stale_intent_panel.get_by_role(
+        "button", name="Cancel unlink Attention Is All You Need", exact=True
+    )).to_be_focused()
+    _start_zotero_focus_trace(stale_intent_page)
+    navigate_to_crb_from_recent(stale_intent_page)
+    stale_intent_heading = stale_intent_page.locator("article#article-start > h1")
+    expect(stale_intent_heading).to_be_focused(timeout=30_000)
+    _assert_zotero_focus_continuity(
+        stale_intent_page,
+        "Related Papers Article navigation",
+        (
+            "testid:shell-main-content",
+            f"heading:{CRB_TITLE}",
+        ),
+    )
+    stale_intent_b_panel = stale_intent_page.get_by_test_id("zotero-links-panel")
+    expect(stale_intent_b_panel.get_by_role(
+        "heading", name=kay_title, exact=True
+    )).to_be_visible(timeout=30_000)
+    expect(stale_intent_b_panel.get_by_test_id("zotero-unlink-confirmation")).to_have_count(0)
+    _require(
+        request_count(stale_intent_page, "DELETE", "/zotero/links/") == 0,
+        "navigating away from an Unlink intent emitted DELETE",
+    )
+    stale_intent_context.close()
+
+    stale_mutation_context = new_context(
+        settings={**cross_settings, "linkDelayMs": 700}
+    )
+    clear_links(stale_mutation_context)
+    seed_link(stale_mutation_context, ATTENTION_ARTICLE_ID, "ABCD1234")
+    seed_link(stale_mutation_context, CRB_ARTICLE_ID, "ABCD1234")
+    stale_mutation_page = _new_observed_page(
+        stale_mutation_context,
+        console_errors,
+        page_errors,
+        label=f"p3-032-cross-mutation-{iteration}",
+    )
+    stale_mutation_page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(stale_mutation_page)
+    stale_mutation_panel = stale_mutation_page.get_by_test_id("zotero-links-panel")
+    expect(stale_mutation_panel.get_by_role(
+        "heading", name="Attention Is All You Need", exact=True
+    )).to_be_visible(timeout=30_000)
+    stale_mutation_panel.get_by_label("Paper title or keyword", exact=True).fill("Kay")
+    stale_mutation_panel.get_by_label("Paper title or keyword", exact=True).press("Enter")
+    stale_link = stale_mutation_panel.get_by_role(
+        "button", name=f"Link {kay_title}", exact=True
+    )
+    expect(stale_link).to_be_visible(timeout=30_000)
+    stale_link.click()
+    navigate_to_crb_from_recent(stale_mutation_page)
+    stale_mutation_b_panel = stale_mutation_page.get_by_test_id("zotero-links-panel")
+    expect(stale_mutation_b_panel.get_by_role(
+        "heading", name="Attention Is All You Need", exact=True
+    )).to_be_visible(timeout=30_000)
+    stale_mutation_b_query = stale_mutation_b_panel.get_by_label(
+        "Paper title or keyword", exact=True
+    )
+    stale_mutation_b_query.focus()
+    stale_mutation_page.wait_for_timeout(850)
+    expect(stale_mutation_b_query).to_be_focused()
+    expect(stale_mutation_b_panel.get_by_role(
+        "heading", name=kay_title, exact=True
+    )).to_have_count(0)
+    expect(stale_mutation_b_panel.get_by_test_id("zotero-panel-feedback")).to_have_count(0)
+    expect(stale_mutation_b_panel.get_by_test_id("zotero-bibtex-region")).to_have_count(0)
+    _require(
+        request_count(
+            stale_mutation_page, "POST", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+        ) == 1
+        and request_count(
+            stale_mutation_page, "POST", f"/zotero/links/{CRB_ARTICLE_ID}"
+        ) == 0,
+        "cross-Article delayed mutation targeted the wrong Article",
+    )
+    stale_mutation_context.close()
+
+    stale_reconcile_context = new_context(
+        settings={**cross_settings, "ignoreLinksAbort": True}
+    )
+    clear_links(stale_reconcile_context)
+    seed_link(stale_reconcile_context, ATTENTION_ARTICLE_ID, "ABCD1234")
+    seed_link(stale_reconcile_context, CRB_ARTICLE_ID, "ABCD1234")
+    stale_reconcile_page = _new_observed_page(
+        stale_reconcile_context,
+        console_errors,
+        page_errors,
+        label=f"p3-032-cross-reconcile-{iteration}",
+    )
+    stale_reconcile_page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(stale_reconcile_page)
+    stale_reconcile_panel = stale_reconcile_page.get_by_test_id("zotero-links-panel")
+    expect(stale_reconcile_panel.get_by_role(
+        "heading", name="Attention Is All You Need", exact=True
+    )).to_be_visible(timeout=30_000)
+    stale_reconcile_panel.get_by_label("Paper title or keyword", exact=True).fill("Kay")
+    stale_reconcile_panel.get_by_label("Paper title or keyword", exact=True).press("Enter")
+    stale_reconcile_link = stale_reconcile_panel.get_by_role(
+        "button", name=f"Link {kay_title}", exact=True
+    )
+    expect(stale_reconcile_link).to_be_visible(timeout=30_000)
+    stale_reconcile_initial_reads = request_count(
+        stale_reconcile_page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+    )
+    stale_reconcile_page.evaluate(
+        """
+        ([path]) => {
+          window.__p3032.dropNextLinkPost = true;
+          window.__p3032.linkDelays = { [path]: 700 };
+        }
+        """,
+        [f"/zotero/links/{ATTENTION_ARTICLE_ID}"],
+    )
+    stale_reconcile_link.click()
+    stale_reconcile_page.wait_for_function(
+        """
+        ([path, baseline]) => window.__p3032.requests.filter(
+          request => request.method === "GET" && request.target.includes(path)
+        ).length === baseline + 1
+        """,
+        arg=[f"/zotero/links/{ATTENTION_ARTICLE_ID}", stale_reconcile_initial_reads],
+        timeout=30_000,
+    )
+    navigate_to_crb_from_recent(stale_reconcile_page)
+    stale_reconcile_b_panel = stale_reconcile_page.get_by_test_id("zotero-links-panel")
+    expect(stale_reconcile_b_panel.get_by_role(
+        "heading", name="Attention Is All You Need", exact=True
+    )).to_be_visible(timeout=30_000)
+    stale_reconcile_b_query = stale_reconcile_b_panel.get_by_label(
+        "Paper title or keyword", exact=True
+    )
+    stale_reconcile_b_query.focus()
+    stale_reconcile_page.wait_for_timeout(850)
+    expect(stale_reconcile_b_query).to_be_focused()
+    expect(stale_reconcile_b_panel.get_by_role(
+        "heading", name=kay_title, exact=True
+    )).to_have_count(0)
+    expect(stale_reconcile_b_panel.get_by_test_id("zotero-panel-feedback")).to_have_count(0)
+    expect(stale_reconcile_b_panel.get_by_test_id("zotero-bibtex-region")).to_have_count(0)
+    _require(
+        request_count(
+            stale_reconcile_page, "POST", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+        ) == 1
+        and request_count(
+            stale_reconcile_page, "POST", f"/zotero/links/{CRB_ARTICLE_ID}"
+        ) == 0,
+        "cross-Article delayed reconciliation changed the mutation target",
+    )
+    stale_reconcile_context.close()
+    checks["zotero_cross_article_deferred_operations"] = True
+
+    context = new_context(settings={"linksDelayMs": 450})
+    clear_links(context)
+    seed_link(context, ATTENTION_ARTICLE_ID, "ABCD1234", note="Foundational context")
+    page = _new_observed_page(
+        context,
+        console_errors,
+        page_errors,
+        label=f"p3-032-workspace-{iteration}",
+    )
+    page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(page)
+    panel = page.get_by_test_id("zotero-links-panel")
+    linked_papers = panel.get_by_test_id("zotero-linked-papers")
+    expect(linked_papers).to_have_attribute("aria-busy", "true")
+    expect(panel.get_by_text("Loading related papers...", exact=True)).to_be_visible()
+    expect(panel.get_by_text("No related papers linked.", exact=True)).to_have_count(0)
+    expect(panel.get_by_role("heading", name="Attention Is All You Need", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    expect(linked_papers).to_have_attribute("aria-busy", "false")
+    expect(panel.get_by_test_id("zotero-links-announcement")).to_have_text(
+        "1 related paper loaded."
+    )
+    expect(panel.get_by_text("No related papers linked.", exact=True)).to_have_count(0)
+    expect(panel.get_by_label("Paper title or keyword", exact=True)).to_be_visible()
+    expect(panel.get_by_label("Relationship", exact=True)).to_be_visible()
+    expect(panel.get_by_label("Relationship note (optional)", exact=True)).to_be_visible()
+    checks["zotero_truthful_load_and_control_labels"] = True
+    page.evaluate("window.__p3032.linksDelayMs = 0")
+
+    query = panel.get_by_label("Paper title or keyword", exact=True)
+    search_form = panel.get_by_role("form", name="Search Zotero papers", exact=True)
+    search_button = search_form.locator('button[type="submit"]')
+    keyboard_search_start = request_count(page, "GET", "/zotero/items?")
+    query.fill("no-match-p3-032")
+    query.press("Enter")
+    expect(
+        panel.get_by_test_id("zotero-search-results").get_by_text(
+            "No Zotero papers matched “no-match-p3-032”.", exact=True
+        )
+    ).to_be_visible(timeout=30_000)
+    _require(
+        request_count(page, "GET", "/zotero/items?") - keyboard_search_start == 1,
+        "keyboard Enter search did not emit exactly one request",
+    )
+    page.evaluate(
+        """
+        () => {
+          window.__p3032.ignoreSearchAbort = true;
+          window.__p3032.searchDelays = { attention: 700, Kay: 60 };
+        }
+        """
+    )
+    search_start = request_count(page, "GET", "/zotero/items?")
+    query.fill("attention")
+    search_button.click()
+    query.fill("Kay")
+    expect(search_button).to_have_text("Search")
+    search_button.click()
+    search_results = panel.get_by_test_id("zotero-search-results")
+    expect(search_results.get_by_role("heading", name=kay_title, exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    page.wait_for_timeout(850)
+    expect(
+        search_results.get_by_role("heading", name="Attention Is All You Need", exact=True)
+    ).to_have_count(0)
+    _require(
+        request_count(page, "GET", "/zotero/items?") - search_start == 2,
+        "superseded Zotero searches did not issue exactly one request per query",
+    )
+
+    page.evaluate("window.__p3032.searchDelays = { Kay: 350 }")
+    duplicate_search_start = request_count(page, "GET", "/zotero/items?")
+    search_form.evaluate("form => { form.requestSubmit(); form.requestSubmit(); }")
+    expect(search_button).to_have_text("Searching...")
+    expect(search_button).to_be_disabled()
+    query.fill("Kay ")
+    query.press("Enter")
+    expect(search_results.get_by_role("heading", name=kay_title, exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    expect(search_results.get_by_role("status")).to_have_text(
+        "1 paper found for “Kay”."
+    )
+    _require(
+        request_count(page, "GET", "/zotero/items?") - duplicate_search_start == 1,
+        "duplicate pending Zotero search emitted more than one request",
+    )
+    _require(
+        exact_requests(page, "GET", "/zotero/items")[-1].get("target")
+        == "/zotero/items?q=Kay&limit=10",
+        f"normalized search did not preserve exact query identity: {exact_requests(page, 'GET', '/zotero/items')[-1:]}",
+    )
+    checks["zotero_latest_search_and_duplicate_guard"] = True
+
+    note = panel.get_by_label("Relationship note (optional)", exact=True)
+    link_note = "CRB background " + "evidence " * 12
+    note.fill(link_note)
+    link_button = search_results.get_by_role("button", name=f"Link {kay_title}", exact=True)
+    link_post_start = request_count(page, "POST", f"/zotero/links/{ATTENTION_ARTICLE_ID}")
+    link_read_start = request_count(page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}")
+    page.evaluate(
+        """
+        () => {
+          window.__p3032.linkDelayMs = 300;
+          window.__p3032.dropNextLinkPost = true;
+        }
+        """
+    )
+    relation = panel.get_by_label("Relationship", exact=True)
+    link_button.focus()
+    _start_zotero_focus_trace(page)
+    link_button.evaluate("button => { button.click(); button.click(); }")
+    expect(search_results.get_by_role("button", name=f"Linking {kay_title}", exact=True)).to_be_disabled()
+    expect(note).to_be_disabled()
+    expect(relation).to_be_disabled()
+    expect(linked_papers).to_have_attribute("aria-busy", "true")
+    expect(panel.get_by_test_id("zotero-mutation-announcement")).to_have_text(
+        f"Linking {kay_title} to this Article."
+    )
+    feedback = panel.get_by_test_id("zotero-panel-feedback")
+    expect(feedback).to_contain_text("link confirmed after reloading project storage", timeout=30_000)
+    expect(feedback).to_be_focused()
+    _require_visible_focus(feedback, "Related Papers Link reconciliation feedback")
+    expect(panel.get_by_role("heading", name=kay_title, exact=True).first).to_be_visible()
+    expect(linked_papers).to_have_attribute("aria-busy", "false")
+    expect(search_results.get_by_role("button", name=f"Linked {kay_title}", exact=True)).to_be_disabled()
+    _require(
+        request_count(page, "POST", f"/zotero/links/{ATTENTION_ARTICLE_ID}") - link_post_start == 1,
+        "rapid Link activation emitted more than one POST",
+    )
+    link_requests = exact_requests(
+        page, "POST", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+    )
+    _require(
+        link_requests[-1].get("body") == {
+            "item_key": "EFGH5678",
+            "relation_type": "related",
+            "note": link_note.strip(),
+        },
+        f"Link request did not preserve exact item/relation/note identity: {link_requests[-1:]}",
+    )
+    _require(
+        request_count(page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}") - link_read_start == 1,
+        "lost Link response did not trigger exactly one read-only reconciliation",
+    )
+    _assert_zotero_focus_continuity(
+        page,
+        "Related Papers Link reconciliation",
+        (
+            "testid:zotero-linked-papers",
+            "testid:zotero-panel-feedback",
+        ),
+    )
+    checks["zotero_link_response_loss_reconciliation"] = True
+
+    export_button = panel.locator('button[aria-controls="linked-bibtex-region"]')
+    expect(export_button).to_have_text("Export BibTeX")
+    export_start = request_count(page, "POST", "/zotero/export/bibtex")
+    page.evaluate("window.__p3032.exportDelayMs = 300")
+    export_button.focus()
+    _start_zotero_focus_trace(page)
+    export_button.press("Space")
+    export_button.evaluate("button => button.click()")
+    expect(panel.get_by_role("button", name="Exporting...", exact=True)).to_be_disabled()
+    export_locked_unlink = panel.get_by_role(
+        "button", name="Unlink Attention Is All You Need", exact=True
+    )
+    expect(export_locked_unlink).to_be_disabled()
+    export_delete_start = request_count(
+        page, "DELETE", f"/zotero/links/{ATTENTION_ARTICLE_ID}/"
+    )
+    export_locked_unlink.evaluate("button => button.click()")
+    expect(panel.get_by_test_id("zotero-unlink-confirmation")).to_have_count(0)
+    _require(
+        request_count(page, "DELETE", f"/zotero/links/{ATTENTION_ARTICLE_ID}/")
+        == export_delete_start,
+        "a mutation launched while BibTeX export owned the panel",
+    )
+    bibtex_region = panel.get_by_test_id("zotero-bibtex-region")
+    expect(bibtex_region).to_be_focused(timeout=30_000)
+    _require_visible_focus(bibtex_region, "Related Papers BibTeX result")
+    bibtex_pre = bibtex_region.get_by_label("BibTeX export", exact=True)
+    expect(bibtex_pre).to_contain_text("@article{vaswani_attention_2017")
+    expect(bibtex_pre).to_contain_text("@book{kay_crb_1993")
+    expect(bibtex_pre).to_have_attribute("tabindex", "0")
+    _require(
+        request_count(page, "POST", "/zotero/export/bibtex") - export_start == 1,
+        "duplicate BibTeX activation emitted more than one export request",
+    )
+    exported_keys = exact_requests(page, "POST", "/zotero/export/bibtex")[-1].get(
+        "body", {}
+    ).get("item_keys", [])
+    _require(
+        sorted(exported_keys) == ["ABCD1234", "EFGH5678"],
+        f"BibTeX export did not match the current link set: {exported_keys}",
+    )
+    _assert_zotero_focus_continuity(
+        page,
+        "Related Papers BibTeX export",
+        (
+            "testid:zotero-linked-papers",
+            "testid:zotero-bibtex-region",
+        ),
+    )
+    panel.get_by_role("button", name="Hide BibTeX", exact=True).click()
+    page.evaluate("window.__p3032.failNextExport = true")
+    export_error_start = request_count(page, "POST", "/zotero/export/bibtex")
+    panel.get_by_role("button", name="Export BibTeX", exact=True).click()
+    bibtex_region = panel.get_by_test_id("zotero-bibtex-region")
+    expect(bibtex_region.get_by_role("alert")).to_have_text(
+        "BibTeX could not be requested for the current links.", timeout=30_000
+    )
+    expect(bibtex_region).to_be_focused()
+    _require(
+        request_count(page, "POST", "/zotero/export/bibtex") - export_error_start == 1,
+        "BibTeX error path did not emit exactly one request",
+    )
+    panel.get_by_role("button", name="Hide BibTeX", exact=True).click()
+    page.evaluate("window.__p3032.syntheticBibtex = ''")
+    empty_export_start = request_count(page, "POST", "/zotero/export/bibtex")
+    panel.get_by_role("button", name="Export BibTeX", exact=True).click()
+    bibtex_region = panel.get_by_test_id("zotero-bibtex-region")
+    expect(bibtex_region.get_by_text(
+        "No BibTeX text was returned for the requested links.", exact=True
+    )).to_be_visible(timeout=30_000)
+    expect(bibtex_region).to_be_focused()
+    _require(
+        request_count(page, "POST", "/zotero/export/bibtex") - empty_export_start == 1,
+        "empty BibTeX path did not emit exactly one request",
+    )
+    page.evaluate("window.__p3032.syntheticBibtex = null")
+    checks["zotero_bibtex_owned_disclosure"] = True
+
+    attention_unlink = panel.get_by_role(
+        "button", name="Unlink Attention Is All You Need", exact=True
+    )
+    delete_start = request_count(page, "DELETE", f"/zotero/links/{ATTENTION_ARTICLE_ID}/")
+    attention_unlink.focus()
+    _start_zotero_focus_trace(page)
+    attention_unlink.press("Space")
+    confirmation = panel.get_by_test_id("zotero-unlink-confirmation")
+    cancel = confirmation.get_by_role(
+        "button", name="Cancel unlink Attention Is All You Need", exact=True
+    )
+    expect(cancel).to_be_focused()
+    expect(cancel).to_have_attribute("aria-describedby", "zotero-unlink-consequence")
+    _require(
+        request_count(page, "DELETE", f"/zotero/links/{ATTENTION_ARTICLE_ID}/") == delete_start,
+        "opening Unlink confirmation emitted a DELETE",
+    )
+    cancel.press("Escape")
+    expect(attention_unlink).to_be_focused()
+    _assert_zotero_focus_continuity(
+        page,
+        "Related Papers Unlink Escape",
+        (
+            "testid:zotero-linked-papers",
+            "button:Cancel unlink Attention Is All You Need",
+            "testid:zotero-linked-papers",
+            "button:Unlink Attention Is All You Need",
+        ),
+    )
+    attention_unlink.click()
+    cancel = panel.get_by_test_id("zotero-unlink-confirmation").get_by_role(
+        "button", name="Cancel unlink Attention Is All You Need", exact=True
+    )
+    cancel.click()
+    expect(attention_unlink).to_be_focused()
+    _require(
+        request_count(page, "DELETE", f"/zotero/links/{ATTENTION_ARTICLE_ID}/") == delete_start,
+        "cancelled Unlink confirmation emitted a DELETE",
+    )
+
+    attention_unlink.click()
+    confirmation = panel.get_by_test_id("zotero-unlink-confirmation")
+    confirm = confirmation.get_by_role(
+        "button", name="Unlink Attention Is All You Need permanently", exact=True
+    )
+    link_reads_before_unlink = request_count(
+        page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+    )
+    page.evaluate("window.__p3032.deleteDelayMs = 300")
+    confirm.focus()
+    _start_zotero_focus_trace(page)
+    confirm.press("Enter")
+    confirm.evaluate("button => button.click()")
+    expect(
+        confirmation.get_by_role("button", name="Unlink Attention Is All You Need permanently", exact=True)
+    ).to_be_disabled()
+    expect(confirmation.get_by_text("Unlinking...", exact=True)).to_be_visible()
+    expect(confirmation).to_have_attribute("aria-busy", "true")
+    expect(linked_papers).to_have_attribute("aria-busy", "true")
+    expect(panel.get_by_test_id("zotero-mutation-announcement")).to_have_text(
+        "Unlinking Attention Is All You Need from this Article."
+    )
+    expect(feedback).to_contain_text("The Zotero library item was not deleted", timeout=30_000)
+    expect(feedback).to_be_focused()
+    _require_visible_focus(feedback, "Related Papers Unlink success feedback")
+    expect(panel.get_by_role("heading", name="Attention Is All You Need", exact=True)).to_have_count(0)
+    expect(panel.get_by_test_id("zotero-bibtex-region")).to_have_count(0)
+    expect(linked_papers).to_have_attribute("aria-busy", "false")
+    _require(
+        request_count(page, "DELETE", f"/zotero/links/{ATTENTION_ARTICLE_ID}/") - delete_start == 1,
+        "confirmed Unlink emitted more than one DELETE",
+    )
+    _require(
+        request_count(page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}")
+        == link_reads_before_unlink,
+        "successful Unlink performed an unnecessary list reload",
+    )
+    _assert_zotero_focus_continuity(
+        page,
+        "Related Papers confirmed Unlink",
+        (
+            "testid:zotero-linked-papers",
+            "testid:zotero-panel-feedback",
+        ),
+    )
+    checks["zotero_unlink_confirmation_and_exact_delete"] = True
+
+    kay_unlink = panel.get_by_role("button", name=f"Unlink {kay_title}", exact=True)
+    uncertain_delete_start = request_count(
+        page, "DELETE", f"/zotero/links/{ATTENTION_ARTICLE_ID}/"
+    )
+    uncertain_read_start = request_count(
+        page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+    )
+    page.evaluate(
+        """
+        () => {
+          window.__p3032.deleteDelayMs = 100;
+          window.__p3032.dropNextDelete = true;
+          window.__p3032.failNextLinksGet = true;
+        }
+        """
+    )
+    kay_unlink.click()
+    panel.get_by_role("button", name=f"Unlink {kay_title} permanently", exact=True).click()
+    reload_links = panel.get_by_role("button", name="Reload related papers", exact=True)
+    expect(reload_links).to_be_focused(timeout=30_000)
+    _require_visible_focus(reload_links, "Related Papers reconciliation reload")
+    expect(feedback).to_contain_text("Persistence remains unconfirmed")
+    expect(panel.get_by_role("alert")).to_have_count(1)
+    expect(panel.get_by_role("heading", name=kay_title, exact=True).first).to_be_visible()
+    _require(
+        request_count(page, "DELETE", f"/zotero/links/{ATTENTION_ARTICLE_ID}/")
+        - uncertain_delete_start == 1,
+        "lost Unlink response emitted an unexpected DELETE count",
+    )
+    _require(
+        request_count(page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}")
+        - uncertain_read_start == 1,
+        "lost Unlink response did not perform exactly one failed reconciliation",
+    )
+    reload_links.click()
+    expect(panel.get_by_text("No related papers linked.", exact=True)).to_be_visible(timeout=30_000)
+    expect(feedback).to_contain_text("Related papers reloaded from project storage")
+    expect(feedback).to_be_focused()
+    _require_visible_focus(feedback, "Related Papers reload success feedback")
+    _require(
+        request_count(page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}")
+        - uncertain_read_start == 2,
+        "manual reconciliation did not issue exactly one additional read",
+    )
+    checks["zotero_unconfirmed_result_and_manual_reload"] = True
+    context.close()
+
+    rejected_context = new_context()
+    clear_links(rejected_context)
+    seed_link(rejected_context, ATTENTION_ARTICLE_ID, "ABCD1234")
+    rejected_page = _new_observed_page(
+        rejected_context,
+        console_errors,
+        page_errors,
+        label=f"p3-032-rejected-mutations-{iteration}",
+    )
+    rejected_page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(rejected_page)
+    rejected_panel = rejected_page.get_by_test_id("zotero-links-panel")
+    rejected_links = rejected_panel.get_by_test_id("zotero-linked-papers")
+    expect(rejected_links.get_by_role(
+        "heading", name="Attention Is All You Need", exact=True
+    )).to_be_visible(timeout=30_000)
+    rejected_query = rejected_panel.get_by_label("Paper title or keyword", exact=True)
+    rejected_query.fill("Kay")
+    rejected_query.press("Enter")
+    rejected_link = rejected_panel.get_by_role(
+        "button", name=f"Link {kay_title}", exact=True
+    )
+    expect(rejected_link).to_be_visible(timeout=30_000)
+    rejected_note = rejected_panel.get_by_label("Relationship note (optional)", exact=True)
+    rejected_note.fill("Rejected relationship remains editable")
+    rejected_panel.get_by_label("Relationship", exact=True).select_option("background")
+    rejected_link_post_start = len(exact_requests(
+        rejected_page, "POST", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+    ))
+    rejected_link_read_start = len(exact_requests(
+        rejected_page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+    ))
+    rejected_page.evaluate("window.__p3032.rejectNextLinkPost = true")
+    rejected_link.focus()
+    _start_zotero_focus_trace(rejected_page)
+    rejected_link.press("Enter")
+    rejected_feedback = rejected_panel.get_by_test_id("zotero-panel-feedback")
+    expect(rejected_feedback).to_have_text(
+        f"{kay_title} was not linked. You can retry.", timeout=30_000
+    )
+    expect(rejected_link).to_be_focused()
+    expect(rejected_link).to_be_enabled()
+    expect(rejected_note).to_have_value("Rejected relationship remains editable")
+    expect(rejected_links.get_by_role("heading", name=kay_title, exact=True)).to_have_count(0)
+    _require(
+        len(exact_requests(
+            rejected_page, "POST", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+        )) - rejected_link_post_start == 1,
+        "rejected Link did not emit exactly one mutation request",
+    )
+    _require(
+        len(exact_requests(
+            rejected_page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+        )) - rejected_link_read_start == 1,
+        "rejected Link did not emit exactly one read-only reconciliation",
+    )
+    rejected_link_request = exact_requests(
+        rejected_page, "POST", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+    )[-1]
+    _require(
+        rejected_link_request.get("body") == {
+            "item_key": "EFGH5678",
+            "relation_type": "background",
+            "note": "Rejected relationship remains editable",
+        },
+        f"rejected Link lost request identity: {rejected_link_request}",
+    )
+    _assert_zotero_focus_continuity(
+        rejected_page,
+        "Related Papers rejected Link",
+        (
+            "testid:zotero-linked-papers",
+            f"button:Link {kay_title}",
+        ),
+    )
+
+    rejected_unlink = rejected_panel.get_by_role(
+        "button", name="Unlink Attention Is All You Need", exact=True
+    )
+    rejected_unlink.click()
+    rejected_confirm = rejected_panel.get_by_role(
+        "button", name="Unlink Attention Is All You Need permanently", exact=True
+    )
+    rejected_delete_start = len(exact_requests(
+        rejected_page,
+        "DELETE",
+        f"/zotero/links/{ATTENTION_ARTICLE_ID}/ABCD1234",
+    ))
+    rejected_unlink_read_start = len(exact_requests(
+        rejected_page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+    ))
+    rejected_page.evaluate("window.__p3032.rejectNextDelete = true")
+    rejected_confirm.focus()
+    _start_zotero_focus_trace(rejected_page)
+    rejected_confirm.press("Space")
+    expect(rejected_feedback).to_have_text(
+        "Attention Is All You Need was not unlinked. You can retry.", timeout=30_000
+    )
+    expect(rejected_unlink).to_be_focused()
+    expect(rejected_unlink).to_be_enabled()
+    expect(rejected_links.get_by_role(
+        "heading", name="Attention Is All You Need", exact=True
+    )).to_be_visible()
+    expect(rejected_panel.get_by_test_id("zotero-unlink-confirmation")).to_have_count(0)
+    _require(
+        len(exact_requests(
+            rejected_page,
+            "DELETE",
+            f"/zotero/links/{ATTENTION_ARTICLE_ID}/ABCD1234",
+        )) - rejected_delete_start == 1,
+        "rejected Unlink did not emit exactly one mutation request",
+    )
+    _require(
+        len(exact_requests(
+            rejected_page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+        )) - rejected_unlink_read_start == 1,
+        "rejected Unlink did not emit exactly one read-only reconciliation",
+    )
+    _assert_zotero_focus_continuity(
+        rejected_page,
+        "Related Papers rejected Unlink",
+        (
+            "testid:zotero-linked-papers",
+            "button:Unlink Attention Is All You Need",
+        ),
+    )
+    checks["zotero_rejected_mutation_reconciliation"] = True
+    rejected_context.close()
+
+    unavailable_context = new_context(settings={"forceProviderUnavailable": True})
+    clear_links(unavailable_context)
+    seed_link(unavailable_context, ATTENTION_ARTICLE_ID, "ABCD1234")
+    unavailable_page = _new_observed_page(
+        unavailable_context,
+        console_errors,
+        page_errors,
+        label=f"p3-032-provider-unavailable-{iteration}",
+    )
+    unavailable_page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(unavailable_page)
+    unavailable_panel = unavailable_page.get_by_test_id("zotero-links-panel")
+    expect(unavailable_panel.get_by_text("Zotero is unavailable. Existing project links remain visible.", exact=True)).to_be_visible(timeout=30_000)
+    expect(unavailable_panel.get_by_role("heading", name="Attention Is All You Need", exact=True)).to_be_visible()
+    expect(unavailable_panel.get_by_role("button", name="Export BibTeX", exact=True)).to_be_disabled()
+    expect(unavailable_panel.get_by_role("form", name="Search Zotero papers", exact=True).locator('button[type="submit"]')).to_be_disabled()
+    expect(unavailable_panel.get_by_role("button", name="Unlink Attention Is All You Need", exact=True)).to_be_enabled()
+    unavailable_page.evaluate("window.__p3032.forceProviderUnavailable = false")
+    provider_retry = unavailable_panel.get_by_role(
+        "button", name="Retry availability", exact=True
+    )
+    provider_retry.focus()
+    _start_zotero_focus_trace(unavailable_page)
+    provider_retry.click()
+    provider_region = unavailable_panel.get_by_test_id("zotero-provider-state")
+    expect(provider_region.get_by_text("Zotero is available.", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    expect(provider_region).to_be_focused()
+    _assert_zotero_focus_continuity(
+        unavailable_page,
+        "Related Papers provider retry",
+        (
+            "testid:zotero-linked-papers",
+            "testid:zotero-provider-state",
+        ),
+    )
+    checks["zotero_provider_unavailable_preserves_local_links"] = True
+    unavailable_context.close()
+
+    list_failure_context = new_context(settings={"failNextLinksGet": True})
+    clear_links(list_failure_context)
+    list_failure_page = _new_observed_page(
+        list_failure_context,
+        console_errors,
+        page_errors,
+        label=f"p3-032-list-failure-{iteration}",
+    )
+    list_failure_page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(list_failure_page)
+    list_failure_panel = list_failure_page.get_by_test_id("zotero-links-panel")
+    expect(
+        list_failure_panel.get_by_role("alert").filter(
+            has_text="Related papers could not be loaded"
+        )
+    ).to_be_visible(timeout=30_000)
+    expect(
+        list_failure_panel.get_by_text("No related papers linked.", exact=True)
+    ).to_have_count(0)
+    list_failure_panel.get_by_label("Paper title or keyword", exact=True).fill("Kay")
+    list_failure_panel.get_by_role(
+        "form", name="Search Zotero papers", exact=True
+    ).locator('button[type="submit"]').click()
+    failed_list_result = list_failure_panel.get_by_role(
+        "button", name=f"Link {kay_title}", exact=True
+    )
+    expect(failed_list_result).to_be_disabled(timeout=30_000)
+    retry_related = list_failure_panel.get_by_role(
+        "button", name="Retry related papers", exact=True
+    )
+    failed_retry_read_start = request_count(
+        list_failure_page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+    )
+    list_failure_page.evaluate("window.__p3032.failNextLinksGet = true")
+    retry_related.focus()
+    _start_zotero_focus_trace(list_failure_page)
+    retry_related.click()
+    retry_related = list_failure_panel.get_by_role(
+        "button", name="Retry related papers", exact=True
+    )
+    expect(list_failure_panel.get_by_role("alert")).to_have_text(
+        "Related papers still could not be loaded.", timeout=30_000
+    )
+    expect(retry_related).to_be_focused()
+    expect(
+        list_failure_panel.get_by_text("No related papers linked.", exact=True)
+    ).to_have_count(0)
+    expect(failed_list_result).to_be_disabled()
+    _require(
+        request_count(
+            list_failure_page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
+        ) - failed_retry_read_start == 1,
+        "failed list retry did not emit exactly one read",
+    )
+    _assert_zotero_focus_continuity(
+        list_failure_page,
+        "Related Papers failed list retry",
+        (
+            "testid:zotero-linked-papers",
+            "button:Retry related papers",
+        ),
+    )
+    retry_related.focus()
+    _start_zotero_focus_trace(list_failure_page)
+    retry_related.click()
+    expect(
+        list_failure_panel.get_by_text("No related papers linked.", exact=True)
+    ).to_be_visible(timeout=30_000)
+    expect(list_failure_panel.get_by_test_id("zotero-links-announcement")).to_have_text(
+        "No related papers are linked."
+    )
+    expect(failed_list_result).to_be_enabled()
+    expect(list_failure_panel.get_by_role("alert")).to_have_count(0)
+    _assert_zotero_focus_continuity(
+        list_failure_page,
+        "Related Papers successful list retry",
+        (
+            "testid:zotero-linked-papers",
+            "testid:zotero-panel-feedback",
+        ),
+    )
+    checks["zotero_failed_list_never_claims_empty_or_allows_upsert"] = True
+    list_failure_context.close()
+
+    long_title = (
+        "Paper-" + "t" * 140
+        + " A very long locally indexed title about estimation, attention, and uncertainty"
+    )
+    long_note = "Long relationship evidence with unbroken-token-" + "x" * 120
+    long_bibtex = "@article{long_key_" + "x" * 180 + ",\n  title = {" + long_title + "}\n}"
+    long_item = {
+        "item_key": "LONG1234",
+        "bibtex_key": "long_key",
+        "title": long_title,
+        "creators": ["Researcher With A Very Long Display Name"],
+        "year": "2026",
+        "item_type": "journalArticle",
+        "publication_title": "Journal of Long Metadata and Responsive Learning Interfaces",
+        "doi": None,
+        "url": None,
+        "abstract_note": None,
+        "tags": [],
+        "collections": [],
+        "updated_at": None,
+    }
+    long_link = {
+        "link": {
+            "article_id": ATTENTION_ARTICLE_ID,
+            "zotero_item_key": "LONG1234",
+            "relation_type": "related",
+            "created_at": "2026-09-05T12:00:00Z",
+            "note": long_note,
+        },
+        "item": long_item,
+    }
+    for viewport_width, viewport_height, viewport_label in (
+        (1440, 900, "desktop"),
+        (390, 844, "mobile"),
+        (320, 844, "narrow"),
+        (720, 450, "zoom-equivalent"),
+    ):
+        responsive_context = new_context(
+            settings={
+                "syntheticLink": long_link,
+                "syntheticBibtex": long_bibtex,
+                "exportDelayMs": 250,
+            },
+            viewport={"width": viewport_width, "height": viewport_height},
+            is_mobile=viewport_width <= 390,
+            device_scale_factor=2 if viewport_label == "zoom-equivalent" else 1,
+        )
+        responsive_page = _new_observed_page(
+            responsive_context,
+            console_errors,
+            page_errors,
+            label=f"p3-032-responsive-{viewport_label}-{iteration}",
+        )
+        responsive_page.goto(
+            f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+            wait_until="domcontentloaded",
+        )
+        _wait_for_application_shell(responsive_page)
+        responsive_panel = responsive_page.get_by_test_id("zotero-links-panel")
+        responsive_panel.scroll_into_view_if_needed()
+        expect(responsive_panel.get_by_role("heading", name=long_title, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        responsive_export = responsive_panel.locator(
+            'button[aria-controls="linked-bibtex-region"]'
+        )
+        expect(responsive_export).to_have_text("Export BibTeX")
+        responsive_export.click()
+        expect(responsive_panel.get_by_role("button", name="Exporting...", exact=True)).to_be_disabled()
+        responsive_bibtex = responsive_panel.get_by_label("BibTeX export", exact=True)
+        expect(responsive_bibtex).to_contain_text("@article{long_key_", timeout=30_000)
+        _require(
+            responsive_bibtex.evaluate("element => element.scrollWidth > element.clientWidth"),
+            f"{viewport_label} long BibTeX did not remain in a local scroll region",
+        )
+        responsive_bibtex.focus()
+        for _ in range(8):
+            responsive_bibtex.press("ArrowRight")
+        responsive_page.wait_for_timeout(100)
+        _require(
+            responsive_bibtex.evaluate("element => element.scrollLeft > 0"),
+            f"{viewport_label} long BibTeX was not keyboard-scrollable",
+        )
+        long_query = "doi-token-" + "q" * 180
+        responsive_query = responsive_panel.get_by_label(
+            "Paper title or keyword", exact=True
+        )
+        responsive_query.fill(long_query)
+        responsive_query.press("Enter")
+        long_query_status = responsive_panel.get_by_test_id(
+            "zotero-search-results"
+        ).get_by_role("status")
+        expect(long_query_status).to_contain_text(long_query, timeout=30_000)
+        long_query_status.evaluate(
+            "element => element.scrollIntoView({ block: 'center', inline: 'nearest' })"
+        )
+        _require_viewport_containment(
+            long_query_status.bounding_box(),
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} Related Papers long-query status",
+        )
+        _require(
+            _document_width(responsive_page) <= viewport_width,
+            f"{viewport_label} unbroken search query overflowed the page",
+        )
+        responsive_page.evaluate("window.__p3032.failNextSearch = true")
+        responsive_query.fill("responsive failure")
+        responsive_panel.get_by_role("form", name="Search Zotero papers", exact=True).locator('button[type="submit"]').click()
+        responsive_alert = responsive_panel.get_by_role("alert", name="").filter(
+            has_text="Zotero search failed"
+        )
+        expect(responsive_alert).to_be_visible(timeout=30_000)
+        responsive_unlink = responsive_panel.get_by_role(
+            "button", name=f"Unlink {long_title}", exact=True
+        )
+        responsive_unlink.scroll_into_view_if_needed()
+        responsive_unlink.click()
+        responsive_confirmation = responsive_panel.get_by_test_id("zotero-unlink-confirmation")
+        responsive_cancel = responsive_confirmation.get_by_role(
+            "button", name=f"Cancel unlink {long_title}", exact=True
+        )
+        responsive_confirm = responsive_confirmation.get_by_role(
+            "button", name=f"Unlink {long_title} permanently", exact=True
+        )
+        expect(responsive_cancel).to_be_focused()
+        for locator, label in (
+            (responsive_export, "BibTeX action"),
+            (responsive_alert, "search alert"),
+            (responsive_cancel, "Unlink Cancel"),
+            (responsive_confirm, "permanent Unlink action"),
+        ):
+            locator.evaluate(
+                "element => element.scrollIntoView({ block: 'center', inline: 'nearest' })"
+            )
+            _require_viewport_containment(
+                locator.bounding_box(),
+                viewport_width,
+                viewport_height,
+                f"{viewport_label} Related Papers {label}",
+            )
+        _require(
+            _document_width(responsive_page) <= viewport_width,
+            f"{viewport_label} Related Papers workspace overflowed horizontally",
+        )
+        responsive_cancel.click()
+        expect(responsive_unlink).to_be_focused()
+        responsive_page.evaluate("window.__p3032.rejectNextDelete = true")
+        responsive_delete_start = request_count(
+            responsive_page,
+            "DELETE",
+            f"/zotero/links/{ATTENTION_ARTICLE_ID}/LONG1234",
+        )
+        responsive_unlink.press("Space")
+        responsive_confirm = responsive_panel.get_by_role(
+            "button", name=f"Unlink {long_title} permanently", exact=True
+        )
+        responsive_confirm.press("Enter")
+        responsive_feedback = responsive_panel.get_by_test_id("zotero-panel-feedback")
+        expect(responsive_feedback).to_contain_text(
+            f"{long_title} was not unlinked", timeout=30_000
+        )
+        expect(responsive_unlink).to_be_focused()
+        _require(
+            request_count(
+                responsive_page,
+                "DELETE",
+                f"/zotero/links/{ATTENTION_ARTICLE_ID}/LONG1234",
+            ) - responsive_delete_start == 1,
+            f"{viewport_label} rejected Unlink emitted an unexpected request count",
+        )
+        responsive_feedback.evaluate(
+            "element => element.scrollIntoView({ block: 'center', inline: 'nearest' })"
+        )
+        _require_viewport_containment(
+            responsive_feedback.bounding_box(),
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} Related Papers long mutation feedback",
+        )
+        _require(
+            _document_width(responsive_page) <= viewport_width,
+            f"{viewport_label} long mutation feedback overflowed horizontally",
+        )
+        responsive_context.close()
+    checks["zotero_responsive_populated_pending_error_and_bibtex"] = True
+
+    cleanup_context = new_context()
+    clear_links(cleanup_context)
+    cleanup_context.close()
+    return checks
+
+
+def _zotero_panel_controller_script(settings: dict[str, object]) -> str:
+    serialized = json.dumps(settings, ensure_ascii=False)
+    return """
+    (() => {
+      const settings = __SETTINGS__;
+      const originalFetch = window.fetch.bind(window);
+      const state = {
+        requests: [],
+        linksDelayMs: 0,
+        linkDelays: {},
+        searchDelays: {},
+        linkDelayMs: 0,
+        deleteDelayMs: 0,
+        exportDelayMs: 0,
+        ignoreSearchAbort: false,
+        ignoreLinksAbort: false,
+        ignoreExportAbort: false,
+        forceProviderUnavailable: false,
+        dropNextLinkPost: false,
+        dropNextDelete: false,
+        rejectNextLinkPost: false,
+        rejectNextDelete: false,
+        failNextLinksGet: false,
+        failNextSearch: false,
+        failNextExport: false,
+        syntheticLink: null,
+        syntheticBibtex: null,
+        ...settings,
+      };
+      window.__p3032 = state;
+      if (settings.history && !sessionStorage.getItem("p3-032-history-seeded")) {
+        localStorage.setItem(
+          "scientific-spaces-reading-history-v1",
+          JSON.stringify([settings.history])
+        );
+        sessionStorage.setItem("p3-032-history-seeded", "true");
+      }
+      const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+      window.fetch = async (...args) => {
+        const input = args[0];
+        const init = args[1] || {};
+        const target = String(input instanceof Request ? input.url : input);
+        const parsed = new URL(target, window.location.href);
+        const method = String(
+          input instanceof Request ? input.method : init.method || "GET"
+        ).toUpperCase();
+        const path = parsed.pathname;
+        const isLinksList = method === "GET" && /^\/zotero\/links\/[^/]+$/.test(path);
+        const isLinkPost = method === "POST" && /^\/zotero\/links\/[^/]+$/.test(path);
+        const isDelete = method === "DELETE" && /^\/zotero\/links\/[^/]+\/[^/]+$/.test(path);
+        const isSearch = method === "GET" && path === "/zotero/items";
+        const isExport = method === "POST" && path === "/zotero/export/bibtex";
+        if (path.startsWith("/zotero/")) {
+          let body = null;
+          const rawBody = typeof init.body === "string"
+            ? init.body
+            : input instanceof Request
+              ? await input.clone().text()
+              : "";
+          if (rawBody) {
+            try {
+              body = JSON.parse(rawBody);
+            } catch {
+              body = rawBody;
+            }
+          }
+          state.requests.push({
+            method,
+            path,
+            query: parsed.search,
+            target: `${path}${parsed.search}`,
+            body,
+          });
+        }
+        if (isLinkPost && state.rejectNextLinkPost) {
+          state.rejectNextLinkPost = false;
+          throw new TypeError("intentional P3-032 pre-persistence Link rejection");
+        }
+        if (isDelete && state.rejectNextDelete) {
+          state.rejectNextDelete = false;
+          throw new TypeError("intentional P3-032 pre-persistence Unlink rejection");
+        }
+        if (method === "GET" && path === "/zotero/status" && state.forceProviderUnavailable) {
+          return new Response(
+            JSON.stringify({ provider: "fake", available: false, read_only: true }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (isLinksList && state.syntheticLink) {
+          return new Response(
+            JSON.stringify({ items: [state.syntheticLink], total: 1 }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (isExport && state.failNextExport) {
+          state.failNextExport = false;
+          if (state.exportDelayMs) await wait(state.exportDelayMs);
+          throw new TypeError("intentional P3-032 BibTeX response loss");
+        }
+        if (isExport && state.syntheticBibtex !== null) {
+          if (state.exportDelayMs) await wait(state.exportDelayMs);
+          return new Response(
+            JSON.stringify({ bibtex: state.syntheticBibtex, item_count: 1 }),
+            { status: 200, headers: { "Content-Type": "application/json" } }
+          );
+        }
+        if (isLinksList && state.failNextLinksGet) {
+          state.failNextLinksGet = false;
+          throw new TypeError("intentional P3-032 link-list response loss");
+        }
+        if (isSearch && state.failNextSearch) {
+          state.failNextSearch = false;
+          throw new TypeError("intentional P3-032 search failure");
+        }
+        let fetchArgs = args;
+        if (
+          (isSearch && state.ignoreSearchAbort)
+          || (isLinksList && state.ignoreLinksAbort)
+          || (isExport && state.ignoreExportAbort)
+        ) {
+          const nextInit = { ...init };
+          delete nextInit.signal;
+          fetchArgs = [target, nextInit];
+        }
+        const response = await originalFetch(...fetchArgs);
+        let delay = 0;
+        if (isLinksList) delay = state.linkDelays[path] || state.linksDelayMs;
+        if (isSearch) delay = state.searchDelays[parsed.searchParams.get("q") || ""] || 0;
+        if (isLinkPost) delay = state.linkDelayMs;
+        if (isDelete) delay = state.deleteDelayMs;
+        if (isExport) delay = state.exportDelayMs;
+        if (delay) await wait(delay);
+        if (isLinkPost && state.dropNextLinkPost) {
+          state.dropNextLinkPost = false;
+          throw new TypeError("intentional P3-032 post-persistence Link response loss");
+        }
+        if (isDelete && state.dropNextDelete) {
+          state.dropNextDelete = false;
+          throw new TypeError("intentional P3-032 post-persistence Unlink response loss");
+        }
+        return response;
+      };
+    })();
+    """.replace("__SETTINGS__", serialized)
+
+
+def _start_zotero_focus_trace(page) -> None:
+    page.evaluate(
+        """
+        () => {
+          window.__p3032FocusTrace = [];
+          const describe = (node) => {
+            if (!(node instanceof HTMLElement)) return "missing";
+            const testId = node.dataset.testid;
+            if (testId) return `testid:${testId}`;
+            if (node instanceof HTMLButtonElement) {
+              return `button:${node.getAttribute("aria-label") || node.textContent?.trim() || ""}`;
+            }
+            if (node instanceof HTMLInputElement) return `input:${node.id}`;
+            if (/^H[1-6]$/.test(node.tagName)) {
+              return `heading:${node.textContent?.trim() || ""}`;
+            }
+            return node.tagName;
+          };
+          const record = (source) => {
+            const active = document.activeElement;
+            window.__p3032FocusTrace.push({
+              source,
+              target: describe(active),
+              connected: active instanceof HTMLElement && active.isConnected,
+            });
+          };
+          const listener = () => record("focusin");
+          window.__p3032FocusListener = listener;
+          document.addEventListener("focusin", listener, true);
+          const observer = new MutationObserver(() => record("mutation"));
+          observer.observe(document.body, {
+            attributes: true,
+            childList: true,
+            subtree: true,
+            attributeFilter: ["disabled", "aria-busy"],
+          });
+          window.__p3032FocusObserver = observer;
+          record("start");
+        }
+        """
+    )
+
+
+def _assert_zotero_focus_continuity(
+    page,
+    label: str,
+    expected_focus_sequence: tuple[str, ...],
+) -> None:
+    trace = page.evaluate(
+        """
+        () => {
+          window.__p3032FocusObserver?.disconnect();
+          if (typeof window.__p3032FocusListener === "function") {
+            document.removeEventListener("focusin", window.__p3032FocusListener, true);
+          }
+          const result = [...(window.__p3032FocusTrace ?? [])];
+          delete window.__p3032FocusObserver;
+          delete window.__p3032FocusListener;
+          delete window.__p3032FocusTrace;
+          return result;
+        }
+        """
+    )
+    _require(bool(trace), f"{label} produced no focus trace evidence")
+    _require(
+        all(entry.get("connected") for entry in trace),
+        f"{label} observed disconnected focus: {trace}",
+    )
+    _require(
+        all(entry.get("target") not in {"BODY", "missing"} for entry in trace),
+        f"{label} dropped focus to body or a missing element: {trace}",
+    )
+    focus_events = [entry.get("target") for entry in trace if entry.get("source") == "focusin"]
+    next_index = 0
+    for expected in expected_focus_sequence:
+        try:
+            next_index = focus_events.index(expected, next_index) + 1
+        except ValueError as error:
+            raise AssertionError(
+                f"{label} missed focus target {expected}: {trace}"
+            ) from error
 
 
 def _verify_reader_learning_mutation_integrity(

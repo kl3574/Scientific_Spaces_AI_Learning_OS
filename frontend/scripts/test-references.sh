@@ -12,6 +12,11 @@ trap 'rm -rf "$test_dir"' EXIT
   --skipLibCheck \
   --outDir "$test_dir" \
   tests/references.test.ts \
-  src/lib/references.ts
+  tests/zoteroLinkOperations.test.ts \
+  src/lib/references.ts \
+  src/lib/zotero.ts \
+  src/lib/zoteroLinkOperations.ts
 
-node --test "$test_dir/tests/references.test.js"
+node --test \
+  "$test_dir/tests/references.test.js" \
+  "$test_dir/tests/zoteroLinkOperations.test.js"

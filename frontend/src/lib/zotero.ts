@@ -56,19 +56,26 @@ export type BibtexExportResponse = {
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
 
-export async function fetchZoteroStatus(): Promise<ZoteroStatus> {
-  return requestJson<ZoteroStatus>("/zotero/status");
+export async function fetchZoteroStatus(signal?: AbortSignal): Promise<ZoteroStatus> {
+  return requestJson<ZoteroStatus>("/zotero/status", { signal });
 }
 
-export async function searchZoteroItems(query: string, limit = 20): Promise<ZoteroItemSearchResponse> {
+export async function searchZoteroItems(
+  query: string,
+  limit = 20,
+  signal?: AbortSignal,
+): Promise<ZoteroItemSearchResponse> {
   const url = new URL("/zotero/items", API_BASE_URL);
   url.searchParams.set("q", query.trim());
   url.searchParams.set("limit", String(limit));
-  return requestJsonUrl<ZoteroItemSearchResponse>(url);
+  return requestJsonUrl<ZoteroItemSearchResponse>(url, { signal });
 }
 
-export async function fetchArticleZoteroLinks(articleId: string): Promise<ZoteroArticleLinksResponse> {
-  return requestJson<ZoteroArticleLinksResponse>(`/zotero/links/${articleId}`);
+export async function fetchArticleZoteroLinks(
+  articleId: string,
+  signal?: AbortSignal,
+): Promise<ZoteroArticleLinksResponse> {
+  return requestJson<ZoteroArticleLinksResponse>(`/zotero/links/${articleId}`, { signal });
 }
 
 export async function createArticleZoteroLink(
@@ -93,10 +100,14 @@ export async function deleteArticleZoteroLink(articleId: string, itemKey: string
   }
 }
 
-export async function exportZoteroBibtex(itemKeys: string[]): Promise<BibtexExportResponse> {
+export async function exportZoteroBibtex(
+  itemKeys: string[],
+  signal?: AbortSignal,
+): Promise<BibtexExportResponse> {
   return requestJson<BibtexExportResponse>("/zotero/export/bibtex", {
     body: JSON.stringify({ item_keys: itemKeys }),
     method: "POST",
+    signal,
   });
 }
 

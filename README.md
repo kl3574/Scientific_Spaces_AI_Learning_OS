@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-031 PASS / CLOSED`
+- Status: `P3-032 IMPLEMENTED / LOCAL PASS / CI PENDING`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-031 exact-SHA implementation main CI PASS`
-- Current task: `None`
+- Latest gate: `P3-032 local verification PASS; implementation CI pending`
+- Current task: `P3-032 Related-Paper Context Ownership and Accessible Feedback`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -54,6 +54,8 @@ P3-030 evidence: `docs/P3_030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY_REPORT.m
 P3-030 canonical task: `docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md` (PASS / CLOSED).
 P3-031 evidence: `docs/P3_031_READER_NOTE_DELETION_SAFETY_REPORT.md` (PASS / CLOSED).
 P3-031 canonical task: `docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md` (PASS / CLOSED).
+P3-032 canonical task: `docs/tasks/P3-032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md` (IMPLEMENTED / LOCAL PASS / CI PENDING).
+P3-032 local evidence: `docs/P3_032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_REPORT.md` (LOCAL PASS / CI PENDING).
 
 v1.2 planning specifications:
 

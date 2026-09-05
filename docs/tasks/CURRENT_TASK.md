@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md`
 
 ## Staged Task
 
@@ -20,6 +20,7 @@ None
 - P3-029: PASS / CLOSED
 - P3-030: PASS / CLOSED
 - P3-031: PASS / CLOSED
+- P3-032: IMPLEMENTED / LOCAL PASS / CI PENDING
 
 ## Authorization
 
@@ -53,6 +54,9 @@ None
   governance documentation, isolated fake-runtime validation, local commits,
   non-force push, and exact-SHA CI execution: CONSUMED / CLOSED after this
   docs-only closure commit
+- P3-032 bounded Related Papers Frontend implementation, pure tests, Product
+  E2E, governance documentation, isolated fake-runtime validation, local
+  commits, non-force push, and exact-SHA CI execution: AUTHORIZED / CI PENDING
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -159,8 +163,21 @@ None
 
 ## Next Gate
 
-Verify this P3-031 docs-only closure commit on exact-SHA main CI. No subsequent
-task or v1.2 candidate is staged.
+Create and push the P3-032 implementation commit, then require exact-SHA main
+CI before docs-only closure. No v1.2 candidate is staged.
+
+## P3-032 Local Evidence
+
+- focused Frontend: 120/120 PASS
+- production build: PASS, 11 routes
+- Backend: 600 passed / 4 skipped
+- Product E2E: 3/3 complete runs; restart persistence PASS
+- external requests, unexpected console errors, and page errors: 0
+- independent final reviews: 2 PASS, 0 Critical / 0 Important
+- workflow, suppression, secret, temporary SBOM, artifact, and protected-path
+  gates: PASS
+- evidence report:
+  `docs/P3_032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_REPORT.md`
 
 ## P3-031 Closure Evidence
 
