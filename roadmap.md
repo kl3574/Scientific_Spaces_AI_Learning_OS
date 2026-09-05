@@ -8,17 +8,17 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-P3-033 Structured Reference Review Round Trip and Context Ownership
+None
 
 Current milestone:
-P3-033
+None
 
 Status:
-P3-033 LOCAL IMPLEMENTATION PASS / IMPLEMENTATION CI PENDING
+P3-033 PASS / CLOSED
 
 Next gate:
-Push the P3-033 implementation commit, verify exact-SHA main CI, then complete
-the docs-only closure and its exact-SHA CI. No v1.2 candidate is staged.
+Push the P3-033 docs-only closure commit and verify its exact-SHA main CI. No
+subsequent task or v1.2 candidate is staged.
 
 ## Historical Notes
 

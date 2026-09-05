@@ -4,13 +4,14 @@
 
 - Local implementation: **PASS**
 - Independent final review: **PASS**, 2/2 reviewers, 0 Critical / 0 Important
-- Exact-SHA implementation main CI: **PENDING**
-- Task closure: **IN PROGRESS**
+- Exact-SHA implementation main CI: **PASS**
+- Task closure: **PASS / CLOSED**
+- Exact-SHA docs-only closure main CI: **PENDING**
 - Candidate version: not assigned
 
-This report records the local implementation gate. P3-033 remains open until
-the implementation commit and a later docs-only closure commit each pass
-exact-SHA main CI.
+The implementation commit passed every required exact-SHA main CI job. This
+docs-only commit records closure and requires its own exact-SHA CI readback
+before final remote reporting.
 
 ## 2. Implemented Workflow
 
@@ -126,10 +127,31 @@ original Reader viewport and late duplicate-heading coverage.
 - tracked forbidden runtime/private artifacts: 0
 - source network, private Zotero, external search, and real/paid Provider access: 0
 
-The local dependency audit is deferred to exact-SHA CI because it requires
-registry network access, which P3-033 does not authorize locally.
+The dependency audit ran in exact-SHA CI and passed without suppressions.
 
-## 10. Boundaries And Known Limits
+## 10. Exact-SHA Implementation CI
+
+- implementation commit:
+  `b97dd56fbad4a1f5b9da8742bd923b7dc267c51d`
+- run:
+  [`33976815403`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33976815403)
+- event / branch / head SHA: `push` / `main` /
+  `b97dd56fbad4a1f5b9da8742bd923b7dc267c51d`
+- uploaded artifacts: 0
+
+| Job | Result |
+| --- | --- |
+| Frontend build | PASS |
+| Backend pytest | PASS |
+| Product E2E, three runs | PASS |
+| Dependency audit | PASS |
+| Workflow and suppression policy | PASS |
+| Secret audit | PASS |
+| SBOM validation | PASS |
+| Docker compose smoke | SKIPPED as designed for a normal main push |
+| Release evidence dry-run | SKIPPED as designed for a normal main push |
+
+## 11. Boundaries And Known Limits
 
 P3-033 changes no Backend, published API, persistence, reference data,
 extractor, matcher, frozen source processing, dependency, lockfile, workflow,
@@ -141,8 +163,7 @@ Request ownership is scoped to one Frontend instance and does not establish
 Backend exactly-once or multi-tab serialization. Browser behavior is verified
 with the repository's current Chromium and Next.js runtime.
 
-## 11. Next Gate
+## 12. Next Gate
 
-Create and non-force push the implementation commit, require exact-SHA main CI
-to pass, then create the docs-only closure commit and require its own exact-SHA
-main CI. No subsequent task or v1.2 candidate is staged here.
+Non-force push this docs-only closure commit and require its exact-SHA main CI
+to pass. No subsequent task or v1.2 candidate is staged here.
