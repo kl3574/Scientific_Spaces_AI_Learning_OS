@@ -3,9 +3,11 @@ import test from "node:test";
 
 import type { LearningNote } from "../src/lib/learning";
 import {
+  createReaderNoteDeleteIntent,
   createReaderMutationOperation,
   mergeCreatedLearningNote,
   mergeUpdatedLearningNote,
+  ownsReaderNoteDeleteIntent,
   ownsReaderMutation,
   removeLearningNote,
 } from "../src/lib/readerLearningMutations";
@@ -62,6 +64,38 @@ test("Reader mutation ownership requires exact Article generation, operation, an
     const exact = createReaderMutationOperation("article-a", 9, 14, kind, "note-alpha");
     assert.equal(ownsReaderMutation(exact, exact, "article-a", 9), true, kind);
   }
+});
+
+test("Reader note deletion intent requires exact Article generation and note identity", () => {
+  const intent = createReaderNoteDeleteIntent("article-a", 7, "note-alpha");
+
+  assert.deepEqual(intent, {
+    articleId: "article-a",
+    generation: 7,
+    noteId: "note-alpha",
+  });
+  assert.equal(ownsReaderNoteDeleteIntent(intent, intent, "article-a", 7), true);
+  assert.equal(
+    ownsReaderNoteDeleteIntent(
+      createReaderNoteDeleteIntent("article-a", 7, "note-beta"),
+      intent,
+      "article-a",
+      7,
+    ),
+    false,
+  );
+  assert.equal(
+    ownsReaderNoteDeleteIntent(
+      createReaderNoteDeleteIntent("article-b", 7, "note-alpha"),
+      intent,
+      "article-a",
+      7,
+    ),
+    false,
+  );
+  assert.equal(ownsReaderNoteDeleteIntent(intent, intent, "article-b", 7), false);
+  assert.equal(ownsReaderNoteDeleteIntent(intent, intent, "article-a", 8), false);
+  assert.equal(ownsReaderNoteDeleteIntent(null, intent, "article-a", 7), false);
 });
 
 test("created notes are prepended once and merged by note identity", () => {

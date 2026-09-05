@@ -8,17 +8,17 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-`docs/tasks/CURRENT_TASK.md`
+`docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md`
 
 Current milestone:
-None
+P3-031 Reader Note Deletion Safety
 
 Status:
-P3-030 PASS / CLOSED
+P3-031 LOCAL PASS / IMPLEMENTATION CI REQUIRED
 
 Next gate:
-Verify the P3-030 docs-only closure commit on exact-SHA main CI. No subsequent
-task or v1.2 candidate is staged.
+Commit and verify P3-031 Reader Note Deletion Safety through exact-SHA
+implementation main CI. No subsequent task or v1.2 candidate is staged.
 
 ## Historical Notes
 

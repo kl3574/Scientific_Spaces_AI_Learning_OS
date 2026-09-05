@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md`
 
 ## Staged Task
 
@@ -19,6 +19,7 @@ None
 - P3-028: PASS / CLOSED
 - P3-029: PASS / CLOSED
 - P3-030: PASS / CLOSED
+- P3-031: LOCAL PASS / IMPLEMENTATION CI REQUIRED
 
 ## Authorization
 
@@ -48,6 +49,9 @@ None
   documentation, isolated fake-runtime validation, local commits, non-force
   push, and exact-SHA CI execution: CONSUMED / CLOSED after this docs-only
   closure commit
+- P3-031 bounded Reader Frontend implementation, pure tests, Product E2E,
+  governance documentation, isolated fake-runtime validation, local commits,
+  non-force push, and exact-SHA CI execution: GRANTED
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -140,10 +144,22 @@ None
 - docs-only closure commit: this commit; exact-SHA main CI required before
   final reporting
 
+## P3-031 Local Evidence
+
+- focused Frontend: 113 passed
+- production build: PASS, 11 routes
+- Backend: 600 passed / 4 skipped
+- Product E2E: 3/3 runs, 177 checks each; restart persistence PASS
+- exact request counts, reconciliation lock, ordered continuous-focus traces,
+  and four required viewports: PASS
+- external requests, unexpected console errors, and page errors: 0
+- independent final reviews: 2 PASS, 0 Critical / 0 Important
+- evidence report: `docs/P3_031_READER_NOTE_DELETION_SAFETY_REPORT.md`
+
 ## Next Gate
 
-Verify this P3-030 docs-only closure commit on exact-SHA main CI. No subsequent
-task or v1.2 candidate is staged.
+Commit and verify P3-031 Reader Note Deletion Safety through exact-SHA
+implementation main CI. No subsequent task or v1.2 candidate is staged.
 
 ## P3-029 Closure Evidence
 

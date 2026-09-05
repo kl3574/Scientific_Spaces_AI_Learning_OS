@@ -15,6 +15,34 @@ export type ReaderMutationOperation = Readonly<{
   noteId: string | null;
 }>;
 
+export type ReaderNoteDeleteIntent = Readonly<{
+  articleId: string;
+  generation: number;
+  noteId: string;
+}>;
+
+export function createReaderNoteDeleteIntent(
+  articleId: string,
+  generation: number,
+  noteId: string,
+): ReaderNoteDeleteIntent {
+  return { articleId, generation, noteId };
+}
+
+export function ownsReaderNoteDeleteIntent(
+  current: ReaderNoteDeleteIntent | null,
+  intent: ReaderNoteDeleteIntent,
+  articleId: string,
+  generation: number,
+): boolean {
+  return current !== null
+    && current.articleId === intent.articleId
+    && current.generation === intent.generation
+    && current.noteId === intent.noteId
+    && articleId === intent.articleId
+    && generation === intent.generation;
+}
+
 export function createReaderMutationOperation(
   articleId: string,
   generation: number,

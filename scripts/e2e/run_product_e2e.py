@@ -6875,22 +6875,182 @@ def _verify_reader_learning_mutation_integrity(
         f"note persistence and Reader identity diverged: {confirmed_notes}",
     )
     _restore_mutation_response_gate(page)
-    _install_one_shot_mutation_response_loss(
+
+    duplicate_delete = duplicate_note.get_by_role("button", name="Delete", exact=True)
+    _install_mutation_response_gate(
         page,
         f"/learning/notes/{duplicate_records[0]['note_id']}",
         "DELETE",
+    )
+    duplicate_delete.focus()
+    _start_note_delete_focus_trace(page)
+    duplicate_delete.press("Enter")
+    delete_confirmation = duplicate_note.get_by_test_id("note-delete-confirmation")
+    expect(delete_confirmation).to_be_visible()
+    expect(delete_confirmation).to_contain_text("cannot be undone")
+    cancel_delete = delete_confirmation.get_by_role("button", name="Cancel", exact=True)
+    confirm_delete = delete_confirmation.get_by_role(
+        "button", name="Delete permanently", exact=True
+    )
+    expect(cancel_delete).to_be_focused()
+    _assert_note_delete_focus_continuity(
+        page,
+        "opening note deletion confirmation",
+        (
+            ("testid:note-mutation-status", False),
+            ("button:Cancel", True),
+        ),
+    )
+    _require(
+        page.evaluate("() => window.__p3029MutationGate?.callCount") == 0,
+        "opening note deletion confirmation issued a DELETE request",
+    )
+    expect(page.get_by_label("New learning note", exact=True)).to_be_disabled()
+    expect(page.get_by_role("button", name="Add note", exact=True)).to_be_disabled()
+    baseline_note = page.get_by_test_id("learning-note").filter(
+        has_text=baseline_note_content
+    )
+    expect(baseline_note.get_by_role("button", name="Edit", exact=True)).to_be_disabled()
+    expect(baseline_note.get_by_role("button", name="Delete", exact=True)).to_be_disabled()
+    expect(cancel_delete).to_be_enabled()
+    expect(confirm_delete).to_be_enabled()
+    cancel_delete.press("Tab")
+    expect(confirm_delete).to_be_focused()
+    confirm_delete.press("Shift+Tab")
+    expect(cancel_delete).to_be_focused()
+    _start_note_delete_focus_trace(page)
+    cancel_delete.press("Escape")
+    expect(delete_confirmation).to_have_count(0)
+    duplicate_delete = duplicate_note.get_by_role("button", name="Delete", exact=True)
+    expect(duplicate_delete).to_be_focused()
+    _assert_note_delete_focus_continuity(
+        page,
+        "escaping note deletion confirmation",
+        (
+            ("testid:note-mutation-status", True),
+            ("button:Delete", False),
+        ),
+    )
+    _require(
+        page.evaluate("() => window.__p3029MutationGate?.callCount") == 0,
+        "Escape from note deletion confirmation issued a DELETE request",
+    )
+
+    duplicate_delete.press(" ")
+    delete_confirmation = duplicate_note.get_by_test_id("note-delete-confirmation")
+    cancel_delete = delete_confirmation.get_by_role("button", name="Cancel", exact=True)
+    expect(cancel_delete).to_be_focused()
+    cancel_delete.click()
+    duplicate_delete = duplicate_note.get_by_role("button", name="Delete", exact=True)
+    expect(duplicate_delete).to_be_focused()
+    _require(
+        page.evaluate("() => window.__p3029MutationGate?.callCount") == 0,
+        "Cancel from note deletion confirmation issued a DELETE request",
+    )
+
+    duplicate_delete.click()
+    delete_confirmation = duplicate_note.get_by_test_id("note-delete-confirmation")
+    expect(delete_confirmation.get_by_role("button", name="Cancel", exact=True)).to_be_focused()
+    confirm_delete = delete_confirmation.get_by_role(
+        "button", name="Delete permanently", exact=True
+    )
+    confirm_delete.press("Enter")
+    page.keyboard.press("Enter")
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1 && window.__p3029MutationGate?.callCount === 1",
+        timeout=30_000,
+    )
+    expect(delete_confirmation).to_be_visible()
+    expect(delete_confirmation).to_have_attribute("aria-busy", "true")
+    expect(delete_confirmation).to_be_focused()
+    expect(delete_confirmation.get_by_role("button", name="Cancel", exact=True)).to_be_disabled()
+    expect(delete_confirmation.get_by_role("button", name="Deleting...", exact=True)).to_be_disabled()
+    expect(page.get_by_label("New learning note", exact=True)).to_be_disabled()
+    baseline_note = page.get_by_test_id("learning-note").filter(
+        has_text=baseline_note_content
+    )
+    expect(baseline_note.get_by_role("button", name="Edit", exact=True)).to_be_disabled()
+    expect(baseline_note.get_by_role("button", name="Delete", exact=True)).to_be_disabled()
+    _start_note_delete_focus_trace(page)
+    _release_mutation_response_gate(page)
+    note_status = page.get_by_test_id("note-mutation-status")
+    expect(note_status).to_have_text("Note deleted.")
+    expect(note_status).to_be_focused()
+    _assert_note_delete_focus_continuity(
+        page,
+        "completing confirmed note deletion",
+        (("testid:note-mutation-status", True),),
+    )
+    expect(duplicate_note).to_have_count(0)
+    deleted_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    _require(
+        deleted_notes["total"] == baseline_note_count,
+        f"confirmed note deletion did not persist exactly once: {deleted_notes}",
+    )
+    _restore_mutation_response_gate(page)
+
+    response_loss_text = f"P3-031 unconfirmed delete {iteration}"
+    note_draft = page.get_by_label("New learning note", exact=True)
+    note_draft.fill(response_loss_text)
+    page.get_by_role("button", name="Add note", exact=True).click()
+    expect(page.get_by_test_id("note-mutation-status")).to_have_text("Note saved.")
+    response_loss_note = page.get_by_test_id("learning-note").filter(
+        has_text=response_loss_text
+    )
+    expect(response_loss_note).to_have_count(1)
+    response_loss_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    response_loss_records = [
+        item for item in response_loss_notes["items"] if item["content"] == response_loss_text
+    ]
+    _require(
+        len(response_loss_records) == 1,
+        f"response-loss note identity is ambiguous: {response_loss_notes}",
+    )
+    _install_one_shot_mutation_response_loss(
+        page,
+        f"/learning/notes/{response_loss_records[0]['note_id']}",
+        "DELETE",
         "intentional P3-029 unconfirmed delete result",
     )
-    duplicate_note.get_by_role("button", name="Delete", exact=True).click()
+    response_loss_note.get_by_role("button", name="Delete", exact=True).click()
+    response_loss_note.get_by_role(
+        "button", name="Delete permanently", exact=True
+    ).focus()
+    _start_note_delete_focus_trace(page)
+    response_loss_note.get_by_role(
+        "button", name="Delete permanently", exact=True
+    ).click()
     expect(page.get_by_test_id("note-mutation-error")).to_contain_text(
         "deletion could not be confirmed"
     )
-    expect(duplicate_note).to_have_count(1)
+    expect(page.get_by_test_id("note-mutation-error")).to_contain_text(
+        "Reload this Article before retrying"
+    )
+    expect(response_loss_note).to_have_count(1)
+    expect(
+        response_loss_note.get_by_role("button", name="Delete", exact=True)
+    ).to_be_focused()
+    _assert_note_delete_focus_continuity(
+        page,
+        "handling lost note deletion response",
+        (
+            ("testid:note-mutation-status", True),
+            ("button:Delete", False),
+        ),
+    )
     expect(page.get_by_test_id("notes-controls")).to_have_attribute("aria-busy", "false")
+    page.wait_for_timeout(250)
+    _require(
+        page.evaluate("() => window.__p3029FailureGate?.callCount") == 1,
+        "lost delete response was replayed automatically",
+    )
     cleaned_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
     _require(
         cleaned_notes["total"] == baseline_note_count
-        and all(item["note_id"] != duplicate_records[0]["note_id"] for item in cleaned_notes["items"]),
+        and all(
+            item["note_id"] != response_loss_records[0]["note_id"]
+            for item in cleaned_notes["items"]
+        ),
         f"lost delete response did not preserve the exact unknown persistence result: {cleaned_notes}",
     )
     _restore_one_shot_mutation_failure(page)
@@ -6981,10 +7141,36 @@ def _verify_reader_learning_mutation_integrity(
         "intentional P3-029 unconfirmed delete result",
     )
     baseline_note.get_by_role("button", name="Delete", exact=True).click()
+    baseline_note.get_by_role(
+        "button", name="Delete permanently", exact=True
+    ).focus()
+    _start_note_delete_focus_trace(page)
+    baseline_note.get_by_role(
+        "button", name="Delete permanently", exact=True
+    ).click()
     expect(page.get_by_test_id("note-mutation-error")).to_contain_text(
         "deletion could not be confirmed"
     )
+    expect(page.get_by_test_id("note-mutation-error")).to_contain_text(
+        "Reload this Article before retrying"
+    )
     expect(baseline_note).to_have_count(1)
+    expect(
+        baseline_note.get_by_role("button", name="Delete", exact=True)
+    ).to_be_focused()
+    _assert_note_delete_focus_continuity(
+        page,
+        "handling rejected note deletion request",
+        (
+            ("testid:note-mutation-status", True),
+            ("button:Delete", False),
+        ),
+    )
+    page.wait_for_timeout(250)
+    _require(
+        page.evaluate("() => window.__p3029FailureGate?.callCount") == 1,
+        "rejected delete request was replayed automatically",
+    )
     delete_failure_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
     _require(delete_failure_notes["total"] == baseline_note_count, "unconfirmed delete changed persistence")
     _restore_one_shot_mutation_failure(page)
@@ -7020,6 +7206,209 @@ def _verify_reader_learning_mutation_integrity(
     expect(page.get_by_test_id("notes-controls")).to_have_attribute(
         "aria-busy", "false", timeout=30_000
     )
+
+    transition_delete_requests: list[str] = []
+
+    def record_unconfirmed_delete_request(request) -> None:
+        if (
+            request.method == "DELETE"
+            and request.url.endswith(f"/learning/notes/{baseline_note_id}")
+        ):
+            transition_delete_requests.append(request.url)
+
+    page.on("request", record_unconfirmed_delete_request)
+    baseline_note = page.get_by_test_id("learning-note").filter(
+        has_text=baseline_note_content
+    )
+    baseline_note.get_by_role("button", name="Delete", exact=True).click()
+    expect(baseline_note.get_by_test_id("note-delete-confirmation")).to_be_visible()
+    _start_note_delete_focus_trace(page)
+    page.evaluate(
+        "() => window.history.pushState(null, '', '?from=%2Farticles%3Fq%3Dcrb')"
+    )
+    page.wait_for_function(
+        "() => new URLSearchParams(location.search).get('from') === '/articles?q=crb'"
+    )
+    expect(page.get_by_test_id("note-delete-confirmation")).to_have_count(0)
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_focused()
+    _assert_note_delete_focus_continuity(
+        page,
+        "invalidating an awaiting query intent",
+        ((f"heading:{CRB_TITLE}", True),),
+    )
+    _require(
+        not transition_delete_requests,
+        f"query transition issued an unconfirmed DELETE: {transition_delete_requests}",
+    )
+
+    page.go_back(wait_until="domcontentloaded")
+    page.wait_for_function(
+        "() => new URLSearchParams(location.search).get('from') === '/session'"
+    )
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    baseline_note = page.get_by_test_id("learning-note").filter(
+        has_text=baseline_note_content
+    )
+    baseline_note.get_by_role("button", name="Delete", exact=True).click()
+    expect(baseline_note.get_by_test_id("note-delete-confirmation")).to_be_visible()
+    page.go_forward(wait_until="domcontentloaded")
+    page.wait_for_function(
+        "() => new URLSearchParams(location.search).get('from') === '/articles?q=crb'"
+    )
+    expect(page.get_by_test_id("note-delete-confirmation")).to_have_count(0)
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_focused()
+    _require(
+        not transition_delete_requests,
+        f"query history issued an unconfirmed DELETE: {transition_delete_requests}",
+    )
+    page.go_back(wait_until="domcontentloaded")
+    page.wait_for_function(
+        "() => new URLSearchParams(location.search).get('from') === '/session'"
+    )
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    baseline_note = page.get_by_test_id("learning-note").filter(
+        has_text=baseline_note_content
+    )
+    baseline_note.get_by_role("button", name="Delete", exact=True).click()
+    expect(baseline_note.get_by_test_id("note-delete-confirmation")).to_be_visible()
+    page.get_by_role("link", name=f"Next in session: {ATTENTION_TITLE}", exact=True).click()
+    attention_heading = page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
+    expect(attention_heading).to_be_visible(timeout=30_000)
+    expect(attention_heading).to_be_focused(timeout=30_000)
+    expect(page.get_by_test_id("note-delete-confirmation")).to_have_count(0)
+    _require(
+        not transition_delete_requests,
+        f"Article switch issued an unconfirmed DELETE: {transition_delete_requests}",
+    )
+
+    page.go_back(wait_until="domcontentloaded")
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    expect(page.get_by_test_id("note-delete-confirmation")).to_have_count(0)
+    page.go_forward(wait_until="domcontentloaded")
+    expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    expect(page.get_by_test_id("note-delete-confirmation")).to_have_count(0)
+    page.go_back(wait_until="domcontentloaded")
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    baseline_note = page.get_by_test_id("learning-note").filter(
+        has_text=baseline_note_content
+    )
+    baseline_note.get_by_role("button", name="Delete", exact=True).click()
+    expect(baseline_note.get_by_test_id("note-delete-confirmation")).to_be_visible()
+    page.reload(wait_until="domcontentloaded")
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    expect(page.get_by_test_id("note-delete-confirmation")).to_have_count(0)
+    _require(
+        not transition_delete_requests,
+        f"history or reload issued an unconfirmed DELETE: {transition_delete_requests}",
+    )
+    transition_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    _require(
+        transition_notes["total"] == baseline_note_count,
+        f"unconfirmed navigation changed note persistence: {transition_notes}",
+    )
+
+    stale_delete_text = f"P3-031 stale delete completion {iteration}"
+    stale_delete_create = context.request.post(
+        f"{API_URL}/learning/notes/{CRB_ARTICLE_ID}",
+        data={"content": stale_delete_text},
+    )
+    _require(stale_delete_create.status == 200, "stale delete note setup failed")
+    stale_delete_record = stale_delete_create.json()
+    stale_delete_id = str(stale_delete_record["note_id"])
+    page.reload(wait_until="domcontentloaded")
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    stale_delete_note = page.get_by_test_id("learning-note").filter(has_text=stale_delete_text)
+    expect(stale_delete_note).to_have_count(1)
+    _install_mutation_response_gate(
+        page,
+        f"/learning/notes/{stale_delete_id}",
+        "DELETE",
+    )
+    stale_delete_note.get_by_role("button", name="Delete", exact=True).click()
+    stale_delete_confirmation = stale_delete_note.get_by_test_id("note-delete-confirmation")
+    expect(stale_delete_confirmation).to_be_visible()
+    stale_delete_confirmation.get_by_role(
+        "button", name="Delete permanently", exact=True
+    ).press("Enter")
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1 && window.__p3029MutationGate?.callCount === 1",
+        timeout=30_000,
+    )
+    _start_note_delete_focus_trace(page)
+    page.evaluate(
+        "() => window.history.pushState(null, '', '?from=%2Farticles%3Fq%3Dcrb')"
+    )
+    page.wait_for_function(
+        "() => new URLSearchParams(location.search).get('from') === '/articles?q=crb'"
+    )
+    expect(stale_delete_confirmation).to_have_count(0)
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_focused()
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute("aria-busy", "false")
+    stale_delete_note = page.get_by_test_id("learning-note").filter(has_text=stale_delete_text)
+    expect(stale_delete_note).to_have_count(1)
+    expect(stale_delete_note.get_by_role("button", name="Delete", exact=True)).to_be_disabled()
+    stale_delete_warning = page.get_by_test_id("note-mutation-error")
+    expect(stale_delete_warning).to_contain_text("could not be confirmed after navigation")
+    expect(stale_delete_warning).to_contain_text("Reload this Article before retrying")
+    _assert_note_delete_focus_continuity(
+        page,
+        "invalidating a stale note deletion",
+        ((f"heading:{CRB_TITLE}", True),),
+    )
+    _release_mutation_response_gate(page)
+    page.wait_for_timeout(250)
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_focused()
+    expect(stale_delete_note).to_have_count(1)
+    expect(page.get_by_test_id("note-mutation-status")).to_have_text("")
+    expect(stale_delete_warning).to_contain_text("could not be confirmed after navigation")
+    _require(
+        page.evaluate("() => window.__p3029MutationGate?.callCount") == 1,
+        "stale delete completion created another DELETE request",
+    )
+    stale_delete_persisted = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    _require(
+        all(item["note_id"] != stale_delete_id for item in stale_delete_persisted["items"]),
+        f"stale delete persistence result was not recorded exactly: {stale_delete_persisted}",
+    )
+    _restore_mutation_response_gate(page)
+    page.go_back(wait_until="domcontentloaded")
+    page.wait_for_function(
+        "() => new URLSearchParams(location.search).get('from') === '/session'"
+    )
+    page.reload(wait_until="domcontentloaded")
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    expect(page.get_by_text(stale_delete_text, exact=True)).to_have_count(0)
+    page.evaluate(
+        "([key, value]) => localStorage.setItem(key, value)",
+        ["scientific-spaces-study-session-v1", json.dumps(session_payload, ensure_ascii=False)],
+    )
+    page.reload(wait_until="domcontentloaded")
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+
     stale_text = f"P3-029 stale Article A {iteration}"
     _install_mutation_response_gate(page, f"/learning/notes/{CRB_ARTICLE_ID}", "POST")
     page.get_by_label("New learning note", exact=True).fill(stale_text)
@@ -7186,6 +7575,280 @@ def _verify_reader_learning_mutation_integrity(
     _restore_one_shot_mutation_failure(page)
     context.close()
 
+    _verify_reader_note_delete_confirmation_viewports(
+        browser,
+        iteration=iteration,
+        baseline_note_content=baseline_note_content,
+        blocked_external=blocked_external,
+        console_errors=console_errors,
+        page_errors=page_errors,
+    )
+
+
+def _verify_reader_note_delete_confirmation_viewports(
+    browser,
+    *,
+    iteration: int,
+    baseline_note_content: str,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+) -> None:
+    from playwright.sync_api import expect
+
+    session_sequence = 0
+
+    def provide_isolated_viewport_session(route) -> None:
+        nonlocal session_sequence
+        if route.request.method != "POST":
+            route.continue_()
+            return
+        session_sequence += 1
+        route.fulfill(
+            status=201,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "session_id": f"p3-031-viewport-{iteration}-{session_sequence}",
+                    "article_id": json.loads(route.request.post_data or "{}").get("article_id"),
+                    "started_at": "2026-09-05T00:00:00Z",
+                    "ended_at": None,
+                    "duration_seconds": None,
+                    "source": "reader",
+                }
+            ),
+        )
+
+    for viewport_width, viewport_height, viewport_label in (
+        (1440, 900, "desktop"),
+        (390, 844, "mobile"),
+        (320, 844, "narrow"),
+        (720, 450, "zoom-equivalent"),
+    ):
+        context = browser.new_context(
+            viewport={"width": viewport_width, "height": viewport_height},
+            locale="zh-CN",
+            is_mobile=viewport_width <= 390,
+        )
+        _install_network_guard(context, blocked_external)
+        context.route(re.compile(r".*/learning/sessions$"), provide_isolated_viewport_session)
+        viewport_note_content = f"P3-031 {viewport_label} deletion focus {iteration}"
+        viewport_note_create = context.request.post(
+            f"{API_URL}/learning/notes/{CRB_ARTICLE_ID}",
+            data={"content": viewport_note_content},
+        )
+        _require(
+            viewport_note_create.status == 200,
+            f"{viewport_label} note deletion setup failed",
+        )
+        viewport_note_id = str(viewport_note_create.json()["note_id"])
+        page = _new_observed_page(
+            context,
+            console_errors,
+            page_errors,
+            label=f"reader-note-delete-{viewport_label}",
+        )
+        page.goto(f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}", wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+            "aria-busy", "false", timeout=30_000
+        )
+        note = page.get_by_test_id("learning-note").filter(has_text=viewport_note_content)
+        expect(note).to_have_count(1)
+        delete_trigger = note.get_by_role("button", name="Delete", exact=True)
+        delete_trigger.scroll_into_view_if_needed()
+        _install_mutation_response_gate(page, "/learning/notes/", "DELETE")
+        delete_trigger.focus()
+        delete_trigger.press(" ")
+        confirmation = note.get_by_test_id("note-delete-confirmation")
+        expect(confirmation).to_be_visible()
+        cancel = confirmation.get_by_role("button", name="Cancel", exact=True)
+        destructive = confirmation.get_by_role(
+            "button", name="Delete permanently", exact=True
+        )
+        expect(cancel).to_be_focused()
+        _require_visible_focus(cancel, f"{viewport_label} note delete Cancel")
+        confirmation.scroll_into_view_if_needed()
+        _require_viewport_containment(
+            confirmation.bounding_box(),
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} note deletion confirmation",
+        )
+        _require_viewport_containment(
+            cancel.bounding_box(),
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} note deletion Cancel",
+        )
+        _require_viewport_containment(
+            destructive.bounding_box(),
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} permanent deletion action",
+        )
+        _require(
+            _document_width(page) <= viewport_width,
+            f"{viewport_label} note deletion confirmation caused horizontal overflow",
+        )
+        cancel.press("Escape")
+        expect(note.get_by_test_id("note-delete-confirmation")).to_have_count(0)
+        expect(note.get_by_role("button", name="Delete", exact=True)).to_be_focused()
+        _require(
+            page.evaluate("() => window.__p3029MutationGate?.callCount") == 0,
+            f"{viewport_label} confirmation cancellation issued a DELETE request",
+        )
+        persisted = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+        _require(
+            any(item["note_id"] == viewport_note_id for item in persisted["items"]),
+            f"{viewport_label} cancellation did not preserve the exact note: {persisted}",
+        )
+        delete_trigger = note.get_by_role("button", name="Delete", exact=True)
+        delete_trigger.click()
+        confirmation = note.get_by_test_id("note-delete-confirmation")
+        destructive = confirmation.get_by_role(
+            "button", name="Delete permanently", exact=True
+        )
+        destructive.press("Enter")
+        page.wait_for_function(
+            "() => window.__p3029MutationGate?.pendingCount === 1 && window.__p3029MutationGate?.callCount === 1",
+            timeout=30_000,
+        )
+        expect(confirmation).to_have_attribute("aria-busy", "true")
+        expect(confirmation).to_be_focused()
+        _require_visible_focus(confirmation, f"{viewport_label} pending deletion confirmation")
+        pending_destructive = confirmation.get_by_role("button", name="Deleting...", exact=True)
+        expect(confirmation.get_by_role("button", name="Cancel", exact=True)).to_be_disabled()
+        expect(pending_destructive).to_be_disabled()
+        expect(page.get_by_label("New learning note", exact=True)).to_be_disabled()
+        expect(page.get_by_role("button", name="Add note", exact=True)).to_be_disabled()
+        for edit_button in page.get_by_role("button", name="Edit", exact=True).all():
+            expect(edit_button).to_be_disabled()
+        for other_delete in page.get_by_role("button", name="Delete", exact=True).all():
+            expect(other_delete).to_be_disabled()
+        confirmation.scroll_into_view_if_needed()
+        _require_viewport_containment(
+            confirmation.bounding_box(),
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} pending deletion confirmation",
+        )
+        _require(
+            _document_width(page) <= viewport_width,
+            f"{viewport_label} pending deletion caused horizontal overflow",
+        )
+        _release_mutation_response_gate(page)
+        note_status = page.get_by_test_id("note-mutation-status")
+        expect(note_status).to_have_text("Note deleted.")
+        expect(note_status).to_be_focused()
+        _require_visible_focus(note_status, f"{viewport_label} deletion status")
+        _require_viewport_containment(
+            note_status.bounding_box(),
+            viewport_width,
+            viewport_height,
+            f"{viewport_label} deletion status",
+        )
+        expect(note).to_have_count(0)
+        persisted_after_delete = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+        _require(
+            all(item["note_id"] != viewport_note_id for item in persisted_after_delete["items"]),
+            f"{viewport_label} confirmed deletion did not remove the exact note: {persisted_after_delete}",
+        )
+        _require(
+            any(item["content"] == baseline_note_content for item in persisted_after_delete["items"]),
+            f"{viewport_label} confirmed deletion changed the baseline note: {persisted_after_delete}",
+        )
+        _require(
+            _document_width(page) <= viewport_width,
+            f"{viewport_label} deletion status caused horizontal overflow",
+        )
+        _restore_mutation_response_gate(page)
+        context.close()
+
+
+def _start_note_delete_focus_trace(page) -> None:
+    page.evaluate(
+        """
+        () => {
+          window.__p3031FocusTrace = [];
+          const describe = (node) => {
+            if (!(node instanceof HTMLElement)) return "missing";
+            const testId = node.dataset.testid;
+            if (testId) return `testid:${testId}`;
+            if (node instanceof HTMLButtonElement) {
+              return `button:${node.textContent?.trim() ?? ""}`;
+            }
+            if (/^H[1-6]$/.test(node.tagName)) {
+              return `heading:${node.textContent?.trim() ?? ""}`;
+            }
+            return node.tagName;
+          };
+          const recordFocus = (source) => {
+            window.__p3031FocusTrace.push({
+              source,
+              target: describe(document.activeElement),
+              confirmationMounted: Boolean(
+                document.querySelector('[data-testid="note-delete-confirmation"]')
+              ),
+            });
+          };
+          const focusListener = () => recordFocus("focusin");
+          window.__p3031FocusListener = focusListener;
+          document.addEventListener("focusin", focusListener, true);
+          const observer = new MutationObserver(() => recordFocus("mutation"));
+          observer.observe(document.body, { childList: true, subtree: true });
+          window.__p3031FocusObserver = observer;
+          recordFocus("start");
+        }
+        """
+    )
+
+
+def _assert_note_delete_focus_continuity(
+    page,
+    label: str,
+    expected_focus_sequence: tuple[tuple[str, bool], ...],
+) -> None:
+    focus_trace = page.evaluate(
+        """
+        () => {
+          window.__p3031FocusObserver?.disconnect();
+          if (typeof window.__p3031FocusListener === "function") {
+            document.removeEventListener("focusin", window.__p3031FocusListener, true);
+          }
+          const trace = [...(window.__p3031FocusTrace ?? [])];
+          delete window.__p3031FocusObserver;
+          delete window.__p3031FocusListener;
+          delete window.__p3031FocusTrace;
+          return trace;
+        }
+        """
+    )
+    _require(bool(focus_trace), f"{label} produced no focus trace evidence")
+    _require(
+        all(entry.get("target") != "BODY" for entry in focus_trace),
+        f"{label} dropped focus to body: {focus_trace}",
+    )
+    focus_events = [entry for entry in focus_trace if entry.get("source") == "focusin"]
+    next_index = 0
+    for expected_target, expected_confirmation in expected_focus_sequence:
+        for index in range(next_index, len(focus_events)):
+            entry = focus_events[index]
+            if (
+                entry.get("target") == expected_target
+                and entry.get("confirmationMounted") is expected_confirmation
+            ):
+                next_index = index + 1
+                break
+        else:
+            raise AssertionError(
+                f"{label} missed focus bridge {expected_target} "
+                f"with confirmationMounted={expected_confirmation}: {focus_trace}"
+            )
+
 
 def _install_mutation_response_gate(page, endpoint: str, method: str) -> None:
     page.evaluate(
@@ -7278,15 +7941,19 @@ def _install_one_shot_mutation_failure(
           }
           const originalFetch = window.fetch.bind(window);
           window.__p3029FailureOriginalFetch = originalFetch;
+          window.__p3029FailureGate = { callCount: 0 };
           let rejected = false;
           window.fetch = (...args) => {
             const target = String(args[0] instanceof Request ? args[0].url : args[0]);
             const requestMethod = String(
               args[0] instanceof Request ? args[0].method : args[1]?.method ?? "GET"
             ).toUpperCase();
-            if (!rejected && target.includes(endpoint) && requestMethod === method) {
-              rejected = true;
-              return Promise.reject(new Error(message));
+            if (target.includes(endpoint) && requestMethod === method) {
+              window.__p3029FailureGate.callCount += 1;
+              if (!rejected) {
+                rejected = true;
+                return Promise.reject(new Error(message));
+              }
             }
             return originalFetch(...args);
           };
@@ -7310,16 +7977,20 @@ def _install_one_shot_mutation_response_loss(
           }
           const originalFetch = window.fetch.bind(window);
           window.__p3029FailureOriginalFetch = originalFetch;
+          window.__p3029FailureGate = { callCount: 0 };
           let rejected = false;
           window.fetch = async (...args) => {
             const target = String(args[0] instanceof Request ? args[0].url : args[0]);
             const requestMethod = String(
               args[0] instanceof Request ? args[0].method : args[1]?.method ?? "GET"
             ).toUpperCase();
-            if (!rejected && target.includes(endpoint) && requestMethod === method) {
-              rejected = true;
-              await originalFetch(...args);
-              throw new Error(message);
+            if (target.includes(endpoint) && requestMethod === method) {
+              window.__p3029FailureGate.callCount += 1;
+              if (!rejected) {
+                rejected = true;
+                await originalFetch(...args);
+                throw new Error(message);
+              }
             }
             return originalFetch(...args);
           };
@@ -7336,6 +8007,7 @@ def _restore_one_shot_mutation_failure(page) -> None:
           if (typeof window.__p3029FailureOriginalFetch === "function") {
             window.fetch = window.__p3029FailureOriginalFetch;
             delete window.__p3029FailureOriginalFetch;
+            delete window.__p3029FailureGate;
           }
         }
         """
@@ -7809,6 +8481,7 @@ def _require_visible_focus(locator, label: str) -> None:
           const style = getComputedStyle(node);
           return {
             active: node === document.activeElement,
+            boxShadow: style.boxShadow,
             outlineStyle: style.outlineStyle,
             outlineWidth: style.outlineWidth,
           };
@@ -7817,8 +8490,13 @@ def _require_visible_focus(locator, label: str) -> None:
     )
     _require(
         focus_state["active"]
-        and focus_state["outlineStyle"] != "none"
-        and focus_state["outlineWidth"] != "0px",
+        and (
+            (
+                focus_state["outlineStyle"] != "none"
+                and focus_state["outlineWidth"] != "0px"
+            )
+            or focus_state["boxShadow"] != "none"
+        ),
         f"{label} lacks a visible focus indicator: {focus_state}",
     )
 

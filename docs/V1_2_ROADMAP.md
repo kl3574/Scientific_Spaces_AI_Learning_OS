@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-030 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no subsequent task or candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-030 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; P3-031 Reader Note Deletion Safety is LOCAL PASS / IMPLEMENTATION CI REQUIRED; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -871,6 +871,37 @@ including Frontend, Backend, three-run Product E2E, dependency, secret, SBOM,
 workflow, and suppression gates with zero uploaded artifacts. This docs-only
 closure commit requires its own exact-SHA main CI before final reporting.
 
+The docs-only closure commit
+`4b39dd470dbb8d798ecd71159835f799a2afe164` passed exact-SHA main CI run
+[`33949242912`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33949242912)
+with all required jobs passing and zero uploaded artifacts.
+
+### P3-031 - Reader Note Deletion Safety
+
+Status: **LOCAL PASS / IMPLEMENTATION CI REQUIRED**.
+
+P3-031 addresses an irreversible Reader interaction defect: the first `Delete`
+activation currently sends the permanent DELETE immediately and successful
+removal can leave keyboard focus on `body`. The bounded task introduces an
+Article/generation/note-owned inline confirmation, least-destructive initial
+focus, exact request-count guards, truthful unconfirmed-result feedback, and
+stale focus cancellation without changing Backend, API, persistence,
+dependencies, or any source/Article record.
+
+The canonical task is
+`docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md`. Two independent scope
+reviews pass after ownership, keyboard, uncertainty, and exact allowlist gaps
+were incorporated.
+
+Local evidence passes 113 focused Frontend tests, 600 Backend tests with 4
+skipped, the 11-route production build, and three Product E2E runs with 177
+checks each. Exact intent ownership, continuous focus bridges, request counts,
+truthful uncertainty, stale query reconciliation, four responsive viewports,
+restart persistence, safety gates, and two independent final reviews pass;
+external requests and unexpected console/page errors are zero. Evidence is in
+`docs/P3_031_READER_NOTE_DELETION_SAFETY_REPORT.md`. Exact-SHA implementation
+and docs-only closure main CI remain required.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -903,8 +934,8 @@ closure commit requires its own exact-SHA main CI before final reporting.
 
 ## Next Recommended Task
 
-Verify the P3-030 docs-only closure commit on exact-SHA main CI. No subsequent
-task is staged.
+Commit and verify P3-031 Reader Note Deletion Safety through exact-SHA
+implementation main CI. No subsequent task is staged.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain

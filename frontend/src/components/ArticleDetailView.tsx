@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   ComponentPropsWithoutRef,
   FormEvent,
@@ -12,7 +12,10 @@ import {
   useRef,
   useState,
 } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import type {
+  KeyboardEvent as ReactKeyboardEvent,
+  MouseEvent as ReactMouseEvent,
+} from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
 import { Components } from "react-markdown";
@@ -67,9 +70,12 @@ import { createLearningToolHref } from "@/lib/learningWorkflow";
 import {
   ReaderMutationKind,
   ReaderMutationOperation,
+  ReaderNoteDeleteIntent,
+  createReaderNoteDeleteIntent,
   createReaderMutationOperation,
   mergeCreatedLearningNote,
   mergeUpdatedLearningNote,
+  ownsReaderNoteDeleteIntent,
   ownsReaderMutation,
   removeLearningNote,
 } from "@/lib/readerLearningMutations";
@@ -96,7 +102,22 @@ type MutationFeedback = {
   message: string;
 };
 
+type NoteFocusRequest = Readonly<{
+  articleId: string;
+  generation: number;
+  noteId: string;
+  target: "delete-trigger" | "status";
+}>;
+
 const ARTICLE_LOAD_TIMEOUT_MS = 10_000;
+
+function focusVisibleElement(target: HTMLElement | null) {
+  if (!target?.isConnected) {
+    return;
+  }
+  target.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
+  target.focus({ preventScroll: true });
+}
 
 export function ArticleDetailView({
   articleId,
@@ -106,6 +127,8 @@ export function ArticleDetailView({
   listReturnTo: string;
 }>) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const routeQuery = searchParams.toString();
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [learningState, setLearningState] = useState<LearningState | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -139,6 +162,10 @@ export function ArticleDetailView({
   const [bookmarkFeedback, setBookmarkFeedback] = useState<MutationFeedback | null>(null);
   const [noteMutationPending, setNoteMutationPending] = useState<ReaderMutationOperation | null>(null);
   const [noteFeedback, setNoteFeedback] = useState<MutationFeedback | null>(null);
+  const [noteDeleteIntent, setNoteDeleteIntent] = useState<ReaderNoteDeleteIntent | null>(null);
+  const [noteDeleteReconciliationRequired, setNoteDeleteReconciliationRequired] =
+    useState<ReaderNoteDeleteIntent | null>(null);
+  const [noteFocusRequest, setNoteFocusRequest] = useState<NoteFocusRequest | null>(null);
   const [bookmarkLoadState, setBookmarkLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [noteLoadState, setNoteLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const learningLoadArticleRef = useRef<string | null>(null);
@@ -155,6 +182,11 @@ export function ArticleDetailView({
   const articleRetryRef = useRef<HTMLButtonElement | null>(null);
   const completionRegionRef = useRef<HTMLElement | null>(null);
   const explicitSectionRef = useRef<ArticleOutlineItem | null>(null);
+  const noteDeleteCancelRef = useRef<HTMLButtonElement | null>(null);
+  const noteDeleteConfirmationRef = useRef<HTMLDivElement | null>(null);
+  const noteDeleteButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const noteStatusRef = useRef<HTMLParagraphElement | null>(null);
+  const noteDeleteRouteQueryRef = useRef(routeQuery);
   const returnLabel = listReturnTo === "/session"
     ? "Back to study session"
     : listReturnTo.startsWith("/library")
@@ -166,10 +198,93 @@ export function ArticleDetailView({
       : "Back to articles";
   const bookmarkControlsReady = bookmarkLoadState === "loaded";
   const noteControlsReady = noteLoadState === "loaded";
+  const activeNoteDeleteIntent = noteDeleteIntent?.articleId === articleId
+    && noteDeleteIntent.generation === articleGenerationRef.current
+    ? noteDeleteIntent
+    : null;
+  const activeNoteDeleteReconciliation = noteDeleteReconciliationRequired?.articleId === articleId
+    && noteDeleteReconciliationRequired.generation === articleGenerationRef.current
+    ? noteDeleteReconciliationRequired
+    : null;
+  const noteInteractionLocked = noteMutationPending !== null
+    || activeNoteDeleteIntent !== null
+    || activeNoteDeleteReconciliation !== null;
 
   useLayoutEffect(() => {
     articleIdRef.current = articleId;
   }, [articleId]);
+
+  useLayoutEffect(() => {
+    const intent = activeNoteDeleteIntent;
+    if (
+      !intent
+      || noteMutationPending?.kind === "note-delete"
+      || !ownsReaderNoteDeleteIntent(
+        noteDeleteIntent,
+        intent,
+        articleIdRef.current,
+        articleGenerationRef.current,
+      )
+    ) {
+      return;
+    }
+    focusVisibleElement(noteDeleteCancelRef.current);
+  }, [activeNoteDeleteIntent, noteDeleteIntent, noteMutationPending]);
+
+  useLayoutEffect(() => {
+    const previousRouteQuery = noteDeleteRouteQueryRef.current;
+    noteDeleteRouteQueryRef.current = routeQuery;
+    const intent = activeNoteDeleteIntent;
+    if (
+      previousRouteQuery === routeQuery
+      || !intent
+      || !ownsReaderNoteDeleteIntent(
+        noteDeleteIntent,
+        intent,
+        articleIdRef.current,
+        articleGenerationRef.current,
+      )
+    ) {
+      return;
+    }
+    const operation = noteMutationRef.current;
+    if (
+      operation?.kind === "note-delete"
+      && operation.articleId === intent.articleId
+      && operation.generation === intent.generation
+      && operation.noteId === intent.noteId
+    ) {
+      noteMutationRef.current = null;
+      setNoteMutationPending(null);
+      setNoteDeleteReconciliationRequired(intent);
+      setNoteFeedback({
+        tone: "error",
+        message: "The note deletion could not be confirmed after navigation. The current Reader rendering was kept, but the saved result may differ. Reload this Article before retrying.",
+      });
+    }
+    focusVisibleElement(articleHeadingRef.current);
+    setNoteDeleteIntent(null);
+    setNoteFocusRequest(null);
+  }, [activeNoteDeleteIntent, noteDeleteIntent, routeQuery]);
+
+  useLayoutEffect(() => {
+    const request = noteFocusRequest;
+    if (!request) {
+      return;
+    }
+    if (
+      articleIdRef.current !== request.articleId
+      || articleGenerationRef.current !== request.generation
+    ) {
+      setNoteFocusRequest((current) => (current === request ? null : current));
+      return;
+    }
+    const target = request.target === "status"
+      ? noteStatusRef.current
+      : noteDeleteButtonRefs.current.get(request.noteId) ?? null;
+    focusVisibleElement(target);
+    setNoteFocusRequest((current) => (current === request ? null : current));
+  }, [noteFocusRequest]);
 
   function prepareGraphReturnFocus(event: ReactMouseEvent<HTMLAnchorElement>) {
     if (isSameTabNavigation(event) && listReturnTo.startsWith("/graph")) {
@@ -214,6 +329,9 @@ export function ArticleDetailView({
     setBookmarkFeedback(null);
     setNoteMutationPending(null);
     setNoteFeedback(null);
+    setNoteDeleteIntent(null);
+    setNoteDeleteReconciliationRequired(null);
+    setNoteFocusRequest(null);
     setBookmarkLoadState("idle");
     setNoteLoadState("idle");
     completionOperationRef.current = null;
@@ -281,6 +399,8 @@ export function ArticleDetailView({
       sessionEndOperationRef.current = null;
       bookmarkMutationRef.current = null;
       noteMutationRef.current = null;
+      noteDeleteCancelRef.current = null;
+      noteDeleteConfirmationRef.current = null;
       if (learningLoadArticleRef.current === requestedArticleId) {
         learningLoadArticleRef.current = null;
       }
@@ -565,6 +685,7 @@ export function ArticleDetailView({
       || !noteControlsReady
       || !submittedDraft
       || noteMutationRef.current
+      || noteInteractionLocked
     ) {
       return;
     }
@@ -611,6 +732,7 @@ export function ArticleDetailView({
       || !noteControlsReady
       || !submittedContent
       || noteMutationRef.current
+      || noteInteractionLocked
     ) {
       return;
     }
@@ -650,36 +772,113 @@ export function ArticleDetailView({
     }
   }
 
-  async function handleDeleteNote(noteId: string) {
+  function queueNoteFocus(
+    intent: ReaderNoteDeleteIntent,
+    target: NoteFocusRequest["target"],
+  ) {
+    setNoteFocusRequest({
+      articleId: intent.articleId,
+      generation: intent.generation,
+      noteId: intent.noteId,
+      target,
+    });
+  }
+
+  function handleRequestNoteDelete(noteId: string) {
     if (
       !article
       || article.id !== articleIdRef.current
       || !noteControlsReady
       || noteMutationRef.current
+      || noteInteractionLocked
+      || !notes.some((note) => note.note_id === noteId)
     ) {
       return;
     }
-    const operation = nextReaderMutation(article.id, "note-delete", noteId);
+    focusVisibleElement(noteStatusRef.current);
+    setNoteFeedback(null);
+    setNoteDeleteIntent(
+      createReaderNoteDeleteIntent(
+        article.id,
+        articleGenerationRef.current,
+        noteId,
+      ),
+    );
+  }
+
+  function handleCancelNoteDelete(intent: ReaderNoteDeleteIntent) {
+    if (
+      noteMutationRef.current
+      || !ownsReaderNoteDeleteIntent(
+        noteDeleteIntent,
+        intent,
+        articleIdRef.current,
+        articleGenerationRef.current,
+      )
+    ) {
+      return;
+    }
+    focusVisibleElement(noteStatusRef.current);
+    setNoteDeleteIntent(null);
+    queueNoteFocus(intent, "delete-trigger");
+  }
+
+  function handleNoteDeleteConfirmationKeyDown(
+    event: ReactKeyboardEvent<HTMLDivElement>,
+    intent: ReaderNoteDeleteIntent,
+  ) {
+    if (event.key !== "Escape") {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    handleCancelNoteDelete(intent);
+  }
+
+  async function handleDeleteNote(intent: ReaderNoteDeleteIntent) {
+    if (
+      !article
+      || article.id !== articleIdRef.current
+      || !noteControlsReady
+      || noteMutationRef.current
+      || !ownsReaderNoteDeleteIntent(
+        noteDeleteIntent,
+        intent,
+        articleIdRef.current,
+        articleGenerationRef.current,
+      )
+      || !notes.some((note) => note.note_id === intent.noteId)
+    ) {
+      return;
+    }
+    focusVisibleElement(noteDeleteConfirmationRef.current);
+    const operation = nextReaderMutation(article.id, "note-delete", intent.noteId);
     noteMutationRef.current = operation;
     setNoteMutationPending(operation);
     setNoteFeedback({ tone: "pending", message: "Deleting note..." });
     try {
-      await deleteNote(noteId);
+      await deleteNote(intent.noteId);
       if (!isCurrentReaderMutation(noteMutationRef, operation)) {
         return;
       }
-      setNotes((current) => removeLearningNote(current, noteId));
-      if (editingNoteId === noteId) {
+      focusVisibleElement(noteStatusRef.current);
+      setNotes((current) => removeLearningNote(current, intent.noteId));
+      if (editingNoteId === intent.noteId) {
         setEditingNoteId(null);
         setEditingContent("");
       }
+      setNoteDeleteIntent(null);
       setNoteFeedback({ tone: "success", message: "Note deleted." });
+      queueNoteFocus(intent, "status");
     } catch (err) {
       if (isCurrentReaderMutation(noteMutationRef, operation)) {
+        focusVisibleElement(noteStatusRef.current);
+        setNoteDeleteIntent(null);
         setNoteFeedback({
           tone: "error",
-          message: `The note deletion could not be confirmed. ${errorText(err, "The request failed.")} The current note was kept.`,
+          message: `The note deletion could not be confirmed. ${errorText(err, "The request failed.")} The current Reader rendering was kept, but the saved result may differ. Reload this Article before retrying.`,
         });
+        queueNoteFocus(intent, "delete-trigger");
       }
     } finally {
       if (noteMutationRef.current === operation) {
@@ -1770,13 +1969,14 @@ export function ArticleDetailView({
             <textarea
               aria-label="New learning note"
               className="min-h-24 w-full resize-y rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950"
+              disabled={noteInteractionLocked}
               placeholder="Write a learning note"
               value={noteDraft}
               onChange={(event) => setNoteDraft(event.target.value)}
             />
             <button
               className="rounded bg-slate-950 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-              disabled={!noteControlsReady || noteMutationPending !== null || !noteDraft.trim()}
+              disabled={!noteControlsReady || noteInteractionLocked || !noteDraft.trim()}
               type="submit"
             >
               {noteMutationPending?.kind === "note-create" ? "Saving note..." : "Add note"}
@@ -1785,9 +1985,11 @@ export function ArticleDetailView({
           <p
             aria-atomic="true"
             aria-live="polite"
-            className={noteFeedback && noteFeedback.tone !== "error" ? "mt-2 text-sm text-slate-600" : "sr-only"}
+            className={`${noteFeedback && noteFeedback.tone !== "error" ? "mt-2 text-sm text-slate-600" : "sr-only"} outline-none focus-visible:ring-2 focus-visible:ring-sky-700 focus-visible:ring-offset-2`}
             data-testid="note-mutation-status"
+            ref={noteStatusRef}
             role="status"
+            tabIndex={-1}
           >
             {noteFeedback && noteFeedback.tone !== "error" ? noteFeedback.message : ""}
           </p>
@@ -1805,78 +2007,130 @@ export function ArticleDetailView({
             ) : noteLoadState === "error" ? (
               <p className="text-sm text-slate-600">Notes could not be loaded.</p>
             ) : notes.length ? (
-              notes.map((note) => (
-                <article
-                  key={note.note_id}
-                  className="rounded border border-slate-100 p-3 text-sm"
-                  data-testid="learning-note"
-                >
-                  {editingNoteId === note.note_id ? (
-                    <div className="space-y-2">
-                      <textarea
-                        aria-label="Edit learning note"
-                        className="min-h-20 w-full resize-y rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950"
-                        disabled={noteMutationPending !== null}
-                        value={editingContent}
-                        onChange={(event) => setEditingContent(event.target.value)}
-                      />
-                      <div className="flex gap-2">
-                        <button
-                          className="rounded bg-slate-950 px-3 py-1 text-xs font-medium text-white"
-                          disabled={!noteControlsReady || noteMutationPending !== null || !editingContent.trim()}
-                          type="button"
-                          onClick={() => void handleUpdateNote(note.note_id)}
-                        >
-                          {noteMutationPending?.kind === "note-update"
-                            && noteMutationPending.noteId === note.note_id
-                            ? "Saving..."
-                            : "Save"}
-                        </button>
-                        <button
-                          className="rounded border border-slate-300 px-3 py-1 text-xs font-medium"
-                          disabled={!noteControlsReady || noteMutationPending !== null}
-                          type="button"
-                          onClick={() => {
-                            setEditingNoteId(null);
-                            setEditingContent("");
-                          }}
-                        >
-                          Cancel
-                        </button>
+              notes.map((note) => {
+                const deleteIntent = activeNoteDeleteIntent?.noteId === note.note_id
+                  ? activeNoteDeleteIntent
+                  : null;
+                const deletePending = noteMutationPending?.kind === "note-delete"
+                  && noteMutationPending.noteId === note.note_id;
+                const confirmationTitleId = `note-delete-title-${note.note_id}`;
+                const confirmationDescriptionId = `note-delete-description-${note.note_id}`;
+                return (
+                  <article
+                    key={note.note_id}
+                    className="rounded border border-slate-100 p-3 text-sm"
+                    data-testid="learning-note"
+                  >
+                    {editingNoteId === note.note_id ? (
+                      <div className="space-y-2">
+                        <textarea
+                          aria-label="Edit learning note"
+                          className="min-h-20 w-full resize-y rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950"
+                          disabled={noteInteractionLocked}
+                          value={editingContent}
+                          onChange={(event) => setEditingContent(event.target.value)}
+                        />
+                        <div className="flex gap-2">
+                          <button
+                            className="rounded bg-slate-950 px-3 py-1 text-xs font-medium text-white"
+                            disabled={!noteControlsReady || noteInteractionLocked || !editingContent.trim()}
+                            type="button"
+                            onClick={() => void handleUpdateNote(note.note_id)}
+                          >
+                            {noteMutationPending?.kind === "note-update"
+                              && noteMutationPending.noteId === note.note_id
+                              ? "Saving..."
+                              : "Save"}
+                          </button>
+                          <button
+                            className="rounded border border-slate-300 px-3 py-1 text-xs font-medium"
+                            disabled={!noteControlsReady || noteInteractionLocked}
+                            type="button"
+                            onClick={() => {
+                              setEditingNoteId(null);
+                              setEditingContent("");
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ) : (
-                    <>
-                      <p className="whitespace-pre-wrap leading-6 text-slate-700">{note.content}</p>
-                      <p className="mt-2 text-xs text-slate-500">{formatDate(note.updated_at)}</p>
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          className="rounded border border-slate-300 px-3 py-1 text-xs font-medium"
-                          disabled={!noteControlsReady || noteMutationPending !== null}
-                          type="button"
-                          onClick={() => {
-                            setEditingNoteId(note.note_id);
-                            setEditingContent(note.content);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        <button
-                          className="rounded border border-red-200 px-3 py-1 text-xs font-medium text-red-700"
-                          disabled={!noteControlsReady || noteMutationPending !== null}
-                          type="button"
-                          onClick={() => void handleDeleteNote(note.note_id)}
-                        >
-                          {noteMutationPending?.kind === "note-delete"
-                            && noteMutationPending.noteId === note.note_id
-                            ? "Deleting..."
-                            : "Delete"}
-                        </button>
-                      </div>
-                    </>
-                  )}
-                </article>
-              ))
+                    ) : (
+                      <>
+                        <p className="whitespace-pre-wrap leading-6 text-slate-700">{note.content}</p>
+                        <p className="mt-2 text-xs text-slate-500">{formatDate(note.updated_at)}</p>
+                        <div className="mt-3 flex gap-2">
+                          <button
+                            className="rounded border border-slate-300 px-3 py-1 text-xs font-medium"
+                            disabled={!noteControlsReady || noteInteractionLocked}
+                            type="button"
+                            onClick={() => {
+                              setEditingNoteId(note.note_id);
+                              setEditingContent(note.content);
+                            }}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="rounded border border-red-200 px-3 py-1 text-xs font-medium text-red-700"
+                            disabled={!noteControlsReady || noteInteractionLocked}
+                            ref={(node) => {
+                              if (node) {
+                                noteDeleteButtonRefs.current.set(note.note_id, node);
+                              } else {
+                                noteDeleteButtonRefs.current.delete(note.note_id);
+                              }
+                            }}
+                            type="button"
+                            onClick={() => handleRequestNoteDelete(note.note_id)}
+                          >
+                            Delete
+                          </button>
+                        </div>
+                        {deleteIntent ? (
+                          <div
+                            aria-busy={deletePending}
+                            aria-describedby={confirmationDescriptionId}
+                            aria-labelledby={confirmationTitleId}
+                            className="mt-3 border border-red-200 bg-red-50 p-3 outline-none focus-visible:ring-2 focus-visible:ring-red-700 focus-visible:ring-offset-2"
+                            data-testid="note-delete-confirmation"
+                            onKeyDown={(event) => handleNoteDeleteConfirmationKeyDown(event, deleteIntent)}
+                            ref={noteDeleteConfirmationRef}
+                            role="group"
+                            tabIndex={-1}
+                          >
+                            <p className="font-semibold text-red-900" id={confirmationTitleId}>
+                              Delete this note permanently?
+                            </p>
+                            <p className="mt-1 leading-5 text-red-800" id={confirmationDescriptionId}>
+                              This action cannot be undone.
+                            </p>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              <button
+                                className="rounded border border-slate-300 bg-white px-3 py-1 text-xs font-medium text-slate-900"
+                                disabled={deletePending}
+                                onClick={() => handleCancelNoteDelete(deleteIntent)}
+                                ref={noteDeleteCancelRef}
+                                type="button"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                className="rounded bg-red-700 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-red-300"
+                                disabled={deletePending}
+                                onClick={() => void handleDeleteNote(deleteIntent)}
+                                type="button"
+                              >
+                                {deletePending ? "Deleting..." : "Delete permanently"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : null}
+                      </>
+                    )}
+                  </article>
+                );
+              })
             ) : (
               <p className="text-sm text-slate-600">No notes yet.</p>
             )}

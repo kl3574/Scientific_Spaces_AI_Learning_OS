@@ -1,97 +1,84 @@
-# P3-030 Shell Modal-Origin Route Focus Continuity Alignment
+# P3-031 Reader Note Deletion Safety Alignment
 
 Canonical task:
-`docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md`
+`docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL PASS / IMPLEMENTATION CI REQUIRED**
 
-BOUNDED SHELL FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
+BOUNDED READER FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE PUSH TO `main`,
-AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED**
+AND EXACT-SHA CI READBACK: **GRANTED**
 
-BACKEND, FROZEN M1, SOURCE OR ARTICLE RECORDS, DERIVED ASSETS, GRAPH/READER/TUTOR
-ROUTE IMPLEMENTATION, PERSISTENCE OR PUBLISHED API CONTRACTS, DEPENDENCIES,
-LOCKFILES, WORKFLOWS, CANDIDATE, TAG, RELEASE, AND ATTESTATION CHANGES:
-**NOT GRANTED**
+BACKEND, API, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE RECORDS,
+CORPUS, GRAPH DATA, DERIVED ASSETS, DEPENDENCIES, LOCKFILES, WORKFLOWS,
+CANDIDATE, TAG, RELEASE, AND ATTESTATION CHANGES: **NOT GRANTED**
 
 SOURCE NETWORK, EXTERNAL SEARCH, PRIVATE ZOTERO, REAL OR PAID PROVIDERS,
 DESTRUCTIVE GIT ACTIONS, AND HISTORY REWRITING: **NOT GRANTED**
 
 ## Objective
 
-Keep keyboard focus coherent when Global Search or the mobile navigation drawer
-originates a local route transition, while preserving focus deliberately owned
-by destination workspaces.
+Require an Article/generation/note-owned confirmation before permanent Reader
+note deletion and keep focus, duplicate prevention, and uncertain-result
+feedback coherent through every terminal and stale path.
 
-## Binding Scope
+## Binding Contract
 
-- Distinguish modal dismissal from accepted same-tab local navigation.
-- Observe committed pathname and query changes and close stale Shell modals.
-- Move focus to persistent `main#main-content` only when the destination has not
-  already claimed focus.
-- Cancel stale deferred focus work across overlapping modal and route actions.
-- Preserve Graph, Reader, and other route-local focus ownership.
-- Preserve modified-click and new-tab behavior.
+- First Delete activation creates intent and sends zero DELETE requests.
+- Inline confirmation explains that deletion is permanent and cannot be undone.
+- Opening focuses Cancel; deterministic keyboard order reaches Delete permanently.
+- All competing Notes mutation launchers remain locked while confirmation is
+  awaiting a decision or the DELETE is in flight.
+- Cancel and Escape send zero DELETE and restore the exact initiating control.
+- Confirm sends exactly one DELETE through existing P3-029 ownership guards.
+- Pending keeps confirmation mounted; success focuses visible Notes status.
+- Rejection or response loss is unconfirmed, preserves only current rendering,
+  never auto-replays, and instructs reload before retry.
+- Article/history/reload changes invalidate old intent and focus work without a
+  DELETE or cross-Article side effect.
 
 ## Allowed Changes
 
-- `frontend/src/components/AppShell.tsx`
-- `frontend/src/components/GlobalSearchDialog.tsx`
-- `frontend/src/components/PrimaryNav.tsx`
-- `frontend/src/lib/navigation.ts`
-- `frontend/tests/navigation.test.ts`
-- `frontend/scripts/test-articles.sh`
+- `frontend/src/components/ArticleDetailView.tsx`
+- `frontend/src/lib/readerLearningMutations.ts`
+- `frontend/tests/readerLearningMutations.test.ts`
 - `scripts/e2e/run_product_e2e.py`
-- P3-030 task/status/roadmap/README/alignment/report documentation
+- the exact P3-031 canonical, alignment, current-state, roadmap, README, and
+  report files enumerated by the canonical task
 
 ## Acceptance
 
-- Search and Drawer cross-route navigation never leaves focus on `body`.
-- Same-URL activation closes the modal, adds no history entry, and focuses the
-  current main region.
-- Pathname/query Back and Forward close stale modals without focusing behind an
-  active modal.
-- Destination-owned Graph/Reader focus wins over the Shell fallback.
-- Escape, close, and backdrop dismissal restore the opener.
-- Modified/new-tab navigation does not close the current modal or arm stale
-  focus work.
+- Mouse and keyboard open/cancel/confirm paths satisfy exact request counts.
+- Pending, success, rejection, and response-loss states preserve P3-029
+  identity and uncertainty semantics.
+- Focus never falls to `body`, disconnects, or crosses Article generations.
+- Article change, Back/Forward, reload, and stale completions are inert.
+- Four required viewports have usable controls and no horizontal overflow.
 - Focused/full tests, build, three Product E2E runs, safety gates, and two final
-  reviews pass.
+  reviews pass with zero unexpected external/console/page activity.
 - Implementation and docs-only closure commits each pass exact-SHA main CI.
 
 ## Authorization Basis
 
-The product owner explicitly directed the agent to stop repeated plan
-confirmations and automatically execute bounded work after independent
-sub-agent review. Two independent reviews approved this frontend-only repair
-and identified the same modal-origin focus defect. This standing direction is
-authorization for the exact scope above and no broader action.
+The product owner explicitly directed the agent to stop recurring plan
+confirmations and automatically execute bounded platform and GUI improvements
+after independent sub-agent review. Two independent reviewers approved this
+revised contract with no remaining Critical or Important gaps. This standing
+direction authorizes only the exact scope above.
 
 ## Stop Conditions
 
 Stop rather than widen scope if correct behavior requires Backend, API,
-persistence, route-view, dependency, workflow, external/private, Provider, or
-release changes, or if an unknown worktree change, forbidden artifact,
-unrepairable gate, or exact-SHA CI failure appears.
+persistence, dependency, workflow, external/private, Provider, or release
+changes, or if an unknown worktree change, forbidden artifact, unrepairable
+gate, or exact-SHA CI failure appears.
 
 No v1.2 candidate is assigned.
 
 ## Local Gate Result
 
-The bounded implementation, 112 focused Frontend tests, 11-route production
-build, 600 Backend tests with 4 skipped, three 177-check Product E2E runs,
-security/repository gates, and two independent final reviews pass.
-
-## Closure Evidence
-
-- implementation commit:
-  `eabccf1d20d62e12dc5bf4d85181a4c66fe68ad3`
-- exact-SHA implementation main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33948697098`
-- Frontend build, Backend pytest, three-run Product E2E, dependency audit,
-  workflow/suppression policy, secret audit, and SBOM validation: PASS
-- normal-main Docker compose smoke and release evidence: skipped as designed
-- uploaded artifacts: 0
-- docs-only closure commit: this commit; exact-SHA main CI is required before
-  final reporting
-- next bounded candidate: none staged
+All local acceptance gates pass: 113 focused Frontend tests, the 11-route
+production build, 600 Backend tests with 4 skipped, three Product E2E runs with
+177 checks each, two final independent reviews, and all local safety gates.
+External requests and unexpected console/page errors are zero. Exact-SHA
+implementation and closure main CI remain mandatory before closure.
