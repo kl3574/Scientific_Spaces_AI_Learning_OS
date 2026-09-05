@@ -2,7 +2,7 @@
 
 ## Status
 
-LOCAL PASS / IMPLEMENTATION CI REQUIRED
+PASS / CLOSED
 
 ## Task Identity
 
@@ -201,8 +201,27 @@ contract keeps the task open.
   gates: PASS
 - evidence: `docs/P3_031_READER_NOTE_DELETION_SAFETY_REPORT.md`
 
-Exact-SHA implementation and docs-only closure CI remain required before this
-task can be marked PASS / CLOSED.
+The implementation commit passed exact-SHA main CI on unchanged-SHA attempt 2.
+This docs-only closure commit requires its own exact-SHA main CI before final
+reporting.
+
+## Closure Evidence
+
+- implementation commit:
+  `f944d2df79505bcca0f22276b1138d84fe1f161b`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33956965124`
+- run attempt: 2
+- Frontend build, Backend pytest, three-run Product E2E, dependency audit,
+  workflow/suppression policy, secret audit, and SBOM validation: PASS
+- normal-main Docker compose smoke and release evidence: skipped as designed
+- uploaded artifacts: 0
+- attempt 1 failed only at the pre-existing P3-028 Graph-origin Reader saved-
+  progress assertion; the unchanged SHA passed attempt 2 and all P3-031
+  deletion-safety assertions
+- docs-only closure commit: this commit; exact-SHA main CI is required before
+  final reporting
+- next bounded candidate: none staged
 
 ## Git Plan
 

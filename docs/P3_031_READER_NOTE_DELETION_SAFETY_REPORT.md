@@ -4,13 +4,15 @@
 
 - Local implementation: **PASS**
 - Independent final review: **PASS**, 2/2 reviewers, 0 Critical / 0 Important
-- Exact-SHA implementation main CI: **REQUIRED**
-- Task closure: **ACTIVE** until implementation and docs-only closure CI pass
+- Exact-SHA implementation main CI: **PASS**, unchanged-SHA attempt 2
+- Task closure: **PASS / CLOSED**; docs-only closure exact-SHA CI pending
 - Candidate version: not assigned
 
-The local implementation satisfies every P3-031 behavioral, accessibility,
-scope, and repository gate. The implementation commit must still pass exact-SHA
-main CI before the task can be closed.
+Implementation commit `f944d2df79505bcca0f22276b1138d84fe1f161b`
+passed exact-SHA main CI run
+[`33956965124`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33956965124)
+on unchanged-SHA attempt 2. This docs-only closure commit requires its own
+exact-SHA main CI before final reporting.
 
 ## 2. Implemented Contract
 
@@ -113,10 +115,34 @@ PASS with zero Critical or Important findings.
 - non-loopback network, source, private Zotero, external search, and real/paid
   Provider access: 0
 
-The local dependency audit is deferred because it requires registry access,
-which P3-031 prohibits locally. Exact-SHA implementation main CI must run it.
+The local dependency audit was deferred because it requires registry access,
+which P3-031 prohibits locally. Exact-SHA implementation main CI ran and passed
+it.
 
-## 8. Discriminating Failures Repaired
+## 8. Exact-SHA Implementation CI
+
+| Gate | Result |
+| --- | --- |
+| Head SHA | `f944d2df79505bcca0f22276b1138d84fe1f161b` |
+| Run attempt | 2 |
+| Backend pytest | PASS |
+| Frontend build | PASS |
+| Product E2E, three runs | PASS |
+| Dependency audit | PASS |
+| Workflow and suppression policy | PASS |
+| Secret audit | PASS |
+| SBOM validation | PASS |
+| Docker compose smoke | SKIPPED as designed for normal `main` push |
+| Release evidence dry-run | SKIPPED as designed for normal `main` push |
+| Uploaded workflow artifacts | 0 |
+
+Attempt 1 failed only at the pre-existing P3-028 Graph-origin Reader saved-
+progress assertion after all P3-031 deletion-safety scenarios had passed
+locally. The exact same commit passed every required job on attempt 2. The
+failure is retained as cross-workflow timing evidence and is not represented as
+a P3-031 deletion-safety failure.
+
+## 9. Discriminating Failures Repaired
 
 - The first new query-history test failed because a same-Article native History
   change was not observed. Reader now observes canonical search parameters.
@@ -131,7 +157,7 @@ which P3-031 prohibits locally. Exact-SHA implementation main CI must run it.
 
 No acceptance criterion was weakened to resolve these failures.
 
-## 9. Known Limits
+## 10. Known Limits
 
 - P3-031 does not add undo, trash, soft-delete, versioning, or Backend recovery.
 - Exactly-once persistence is not claimed. The Frontend guarantees one request
@@ -141,8 +167,12 @@ No acceptance criterion was weakened to resolve these failures.
   state explicit and prevent another mutation.
 - Browser behavior is verified against Chromium and the current React/Next.js
   runtime used by the repository.
+- Exact-SHA CI attempt 1 observed one non-reproduced P3-028 Graph-origin Reader
+  saved-progress timing failure. The unchanged SHA passed attempt 2; any future
+  recurrence belongs in a bounded Graph/Reader reliability revision rather than
+  being hidden or repaired inside note deletion work.
 
-## 10. Boundary Result
+## 11. Boundary Result
 
 P3-031 changed only the allowlisted Reader component, pure mutation helper and
 test, Product E2E, and task governance documents. It did not change Backend,
@@ -150,9 +180,7 @@ published contracts, frozen source processing, product data, dependencies,
 workflows, external/private integrations, candidate metadata, tags, Releases,
 or attestations.
 
-## 11. Next Gate
+## 12. Next Gate
 
-Create the implementation commit, push it non-force to `main`, and require all
-normal-main exact-SHA CI jobs to pass. Only then create the docs-only closure
-commit and verify its own exact-SHA CI. No subsequent task or v1.2 candidate is
-staged by this local PASS.
+Push this docs-only closure commit and require its exact-SHA main CI to pass.
+No subsequent task or v1.2 candidate is staged by P3-031 closure.

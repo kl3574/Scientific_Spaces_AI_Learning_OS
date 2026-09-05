@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-`docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md`
+None
 
 ## Staged Task
 
@@ -10,7 +10,7 @@ None
 
 ## Last Closed Task
 
-`docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md`
+`docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md`
 
 ## Status
 
@@ -19,7 +19,7 @@ None
 - P3-028: PASS / CLOSED
 - P3-029: PASS / CLOSED
 - P3-030: PASS / CLOSED
-- P3-031: LOCAL PASS / IMPLEMENTATION CI REQUIRED
+- P3-031: PASS / CLOSED
 
 ## Authorization
 
@@ -51,7 +51,8 @@ None
   closure commit
 - P3-031 bounded Reader Frontend implementation, pure tests, Product E2E,
   governance documentation, isolated fake-runtime validation, local commits,
-  non-force push, and exact-SHA CI execution: GRANTED
+  non-force push, and exact-SHA CI execution: CONSUMED / CLOSED after this
+  docs-only closure commit
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -158,8 +159,21 @@ None
 
 ## Next Gate
 
-Commit and verify P3-031 Reader Note Deletion Safety through exact-SHA
-implementation main CI. No subsequent task or v1.2 candidate is staged.
+Verify this P3-031 docs-only closure commit on exact-SHA main CI. No subsequent
+task or v1.2 candidate is staged.
+
+## P3-031 Closure Evidence
+
+- implementation commit:
+  `f944d2df79505bcca0f22276b1138d84fe1f161b`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33956965124`
+- unchanged-SHA attempt 2 required jobs: PASS; normal-main Docker/release jobs
+  skipped as designed; uploaded artifacts: 0
+- attempt 1 failed only at a pre-existing P3-028 Graph-origin Reader progress
+  assertion; the same SHA passed attempt 2
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
 
 ## P3-029 Closure Evidence
 

@@ -3,11 +3,11 @@
 Canonical task:
 `docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md`
 
-Status: **LOCAL PASS / IMPLEMENTATION CI REQUIRED**
+Status: **PASS / CLOSED**
 
 BOUNDED READER FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE PUSH TO `main`,
-AND EXACT-SHA CI READBACK: **GRANTED**
+AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED**
 
 BACKEND, API, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE RECORDS,
 CORPUS, GRAPH DATA, DERIVED ASSETS, DEPENDENCIES, LOCKFILES, WORKFLOWS,
@@ -80,5 +80,20 @@ No v1.2 candidate is assigned.
 All local acceptance gates pass: 113 focused Frontend tests, the 11-route
 production build, 600 Backend tests with 4 skipped, three Product E2E runs with
 177 checks each, two final independent reviews, and all local safety gates.
-External requests and unexpected console/page errors are zero. Exact-SHA
-implementation and closure main CI remain mandatory before closure.
+External requests and unexpected console/page errors are zero.
+
+## Closure Evidence
+
+- implementation commit:
+  `f944d2df79505bcca0f22276b1138d84fe1f161b`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33956965124`
+- unchanged-SHA attempt 2 passed Frontend, Backend, three-run Product E2E,
+  dependency, workflow/suppression, secret, and SBOM gates
+- normal-main Docker and release evidence jobs skipped as designed
+- uploaded artifacts: 0
+- attempt 1 failed only at a pre-existing P3-028 Graph-origin Reader progress
+  assertion; no P3-031 deletion-safety assertion failed
+- docs-only closure commit: this commit; exact-SHA main CI is required before
+  final reporting
+- next bounded candidate: none staged
