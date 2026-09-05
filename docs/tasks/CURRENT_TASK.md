@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-`docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md`
+None
 
 ## Staged Task
 
@@ -10,7 +10,7 @@ None
 
 ## Last Closed Task
 
-`docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md`
+`docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md`
 
 ## Status
 
@@ -18,7 +18,7 @@ None
 - P3-027: PASS / CLOSED
 - P3-028: PASS / CLOSED
 - P3-029: PASS / CLOSED
-- P3-030: LOCAL IMPLEMENTATION PASS / EXACT-SHA CI PENDING
+- P3-030: PASS / CLOSED
 
 ## Authorization
 
@@ -46,7 +46,8 @@ None
   closure commit
 - P3-030 bounded Shell Frontend implementation, focused tests, governance
   documentation, isolated fake-runtime validation, local commits, non-force
-  push, and exact-SHA CI execution: GRANTED / ACTIVE
+  push, and exact-SHA CI execution: CONSUMED / CLOSED after this docs-only
+  closure commit
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -141,9 +142,8 @@ None
 
 ## Next Gate
 
-Push the locally verified P3-030 implementation commit and verify exact-SHA
-main CI. Then create the docs-only closure commit and verify its exact-SHA main
-CI. No v1.2 candidate is assigned.
+Verify this P3-030 docs-only closure commit on exact-SHA main CI. No subsequent
+task or v1.2 candidate is staged.
 
 ## P3-029 Closure Evidence
 
@@ -180,4 +180,11 @@ CI. No v1.2 candidate is assigned.
   gates: PASS
 - evidence report:
   `docs/P3_030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY_REPORT.md`
-- implementation commit and exact-SHA CI: pending
+- implementation commit:
+  `eabccf1d20d62e12dc5bf4d85181a4c66fe68ad3`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33948697098`
+- required implementation jobs: PASS; normal-main Docker/release jobs skipped
+  as designed; uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting

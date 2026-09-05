@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-029 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; P3-030 Shell modal-origin route-focus continuity has local implementation and independent-review PASS with exact-SHA implementation CI pending; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-030 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no subsequent task or candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -846,7 +846,7 @@ commit requires its own exact-SHA main CI before final reporting.
 
 ### P3-030 - Shell Modal-Origin Route Focus Continuity
 
-Status: **LOCAL IMPLEMENTATION PASS / EXACT-SHA CI PENDING**.
+Status: **PASS / CLOSED**.
 
 P3-030 gives Global Search and the mobile Drawer explicit route-focus
 ownership. It separates dismissal from accepted navigation, observes canonical
@@ -864,6 +864,12 @@ external requests and unexpected console/page errors are zero. The canonical
 task is `docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md` and
 evidence is in
 `docs/P3_030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY_REPORT.md`.
+Implementation commit `eabccf1d20d62e12dc5bf4d85181a4c66fe68ad3`
+passed exact-SHA main CI run
+[`33948697098`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33948697098),
+including Frontend, Backend, three-run Product E2E, dependency, secret, SBOM,
+workflow, and suppression gates with zero uploaded artifacts. This docs-only
+closure commit requires its own exact-SHA main CI before final reporting.
 
 ## Release Criteria
 
@@ -897,8 +903,8 @@ evidence is in
 
 ## Next Recommended Task
 
-Push the P3-030 implementation commit and verify exact-SHA main CI, then create
-and verify its docs-only closure commit.
+Verify the P3-030 docs-only closure commit on exact-SHA main CI. No subsequent
+task is staged.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain

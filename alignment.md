@@ -3,11 +3,11 @@
 Canonical task:
 `docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md`
 
-Status: **LOCAL IMPLEMENTATION PASS / EXACT-SHA CI PENDING**
+Status: **PASS / CLOSED**
 
 BOUNDED SHELL FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE PUSH TO `main`,
-AND EXACT-SHA CI READBACK: **GRANTED**
+AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED**
 
 BACKEND, FROZEN M1, SOURCE OR ARTICLE RECORDS, DERIVED ASSETS, GRAPH/READER/TUTOR
 ROUTE IMPLEMENTATION, PERSISTENCE OR PUBLISHED API CONTRACTS, DEPENDENCIES,
@@ -80,6 +80,18 @@ No v1.2 candidate is assigned.
 
 The bounded implementation, 112 focused Frontend tests, 11-route production
 build, 600 Backend tests with 4 skipped, three 177-check Product E2E runs,
-security/repository gates, and two independent final reviews pass. Exact-SHA
-implementation main CI and the later docs-only closure sequence remain
-required before this task is CLOSED.
+security/repository gates, and two independent final reviews pass.
+
+## Closure Evidence
+
+- implementation commit:
+  `eabccf1d20d62e12dc5bf4d85181a4c66fe68ad3`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33948697098`
+- Frontend build, Backend pytest, three-run Product E2E, dependency audit,
+  workflow/suppression policy, secret audit, and SBOM validation: PASS
+- normal-main Docker compose smoke and release evidence: skipped as designed
+- uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI is required before
+  final reporting
+- next bounded candidate: none staged

@@ -4,12 +4,15 @@
 
 - Local implementation: **PASS**
 - Independent final review: **PASS**, 2/2 reviewers, 0 Critical / 0 Important
-- Exact-SHA implementation main CI: **PENDING**
-- Task closure: **PENDING**
+- Exact-SHA implementation main CI: **PASS**
+- Task closure: **PASS / CLOSED**; docs-only closure exact-SHA CI pending
 - Candidate version: not assigned
 
-P3-030 remains active until the implementation commit and a later docs-only
-closure commit each pass exact-SHA main CI.
+Implementation commit `eabccf1d20d62e12dc5bf4d85181a4c66fe68ad3`
+passed exact-SHA main CI run
+[`33948697098`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33948697098).
+This docs-only closure commit requires its own exact-SHA main CI before final
+reporting.
 
 ## 2. Implemented Contract
 
@@ -102,12 +105,28 @@ checking only the eventual active element.
   0
 - non-loopback network, source, private Zotero, and real/paid Provider access: 0
 
-The local dependency audit is deferred because it requires registry access,
-which this task prohibits. The existing exact-SHA main CI gate must run it.
+The local dependency audit was deferred because it requires registry access,
+which this task prohibits. Exact-SHA implementation main CI ran and passed it.
 The tracked `.env.example` is an existing credential-free template, not a
 runtime or secret artifact.
 
-## 7. Known Limits
+## 7. Exact-SHA Implementation CI
+
+| Gate | Result |
+| --- | --- |
+| Head SHA | `eabccf1d20d62e12dc5bf4d85181a4c66fe68ad3` |
+| Backend pytest | PASS |
+| Frontend build | PASS |
+| Product E2E, three runs | PASS |
+| Dependency audit | PASS |
+| Workflow and suppression policy | PASS |
+| Secret audit | PASS |
+| SBOM validation | PASS |
+| Docker compose smoke | SKIPPED as designed for normal `main` push |
+| Release evidence dry-run | SKIPPED as designed for normal `main` push |
+| Uploaded workflow artifacts | 0 |
+
+## 8. Known Limits
 
 - Route identity intentionally excludes hash-only changes.
 - Focus continuity is limited to Shell-owned Global Search and mobile Drawer
@@ -115,16 +134,14 @@ runtime or secret artifact.
 - Browser focus behavior depends on supported Next.js navigation events and
   Chromium semantics covered by the production E2E suite.
 
-## 8. Boundary Result
+## 9. Boundary Result
 
 P3-030 changed only the Shell, its navigation helpers, focused tests, Product
 E2E, and task governance documents. No Backend, frozen pipeline, product data,
 dependency, workflow, external/private, Provider, candidate, tag, Release, or
 attestation work occurred.
 
-## 9. Next Gate
+## 10. Next Gate
 
-Create and push `fix: preserve Shell route focus continuity`, then require
-exact-SHA main CI to pass Frontend, Backend, three-run Product E2E, workflow,
-dependency, secret, and SBOM jobs. Only after that evidence is read back may a
-docs-only closure commit mark P3-030 PASS / CLOSED.
+Push this docs-only closure commit and require its exact-SHA main CI to pass.
+No subsequent task or v1.2 candidate is staged by P3-030 closure.
