@@ -4,13 +4,15 @@
 
 - Local implementation: **PASS**
 - Independent final review: **PASS**, 2/2 reviewers, 0 Critical / 0 Important
-- Exact-SHA implementation main CI: **PENDING**
-- Task closure: **IN PROGRESS**
+- Exact-SHA implementation main CI: **PASS**
+- Task closure: **PASS / CLOSED**; docs-only closure exact-SHA CI pending
 - Candidate version: not assigned
 
-The bounded Frontend implementation and all required local gates pass. P3-032
-remains open until the implementation commit and a later docs-only closure
-commit each pass exact-SHA main CI.
+Implementation commit `e7b317042df728e568bb5f4d328c678ac3102f0a`
+passed exact-SHA main CI run
+[`33965187190`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33965187190).
+This docs-only closure commit requires its own exact-SHA main CI before final
+reporting.
 
 ## 2. Implemented Contract
 
@@ -144,10 +146,31 @@ focused on keyboard, accessibility, focus continuity, and responsive behavior.
   access: 0
 
 The local dependency audit was not run because it requires registry network
-access, which P3-032 prohibits locally. The exact-SHA implementation CI must
-run that gate before closure.
+access, which P3-032 prohibits locally. Exact-SHA implementation CI ran and
+passed that gate.
 
-## 10. Known Limits
+## 10. Exact-SHA Implementation CI
+
+| Gate | Result |
+| --- | --- |
+| Head SHA | `e7b317042df728e568bb5f4d328c678ac3102f0a` |
+| Run | [`33965187190`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33965187190) |
+| Frontend build | PASS |
+| Backend pytest | PASS |
+| Product E2E, three runs | PASS |
+| Dependency audit | PASS |
+| Workflow and suppression policy | PASS |
+| Secret audit | PASS |
+| SBOM validation | PASS |
+| Docker compose smoke | SKIPPED as designed for normal `main` push |
+| Release evidence dry-run | SKIPPED as designed for normal `main` push |
+| Uploaded workflow artifacts | 0 |
+
+The run completed with `conclusion=success`, `event=push`, `headBranch=main`,
+and an exact `headSha` match. GitHub emitted non-blocking Node 20 deprecation
+notices for pinned upstream Actions; changing workflows is outside P3-032.
+
+## 11. Known Limits
 
 - The Frontend controls one request per accepted intent but cannot guarantee
   backend exactly-once persistence or serialize another browser tab.
@@ -160,7 +183,7 @@ run that gate before closure.
 - Copy, download, relation editing, Zotero-item deletion, and a standalone
   Zotero Library workspace remain outside P3-032.
 
-## 11. Boundary Result
+## 12. Boundary Result
 
 P3-032 changes only the allowlisted Related Papers/Reader Frontend, pure helper
 and tests, Product E2E, and governance documents. It does not modify Backend,
@@ -168,9 +191,7 @@ published APIs, persistence, frozen source processing, product data,
 dependencies, workflows, private integrations, candidate metadata, tags,
 Releases, or attestations.
 
-## 12. Next Gate
+## 13. Next Gate
 
-Create and push the implementation commit, then require exact-SHA main CI to
-pass Frontend, Backend, Product E2E, dependency, workflow/suppression, secret,
-and SBOM gates. Normal-main Docker and release-evidence jobs may skip as
-designed. No v1.2 candidate is staged.
+Push this docs-only closure commit and require its exact-SHA main CI to pass.
+No subsequent task or v1.2 candidate is staged by P3-032 closure.

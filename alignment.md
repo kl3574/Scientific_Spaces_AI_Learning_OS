@@ -3,11 +3,11 @@
 Canonical task:
 `docs/tasks/P3-032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md`
 
-Status: **IMPLEMENTED / LOCAL PASS / CI PENDING**
+Status: **PASS / CLOSED**
 
 BOUNDED RELATED-PAPERS FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE
 DOCUMENTATION, ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE
-PUSH TO `main`, AND EXACT-SHA CI READBACK: **AUTHORIZED / CI PENDING**
+PUSH TO `main`, AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED**
 
 BACKEND, API, PROVIDER, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE
 RECORDS, CORPUS, GRAPH OR REFERENCE DATA, DERIVED ASSETS, DEPENDENCIES, LOCKFILES,
@@ -89,4 +89,19 @@ The final worktree passes 120 focused Frontend tests, the 11-route production
 build, 600 Backend tests with 4 skipped, three complete Product E2E runs,
 restart persistence, two independent final reviews, and all local non-network
 safety gates. External requests and unexpected console/page errors are zero.
-Exact-SHA implementation main CI remains required before closure.
+Exact-SHA implementation main CI passed; this docs-only closure commit still
+requires its own exact-SHA main CI before final reporting.
+
+## Closure Evidence
+
+- implementation commit:
+  `e7b317042df728e568bb5f4d328c678ac3102f0a`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33965187190`
+- Frontend, Backend, three-run Product E2E, dependency,
+  workflow/suppression, secret, and SBOM jobs: PASS
+- normal-main Docker and release-evidence jobs: skipped as designed
+- uploaded workflow artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI is required before
+  final reporting
+- next bounded task or candidate: none staged

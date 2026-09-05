@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-`docs/tasks/P3-032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md`
+None
 
 ## Staged Task
 
@@ -10,7 +10,7 @@ None
 
 ## Last Closed Task
 
-`docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md`
+`docs/tasks/P3-032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md`
 
 ## Status
 
@@ -20,7 +20,7 @@ None
 - P3-029: PASS / CLOSED
 - P3-030: PASS / CLOSED
 - P3-031: PASS / CLOSED
-- P3-032: IMPLEMENTED / LOCAL PASS / CI PENDING
+- P3-032: PASS / CLOSED
 
 ## Authorization
 
@@ -56,7 +56,8 @@ None
   docs-only closure commit
 - P3-032 bounded Related Papers Frontend implementation, pure tests, Product
   E2E, governance documentation, isolated fake-runtime validation, local
-  commits, non-force push, and exact-SHA CI execution: AUTHORIZED / CI PENDING
+  commits, non-force push, and exact-SHA CI execution: CONSUMED / CLOSED after
+  this docs-only closure commit
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -163,8 +164,8 @@ None
 
 ## Next Gate
 
-Create and push the P3-032 implementation commit, then require exact-SHA main
-CI before docs-only closure. No v1.2 candidate is staged.
+Verify this P3-032 docs-only closure commit on exact-SHA main CI. No subsequent
+task or v1.2 candidate is staged.
 
 ## P3-032 Local Evidence
 
@@ -178,6 +179,17 @@ CI before docs-only closure. No v1.2 candidate is staged.
   gates: PASS
 - evidence report:
   `docs/P3_032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_REPORT.md`
+
+## P3-032 Closure Evidence
+
+- implementation commit:
+  `e7b317042df728e568bb5f4d328c678ac3102f0a`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33965187190`
+- required implementation jobs: PASS; normal-main Docker and release evidence
+  skipped as designed; uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
 
 ## P3-031 Closure Evidence
 

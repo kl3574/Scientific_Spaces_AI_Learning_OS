@@ -8,17 +8,17 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-`docs/tasks/P3-032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md`
+None
 
 Current milestone:
-P3-032 Related-Paper Context Ownership and Accessible Feedback
+None
 
 Status:
-P3-032 IMPLEMENTED / LOCAL PASS / CI PENDING
+P3-032 PASS / CLOSED
 
 Next gate:
-Create and push the P3-032 implementation commit, then require exact-SHA main
-CI before docs-only closure. No v1.2 candidate is staged.
+Verify the P3-032 docs-only closure commit on exact-SHA main CI. No subsequent
+task or v1.2 candidate is staged.
 
 ## Historical Notes
 
