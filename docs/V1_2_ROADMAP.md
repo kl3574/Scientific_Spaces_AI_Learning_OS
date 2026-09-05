@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-028 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-028 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; P3-029 Reader mutation integrity has passed local verification and awaits implementation CI; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -814,6 +814,32 @@ passed exact-SHA main CI run
 including Frontend, Backend, Product E2E, dependency, secret, SBOM, workflow,
 and suppression gates with zero uploaded artifacts.
 
+### P3-029 - Reader Learning Mutation Integrity
+
+Status: **LOCAL VERIFICATION PASS / IMPLEMENTATION CI PENDING**.
+
+P3-029 addresses a deterministic Reader data-integrity defect: two rapid note
+submissions can persist two Backend records while a stale captured Frontend
+array renders one. Bookmark and Notes completions are also not bound to the
+originating Article generation. The bounded task adds per-operation ownership,
+pending guards, identity-based functional note updates, draft preservation,
+and local accessible feedback without changing Backend, API, persistence,
+dependencies, or any source/Article record.
+
+The canonical task is
+`docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md`. Shell modal-origin
+route-focus continuity remains the next candidate and is explicitly outside
+this data-integrity repair.
+
+Local evidence passes 130 focused Frontend tests, 600 Backend tests with 4
+skipped, the 11-route production build, and three Product E2E runs with 155
+checks each. Duplicate activation, post-persistence response loss, initial-read
+ordering, exact mutation ownership, stale cross-Article results, restart
+persistence, security/artifact gates, and two independent final reviews pass;
+external requests and unexpected console/page errors are zero. Evidence is in
+`docs/P3_029_READER_LEARNING_MUTATION_INTEGRITY_REPORT.md`. Exact-SHA
+implementation and docs-only closure CI remain required.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -846,9 +872,9 @@ and suppression gates with zero uploaded artifacts.
 
 ## Next Recommended Task
 
-No next task is assigned. A new semantic task and task-level alignment are
-required before further implementation; authorization is not granted by this
-roadmap entry.
+Complete P3-029 implementation CI and docs-only closure CI. After closure,
+stage the separately bounded P3-030 Shell modal-origin route-focus continuity
+task.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain

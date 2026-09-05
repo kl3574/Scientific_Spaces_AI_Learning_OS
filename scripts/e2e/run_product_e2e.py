@@ -1440,6 +1440,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         ],
         f"Concept Explain payload is incorrect: {concept_ask_payloads}",
     )
+    _focus_via_tab(page, concept_return)
     concept_return.press("Enter")
     expect(page.get_by_test_id("concept-study-set")).to_be_visible(timeout=30_000)
 
@@ -1509,6 +1510,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         ],
         f"Concept Quiz payload is incorrect: {concept_quiz_payloads}",
     )
+    _focus_via_tab(page, concept_return)
     concept_return.press("Enter")
     expect(page.get_by_test_id("concept-study-set")).to_be_visible(timeout=30_000)
 
@@ -5903,6 +5905,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["mobile_visual_knowledge_explorer"] = True
     mobile_context.close()
 
+    _verify_reader_learning_mutation_integrity(
+        browser,
+        iteration=iteration,
+        blocked_external=blocked_external,
+        console_errors=console_errors,
+        page_errors=page_errors,
+    )
+    checks["reader_learning_mutation_integrity"] = True
+
     unexpected_console_errors = _unexpected_console_errors(console_errors)
     _require(not blocked_external, f"unexpected external requests: {blocked_external}")
     _require(not unexpected_console_errors, f"unexpected console errors: {unexpected_console_errors}")
@@ -5926,6 +5937,631 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console_error_count": len(unexpected_console_errors),
         "page_error_count": len(page_errors),
     }
+
+
+def _verify_reader_learning_mutation_integrity(
+    browser,
+    *,
+    iteration: int,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+) -> None:
+    from playwright.sync_api import expect
+
+    context = browser.new_context(viewport={"width": 1280, "height": 900}, locale="zh-CN")
+    context.add_init_script(
+        script="""
+        (() => {
+          const originalFetch = window.fetch.bind(window);
+          window.__p3029InitialLoadOriginalFetch = originalFetch;
+          window.__p3029InitialLoadGate = { pendingCount: 0, releases: [] };
+          window.fetch = async (...args) => {
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const method = String(
+              args[0] instanceof Request ? args[0].method : args[1]?.method ?? "GET"
+            ).toUpperCase();
+            const response = await originalFetch(...args);
+            if (
+              method === "GET"
+              && (target.endsWith("/learning/bookmarks") || target.includes("/learning/notes/"))
+            ) {
+              window.__p3029InitialLoadGate.pendingCount += 1;
+              await new Promise((resolve) => window.__p3029InitialLoadGate.releases.push(resolve));
+            }
+            return response;
+          };
+        })();
+        """
+    )
+    _install_network_guard(context, blocked_external)
+    session_sequence = 0
+
+    def provide_isolated_reader_session(route) -> None:
+        nonlocal session_sequence
+        if route.request.method != "POST":
+            route.continue_()
+            return
+        session_sequence += 1
+        route.fulfill(
+            status=201,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "session_id": f"p3-029-{iteration}-{session_sequence}",
+                    "article_id": json.loads(route.request.post_data or "{}").get("article_id"),
+                    "started_at": "2026-09-05T00:00:00Z",
+                    "ended_at": None,
+                    "duration_seconds": None,
+                    "source": "reader",
+                }
+            ),
+        )
+
+    context.route(re.compile(r".*/learning/sessions$"), provide_isolated_reader_session)
+    page = _new_observed_page(
+        context,
+        console_errors,
+        page_errors,
+        label="reader-mutation-integrity",
+    )
+    page.goto(f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    page.wait_for_function(
+        "() => window.__p3029InitialLoadGate?.pendingCount === 2",
+        timeout=30_000,
+    )
+    expect(page.get_by_test_id("bookmark-controls")).to_have_attribute("aria-busy", "true")
+    expect(page.get_by_role("button", name="Save", exact=True)).to_be_disabled()
+    expect(page.get_by_text("Loading bookmark status.", exact=True)).to_be_visible()
+    initial_draft = page.get_by_label("New learning note", exact=True)
+    initial_draft.fill("P3-029 initial load guard")
+    expect(page.get_by_role("button", name="Add note", exact=True)).to_be_disabled()
+    expect(page.get_by_text("Loading notes...", exact=True)).to_be_visible()
+    page.evaluate(
+        """
+        () => {
+          for (const release of window.__p3029InitialLoadGate.releases.splice(0)) release();
+        }
+        """
+    )
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute("aria-busy", "false")
+    expect(page.get_by_test_id("bookmark-controls")).to_have_attribute("aria-busy", "false")
+    expect(page.get_by_role("button", name="Add note", exact=True)).to_be_enabled()
+    initial_draft.fill("")
+    page.evaluate(
+        """
+        () => {
+          window.fetch = window.__p3029InitialLoadOriginalFetch;
+          delete window.__p3029InitialLoadOriginalFetch;
+          delete window.__p3029InitialLoadGate;
+        }
+        """
+    )
+
+    context.close()
+    context = browser.new_context(viewport={"width": 1280, "height": 900}, locale="zh-CN")
+    _install_network_guard(context, blocked_external)
+    context.route(re.compile(r".*/learning/sessions$"), provide_isolated_reader_session)
+    page = _new_observed_page(
+        context,
+        console_errors,
+        page_errors,
+        label="reader-mutation-integrity",
+    )
+    page.goto(f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    expect(page.get_by_test_id("bookmark-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+
+    baseline_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    baseline_note_count = int(baseline_notes["total"])
+    baseline_note_content = f"P3-011 iteration {iteration}"
+    baseline_note_records = [
+        item for item in baseline_notes["items"] if item["content"] == baseline_note_content
+    ]
+    _require(len(baseline_note_records) == 1, f"Reader mutation baseline note is ambiguous: {baseline_notes}")
+    baseline_note_id = baseline_note_records[0]["note_id"]
+    duplicate_text = f"P3-029 duplicate guard {iteration}"
+    _install_mutation_response_gate(page, f"/learning/notes/{CRB_ARTICLE_ID}", "POST")
+    page.get_by_label("New learning note", exact=True).fill(duplicate_text)
+    add_note = page.get_by_role("button", name="Add note", exact=True)
+    add_note.evaluate("button => { button.click(); button.click(); }")
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1 && window.__p3029MutationGate?.callCount === 1",
+        timeout=30_000,
+    )
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute("aria-busy", "true")
+    expect(page.get_by_role("button", name="Saving note...", exact=True)).to_be_disabled()
+    expect(page.get_by_test_id("note-mutation-status")).to_have_text("Saving note...")
+    pending_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    _require(
+        pending_notes["total"] == baseline_note_count + 1,
+        f"rapid note activation did not persist exactly one record: {pending_notes}",
+    )
+    _release_mutation_response_gate(page)
+    expect(page.get_by_test_id("note-mutation-status")).to_have_text("Note saved.")
+    duplicate_note = page.get_by_test_id("learning-note").filter(has_text=duplicate_text)
+    expect(duplicate_note).to_have_count(1)
+    confirmed_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    duplicate_records = [item for item in confirmed_notes["items"] if item["content"] == duplicate_text]
+    _require(
+        confirmed_notes["total"] == baseline_note_count + 1
+        and len(duplicate_records) == 1,
+        f"note persistence and Reader identity diverged: {confirmed_notes}",
+    )
+    _restore_mutation_response_gate(page)
+    _install_one_shot_mutation_response_loss(
+        page,
+        f"/learning/notes/{duplicate_records[0]['note_id']}",
+        "DELETE",
+        "intentional P3-029 unconfirmed delete result",
+    )
+    duplicate_note.get_by_role("button", name="Delete", exact=True).click()
+    expect(page.get_by_test_id("note-mutation-error")).to_contain_text(
+        "deletion could not be confirmed"
+    )
+    expect(duplicate_note).to_have_count(1)
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute("aria-busy", "false")
+    cleaned_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    _require(
+        cleaned_notes["total"] == baseline_note_count
+        and all(item["note_id"] != duplicate_records[0]["note_id"] for item in cleaned_notes["items"]),
+        f"lost delete response did not preserve the exact unknown persistence result: {cleaned_notes}",
+    )
+    _restore_one_shot_mutation_failure(page)
+
+    failed_text = f"P3-029 unconfirmed draft {iteration}"
+    _install_one_shot_mutation_response_loss(
+        page,
+        f"/learning/notes/{CRB_ARTICLE_ID}",
+        "POST",
+        "intentional P3-029 unconfirmed note result",
+    )
+    note_draft = page.get_by_label("New learning note", exact=True)
+    note_draft.fill(failed_text)
+    page.get_by_role("button", name="Add note", exact=True).click()
+    failed_feedback = page.get_by_test_id("note-mutation-error")
+    expect(failed_feedback).to_have_attribute("role", "alert")
+    expect(failed_feedback).to_contain_text("could not be confirmed")
+    expect(note_draft).to_have_value(failed_text)
+    expect(
+        page.get_by_test_id("learning-note").filter(has_text=failed_text)
+    ).to_have_count(0)
+    failed_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    unknown_note_records = [item for item in failed_notes["items"] if item["content"] == failed_text]
+    _require(
+        failed_notes["total"] == baseline_note_count + 1 and len(unknown_note_records) == 1,
+        f"lost note response did not preserve the exact unknown persistence result: {failed_notes}",
+    )
+    unknown_cleanup = context.request.delete(
+        f"{API_URL}/learning/notes/{unknown_note_records[0]['note_id']}"
+    )
+    _require(unknown_cleanup.status == 204, "unknown-result note cleanup failed")
+    _restore_one_shot_mutation_failure(page)
+
+    baseline_note = page.get_by_test_id("learning-note").filter(
+        has_text=baseline_note_content
+    )
+    expect(baseline_note).to_have_count(1)
+    baseline_note.get_by_role("button", name="Edit", exact=True).click()
+    retained_edit = f"P3-029 retained edit {iteration}"
+    edit_field = page.get_by_label("Edit learning note", exact=True)
+    editing_note = edit_field.locator("xpath=ancestor::article[@data-testid='learning-note']")
+    edit_field.fill(retained_edit)
+    _install_one_shot_mutation_response_loss(
+        page,
+        f"/learning/notes/{baseline_note_id}",
+        "PUT",
+        "intentional P3-029 unconfirmed update result",
+    )
+    editing_note.get_by_role("button", name="Save", exact=True).click()
+    expect(page.get_by_test_id("note-mutation-error")).to_contain_text(
+        "update could not be confirmed"
+    )
+    expect(edit_field).to_have_value(retained_edit)
+    update_failure_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    updated_unknown_records = [
+        item
+        for item in update_failure_notes["items"]
+        if item["note_id"] == baseline_note_id and item["content"] == retained_edit
+    ]
+    _require(
+        len(updated_unknown_records) == 1,
+        f"lost update response did not preserve the exact unknown persistence result: {update_failure_notes}",
+    )
+    restore_update = context.request.put(
+        f"{API_URL}/learning/notes/{baseline_note_id}",
+        data={"content": baseline_note_content},
+    )
+    _require(restore_update.status == 200, "unknown-result note update restore failed")
+    restored_update_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    _require(
+        any(
+            item["note_id"] == baseline_note_id and item["content"] == baseline_note_content
+            for item in restored_update_notes["items"]
+        ),
+        f"unknown-result note update restore did not read back exactly: {restored_update_notes}",
+    )
+    _restore_one_shot_mutation_failure(page)
+    editing_note.get_by_role("button", name="Cancel", exact=True).click()
+
+    baseline_note = page.get_by_test_id("learning-note").filter(
+        has_text=baseline_note_content
+    )
+
+    _install_one_shot_mutation_failure(
+        page,
+        "/learning/notes/",
+        "DELETE",
+        "intentional P3-029 unconfirmed delete result",
+    )
+    baseline_note.get_by_role("button", name="Delete", exact=True).click()
+    expect(page.get_by_test_id("note-mutation-error")).to_contain_text(
+        "deletion could not be confirmed"
+    )
+    expect(baseline_note).to_have_count(1)
+    delete_failure_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    _require(delete_failure_notes["total"] == baseline_note_count, "unconfirmed delete changed persistence")
+    _restore_one_shot_mutation_failure(page)
+
+    session_payload = {
+        "version": 1,
+        "active_article_id": CRB_ARTICLE_ID,
+        "updated_at": "2026-09-05T00:00:00.000Z",
+        "items": [
+            {
+                "article_id": CRB_ARTICLE_ID,
+                "title": CRB_TITLE,
+                "section_id": None,
+                "added_at": "2026-09-05T00:00:00.000Z",
+            },
+            {
+                "article_id": ATTENTION_ARTICLE_ID,
+                "title": ATTENTION_TITLE,
+                "section_id": None,
+                "added_at": "2026-09-05T00:01:00.000Z",
+            },
+        ],
+    }
+    page.evaluate(
+        "([key, value]) => localStorage.setItem(key, value)",
+        ["scientific-spaces-study-session-v1", json.dumps(session_payload, ensure_ascii=False)],
+    )
+    page.goto(
+        f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+        wait_until="domcontentloaded",
+    )
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("notes-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    stale_text = f"P3-029 stale Article A {iteration}"
+    _install_mutation_response_gate(page, f"/learning/notes/{CRB_ARTICLE_ID}", "POST")
+    page.get_by_label("New learning note", exact=True).fill(stale_text)
+    page.get_by_role("button", name="Add note", exact=True).click()
+    page.wait_for_function("() => window.__p3029MutationGate?.pendingCount === 1", timeout=30_000)
+    page.get_by_role("link", name=f"Next in session: {ATTENTION_TITLE}", exact=True).click()
+    attention_heading = page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
+    expect(attention_heading).to_be_visible(timeout=30_000)
+    expect(attention_heading).to_be_focused(timeout=30_000)
+    expect(page.get_by_test_id("bookmark-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    expect(page.get_by_label("New learning note", exact=True)).to_have_value("")
+    expect(page.get_by_test_id("note-mutation-status")).to_have_text("")
+    expect(page.get_by_test_id("note-mutation-error")).to_have_text("")
+    _release_mutation_response_gate(page)
+    page.wait_for_timeout(250)
+    expect(attention_heading).to_be_focused()
+    expect(page.get_by_text(stale_text, exact=True)).to_have_count(0)
+    expect(page.get_by_test_id("note-mutation-status")).to_have_text("")
+    expect(page.get_by_test_id("note-mutation-error")).to_have_text("")
+    stale_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    stale_records = [item for item in stale_notes["items"] if item["content"] == stale_text]
+    _require(len(stale_records) == 1, f"stale Article A request accounting failed: {stale_notes}")
+    cleanup_response = context.request.delete(
+        f"{API_URL}/learning/notes/{stale_records[0]['note_id']}"
+    )
+    _require(cleanup_response.status == 204, "stale Article A note cleanup failed")
+    _restore_mutation_response_gate(page)
+
+    original_stale_bookmarks = _api_json(context, "GET", "/learning/bookmarks")
+    restore_crb_bookmark = any(
+        item["article_id"] == CRB_ARTICLE_ID for item in original_stale_bookmarks["items"]
+    )
+    if restore_crb_bookmark:
+        normalize_crb_bookmark = context.request.delete(
+            f"{API_URL}/learning/bookmarks/{CRB_ARTICLE_ID}"
+        )
+        _require(normalize_crb_bookmark.status == 204, "stale bookmark destination setup failed")
+    stale_bookmark_baseline = _api_json(context, "GET", "/learning/bookmarks")
+    stale_bookmark_count = int(stale_bookmark_baseline["total"])
+    _install_mutation_response_gate(
+        page,
+        f"/learning/bookmarks/{ATTENTION_ARTICLE_ID}",
+        "POST",
+    )
+    page.get_by_role("button", name="Save", exact=True).click()
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1",
+        timeout=30_000,
+    )
+    page.get_by_role("link", name=f"Previous in session: {CRB_TITLE}", exact=True).click()
+    crb_heading = page.get_by_role("heading", name=CRB_TITLE, exact=True)
+    expect(crb_heading).to_be_visible(timeout=30_000)
+    expect(crb_heading).to_be_focused(timeout=30_000)
+    expect(page.get_by_test_id("bookmark-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+    expect(page.get_by_role("button", name="Save", exact=True)).to_be_visible()
+    expect(page.get_by_text("This article is not bookmarked.", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("bookmark-mutation-status")).to_have_text("")
+    expect(page.get_by_test_id("bookmark-mutation-error")).to_have_text("")
+    _release_mutation_response_gate(page)
+    page.wait_for_timeout(250)
+    expect(crb_heading).to_be_focused()
+    expect(page.get_by_role("button", name="Save", exact=True)).to_be_visible()
+    expect(page.get_by_text("This article is not bookmarked.", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("bookmark-mutation-status")).to_have_text("")
+    expect(page.get_by_test_id("bookmark-mutation-error")).to_have_text("")
+    stale_bookmarks = _api_json(context, "GET", "/learning/bookmarks")
+    _require(
+        stale_bookmarks["total"] == stale_bookmark_count + 1
+        and sum(item["article_id"] == ATTENTION_ARTICLE_ID for item in stale_bookmarks["items"]) == 1,
+        f"stale bookmark response accounting failed: {stale_bookmarks}",
+    )
+    stale_bookmark_cleanup = context.request.delete(
+        f"{API_URL}/learning/bookmarks/{ATTENTION_ARTICLE_ID}"
+    )
+    _require(stale_bookmark_cleanup.status == 204, "stale bookmark cleanup failed")
+    if restore_crb_bookmark:
+        restore_crb_response = context.request.post(
+            f"{API_URL}/learning/bookmarks/{CRB_ARTICLE_ID}"
+        )
+        _require(restore_crb_response.status == 200, "stale bookmark destination restore failed")
+    _restore_mutation_response_gate(page)
+    page.get_by_role("link", name=f"Next in session: {ATTENTION_TITLE}", exact=True).click()
+    attention_heading = page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
+    expect(attention_heading).to_be_visible(timeout=30_000)
+    expect(attention_heading).to_be_focused(timeout=30_000)
+    expect(page.get_by_test_id("bookmark-controls")).to_have_attribute(
+        "aria-busy", "false", timeout=30_000
+    )
+
+    baseline_bookmarks = _api_json(context, "GET", "/learning/bookmarks")
+    baseline_bookmark_count = int(baseline_bookmarks["total"])
+    save_bookmark = page.get_by_role("button", name="Save", exact=True)
+    expect(save_bookmark).to_be_visible(timeout=30_000)
+    _install_mutation_response_gate(
+        page,
+        f"/learning/bookmarks/{ATTENTION_ARTICLE_ID}",
+        "POST",
+    )
+    save_bookmark.evaluate("button => { button.click(); button.click(); }")
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1 && window.__p3029MutationGate?.callCount === 1",
+        timeout=30_000,
+    )
+    expect(page.get_by_test_id("bookmark-controls")).to_have_attribute("aria-busy", "true")
+    expect(page.get_by_role("button", name="Saving...", exact=True)).to_be_disabled()
+    _release_mutation_response_gate(page)
+    expect(page.get_by_test_id("bookmark-mutation-status")).to_have_text("Bookmark saved.")
+    expect(page.get_by_role("button", name="Remove", exact=True)).to_be_visible()
+    stored_bookmarks = _api_json(context, "GET", "/learning/bookmarks")
+    _require(
+        stored_bookmarks["total"] == baseline_bookmark_count + 1
+        and sum(item["article_id"] == ATTENTION_ARTICLE_ID for item in stored_bookmarks["items"]) == 1,
+        f"rapid bookmark activation did not persist exactly one record: {stored_bookmarks}",
+    )
+    _restore_mutation_response_gate(page)
+    _install_mutation_response_gate(
+        page,
+        f"/learning/bookmarks/{ATTENTION_ARTICLE_ID}",
+        "DELETE",
+    )
+    remove_bookmark = page.get_by_role("button", name="Remove", exact=True)
+    remove_bookmark.evaluate("button => { button.click(); button.click(); }")
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1 && window.__p3029MutationGate?.callCount === 1",
+        timeout=30_000,
+    )
+    expect(page.get_by_role("button", name="Removing...", exact=True)).to_be_disabled()
+    removed_before_release = _api_json(context, "GET", "/learning/bookmarks")
+    _require(
+        removed_before_release["total"] == baseline_bookmark_count,
+        f"rapid bookmark removal did not persist exactly once: {removed_before_release}",
+    )
+    _release_mutation_response_gate(page)
+    expect(page.get_by_test_id("bookmark-mutation-status")).to_have_text("Bookmark removed.")
+    cleaned_bookmarks = _api_json(context, "GET", "/learning/bookmarks")
+    _require(cleaned_bookmarks["total"] == baseline_bookmark_count, "bookmark cleanup failed")
+    _restore_mutation_response_gate(page)
+
+    _install_one_shot_mutation_response_loss(
+        page,
+        f"/learning/bookmarks/{ATTENTION_ARTICLE_ID}",
+        "POST",
+        "intentional P3-029 unconfirmed bookmark result",
+    )
+    page.get_by_role("button", name="Save", exact=True).click()
+    bookmark_failure = page.get_by_test_id("bookmark-mutation-error")
+    expect(bookmark_failure).to_have_attribute("role", "alert")
+    expect(bookmark_failure).to_contain_text("displayed bookmark state was kept")
+    expect(page.get_by_role("button", name="Save", exact=True)).to_be_visible()
+    failed_bookmarks = _api_json(context, "GET", "/learning/bookmarks")
+    _require(
+        failed_bookmarks["total"] == baseline_bookmark_count + 1
+        and sum(item["article_id"] == ATTENTION_ARTICLE_ID for item in failed_bookmarks["items"]) == 1,
+        f"lost bookmark response did not preserve the exact unknown persistence result: {failed_bookmarks}",
+    )
+    unknown_bookmark_cleanup = context.request.delete(
+        f"{API_URL}/learning/bookmarks/{ATTENTION_ARTICLE_ID}"
+    )
+    _require(unknown_bookmark_cleanup.status == 204, "unknown-result bookmark cleanup failed")
+    _restore_one_shot_mutation_failure(page)
+    context.close()
+
+
+def _install_mutation_response_gate(page, endpoint: str, method: str) -> None:
+    page.evaluate(
+        """
+        ({ endpoint, method }) => {
+          if (typeof window.__p3029MutationOriginalFetch === "function") {
+            throw new Error("P3-029 mutation response gate is already installed");
+          }
+          const originalFetch = window.fetch.bind(window);
+          window.__p3029MutationOriginalFetch = originalFetch;
+          window.__p3029MutationGate = {
+            endpoint,
+            method,
+            callCount: 0,
+            pendingCount: 0,
+            completedCount: 0,
+            release: null,
+          };
+          window.fetch = async (...args) => {
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const requestMethod = String(
+              args[0] instanceof Request ? args[0].method : args[1]?.method ?? "GET"
+            ).toUpperCase();
+            if (!target.includes(endpoint) || requestMethod !== method) {
+              return originalFetch(...args);
+            }
+            const gate = window.__p3029MutationGate;
+            gate.callCount += 1;
+            const response = await originalFetch(...args);
+            gate.pendingCount += 1;
+            await new Promise((resolve) => { gate.release = resolve; });
+            gate.release = null;
+            gate.completedCount += 1;
+            return response;
+          };
+        }
+        """,
+        {"endpoint": endpoint, "method": method},
+    )
+
+
+def _release_mutation_response_gate(page) -> None:
+    page.wait_for_function(
+        "() => typeof window.__p3029MutationGate?.release === 'function'",
+        timeout=30_000,
+    )
+    expected_count = page.evaluate(
+        """
+        () => {
+          const gate = window.__p3029MutationGate;
+          const release = gate.release;
+          gate.release = null;
+          release();
+          return gate.pendingCount;
+        }
+        """
+    )
+    page.wait_for_function(
+        "expected => window.__p3029MutationGate?.completedCount >= expected",
+        arg=expected_count,
+        timeout=30_000,
+    )
+
+
+def _restore_mutation_response_gate(page) -> None:
+    page.evaluate(
+        """
+        () => {
+          if (typeof window.__p3029MutationOriginalFetch === "function") {
+            window.fetch = window.__p3029MutationOriginalFetch;
+            delete window.__p3029MutationOriginalFetch;
+            delete window.__p3029MutationGate;
+          }
+        }
+        """
+    )
+
+
+def _install_one_shot_mutation_failure(
+    page,
+    endpoint: str,
+    method: str,
+    message: str,
+) -> None:
+    page.evaluate(
+        """
+        ({ endpoint, method, message }) => {
+          if (typeof window.__p3029FailureOriginalFetch === "function") {
+            throw new Error("P3-029 failure gate is already installed");
+          }
+          const originalFetch = window.fetch.bind(window);
+          window.__p3029FailureOriginalFetch = originalFetch;
+          let rejected = false;
+          window.fetch = (...args) => {
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const requestMethod = String(
+              args[0] instanceof Request ? args[0].method : args[1]?.method ?? "GET"
+            ).toUpperCase();
+            if (!rejected && target.includes(endpoint) && requestMethod === method) {
+              rejected = true;
+              return Promise.reject(new Error(message));
+            }
+            return originalFetch(...args);
+          };
+        }
+        """,
+        {"endpoint": endpoint, "method": method, "message": message},
+    )
+
+
+def _install_one_shot_mutation_response_loss(
+    page,
+    endpoint: str,
+    method: str,
+    message: str,
+) -> None:
+    page.evaluate(
+        """
+        ({ endpoint, method, message }) => {
+          if (typeof window.__p3029FailureOriginalFetch === "function") {
+            throw new Error("P3-029 response-loss gate is already installed");
+          }
+          const originalFetch = window.fetch.bind(window);
+          window.__p3029FailureOriginalFetch = originalFetch;
+          let rejected = false;
+          window.fetch = async (...args) => {
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const requestMethod = String(
+              args[0] instanceof Request ? args[0].method : args[1]?.method ?? "GET"
+            ).toUpperCase();
+            if (!rejected && target.includes(endpoint) && requestMethod === method) {
+              rejected = true;
+              await originalFetch(...args);
+              throw new Error(message);
+            }
+            return originalFetch(...args);
+          };
+        }
+        """,
+        {"endpoint": endpoint, "method": method, "message": message},
+    )
+
+
+def _restore_one_shot_mutation_failure(page) -> None:
+    page.evaluate(
+        """
+        () => {
+          if (typeof window.__p3029FailureOriginalFetch === "function") {
+            window.fetch = window.__p3029FailureOriginalFetch;
+            delete window.__p3029FailureOriginalFetch;
+          }
+        }
+        """
+    )
 
 
 def _install_network_guard(context, blocked_external: list[str]) -> None:

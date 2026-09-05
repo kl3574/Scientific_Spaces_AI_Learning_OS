@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ComponentPropsWithoutRef, FormEvent, ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ComponentPropsWithoutRef,
+  FormEvent,
+  ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import ReactMarkdown from "react-markdown";
 import rehypeKatex from "rehype-katex";
@@ -56,6 +65,15 @@ import {
 } from "@/lib/graphWorkspace";
 import { createLearningToolHref } from "@/lib/learningWorkflow";
 import {
+  ReaderMutationKind,
+  ReaderMutationOperation,
+  createReaderMutationOperation,
+  mergeCreatedLearningNote,
+  mergeUpdatedLearningNote,
+  ownsReaderMutation,
+  removeLearningNote,
+} from "@/lib/readerLearningMutations";
+import {
   activateStudySessionItem,
   createStudySessionCompletionSummary,
   createStudySessionReaderHref,
@@ -71,6 +89,11 @@ import { ZoteroLinksPanel } from "@/components/ZoteroLinksPanel";
 type ArticleOperation = {
   articleId: string;
   generation: number;
+};
+
+type MutationFeedback = {
+  tone: "pending" | "success" | "error";
+  message: string;
 };
 
 const ARTICLE_LOAD_TIMEOUT_MS = 10_000;
@@ -112,18 +135,26 @@ export function ArticleDetailView({
   const [sessionLoadState, setSessionLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [learningMutationPending, setLearningMutationPending] = useState(false);
   const [sessionEndPending, setSessionEndPending] = useState(false);
+  const [bookmarkMutationPending, setBookmarkMutationPending] = useState(false);
+  const [bookmarkFeedback, setBookmarkFeedback] = useState<MutationFeedback | null>(null);
+  const [noteMutationPending, setNoteMutationPending] = useState<ReaderMutationOperation | null>(null);
+  const [noteFeedback, setNoteFeedback] = useState<MutationFeedback | null>(null);
+  const [bookmarkLoadState, setBookmarkLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+  const [noteLoadState, setNoteLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const learningLoadArticleRef = useRef<string | null>(null);
   const articleIdRef = useRef(articleId);
   const articleGenerationRef = useRef(0);
   const completionOperationRef = useRef<ArticleOperation | null>(null);
   const learningMutationRef = useRef<ArticleOperation | null>(null);
   const sessionEndOperationRef = useRef<ArticleOperation | null>(null);
+  const bookmarkMutationRef = useRef<ReaderMutationOperation | null>(null);
+  const noteMutationRef = useRef<ReaderMutationOperation | null>(null);
+  const mutationSequenceRef = useRef(0);
   const articleRootRef = useRef<HTMLElement | null>(null);
   const articleHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const articleRetryRef = useRef<HTMLButtonElement | null>(null);
   const completionRegionRef = useRef<HTMLElement | null>(null);
   const explicitSectionRef = useRef<ArticleOutlineItem | null>(null);
-  articleIdRef.current = articleId;
   const returnLabel = listReturnTo === "/session"
     ? "Back to study session"
     : listReturnTo.startsWith("/library")
@@ -133,6 +164,12 @@ export function ArticleDetailView({
         : listReturnTo.startsWith("/graph")
           ? "Return to graph"
       : "Back to articles";
+  const bookmarkControlsReady = bookmarkLoadState === "loaded";
+  const noteControlsReady = noteLoadState === "loaded";
+
+  useLayoutEffect(() => {
+    articleIdRef.current = articleId;
+  }, [articleId]);
 
   function prepareGraphReturnFocus(event: ReactMouseEvent<HTMLAnchorElement>) {
     if (isSameTabNavigation(event) && listReturnTo.startsWith("/graph")) {
@@ -155,6 +192,9 @@ export function ArticleDetailView({
     setLearningState(null);
     setIsBookmarked(false);
     setNotes([]);
+    setNoteDraft("");
+    setEditingNoteId(null);
+    setEditingContent("");
     setActiveSession(null);
     setLearningError(null);
     setStudySessionPosition(null);
@@ -170,9 +210,17 @@ export function ArticleDetailView({
     setSessionLoadState("idle");
     setLearningMutationPending(false);
     setSessionEndPending(false);
+    setBookmarkMutationPending(false);
+    setBookmarkFeedback(null);
+    setNoteMutationPending(null);
+    setNoteFeedback(null);
+    setBookmarkLoadState("idle");
+    setNoteLoadState("idle");
     completionOperationRef.current = null;
     learningMutationRef.current = null;
     sessionEndOperationRef.current = null;
+    bookmarkMutationRef.current = null;
+    noteMutationRef.current = null;
     learningLoadArticleRef.current = null;
     explicitSectionRef.current = null;
     setHistory(loadReadingHistory());
@@ -231,6 +279,8 @@ export function ArticleDetailView({
       completionOperationRef.current = null;
       learningMutationRef.current = null;
       sessionEndOperationRef.current = null;
+      bookmarkMutationRef.current = null;
+      noteMutationRef.current = null;
       if (learningLoadArticleRef.current === requestedArticleId) {
         learningLoadArticleRef.current = null;
       }
@@ -326,6 +376,8 @@ export function ArticleDetailView({
     learningLoadArticleRef.current = nextArticleId;
     setLearningError(null);
     setSessionLoadState("loading");
+    setBookmarkLoadState("loading");
+    setNoteLoadState("loading");
     const [stateResult, bookmarkResult, noteResult] = await Promise.allSettled([
       fetchLearningState(nextArticleId),
       fetchBookmarks(),
@@ -345,12 +397,24 @@ export function ArticleDetailView({
     }
     if (bookmarkResult.status === "fulfilled") {
       setIsBookmarked(bookmarkResult.value.items.some((bookmark) => bookmark.article_id === nextArticleId));
+      setBookmarkLoadState("loaded");
     } else {
+      setBookmarkLoadState("error");
+      setBookmarkFeedback({
+        tone: "error",
+        message: "Bookmark status is unavailable. Reload this Article before changing it.",
+      });
       errors.push(errorText(bookmarkResult.reason, "Failed to load bookmarks"));
     }
     if (noteResult.status === "fulfilled") {
       setNotes(noteResult.value.items);
+      setNoteLoadState("loaded");
     } else {
+      setNoteLoadState("error");
+      setNoteFeedback({
+        tone: "error",
+        message: "Notes are unavailable. Reload this Article before changing them.",
+      });
       errors.push(errorText(noteResult.reason, "Failed to load notes"));
     }
     try {
@@ -439,60 +503,194 @@ export function ArticleDetailView({
   }
 
   async function handleBookmarkToggle() {
-    if (!article) {
+    if (
+      !article
+      || article.id !== articleIdRef.current
+      || !bookmarkControlsReady
+      || bookmarkMutationRef.current
+    ) {
       return;
     }
-    setLearningError(null);
+    const operation = nextReaderMutation(
+      article.id,
+      isBookmarked ? "bookmark-remove" : "bookmark-add",
+    );
+    bookmarkMutationRef.current = operation;
+    setBookmarkMutationPending(true);
+    setBookmarkFeedback({
+      tone: "pending",
+      message: isBookmarked ? "Removing bookmark..." : "Saving bookmark...",
+    });
     try {
-      if (isBookmarked) {
-        await deleteBookmark(article.id);
-        setIsBookmarked(false);
+      if (operation.kind === "bookmark-remove") {
+        await deleteBookmark(operation.articleId);
       } else {
-        await addBookmark(article.id);
-        setIsBookmarked(true);
+        await addBookmark(operation.articleId);
       }
+      if (!isCurrentReaderMutation(bookmarkMutationRef, operation)) {
+        return;
+      }
+      const bookmarked = operation.kind === "bookmark-add";
+      setIsBookmarked(bookmarked);
+      setBookmarkFeedback({
+        tone: "success",
+        message: bookmarked ? "Bookmark saved." : "Bookmark removed.",
+      });
     } catch (err) {
-      setLearningError(err instanceof Error ? err.message : "Failed to update bookmark");
+      if (isCurrentReaderMutation(bookmarkMutationRef, operation)) {
+        setBookmarkFeedback({
+          tone: "error",
+          message: `The bookmark update could not be confirmed. ${errorText(err, "The request failed.")} The displayed bookmark state was kept; reload this Article before retrying if the result is uncertain.`,
+        });
+      }
+    } finally {
+      if (bookmarkMutationRef.current === operation) {
+        bookmarkMutationRef.current = null;
+        if (
+          articleIdRef.current === operation.articleId
+          && articleGenerationRef.current === operation.generation
+        ) {
+          setBookmarkMutationPending(false);
+        }
+      }
     }
   }
 
   async function handleCreateNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!article || !noteDraft.trim()) {
+    const submittedDraft = noteDraft.trim();
+    if (
+      !article
+      || article.id !== articleIdRef.current
+      || !noteControlsReady
+      || !submittedDraft
+      || noteMutationRef.current
+    ) {
       return;
     }
-    setLearningError(null);
+    const operation = nextReaderMutation(article.id, "note-create");
+    noteMutationRef.current = operation;
+    setNoteMutationPending(operation);
+    setNoteFeedback({ tone: "pending", message: "Saving note..." });
     try {
-      const note = await createNote(article.id, noteDraft.trim());
-      setNotes([note, ...notes]);
-      setNoteDraft("");
+      const note = await createNote(operation.articleId, submittedDraft);
+      if (!isCurrentReaderMutation(noteMutationRef, operation)) {
+        return;
+      }
+      if (note.article_id !== operation.articleId) {
+        throw new Error("The note response did not belong to this Article.");
+      }
+      setNotes((current) => mergeCreatedLearningNote(current, note, operation.articleId));
+      setNoteDraft((current) => (current.trim() === submittedDraft ? "" : current));
+      setNoteFeedback({ tone: "success", message: "Note saved." });
     } catch (err) {
-      setLearningError(err instanceof Error ? err.message : "Failed to save note");
+      if (isCurrentReaderMutation(noteMutationRef, operation)) {
+        setNoteFeedback({
+          tone: "error",
+          message: `The note could not be confirmed. ${errorText(err, "The request failed.")} Your draft was kept; reload this Article before retrying if the result is uncertain.`,
+        });
+      }
+    } finally {
+      if (noteMutationRef.current === operation) {
+        noteMutationRef.current = null;
+        if (
+          articleIdRef.current === operation.articleId
+          && articleGenerationRef.current === operation.generation
+        ) {
+          setNoteMutationPending(null);
+        }
+      }
     }
   }
 
   async function handleUpdateNote(noteId: string) {
-    if (!editingContent.trim()) {
+    const submittedContent = editingContent.trim();
+    if (
+      !article
+      || article.id !== articleIdRef.current
+      || !noteControlsReady
+      || !submittedContent
+      || noteMutationRef.current
+    ) {
       return;
     }
-    setLearningError(null);
+    const operation = nextReaderMutation(article.id, "note-update", noteId);
+    noteMutationRef.current = operation;
+    setNoteMutationPending(operation);
+    setNoteFeedback({ tone: "pending", message: "Updating note..." });
     try {
-      const updated = await updateNote(noteId, editingContent.trim());
-      setNotes(notes.map((note) => (note.note_id === noteId ? updated : note)));
+      const updated = await updateNote(noteId, submittedContent);
+      if (!isCurrentReaderMutation(noteMutationRef, operation)) {
+        return;
+      }
+      if (updated.note_id !== noteId || updated.article_id !== operation.articleId) {
+        throw new Error("The note response did not match this Article and note.");
+      }
+      setNotes((current) => mergeUpdatedLearningNote(current, updated, operation.articleId));
       setEditingNoteId(null);
       setEditingContent("");
+      setNoteFeedback({ tone: "success", message: "Note updated." });
     } catch (err) {
-      setLearningError(err instanceof Error ? err.message : "Failed to update note");
+      if (isCurrentReaderMutation(noteMutationRef, operation)) {
+        setNoteFeedback({
+          tone: "error",
+          message: `The note update could not be confirmed. ${errorText(err, "The request failed.")} The current note was kept.`,
+        });
+      }
+    } finally {
+      if (noteMutationRef.current === operation) {
+        noteMutationRef.current = null;
+        if (
+          articleIdRef.current === operation.articleId
+          && articleGenerationRef.current === operation.generation
+        ) {
+          setNoteMutationPending(null);
+        }
+      }
     }
   }
 
   async function handleDeleteNote(noteId: string) {
-    setLearningError(null);
+    if (
+      !article
+      || article.id !== articleIdRef.current
+      || !noteControlsReady
+      || noteMutationRef.current
+    ) {
+      return;
+    }
+    const operation = nextReaderMutation(article.id, "note-delete", noteId);
+    noteMutationRef.current = operation;
+    setNoteMutationPending(operation);
+    setNoteFeedback({ tone: "pending", message: "Deleting note..." });
     try {
       await deleteNote(noteId);
-      setNotes(notes.filter((note) => note.note_id !== noteId));
+      if (!isCurrentReaderMutation(noteMutationRef, operation)) {
+        return;
+      }
+      setNotes((current) => removeLearningNote(current, noteId));
+      if (editingNoteId === noteId) {
+        setEditingNoteId(null);
+        setEditingContent("");
+      }
+      setNoteFeedback({ tone: "success", message: "Note deleted." });
     } catch (err) {
-      setLearningError(err instanceof Error ? err.message : "Failed to delete note");
+      if (isCurrentReaderMutation(noteMutationRef, operation)) {
+        setNoteFeedback({
+          tone: "error",
+          message: `The note deletion could not be confirmed. ${errorText(err, "The request failed.")} The current note was kept.`,
+        });
+      }
+    } finally {
+      if (noteMutationRef.current === operation) {
+        noteMutationRef.current = null;
+        if (
+          articleIdRef.current === operation.articleId
+          && articleGenerationRef.current === operation.generation
+        ) {
+          setNoteMutationPending(null);
+        }
+      }
     }
   }
 
@@ -593,6 +791,33 @@ export function ArticleDetailView({
     return operationRef.current === operation
       && articleIdRef.current === operation.articleId
       && articleGenerationRef.current === operation.generation;
+  }
+
+  function nextReaderMutation(
+    targetArticleId: string,
+    kind: ReaderMutationKind,
+    noteId: string | null = null,
+  ): ReaderMutationOperation {
+    mutationSequenceRef.current += 1;
+    return createReaderMutationOperation(
+      targetArticleId,
+      articleGenerationRef.current,
+      mutationSequenceRef.current,
+      kind,
+      noteId,
+    );
+  }
+
+  function isCurrentReaderMutation(
+    operationRef: { current: ReaderMutationOperation | null },
+    operation: ReaderMutationOperation,
+  ): boolean {
+    return ownsReaderMutation(
+      operationRef.current,
+      operation,
+      articleIdRef.current,
+      articleGenerationRef.current,
+    );
   }
 
   function loadEligibleSessionState(targetArticleId: string) {
@@ -1458,19 +1683,49 @@ export function ArticleDetailView({
           </dl>
         </section>
 
-        <section className="rounded border border-slate-200 bg-white p-4">
+        <section
+          aria-busy={bookmarkLoadState === "loading" || bookmarkMutationPending}
+          className="rounded border border-slate-200 bg-white p-4"
+          data-testid="bookmark-controls"
+        >
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">Bookmark</h2>
             <button
-              className="rounded border border-slate-300 px-3 py-1 text-sm font-medium hover:bg-slate-50"
+              className="rounded border border-slate-300 px-3 py-1 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
+              disabled={!bookmarkControlsReady || bookmarkMutationPending}
               type="button"
               onClick={() => void handleBookmarkToggle()}
             >
-              {isBookmarked ? "Remove" : "Save"}
+              {bookmarkMutationPending
+                ? isBookmarked ? "Removing..." : "Saving..."
+                : isBookmarked ? "Remove" : "Save"}
             </button>
           </div>
           <p className="mt-3 text-sm text-slate-600">
-            {isBookmarked ? "This article is in your bookmarks." : "This article is not bookmarked."}
+            {bookmarkLoadState === "loading" || bookmarkLoadState === "idle"
+              ? "Loading bookmark status."
+              : bookmarkLoadState === "error"
+                ? "Bookmark status is unavailable."
+                : isBookmarked
+                  ? "This article is in your bookmarks."
+                  : "This article is not bookmarked."}
+          </p>
+          <p
+            aria-atomic="true"
+            aria-live="polite"
+            className={bookmarkFeedback && bookmarkFeedback.tone !== "error" ? "mt-2 text-sm text-slate-600" : "sr-only"}
+            data-testid="bookmark-mutation-status"
+            role="status"
+          >
+            {bookmarkFeedback && bookmarkFeedback.tone !== "error" ? bookmarkFeedback.message : ""}
+          </p>
+          <p
+            aria-atomic="true"
+            className={bookmarkFeedback?.tone === "error" ? "mt-2 text-sm text-red-700" : "sr-only"}
+            data-testid="bookmark-mutation-error"
+            role="alert"
+          >
+            {bookmarkFeedback?.tone === "error" ? bookmarkFeedback.message : ""}
           </p>
         </section>
 
@@ -1505,40 +1760,81 @@ export function ArticleDetailView({
           </button>
         </section>
 
-        <section className="rounded border border-slate-200 bg-white p-4">
+        <section
+          aria-busy={noteLoadState === "loading" || noteMutationPending !== null}
+          className="rounded border border-slate-200 bg-white p-4"
+          data-testid="notes-controls"
+        >
           <h2 className="text-base font-semibold">Notes</h2>
           <form className="mt-3 space-y-2" onSubmit={handleCreateNote}>
             <textarea
+              aria-label="New learning note"
               className="min-h-24 w-full resize-y rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950"
               placeholder="Write a learning note"
               value={noteDraft}
               onChange={(event) => setNoteDraft(event.target.value)}
             />
-            <button className="rounded bg-slate-950 px-3 py-2 text-sm font-medium text-white" type="submit">
-              Add note
+            <button
+              className="rounded bg-slate-950 px-3 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-300"
+              disabled={!noteControlsReady || noteMutationPending !== null || !noteDraft.trim()}
+              type="submit"
+            >
+              {noteMutationPending?.kind === "note-create" ? "Saving note..." : "Add note"}
             </button>
           </form>
+          <p
+            aria-atomic="true"
+            aria-live="polite"
+            className={noteFeedback && noteFeedback.tone !== "error" ? "mt-2 text-sm text-slate-600" : "sr-only"}
+            data-testid="note-mutation-status"
+            role="status"
+          >
+            {noteFeedback && noteFeedback.tone !== "error" ? noteFeedback.message : ""}
+          </p>
+          <p
+            aria-atomic="true"
+            className={noteFeedback?.tone === "error" ? "mt-2 text-sm text-red-700" : "sr-only"}
+            data-testid="note-mutation-error"
+            role="alert"
+          >
+            {noteFeedback?.tone === "error" ? noteFeedback.message : ""}
+          </p>
           <div className="mt-4 grid gap-3">
-            {notes.length ? (
+            {noteLoadState === "loading" || noteLoadState === "idle" ? (
+              <p className="text-sm text-slate-600">Loading notes...</p>
+            ) : noteLoadState === "error" ? (
+              <p className="text-sm text-slate-600">Notes could not be loaded.</p>
+            ) : notes.length ? (
               notes.map((note) => (
-                <article key={note.note_id} className="rounded border border-slate-100 p-3 text-sm">
+                <article
+                  key={note.note_id}
+                  className="rounded border border-slate-100 p-3 text-sm"
+                  data-testid="learning-note"
+                >
                   {editingNoteId === note.note_id ? (
                     <div className="space-y-2">
                       <textarea
+                        aria-label="Edit learning note"
                         className="min-h-20 w-full resize-y rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950"
+                        disabled={noteMutationPending !== null}
                         value={editingContent}
                         onChange={(event) => setEditingContent(event.target.value)}
                       />
                       <div className="flex gap-2">
                         <button
                           className="rounded bg-slate-950 px-3 py-1 text-xs font-medium text-white"
+                          disabled={!noteControlsReady || noteMutationPending !== null || !editingContent.trim()}
                           type="button"
                           onClick={() => void handleUpdateNote(note.note_id)}
                         >
-                          Save
+                          {noteMutationPending?.kind === "note-update"
+                            && noteMutationPending.noteId === note.note_id
+                            ? "Saving..."
+                            : "Save"}
                         </button>
                         <button
                           className="rounded border border-slate-300 px-3 py-1 text-xs font-medium"
+                          disabled={!noteControlsReady || noteMutationPending !== null}
                           type="button"
                           onClick={() => {
                             setEditingNoteId(null);
@@ -1556,6 +1852,7 @@ export function ArticleDetailView({
                       <div className="mt-3 flex gap-2">
                         <button
                           className="rounded border border-slate-300 px-3 py-1 text-xs font-medium"
+                          disabled={!noteControlsReady || noteMutationPending !== null}
                           type="button"
                           onClick={() => {
                             setEditingNoteId(note.note_id);
@@ -1566,10 +1863,14 @@ export function ArticleDetailView({
                         </button>
                         <button
                           className="rounded border border-red-200 px-3 py-1 text-xs font-medium text-red-700"
+                          disabled={!noteControlsReady || noteMutationPending !== null}
                           type="button"
                           onClick={() => void handleDeleteNote(note.note_id)}
                         >
-                          Delete
+                          {noteMutationPending?.kind === "note-delete"
+                            && noteMutationPending.noteId === note.note_id
+                            ? "Deleting..."
+                            : "Delete"}
                         </button>
                       </div>
                     </>

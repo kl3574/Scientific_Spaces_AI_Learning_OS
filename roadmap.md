@@ -11,10 +11,10 @@ Current task:
 `docs/tasks/CURRENT_TASK.md`
 
 Current milestone:
-Not assigned
+P3-029 Reader Learning Mutation Integrity
 
 Status:
-P3-028 PASS / CLOSED; NEXT TASK ALIGNMENT REQUIRED / NOT GRANTED
+P3-028 PASS / CLOSED; P3-029 LOCAL VERIFICATION PASS / IMPLEMENTATION CI PENDING
 
 ## Historical Notes
 

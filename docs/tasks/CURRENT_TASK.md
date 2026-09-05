@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md`
 
 ## Staged Task
 
@@ -17,6 +17,7 @@ None
 - P3-026: PASS / CLOSED
 - P3-027: PASS / CLOSED
 - P3-028: PASS / CLOSED
+- P3-029: LOCAL VERIFICATION PASS / IMPLEMENTATION CI PENDING
 
 ## Authorization
 
@@ -38,6 +39,9 @@ None
   governance documentation, isolated fake-runtime validation, local commits,
   non-force push, and exact-SHA CI execution: CONSUMED / CLOSED after this
   docs-only closure commit
+- P3-029 bounded Reader Frontend implementation, focused tests, governance
+  documentation, isolated fake-runtime validation, local commits, non-force
+  push, and exact-SHA CI execution: GRANTED / ACTIVE
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -132,6 +136,7 @@ None
 
 ## Next Gate
 
-No task is assigned. Any next implementation requires a new semantic task and
-task-level alignment; implementation authorization is NOT GRANTED. No v1.2
-candidate is assigned.
+Create and push the verified P3-029 implementation commit, require exact-SHA
+main CI, then create a separate docs-only closure. P3-030 Shell route-focus
+continuity is the next bounded candidate but is not active. No v1.2 candidate
+is assigned.

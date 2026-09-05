@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-028 PASS / CLOSED`
+- Status: `P3-029 local verification PASS; implementation CI pending`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-028 exact-SHA implementation CI PASS`
-- Current task: `None; next task requires task-level alignment`
+- Latest gate: `P3-029 local verification and independent final reviews PASS`
+- Current task: `P3-029 Reader Learning Mutation Integrity`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -48,6 +48,8 @@ P3-027 evidence: `docs/P3_027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_RE
 P3-027 canonical task: `docs/tasks/P3-027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md` (PASS / CLOSED).
 P3-028 evidence: `docs/P3_028_GRAPH_READER_ROUND_TRIP_RELIABILITY_REPORT.md` (PASS / CLOSED).
 P3-028 canonical task: `docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md` (PASS / CLOSED).
+P3-029 evidence: `docs/P3_029_READER_LEARNING_MUTATION_INTEGRITY_REPORT.md` (local PASS; implementation CI pending).
+P3-029 canonical task: `docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md` (local PASS; implementation CI pending).
 
 v1.2 planning specifications:
 
@@ -188,9 +190,9 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `None`
+- Active task: `P3-029 Reader Learning Mutation Integrity`
 - Staged task: `None`
-- Status: `P3-028 PASS / CLOSED; next implementation alignment required / not granted`
+- Status: `P3-028 PASS / CLOSED; P3-029 local PASS / implementation CI pending`
 - Last closed task: `docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
