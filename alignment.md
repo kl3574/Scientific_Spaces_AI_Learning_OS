@@ -1,52 +1,60 @@
-# P3-029 Reader Learning Mutation Integrity Alignment
+# P3-030 Shell Modal-Origin Route Focus Continuity Alignment
 
 Canonical task:
-`docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md`
+`docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL IMPLEMENTATION PASS / EXACT-SHA CI PENDING**
 
-BOUNDED READER FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
+BOUNDED SHELL FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE PUSH TO `main`,
-AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED**
+AND EXACT-SHA CI READBACK: **GRANTED**
 
-BACKEND, FROZEN M1, SOURCE OR ARTICLE RECORDS, DERIVED ASSETS, GRAPH/TUTOR DATA,
-PERSISTENCE OR PUBLISHED API CONTRACTS, DEPENDENCIES, LOCKFILES, WORKFLOWS,
-CANDIDATE, TAG, RELEASE, AND ATTESTATION CHANGES: **NOT GRANTED**
+BACKEND, FROZEN M1, SOURCE OR ARTICLE RECORDS, DERIVED ASSETS, GRAPH/READER/TUTOR
+ROUTE IMPLEMENTATION, PERSISTENCE OR PUBLISHED API CONTRACTS, DEPENDENCIES,
+LOCKFILES, WORKFLOWS, CANDIDATE, TAG, RELEASE, AND ATTESTATION CHANGES:
+**NOT GRANTED**
 
 SOURCE NETWORK, EXTERNAL SEARCH, PRIVATE ZOTERO, REAL OR PAID PROVIDERS,
 DESTRUCTIVE GIT ACTIONS, AND HISTORY REWRITING: **NOT GRANTED**
 
 ## Objective
 
-Prevent duplicate and stale Reader bookmark/note effects, keep persistence and
-rendered state consistent, and provide local accessible mutation feedback.
+Keep keyboard focus coherent when Global Search or the mobile navigation drawer
+originates a local route transition, while preserving focus deliberately owned
+by destination workspaces.
 
 ## Binding Scope
 
-- Bind mutations to Article ID, Reader generation, operation ID, and kind.
-- Permit one in-flight bookmark operation and one in-flight Notes operation.
-- Merge note results by `note_id` with functional state transitions.
-- Preserve drafts and rendered records when results fail or are unconfirmed.
-- Keep feedback beside the owning Bookmark or Notes controls.
-- Preserve all Backend, API, persistence, Graph, Tutor, Session, and release
-  contracts.
-- Defer Shell route-focus continuity to P3-030.
+- Distinguish modal dismissal from accepted same-tab local navigation.
+- Observe committed pathname and query changes and close stale Shell modals.
+- Move focus to persistent `main#main-content` only when the destination has not
+  already claimed focus.
+- Cancel stale deferred focus work across overlapping modal and route actions.
+- Preserve Graph, Reader, and other route-local focus ownership.
+- Preserve modified-click and new-tab behavior.
 
 ## Allowed Changes
 
-- `frontend/src/components/ArticleDetailView.tsx`
-- `frontend/src/lib/readerLearningMutations.ts`
-- `frontend/tests/readerLearningMutations.test.ts`
+- `frontend/src/components/AppShell.tsx`
+- `frontend/src/components/GlobalSearchDialog.tsx`
+- `frontend/src/components/PrimaryNav.tsx`
+- `frontend/src/lib/navigation.ts`
+- `frontend/tests/navigation.test.ts`
 - `frontend/scripts/test-articles.sh`
 - `scripts/e2e/run_product_e2e.py`
-- P3-029 task/status/roadmap/README/alignment/report documentation
+- P3-030 task/status/roadmap/README/alignment/report documentation
 
 ## Acceptance
 
-- Rapid repeated activation emits one mutation and one persisted/rendered note.
-- Article A callbacks cannot alter Article B state, feedback, draft, or focus.
-- Note responses merge by identity; failures retain current UI and draft data.
-- Bookmark and Notes controls expose truthful local pending/success/error state.
+- Search and Drawer cross-route navigation never leaves focus on `body`.
+- Same-URL activation closes the modal, adds no history entry, and focuses the
+  current main region.
+- Pathname/query Back and Forward close stale modals without focusing behind an
+  active modal.
+- Destination-owned Graph/Reader focus wins over the Shell fallback.
+- Escape, close, and backdrop dismissal restore the opener.
+- Modified/new-tab navigation does not close the current modal or arm stale
+  focus work.
 - Focused/full tests, build, three Product E2E runs, safety gates, and two final
   reviews pass.
 - Implementation and docs-only closure commits each pass exact-SHA main CI.
@@ -54,32 +62,24 @@ rendered state consistent, and provide local accessible mutation feedback.
 ## Authorization Basis
 
 The product owner explicitly directed the agent to stop repeated plan
-confirmations, use independent sub-agent review, and automatically execute
-approved in-scope work. Independent audits identified both mutation integrity
-and route-focus issues; a deterministic local fake-runtime reproduction proved
-the mutation defect writes two records while rendering one, so data integrity
-is prioritized as P3-029. This authorization does not extend beyond the exact
-scope above.
+confirmations and automatically execute bounded work after independent
+sub-agent review. Two independent reviews approved this frontend-only repair
+and identified the same modal-origin focus defect. This standing direction is
+authorization for the exact scope above and no broader action.
 
 ## Stop Conditions
 
 Stop rather than widen scope if correct behavior requires Backend, API,
-persistence, dependency, workflow, external/private, Provider, or release
-changes, or if an unknown worktree change, forbidden artifact, unrepairable
-gate, or exact-SHA CI failure appears.
+persistence, route-view, dependency, workflow, external/private, Provider, or
+release changes, or if an unknown worktree change, forbidden artifact,
+unrepairable gate, or exact-SHA CI failure appears.
 
 No v1.2 candidate is assigned.
 
-## Closure Evidence
+## Local Gate Result
 
-- implementation commit:
-  `7b4ac74cd0d4b2e7ce708511387a78eb5f61b7b7`
-- exact-SHA implementation main CI:
-  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33935734608`
-- Frontend build, Backend pytest, Product E2E, dependency audit, secret audit,
-  workflow/suppression policy, and SBOM validation: PASS
-- normal-main Docker compose smoke and release evidence: skipped as designed
-- uploaded artifacts: 0
-- docs-only closure commit: this commit; exact-SHA main CI is required before
-  final reporting
-- next bounded candidate: P3-030 Shell Modal-Origin Route Focus Continuity
+The bounded implementation, 112 focused Frontend tests, 11-route production
+build, 600 Backend tests with 4 skipped, three 177-check Product E2E runs,
+security/repository gates, and two independent final reviews pass. Exact-SHA
+implementation main CI and the later docs-only closure sequence remain
+required before this task is CLOSED.

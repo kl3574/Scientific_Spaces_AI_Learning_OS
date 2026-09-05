@@ -11,10 +11,14 @@ Current task:
 `docs/tasks/CURRENT_TASK.md`
 
 Current milestone:
-P3-030 Shell Modal-Origin Route Focus Continuity (next bounded candidate)
+P3-030 Shell Modal-Origin Route Focus Continuity (active)
 
 Status:
-P3-029 PASS / CLOSED; P3-030 NOT YET ACTIVE
+P3-030 LOCAL IMPLEMENTATION PASS / EXACT-SHA CI PENDING
+
+Next gate:
+Push the P3-030 implementation commit, verify exact-SHA main CI, then create
+and verify the docs-only closure commit. No v1.2 candidate is assigned.
 
 ## Historical Notes
 

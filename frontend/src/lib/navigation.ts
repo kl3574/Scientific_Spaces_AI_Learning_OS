@@ -12,6 +12,20 @@ export type WorkspaceLocation = {
   trail: string[];
 };
 
+export type ShellNavigationEvent = {
+  preventDefault: () => void;
+};
+
+export type ShellRouteCommitAction =
+  | "initialize"
+  | "unchanged"
+  | "source"
+  | "pending"
+  | "modal"
+  | "invalidate";
+
+export type ShellPendingRouteLifecycleAction = "target" | "observe" | "wait" | "invalidate";
+
 export const PRIMARY_NAVIGATION: readonly PrimaryNavigationItem[] = [
   { id: "dashboard", href: "/", label: "Dashboard" },
   { id: "library", href: "/library", label: "Saved" },
@@ -59,6 +73,77 @@ export function resolveWorkspaceLocation(pathname: string): WorkspaceLocation {
   }
 
   return { id: "unknown", label: "Page not found", trail: ["Page not found"] };
+}
+
+export function createShellRouteIdentity(pathname: string, search: string): string {
+  const normalizedPathname = normalizePathname(pathname);
+  const parameters = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  parameters.sort();
+  const normalizedSearch = parameters.toString();
+  return normalizedSearch ? `${normalizedPathname}?${normalizedSearch}` : normalizedPathname;
+}
+
+export function resolveShellNavigationTarget(href: string, baseHref: string): string | null {
+  let base: URL;
+  let target: URL;
+  try {
+    base = new URL(baseHref);
+    target = new URL(href, base);
+  } catch {
+    return null;
+  }
+  if ((target.protocol !== "http:" && target.protocol !== "https:") || target.origin !== base.origin) {
+    return null;
+  }
+  return createShellRouteIdentity(target.pathname, target.search);
+}
+
+export function shouldUseShellMainFocus(
+  activeIsBody: boolean,
+  activeIsConnected: boolean,
+  activeIsShellOrigin: boolean,
+): boolean {
+  return activeIsBody || !activeIsConnected || activeIsShellOrigin;
+}
+
+export function resolveShellRouteCommitAction(
+  previousIdentity: string | null,
+  nextIdentity: string,
+  pendingSourceIdentity: string | null,
+  pendingTargetIdentity: string | null,
+  modalOpen: boolean,
+): ShellRouteCommitAction {
+  if (pendingTargetIdentity === nextIdentity) {
+    return "pending";
+  }
+  if (pendingSourceIdentity === nextIdentity) {
+    return "source";
+  }
+  if (previousIdentity === nextIdentity) {
+    return "unchanged";
+  }
+  if (previousIdentity === null && pendingTargetIdentity === null) {
+    return "initialize";
+  }
+  if (modalOpen) {
+    return "modal";
+  }
+  return "invalidate";
+}
+
+export function resolveShellPendingRouteLifecycleAction(
+  currentIdentity: string,
+  targetIdentity: string,
+  transitionPending: boolean,
+  transitionPendingObserved: boolean,
+): ShellPendingRouteLifecycleAction {
+  if (currentIdentity === targetIdentity) {
+    return "target";
+  }
+  if (transitionPending) {
+    return "observe";
+  }
+  return transitionPendingObserved ? "invalidate" : "wait";
 }
 
 function normalizePathname(pathname: string): string {

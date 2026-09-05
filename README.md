@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-029 PASS / CLOSED`
+- Status: `P3-030 local implementation PASS / exact-SHA CI pending`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-029 exact-SHA implementation main CI PASS`
-- Current task: `None; P3-030 Shell Modal-Origin Route Focus Continuity is next`
+- Latest gate: `P3-030 local implementation and two independent final reviews PASS`
+- Current task: `P3-030 Shell Modal-Origin Route Focus Continuity`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -50,6 +50,8 @@ P3-028 evidence: `docs/P3_028_GRAPH_READER_ROUND_TRIP_RELIABILITY_REPORT.md` (PA
 P3-028 canonical task: `docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md` (PASS / CLOSED).
 P3-029 evidence: `docs/P3_029_READER_LEARNING_MUTATION_INTEGRITY_REPORT.md` (PASS / CLOSED).
 P3-029 canonical task: `docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md` (PASS / CLOSED).
+P3-030 evidence: `docs/P3_030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY_REPORT.md` (local PASS / exact-SHA CI pending).
+P3-030 canonical task: `docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md` (active).
 
 v1.2 planning specifications:
 
@@ -190,9 +192,9 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `None`
-- Staged task: `P3-030 Shell Modal-Origin Route Focus Continuity (candidate)`
-- Status: `P3-029 PASS / CLOSED; P3-030 not yet active`
+- Active task: `P3-030 Shell Modal-Origin Route Focus Continuity`
+- Staged task: `None`
+- Status: `P3-030 local implementation PASS / exact-SHA CI pending`
 - Last closed task: `docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`

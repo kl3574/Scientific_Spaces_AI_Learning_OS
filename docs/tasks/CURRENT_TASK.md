@@ -2,12 +2,11 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md`
 
 ## Staged Task
 
-P3-030 Shell Modal-Origin Route Focus Continuity (candidate only; canonical
-task not yet created)
+None
 
 ## Last Closed Task
 
@@ -19,6 +18,7 @@ task not yet created)
 - P3-027: PASS / CLOSED
 - P3-028: PASS / CLOSED
 - P3-029: PASS / CLOSED
+- P3-030: LOCAL IMPLEMENTATION PASS / EXACT-SHA CI PENDING
 
 ## Authorization
 
@@ -44,6 +44,9 @@ task not yet created)
   documentation, isolated fake-runtime validation, local commits, non-force
   push, and exact-SHA CI execution: CONSUMED / CLOSED after this docs-only
   closure commit
+- P3-030 bounded Shell Frontend implementation, focused tests, governance
+  documentation, isolated fake-runtime validation, local commits, non-force
+  push, and exact-SHA CI execution: GRANTED / ACTIVE
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -138,10 +141,9 @@ task not yet created)
 
 ## Next Gate
 
-Verify this P3-029 docs-only closure commit on exact-SHA main CI. Then persist
-and execute the separately bounded P3-030 Shell Modal-Origin Route Focus
-Continuity task under the product owner's standing autonomous in-scope
-continuation direction. No v1.2 candidate is assigned.
+Push the locally verified P3-030 implementation commit and verify exact-SHA
+main CI. Then create the docs-only closure commit and verify its exact-SHA main
+CI. No v1.2 candidate is assigned.
 
 ## P3-029 Closure Evidence
 
@@ -158,3 +160,24 @@ continuation direction. No v1.2 candidate is assigned.
   as designed; uploaded artifacts: 0
 - docs-only closure commit: this commit; exact-SHA main CI required before
   final reporting
+
+## P3-029 Closure CI
+
+- exact-SHA closure run:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33936738702`
+- required jobs: PASS; normal-main Docker/release jobs skipped as designed;
+  uploaded artifacts: 0
+
+## P3-030 Local Evidence
+
+- focused Frontend: 112 passed
+- production build: PASS, 11 routes
+- Backend: 600 passed / 4 skipped
+- Product E2E: 3/3 runs, 177 checks each, restart persistence PASS
+- external requests, unexpected console errors, and page errors: 0
+- independent final reviews: 2 PASS, 0 Critical / 0 Important
+- workflow, suppression, secret, temporary SBOM, artifact, and protected-path
+  gates: PASS
+- evidence report:
+  `docs/P3_030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY_REPORT.md`
+- implementation commit and exact-SHA CI: pending

@@ -344,9 +344,38 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         lambda message: console_errors.append(message.text) if message.type == "error" else None,
     )
     page.on("pageerror", lambda error: _capture_page_error(page_errors, "primary", page, error))
+    page.add_init_script(
+        """
+        (() => {
+          window.__p3030HydrationFocusEvents = [];
+          window.__p3030HydrationFocusObserver = event => {
+            if (event.target instanceof HTMLElement) {
+              window.__p3030HydrationFocusEvents.push(
+                event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+              );
+            }
+          };
+          document.addEventListener('focusin', window.__p3030HydrationFocusObserver, true);
+        })();
+        """
+    )
 
     page.goto(FRONTEND_URL, wait_until="domcontentloaded")
     _wait_for_application_shell(page)
+    _wait_for_animation_frames(page, 5)
+    hydration_focus_events = page.evaluate(
+        """
+        () => {
+          document.removeEventListener('focusin', window.__p3030HydrationFocusObserver, true);
+          return window.__p3030HydrationFocusEvents;
+        }
+        """
+    )
+    _require(
+        not hydration_focus_events and page.evaluate("document.activeElement === document.body"),
+        f"initial Shell hydration moved focus without user input: {hydration_focus_events}",
+    )
+    checks["shell_initial_hydration_focus_stable"] = True
     expect(
         page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
     ).to_be_visible(timeout=30_000)
@@ -455,6 +484,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["dashboard"] = True
     checks["dashboard_command_center"] = True
     checks["desktop_application_shell"] = True
+    _verify_overlapping_shell_route_cancellation(
+        browser,
+        blocked_external=blocked_external,
+        console_errors=console_errors,
+        page_errors=page_errors,
+    )
+    checks["shell_overlapping_route_cancellation"] = True
+    _verify_shell_reader_focus_ownership(
+        browser,
+        blocked_external=blocked_external,
+        console_errors=console_errors,
+        page_errors=page_errors,
+    )
+    checks["shell_reader_destination_focus_ownership"] = True
 
     search_trigger = page.get_by_test_id("global-search-trigger-desktop")
     expect(search_trigger).to_be_visible()
@@ -483,8 +526,487 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(search_trigger).to_be_focused()
     checks["global_search_entry_focus_and_quick_navigation"] = True
 
+    page.evaluate("window.scrollTo(0, 300)")
+    page.wait_for_function("() => window.scrollY > 0")
+    search_trigger.click()
+    same_url_dialog = page.get_by_test_id("global-search-dialog")
+    same_url_dashboard = same_url_dialog.get_by_test_id(
+        "global-search-result-workspace"
+    ).filter(has_text=re.compile(r"^Dashboard"))
+    same_url_history = page.evaluate("history.length")
+    same_url_location = page.url
+    same_url_scroll = page.evaluate("window.scrollY")
+    page.evaluate(
+        """
+        () => {
+          const originalFetch = window.fetch;
+          const originalPushState = history.pushState;
+          const originalReplaceState = history.replaceState;
+          window.__p3030SameUrlActivity = { fetches: [], pushes: 0, replaces: 0 };
+          window.__p3030SameUrlOriginals = {
+            fetch: originalFetch,
+            pushState: originalPushState,
+            replaceState: originalReplaceState,
+          };
+          window.fetch = function (...args) {
+            window.__p3030SameUrlActivity.fetches.push(String(args[0]));
+            return originalFetch.apply(this, args);
+          };
+          history.pushState = function (...args) {
+            window.__p3030SameUrlActivity.pushes += 1;
+            return originalPushState.apply(this, args);
+          };
+          history.replaceState = function (...args) {
+            window.__p3030SameUrlActivity.replaces += 1;
+            return originalReplaceState.apply(this, args);
+          };
+        }
+        """
+    )
+    same_url_dashboard.focus()
+    same_url_dashboard.press("Enter")
+    expect(same_url_dialog).to_have_count(0)
+    shell_main = page.get_by_test_id("shell-main-content")
+    expect(shell_main).to_be_focused(timeout=30_000)
+    _require_visible_focus(shell_main, "same-URL Shell main")
+    _require(page.evaluate("history.length") == same_url_history, "same-URL Search added history")
+    _require(page.url == same_url_location, "same-URL Search changed the current URL")
+    _require(page.evaluate("window.scrollY") == same_url_scroll, "same-URL Search changed scroll")
+    _wait_for_animation_frames(page, 5)
+    same_url_activity = page.evaluate(
+        """
+        () => {
+          const activity = window.__p3030SameUrlActivity;
+          const originals = window.__p3030SameUrlOriginals;
+          window.fetch = originals.fetch;
+          history.pushState = originals.pushState;
+          history.replaceState = originals.replaceState;
+          delete window.__p3030SameUrlActivity;
+          delete window.__p3030SameUrlOriginals;
+          return activity;
+        }
+        """
+    )
+    _require(
+        same_url_activity == {"fetches": [], "pushes": 0, "replaces": 0},
+        f"same-URL Search reached the Router despite preventDefault: {same_url_activity}",
+    )
+    page.evaluate("window.scrollTo(0, 0)")
+    checks["shell_search_same_url_focus"] = True
+
+    search_trigger.click()
+    event_identity_search = page.get_by_test_id("global-search-dialog")
+    expect(event_identity_search.get_by_label("Search library")).to_be_focused()
+    page.evaluate(
+        """
+        () => {
+          history.replaceState(history.state, '', '/session');
+          const dashboardLink = document.querySelector(
+            '[data-testid="global-search-dialog"] '
+              + '[data-testid="global-search-result-workspace"][href="/"]'
+          );
+          if (!(dashboardLink instanceof HTMLElement)) {
+            throw new Error('Search Dashboard link is unavailable');
+          }
+          dashboardLink.click();
+        }
+        """
+    )
+    expect(event_identity_search).to_have_count(0)
+    expect(page).to_have_url(re.compile(r"/$"))
+    expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
+    expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+    checks["shell_event_time_route_identity"] = True
+
+    search_trigger.click()
+    backdrop_search = page.get_by_test_id("global-search-dialog")
+    expect(backdrop_search.get_by_label("Search library")).to_be_focused()
+    page.mouse.click(10, 500)
+    expect(backdrop_search).to_have_count(0)
+    expect(search_trigger).to_be_focused()
+    checks["shell_search_backdrop_dismissal"] = True
+
+    search_trigger.click()
+    close_button_search = page.get_by_test_id("global-search-dialog")
+    expect(close_button_search.get_by_label("Search library")).to_be_focused()
+    close_button_search.get_by_role("button", name="Close", exact=True).click()
+    expect(close_button_search).to_have_count(0)
+    expect(search_trigger).to_be_focused()
+    checks["shell_search_close_button_dismissal"] = True
+
+    search_trigger.click()
+    breakpoint_search = page.get_by_test_id("global-search-dialog")
+    breakpoint_input = breakpoint_search.get_by_label("Search library")
+    expect(breakpoint_input).to_be_focused()
+    page.set_viewport_size({"width": 800, "height": 1000})
+    breakpoint_input.press("Escape")
+    expect(breakpoint_search).to_have_count(0)
+    expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+    _require_visible_focus(page.get_by_test_id("shell-main-content"), "hidden-opener main fallback")
+    page.set_viewport_size({"width": 1440, "height": 1000})
+    expect(search_trigger).to_be_visible()
+    checks["shell_hidden_opener_fallback"] = True
+
+    search_trigger.click()
+    reopened_search = page.get_by_test_id("global-search-dialog")
+    reopened_search_input = reopened_search.get_by_label("Search library")
+    expect(reopened_search_input).to_be_focused()
+    page.evaluate(
+        """
+        () => {
+          window.__p3030ReopenFocusBehindModal = [];
+          window.__p3030ReopenFocusObserver = event => {
+            const activeDialog = document.querySelector('[data-testid="global-search-dialog"]');
+            if (activeDialog && event.target instanceof Node && !activeDialog.contains(event.target)) {
+              window.__p3030ReopenFocusBehindModal.push(
+                event.target instanceof Element
+                  ? event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+                  : 'non-element'
+              );
+            }
+          };
+          document.addEventListener('focusin', window.__p3030ReopenFocusObserver, true);
+          const dialog = document.querySelector('[data-testid="global-search-dialog"]');
+          const close = Array.from(dialog?.querySelectorAll('button') || [])
+            .find(button => button.textContent?.trim() === 'Close');
+          const trigger = document.querySelector('[data-testid="global-search-trigger-desktop"]');
+          close?.click();
+          trigger?.click();
+        }
+        """
+    )
+    expect(reopened_search).to_be_visible()
+    expect(reopened_search_input).to_be_focused(timeout=30_000)
+    _wait_for_animation_frames(page, 5)
+    reopen_focus_events = page.evaluate(
+        """
+        () => {
+          document.removeEventListener('focusin', window.__p3030ReopenFocusObserver, true);
+          return window.__p3030ReopenFocusBehindModal;
+        }
+        """
+    )
+    _require(
+        reopen_focus_events == [],
+        f"stale dismissal focused behind the reopened Search modal: {reopen_focus_events}",
+    )
+    reopened_search_input.press("Escape")
+    expect(reopened_search).to_have_count(0)
+    expect(search_trigger).to_be_focused()
+    checks["shell_stale_dismiss_focus_cancelled"] = True
+
+    search_trigger.click()
+    superseded_search = page.get_by_test_id("global-search-dialog")
+    expect(superseded_search.get_by_label("Search library")).to_be_focused()
+    page.evaluate(
+        """
+        () => {
+          window.__p3030OriginalRequestAnimationFrame = window.requestAnimationFrame.bind(window);
+          window.__p3030HeldFocusFrames = [];
+          window.requestAnimationFrame = callback => {
+            window.__p3030HeldFocusFrames.push(callback);
+            return 900000 + window.__p3030HeldFocusFrames.length;
+          };
+        }
+        """
+    )
+    superseded_search.get_by_test_id("global-search-result-workspace").filter(
+        has_text=re.compile(r"^Dashboard")
+    ).click()
+    expect(superseded_search).to_have_count(0)
+    page.evaluate(
+        """
+        () => {
+          if (window.__p3030HeldFocusFrames.length !== 1) {
+            throw new Error(
+              `expected one first-generation main-focus frame, got ${window.__p3030HeldFocusFrames.length}`
+            );
+          }
+          const firstGeneration = window.__p3030HeldFocusFrames.shift();
+          firstGeneration(performance.now());
+          if (window.__p3030HeldFocusFrames.length !== 1) {
+            throw new Error(
+              `first-generation frame did not schedule exactly one nested frame: ${window.__p3030HeldFocusFrames.length}`
+            );
+          }
+        }
+        """
+    )
+    page.evaluate(
+        "() => { window.requestAnimationFrame = window.__p3030OriginalRequestAnimationFrame; }"
+    )
+    session_navigation = page.get_by_test_id("primary-nav-session")
+    session_navigation.click()
+    expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    page.wait_for_timeout(50)
+    session_navigation = page.get_by_test_id("primary-nav-session")
+    session_navigation.focus()
+    page.evaluate(
+        """
+        () => {
+          const originalRequestAnimationFrame = window.__p3030OriginalRequestAnimationFrame;
+          window.requestAnimationFrame = callback => {
+            window.__p3030HeldFocusFrames.push(callback);
+            return 920000 + window.__p3030HeldFocusFrames.length;
+          };
+          try {
+            for (let generation = 0; generation < 4; generation += 1) {
+              const callbacks = window.__p3030HeldFocusFrames.splice(0);
+              if (callbacks.length === 0) break;
+              callbacks.forEach(callback => callback(performance.now()));
+            }
+            if (window.__p3030HeldFocusFrames.length > 0) {
+              throw new Error('stale main-focus RAF chain exceeded its bound');
+            }
+          } finally {
+            window.requestAnimationFrame = originalRequestAnimationFrame;
+          }
+        }
+        """
+    )
+    expect(session_navigation).to_be_focused()
+    page.get_by_test_id("primary-nav-dashboard").click()
+    expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
+    search_trigger = page.get_by_test_id("global-search-trigger-desktop")
+    checks["shell_new_route_invalidates_stale_focus"] = True
+
+    search_trigger.click()
+    stale_opener_search = page.get_by_test_id("global-search-dialog")
+    stale_opener_input = stale_opener_search.get_by_label("Search library")
+    expect(stale_opener_input).to_be_focused()
+    page.evaluate(
+        """
+        () => {
+          window.__p3030OriginalRequestAnimationFrame = window.requestAnimationFrame.bind(window);
+          window.__p3030HeldFocusFrames = [];
+          window.requestAnimationFrame = callback => {
+            window.__p3030HeldFocusFrames.push(callback);
+            return 910000 + window.__p3030HeldFocusFrames.length;
+          };
+        }
+        """
+    )
+    stale_opener_input.press("Escape")
+    expect(stale_opener_search).to_have_count(0)
+    page.evaluate(
+        "() => { window.requestAnimationFrame = window.__p3030OriginalRequestAnimationFrame; }"
+    )
+    page.go_back()
+    expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    page.wait_for_timeout(50)
+    session_navigation = page.get_by_test_id("primary-nav-session")
+    session_navigation.focus()
+    page.evaluate(
+        """
+        () => {
+          const originalRequestAnimationFrame = window.__p3030OriginalRequestAnimationFrame;
+          window.requestAnimationFrame = callback => {
+            window.__p3030HeldFocusFrames.push(callback);
+            return 930000 + window.__p3030HeldFocusFrames.length;
+          };
+          try {
+            for (let generation = 0; generation < 4; generation += 1) {
+              const callbacks = window.__p3030HeldFocusFrames.splice(0);
+              if (callbacks.length === 0) break;
+              callbacks.forEach(callback => callback(performance.now()));
+            }
+            if (window.__p3030HeldFocusFrames.length > 0) {
+              throw new Error('stale opener RAF chain exceeded its bound');
+            }
+          } finally {
+            window.requestAnimationFrame = originalRequestAnimationFrame;
+          }
+        }
+        """
+    )
+    expect(session_navigation).to_be_focused()
+    page.get_by_test_id("primary-nav-dashboard").click()
+    expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
+    search_trigger = page.get_by_test_id("global-search-trigger-desktop")
+    checks["shell_new_route_invalidates_stale_opener"] = True
+
+    search_trigger.click()
+    modified_search = page.get_by_test_id("global-search-dialog")
+    modified_session = modified_search.get_by_test_id(
+        "global-search-result-workspace"
+    ).filter(has_text=re.compile(r"^Session"))
+    modified_location = page.url
+    page.evaluate(
+        """
+        () => {
+          window.__p3030ModifiedFocusBehindModal = [];
+          window.__p3030ModifiedFocusObserver = event => {
+            const dialog = document.querySelector('[data-testid="global-search-dialog"]');
+            if (dialog && event.target instanceof Node && !dialog.contains(event.target)) {
+              window.__p3030ModifiedFocusBehindModal.push(
+                event.target instanceof Element
+                  ? event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+                  : 'non-element'
+              );
+            }
+          };
+          document.addEventListener('focusin', window.__p3030ModifiedFocusObserver, true);
+        }
+        """
+    )
+
+    def attach_modified_page_observers(candidate) -> None:
+        candidate.on(
+            "console",
+            lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        )
+        candidate.on(
+            "pageerror",
+            lambda error: _capture_page_error(page_errors, "modified-search", candidate, error),
+        )
+
+    context.on("page", attach_modified_page_observers)
+    with context.expect_page(timeout=10_000) as modified_page_info:
+        modified_session.click(modifiers=["Control"])
+    modified_page = modified_page_info.value
+    context.remove_listener("page", attach_modified_page_observers)
+    modified_page.wait_for_load_state("domcontentloaded")
+    _wait_for_application_shell(modified_page)
+    expect(modified_page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    _require(modified_page.url.endswith("/session"), f"modified Search opened wrong URL: {modified_page.url}")
+    modified_page.close()
+    page.bring_to_front()
+    expect(modified_search).to_be_visible()
+    _require(page.url == modified_location, "modified Search navigation changed the current page")
+    _wait_for_animation_frames(page, 5)
+    _require(
+        page.evaluate(
+            """
+            () => document.querySelector('[data-testid="global-search-dialog"]')
+              ?.contains(document.activeElement) === true
+            """
+        ),
+        "modified Search activation moved focus behind the open modal",
+    )
+    modified_focus_events = page.evaluate(
+        """
+        () => {
+          document.removeEventListener('focusin', window.__p3030ModifiedFocusObserver, true);
+          return window.__p3030ModifiedFocusBehindModal;
+        }
+        """
+    )
+    _require(
+        modified_focus_events == [],
+        f"modified Search activation armed focus behind the modal: {modified_focus_events}",
+    )
+    page.keyboard.press("Escape")
+    expect(modified_search).to_have_count(0)
+    expect(search_trigger).to_be_focused()
+    checks["shell_modified_navigation_preserves_modal"] = True
+
+    search_trigger.click()
+    slow_route_search = page.get_by_test_id("global-search-dialog")
+    slow_route_search.get_by_label("Search library").fill("CRB")
+    slow_graph_result = slow_route_search.get_by_role(
+        "link", name=re.compile(r"^crb\s+Concept\s+·\s+Knowledge Graph$", re.I)
+    )
+    expect(slow_graph_result).to_be_visible(timeout=30_000)
+    slow_graph_href = str(slow_graph_result.get_attribute("href") or "")
+    _require(slow_graph_href.startswith("/graph?"), f"slow Graph target is invalid: {slow_graph_href}")
+    page.evaluate(
+        """
+        targetHref => {
+          const originalFetch = window.fetch;
+          const target = new URL(targetHref, location.href);
+          window.__p3030SlowRouteActivity = {
+            delayedRequests: [],
+            frameCount: 0,
+            prematureMainFocus: false,
+            originalFetch,
+            targetRoute: `${target.pathname}${target.search}`,
+          };
+          window.__p3030SlowRouteFocusObserver = event => {
+            const activity = window.__p3030SlowRouteActivity;
+            if (
+              `${location.pathname}${location.search}` !== activity.targetRoute
+              && event.target instanceof Element
+              && event.target.getAttribute('data-testid') === 'shell-main-content'
+            ) {
+              activity.prematureMainFocus = true;
+            }
+          };
+          document.addEventListener('focusin', window.__p3030SlowRouteFocusObserver, true);
+          window.fetch = async function (...args) {
+            const input = args[0];
+            const url = input instanceof Request ? input.url : String(input);
+            const activity = window.__p3030SlowRouteActivity;
+            if (
+              url.includes('/graph?')
+              && url.includes('_rsc=')
+              && activity.delayedRequests.length === 0
+            ) {
+              activity.delayedRequests.push(url);
+              await new Promise(resolve => {
+                const nextFrame = () => {
+                  activity.frameCount += 1;
+                  if (activity.frameCount > 120) {
+                    resolve();
+                    return;
+                  }
+                  requestAnimationFrame(nextFrame);
+                };
+                requestAnimationFrame(nextFrame);
+              });
+            }
+            return originalFetch.apply(this, args);
+          };
+        }
+        """,
+        slow_graph_href,
+    )
+    slow_graph_result.click()
+    expect(slow_route_search).to_have_count(0)
+    expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    slow_route_main = page.get_by_test_id("shell-main-content")
+    expect(slow_route_main).to_be_focused(timeout=30_000)
+    _wait_for_animation_frames(page, 5)
+    expect(slow_route_main).to_be_focused()
+    _require_visible_focus(slow_route_main, "slow Search route destination")
+    slow_route_activity = page.evaluate(
+        """
+        () => {
+          const activity = window.__p3030SlowRouteActivity;
+          document.removeEventListener('focusin', window.__p3030SlowRouteFocusObserver, true);
+          window.fetch = activity.originalFetch;
+          delete window.__p3030SlowRouteActivity;
+          delete window.__p3030SlowRouteFocusObserver;
+          return {
+            delayedRequests: activity.delayedRequests,
+            frameCount: activity.frameCount,
+            prematureMainFocus: activity.prematureMainFocus,
+          };
+        }
+        """
+    )
+    _require(
+        len(slow_route_activity["delayedRequests"]) == 1,
+        "slow Shell route probe did not delay one RSC request: "
+        f"{slow_route_activity['delayedRequests']}",
+    )
+    _require(
+        slow_route_activity["frameCount"] > 120,
+        f"slow Shell route probe observed too few frames: {slow_route_activity['frameCount']}",
+    )
+    _require(
+        slow_route_activity["prematureMainFocus"] is False,
+        "Shell focused main before the delayed route committed",
+    )
+    checks["shell_slow_route_focus_ownership"] = True
+    page.get_by_test_id("primary-nav-dashboard").click()
+    expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
+    search_trigger = page.get_by_test_id("global-search-trigger-desktop")
+
     search_trigger.click()
     search_dialog = page.get_by_test_id("global-search-dialog")
+    search_dialog.get_by_label("Search library").fill("")
     session_workspace_result = search_dialog.get_by_test_id(
         "global-search-result-workspace"
     ).filter(has_text=re.compile(r"^Session"))
@@ -493,6 +1015,9 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
     expect(page.get_by_test_id("study-session-empty")).to_be_visible()
     expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "session")
+    expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+    _require_visible_focus(page.get_by_test_id("shell-main-content"), "Search workspace destination")
+    checks["shell_search_workspace_route_focus"] = True
     page.get_by_role("link", name="Dashboard", exact=True).click()
     expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
     search_trigger = page.get_by_test_id("global-search-trigger-desktop")
@@ -555,6 +1080,39 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["global_search_partial_failure_and_keyboard"] = True
 
     search_trigger.click()
+    article_route_search = page.get_by_test_id("global-search-dialog")
+    article_route_search.get_by_label("Search library").fill("CRB")
+    article_route_result = article_route_search.get_by_test_id("global-search-result-article").first
+    expect(article_route_result).to_be_visible(timeout=30_000)
+    page.route(
+        re.compile(r".*/learning/sessions$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "session_id": "p3-030-shell-focus-probe",
+                    "article_id": CRB_ARTICLE_ID,
+                    "started_at": "2026-09-05T01:00:00Z",
+                    "ended_at": None,
+                    "duration_seconds": None,
+                    "source": "reader",
+                }
+            ),
+        ),
+        times=1,
+    )
+    article_route_result.click()
+    expect(article_route_search).to_have_count(0)
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+    _require_visible_focus(page.get_by_test_id("shell-main-content"), "Search Article destination")
+    page.go_back()
+    expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
+    search_trigger = page.get_by_test_id("global-search-trigger-desktop")
+    checks["shell_search_article_route_focus"] = True
+
+    search_trigger.click()
     search_dialog = page.get_by_test_id("global-search-dialog")
     search_input = search_dialog.get_by_label("Search library")
     page.evaluate(
@@ -602,6 +1160,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(
         timeout=30_000
     )
+    expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+    _require_visible_focus(page.get_by_test_id("shell-main-content"), "Search Graph destination")
     _require("node_id=concept%3Aattention" in page.url, f"Graph deep link was not preserved: {page.url}")
     checks["global_search_reference_and_graph_deep_link"] = True
 
@@ -626,6 +1186,176 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"same-route Graph navigation diverged from its URL: {page.url}",
     )
     checks["global_search_same_route_graph_navigation"] = True
+
+    same_route_selected.press("Control+k")
+    shortcut_search = page.get_by_test_id("global-search-dialog")
+    shortcut_input = shortcut_search.get_by_label("Search library")
+    expect(shortcut_input).to_be_focused()
+    shortcut_input.fill("Attention")
+    shortcut_graph_result = shortcut_search.get_by_role(
+        "link", name=re.compile(r"^attention\s+Concept\s+·\s+Knowledge Graph$", re.I)
+    )
+    expect(shortcut_graph_result).to_be_visible(timeout=30_000)
+    page.evaluate(
+        """
+        () => {
+          window.__p3030ShortcutRouteFocusEvents = [];
+          window.__p3030ShortcutRouteFocusObserver = event => {
+            if (event.target instanceof HTMLElement) {
+              window.__p3030ShortcutRouteFocusEvents.push(
+                event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+              );
+            }
+          };
+          document.addEventListener('focusin', window.__p3030ShortcutRouteFocusObserver, true);
+        }
+        """
+    )
+    shortcut_graph_result.focus()
+    shortcut_graph_result.press("Enter")
+    expect(shortcut_search).to_have_count(0)
+    shortcut_selected = page.get_by_test_id("graph-selected-region")
+    expect(shortcut_selected.get_by_role("heading", name=re.compile(r"^attention$", re.I))).to_be_visible(
+        timeout=30_000
+    )
+    expect(shortcut_selected).to_be_focused(timeout=30_000)
+    _wait_for_animation_frames(page, 5)
+    shortcut_focus_events = page.evaluate(
+        """
+        () => {
+          document.removeEventListener('focusin', window.__p3030ShortcutRouteFocusObserver, true);
+          return window.__p3030ShortcutRouteFocusEvents;
+        }
+        """
+    )
+    expect(shortcut_selected).to_be_focused()
+    _require(
+        "shell-main-content" not in shortcut_focus_events,
+        f"Shell stole shortcut-origin Graph focus: {shortcut_focus_events}",
+    )
+    page.go_back()
+    same_route_selected = page.get_by_test_id("graph-selected-region")
+    expect(same_route_selected.get_by_role("heading", name=re.compile(r"^crb$", re.I))).to_be_visible(
+        timeout=30_000
+    )
+    expect(same_route_selected).to_be_focused(timeout=30_000)
+    checks["shell_shortcut_destination_focus_ownership"] = True
+
+    page.evaluate(
+        """
+        () => {
+          window.__p3030FocusBehindModal = [];
+          window.__p3030FocusObserver = event => {
+            const modal = document.querySelector('[aria-modal="true"]');
+            if (modal && event.target instanceof Node && !modal.contains(event.target)) {
+              window.__p3030FocusBehindModal.push(
+                event.target instanceof HTMLElement
+                  ? event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+                  : 'non-element'
+              );
+            }
+          };
+          document.addEventListener('focusin', window.__p3030FocusObserver, true);
+        }
+        """
+    )
+    page.get_by_test_id("global-search-trigger-desktop").click()
+    history_search = page.get_by_test_id("global-search-dialog")
+    expect(history_search).to_be_visible()
+    page.go_back()
+    expect(history_search).to_have_count(0)
+    history_selected = page.get_by_test_id("graph-selected-region")
+    expect(history_selected.get_by_role("heading", name=re.compile(r"^attention$", re.I))).to_be_visible(
+        timeout=30_000
+    )
+    expect(history_selected).to_be_focused(timeout=30_000)
+    _require_visible_focus(history_selected, "Graph Back destination")
+    _wait_for_animation_frames(page, 5)
+    expect(history_selected).to_be_focused()
+
+    page.get_by_test_id("global-search-trigger-desktop").click()
+    history_search = page.get_by_test_id("global-search-dialog")
+    expect(history_search).to_be_visible()
+    page.go_forward()
+    expect(history_search).to_have_count(0)
+    history_selected = page.get_by_test_id("graph-selected-region")
+    expect(history_selected.get_by_role("heading", name=re.compile(r"^crb$", re.I))).to_be_visible(
+        timeout=30_000
+    )
+    expect(history_selected).to_be_focused(timeout=30_000)
+    _require_visible_focus(history_selected, "Graph Forward destination")
+    _wait_for_animation_frames(page, 5)
+    expect(history_selected).to_be_focused()
+    focus_behind_modal = page.evaluate(
+        """
+        () => {
+          document.removeEventListener('focusin', window.__p3030FocusObserver, true);
+          return window.__p3030FocusBehindModal;
+        }
+        """
+    )
+    _require(not focus_behind_modal, f"route focus escaped a mounted Shell modal: {focus_behind_modal}")
+    checks["shell_query_history_modal_focus"] = True
+
+    page.get_by_test_id("primary-nav-session").click()
+    expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    page.evaluate(
+        """
+        () => {
+          window.__p3030PathFocusBehindModal = [];
+          window.__p3030PathFocusObserver = event => {
+            const modal = document.querySelector('[aria-modal="true"]');
+            if (modal && event.target instanceof Node && !modal.contains(event.target)) {
+              window.__p3030PathFocusBehindModal.push(
+                event.target instanceof HTMLElement
+                  ? event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+                  : 'non-element'
+              );
+            }
+          };
+          document.addEventListener('focusin', window.__p3030PathFocusObserver, true);
+        }
+        """
+    )
+    page.get_by_test_id("global-search-trigger-desktop").click()
+    pathname_history_search = page.get_by_test_id("global-search-dialog")
+    expect(pathname_history_search.get_by_label("Search library")).to_be_focused()
+    page.go_back()
+    expect(pathname_history_search).to_have_count(0)
+    pathname_history_selected = page.get_by_test_id("graph-selected-region")
+    expect(pathname_history_selected.get_by_role("heading", name=re.compile(r"^crb$", re.I))).to_be_visible(
+        timeout=30_000
+    )
+    pathname_history_main = page.get_by_test_id("shell-main-content")
+    expect(pathname_history_main).to_be_focused(timeout=30_000)
+    _require_visible_focus(pathname_history_main, "pathname Back destination")
+    _wait_for_animation_frames(page, 5)
+    expect(pathname_history_main).to_be_focused()
+
+    page.get_by_test_id("global-search-trigger-desktop").click()
+    pathname_history_search = page.get_by_test_id("global-search-dialog")
+    expect(pathname_history_search.get_by_label("Search library")).to_be_focused()
+    page.go_forward()
+    expect(pathname_history_search).to_have_count(0)
+    expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
+    pathname_history_main = page.get_by_test_id("shell-main-content")
+    expect(pathname_history_main).to_be_focused(timeout=30_000)
+    _require_visible_focus(pathname_history_main, "pathname Forward destination")
+    _wait_for_animation_frames(page, 5)
+    expect(pathname_history_main).to_be_focused()
+    pathname_focus_behind_modal = page.evaluate(
+        """
+        () => {
+          document.removeEventListener('focusin', window.__p3030PathFocusObserver, true);
+          return window.__p3030PathFocusBehindModal;
+        }
+        """
+    )
+    _require(
+        not pathname_focus_behind_modal,
+        f"pathname history focus escaped a mounted Shell modal: {pathname_focus_behind_modal}",
+    )
+    checks["shell_pathname_history_modal_focus"] = True
 
     page.get_by_role("link", name="Dashboard", exact=True).click()
     expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
@@ -1656,6 +2386,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     concept_context_region = page.locator("#graph-context-workspace")
     expect(page.get_by_test_id("graph-visualization")).to_be_visible(timeout=30_000)
     expect(page.get_by_test_id("graph-map-counts")).to_contain_text("relationships")
+    graph_edge = page.locator('.react-flow__edge[tabindex="0"]').first
+    expect(graph_edge).to_be_visible(timeout=30_000)
+    graph_edge.focus()
+    expect(graph_edge).to_be_focused()
+    graph_edge.press("Control+k")
+    svg_opener_search = page.get_by_test_id("global-search-dialog")
+    expect(svg_opener_search.get_by_label("Search library")).to_be_focused()
+    svg_opener_search.get_by_label("Search library").press("Escape")
+    expect(svg_opener_search).to_have_count(0)
+    expect(graph_edge).to_be_focused()
+    checks["shell_svg_opener_focus_restoration"] = True
     graph_article_node = page.get_by_role("button", name=re.compile(r"^Article: ")).first
     expect(graph_article_node).to_be_visible()
     graph_article_node.press("Enter")
@@ -5689,6 +6430,25 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(mobile_menu_button).to_be_focused()
     checks["mobile_navigation_focus_and_escape"] = True
 
+    mobile_menu_button.click()
+    mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
+    close_navigation = mobile_page.get_by_role("button", name="Close navigation", exact=True)
+    expect(close_navigation).to_be_focused()
+    close_navigation.click()
+    expect(mobile_navigation).to_have_count(0)
+    expect(mobile_menu_button).to_be_focused()
+    checks["shell_drawer_close_button_dismissal"] = True
+
+    mobile_menu_button.click()
+    mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
+    expect(mobile_navigation).to_be_visible()
+    mobile_page.get_by_role("button", name="Close navigation overlay", exact=True).click(
+        position={"x": 10, "y": 200}
+    )
+    expect(mobile_navigation).to_have_count(0)
+    expect(mobile_menu_button).to_be_focused()
+    checks["shell_drawer_backdrop_dismissal"] = True
+
     stat_boxes = mobile_page.locator('[data-testid="dashboard-stats"] > div').evaluate_all(
         "nodes => nodes.map(node => node.getBoundingClientRect()).map(box => ({x: box.x, y: box.y}))"
     )
@@ -5717,6 +6477,24 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(mobile_page.get_by_test_id("application-shell")).to_have_attribute(
         "data-workspace", "library"
     )
+    mobile_shell_main = mobile_page.get_by_test_id("shell-main-content")
+    expect(mobile_shell_main).to_be_focused(timeout=30_000)
+    _require_visible_focus(mobile_shell_main, "mobile Drawer destination")
+    mobile_same_url_history = mobile_page.evaluate("history.length")
+    mobile_same_url_location = mobile_page.url
+    mobile_page.get_by_role("button", name="Open navigation", exact=True).click()
+    mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
+    expect(mobile_navigation).to_be_visible()
+    mobile_navigation.get_by_role("link", name="Saved", exact=True).click()
+    expect(mobile_navigation).to_have_count(0)
+    expect(mobile_shell_main).to_be_focused(timeout=30_000)
+    _require_visible_focus(mobile_shell_main, "mobile same-URL Drawer destination")
+    _require(
+        mobile_page.evaluate("history.length") == mobile_same_url_history,
+        "mobile same-URL Drawer navigation added history",
+    )
+    _require(mobile_page.url == mobile_same_url_location, "mobile same-URL Drawer changed URL")
+    checks["shell_mobile_drawer_route_focus"] = True
     expect(mobile_page.get_by_role("button", name="Continue (0)", exact=True)).to_be_visible(
         timeout=30_000
     )
@@ -6702,6 +7480,302 @@ def _wait_for_application_shell(page) -> None:
         "data-hydrated",
         "true",
         timeout=30_000,
+    )
+
+
+def _verify_shell_reader_focus_ownership(
+    browser,
+    *,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+) -> None:
+    from playwright.sync_api import expect
+
+    context = browser.new_context(viewport={"width": 1440, "height": 1000}, locale="zh-CN")
+    _install_network_guard(context, blocked_external)
+    context.add_init_script(
+        """
+        window.IntersectionObserver = class {
+          constructor() {}
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+          takeRecords() { return []; }
+        };
+        """
+    )
+    page = context.new_page()
+    page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    page.on(
+        "pageerror",
+        lambda error: _capture_page_error(page_errors, "shell-reader-owner", page, error),
+    )
+    delayed_requests: list[str] = []
+    delayed_session_pattern = re.compile(r".*/session(?:\?.*)?$")
+
+    def delay_session(route) -> None:
+        if "_rsc=" in route.request.url:
+            delayed_requests.append(route.request.url)
+            time.sleep(2.5)
+        route.continue_()
+
+    page.route(delayed_session_pattern, delay_session)
+    page.route(
+        re.compile(r".*/learning/sessions$"),
+        lambda route: route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "session_id": "p3-030-reader-owner-probe",
+                    "article_id": ATTENTION_ARTICLE_ID,
+                    "started_at": "2026-09-05T01:00:00Z",
+                    "ended_at": None,
+                    "duration_seconds": None,
+                    "source": "reader",
+                }
+            ),
+        ),
+        times=1,
+    )
+    try:
+        page.goto(
+            f"{FRONTEND_URL}/graph?node_id=concept%3Aattention&q=Attention",
+            wait_until="domcontentloaded",
+        )
+        _wait_for_application_shell(page)
+        expect(page.get_by_role("heading", name="Concept Provenance", exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        graph_article_link = page.get_by_role("link", name="Open article", exact=True).first
+        expect(graph_article_link).to_be_visible(timeout=30_000)
+        graph_article_href = str(graph_article_link.get_attribute("href") or "")
+        _require(
+            graph_article_href.startswith(f"/articles/{ATTENTION_ARTICLE_ID}")
+            and "from=" in graph_article_href,
+            f"Graph Reader ownership probe found an invalid Article href: {graph_article_href}",
+        )
+        graph_article_link.evaluate(
+            "element => element.setAttribute('data-p3030-reader-race-link', 'true')"
+        )
+
+        page.get_by_test_id("global-search-trigger-desktop").click()
+        dialog = page.get_by_test_id("global-search-dialog")
+        expect(dialog.get_by_label("Search library")).to_be_focused()
+        page.evaluate(
+            """
+            () => {
+              window.__p3030ReaderOwnerActions = [];
+              window.__p3030ReaderOwnerFocusEvents = [];
+              window.__p3030ReaderOwnerFocusObserver = event => {
+                if (event.target instanceof Element) {
+                  window.__p3030ReaderOwnerFocusEvents.push(
+                    event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+                  );
+                }
+              };
+              document.addEventListener('focusin', window.__p3030ReaderOwnerFocusObserver, true);
+              setTimeout(() => {
+                const articleLink = document.querySelector('[data-p3030-reader-race-link="true"]');
+                window.__p3030ReaderOwnerActions.push(
+                  articleLink ? 'reader' : 'missing-reader'
+                );
+                articleLink?.click();
+              }, 150);
+            }
+            """
+        )
+        dialog.get_by_test_id("global-search-result-workspace").filter(
+            has_text=re.compile(r"^Session")
+        ).click()
+        expect(page).to_have_url(re.compile(rf"/articles/{ATTENTION_ARTICLE_ID}\?"), timeout=30_000)
+        reader_heading = page.locator("article#article-start > h1")
+        expect(reader_heading).to_have_text(ATTENTION_TITLE, timeout=30_000)
+        expect(reader_heading).to_be_focused(timeout=30_000)
+        _wait_for_animation_frames(page, 5)
+        focus_evidence = page.evaluate(
+            """
+            () => {
+              document.removeEventListener(
+                'focusin',
+                window.__p3030ReaderOwnerFocusObserver,
+                true
+              );
+              return {
+                actions: window.__p3030ReaderOwnerActions,
+                focusEvents: window.__p3030ReaderOwnerFocusEvents,
+              };
+            }
+            """
+        )
+        expect(reader_heading).to_be_focused()
+        _require_visible_focus(reader_heading, "Shell-armed Reader heading")
+        _require(
+            focus_evidence["actions"] == ["reader"],
+            f"Reader ownership action did not execute: {focus_evidence['actions']}",
+        )
+        _require(
+            "shell-main-content" not in focus_evidence["focusEvents"],
+            f"Shell stole Reader destination focus: {focus_evidence['focusEvents']}",
+        )
+        _require(
+            len(delayed_requests) == 1 and "/session?" in delayed_requests[0],
+            f"Reader ownership probe did not delay the Shell route: {delayed_requests}",
+        )
+    finally:
+        page.unroute(delayed_session_pattern, delay_session)
+        context.close()
+
+
+def _verify_overlapping_shell_route_cancellation(
+    browser,
+    *,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+) -> None:
+    from playwright.sync_api import expect
+
+    context = browser.new_context(viewport={"width": 1440, "height": 1000}, locale="zh-CN")
+    _install_network_guard(context, blocked_external)
+    context.add_init_script(
+        """
+        window.IntersectionObserver = class {
+          constructor() {}
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+          takeRecords() { return []; }
+        };
+        """
+    )
+    page = context.new_page()
+    page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    page.on(
+        "pageerror",
+        lambda error: _capture_page_error(page_errors, "shell-overlap", page, error),
+    )
+    delayed_requests: list[str] = []
+    delayed_route_pattern = re.compile(r".*/(?:session|library)(?:\?.*)?$")
+
+    def delay_route(route) -> None:
+        if "_rsc=" in route.request.url:
+            delayed_requests.append(route.request.url)
+            time.sleep(2.5)
+        route.continue_()
+
+    page.route(delayed_route_pattern, delay_route)
+    try:
+        page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        page.evaluate("history.pushState(history.state, '', '/')")
+        page.get_by_test_id("global-search-trigger-desktop").click()
+        dialog = page.get_by_test_id("global-search-dialog")
+        expect(dialog.get_by_label("Search library")).to_be_focused()
+        page.evaluate(
+            """
+            () => {
+              window.__p3030OverlapActions = [];
+              window.__p3030OverlapFocusBehindModal = [];
+              window.__p3030OverlapFocusObserver = event => {
+                const activeDialog = document.querySelector('[data-testid="global-search-dialog"]');
+                if (activeDialog && event.target instanceof Node && !activeDialog.contains(event.target)) {
+                  window.__p3030OverlapFocusBehindModal.push(
+                    event.target instanceof Element
+                      ? event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+                      : 'non-element'
+                  );
+                }
+              };
+              document.addEventListener('focusin', window.__p3030OverlapFocusObserver, true);
+              setTimeout(() => {
+                const trigger = document.querySelector(
+                  '[data-testid="global-search-trigger-desktop"]'
+                );
+                window.__p3030OverlapActions.push(trigger ? 'reopen' : 'missing-reopen');
+                trigger?.click();
+              }, 150);
+              setTimeout(() => {
+                const saved = document.querySelector(
+                  '[data-testid="global-search-dialog"] '
+                    + '[data-testid="global-search-result-workspace"][href="/library"]'
+                );
+                window.__p3030OverlapActions.push(saved ? 'saved' : 'missing-saved');
+                saved?.click();
+              }, 350);
+              setTimeout(() => {
+                window.__p3030OverlapActions.push('back');
+                history.back();
+              }, 650);
+            }
+            """
+        )
+        dialog.get_by_test_id("global-search-result-workspace").filter(
+            has_text=re.compile(r"^Session")
+        ).click()
+        expect(page).to_have_url(re.compile(r"/$"), timeout=30_000)
+        expect(page.get_by_test_id("global-search-dialog")).to_have_count(0)
+        main = page.get_by_test_id("shell-main-content")
+        expect(main).to_be_focused(timeout=30_000)
+        _wait_for_animation_frames(page, 5)
+        expect(main).to_be_focused()
+        _require_visible_focus(main, "overlapping canceled Shell route")
+        overlap_evidence = page.evaluate(
+            """
+            () => {
+              document.removeEventListener('focusin', window.__p3030OverlapFocusObserver, true);
+              return {
+                actions: window.__p3030OverlapActions,
+                focusBehindModal: window.__p3030OverlapFocusBehindModal,
+              };
+            }
+            """
+        )
+        _require(
+            overlap_evidence["actions"] == ["reopen", "saved", "back"],
+            f"overlapping Shell actions did not execute in order: "
+            f"{overlap_evidence['actions']}",
+        )
+        _require(
+            overlap_evidence["focusBehindModal"] == [],
+            "overlapping Shell route focused behind a reopened modal: "
+            f"{overlap_evidence['focusBehindModal']}",
+        )
+        _require(
+            len(delayed_requests) == 2
+            and any("/session?" in url for url in delayed_requests)
+            and any("/library?" in url for url in delayed_requests),
+            f"overlapping Shell route probe did not delay both RSC requests: {delayed_requests}",
+        )
+    finally:
+        page.unroute(delayed_route_pattern, delay_route)
+        context.close()
+
+
+def _wait_for_animation_frames(page, count: int) -> None:
+    page.evaluate(
+        """
+        frameCount => new Promise(resolve => {
+          let remaining = Math.max(1, frameCount);
+          const next = () => {
+            remaining -= 1;
+            if (remaining === 0) {
+              resolve();
+              return;
+            }
+            requestAnimationFrame(next);
+          };
+          requestAnimationFrame(next);
+        })
+        """,
+        count,
     )
 
 

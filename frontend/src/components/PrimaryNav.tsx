@@ -2,7 +2,11 @@
 
 import Link from "next/link";
 
-import { PRIMARY_NAVIGATION, isNavigationItemActive } from "@/lib/navigation";
+import {
+  PRIMARY_NAVIGATION,
+  isNavigationItemActive,
+  type ShellNavigationEvent,
+} from "@/lib/navigation";
 
 export function PrimaryNav({
   activePathname,
@@ -11,7 +15,7 @@ export function PrimaryNav({
 }: Readonly<{
   activePathname: string | null;
   variant?: "rail" | "drawer";
-  onNavigate?: () => void;
+  onNavigate?: (href: string, event: ShellNavigationEvent) => void;
 }>) {
   return (
     <nav aria-label="Primary" className="w-full" data-variant={variant}>
@@ -29,7 +33,7 @@ export function PrimaryNav({
                 }
                 data-testid={`primary-nav-${item.id}`}
                 href={item.href}
-                onClick={onNavigate}
+                onNavigate={(event) => onNavigate?.(item.href, event)}
               >
                 <span
                   aria-hidden="true"

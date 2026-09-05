@@ -13,15 +13,18 @@ import {
   type GlobalSearchResponse,
   type GlobalSearchResult,
 } from "@/lib/globalSearch";
+import type { ShellNavigationEvent } from "@/lib/navigation";
 
 type SearchStatus = "idle" | "loading" | "loaded" | "error";
 
 export function GlobalSearchDialog({
   open,
-  onClose,
+  onDismiss,
+  onNavigate,
 }: Readonly<{
   open: boolean;
-  onClose: (restoreFocus: boolean) => void;
+  onDismiss: () => void;
+  onNavigate: (href: string, event: ShellNavigationEvent) => void;
 }>) {
   const [query, setQuery] = useState("");
   const [response, setResponse] = useState<GlobalSearchResponse | null>(null);
@@ -107,7 +110,7 @@ export function GlobalSearchDialog({
   function handleKeyDown(event: ReactKeyboardEvent<HTMLDivElement>) {
     if (event.key === "Escape") {
       event.preventDefault();
-      onClose(true);
+      onDismiss();
       return;
     }
 
@@ -151,12 +154,15 @@ export function GlobalSearchDialog({
 
   return (
     <div className="fixed inset-0 z-[70]" data-testid="global-search-dialog">
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 bg-slate-950/45" />
       <div
-        aria-hidden="true"
-        className="absolute inset-0 bg-slate-950/45"
-        onMouseDown={() => onClose(true)}
-      />
-      <div className="relative flex min-h-full items-start justify-center p-2 sm:p-6">
+        className="relative flex min-h-full items-start justify-center p-2 sm:p-6"
+        onMouseDown={(event) => {
+          if (event.target === event.currentTarget) {
+            onDismiss();
+          }
+        }}
+      >
         <div
           ref={dialogRef}
           aria-label="Global search"
@@ -197,7 +203,7 @@ export function GlobalSearchDialog({
             <button
               className="min-h-11 shrink-0 rounded-md border border-slate-300 px-3 text-sm font-semibold text-slate-700 hover:border-slate-500 hover:bg-slate-50"
               type="button"
-              onClick={() => onClose(true)}
+              onClick={onDismiss}
             >
               Close
             </button>
@@ -217,7 +223,7 @@ export function GlobalSearchDialog({
                     resultOffset={findGroupOffset(groups, group.key)}
                     selectedIndex={selectedIndex}
                     onFocusResult={setSelectedIndex}
-                    onNavigate={() => onClose(false)}
+                    onNavigate={onNavigate}
                   />
                 ))}
               </div>
@@ -304,7 +310,7 @@ function SearchResultGroup({
   resultOffset: number;
   selectedIndex: number;
   onFocusResult: (index: number) => void;
-  onNavigate: () => void;
+  onNavigate: (href: string, event: ShellNavigationEvent) => void;
 }>) {
   return (
     <section aria-labelledby={`global-search-group-${group.key}`} className="py-2">
@@ -332,9 +338,10 @@ function SearchResultGroup({
                 data-result-index={index}
                 data-testid={`global-search-result-${result.kind}`}
                 href={result.href}
-                onClick={onNavigate}
+                prefetch={false}
                 onFocus={() => onFocusResult(index)}
                 onMouseMove={() => onFocusResult(index)}
+                onNavigate={(event) => onNavigate(result.href, event)}
               >
                 <span className="block break-words text-sm font-semibold leading-5">{result.title}</span>
                 <span className="mt-0.5 block break-words text-xs leading-5 text-slate-500">
