@@ -1,7 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
+import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 
+import { toPlainTextPreview } from "@/lib/articlePresentation";
 import {
   ReferencePage,
   ReferenceRecord,
@@ -9,19 +12,37 @@ import {
   referenceErrorMessage,
   referenceHref,
 } from "@/lib/references";
+import {
+  DEFAULT_REFERENCE_REVIEW_STATE,
+  createArticleReferenceReturnPath,
+  createReferenceReviewHref,
+  rememberReferenceDetailFocus,
+  referenceRowId,
+} from "@/lib/referenceReview";
 
 const PAGE_SIZE = 20;
 
 export function StructuredReferencesPanel({ articleId }: Readonly<{ articleId: string }>) {
-  const [page, setPage] = useState(1);
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const routePage = parseReferencePage(searchParams.get("reference_page"));
+  const [page, setPage] = useState(routePage);
   const [data, setData] = useState<ReferencePage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const focusedReturnTarget = useRef<string | null>(null);
+
+  useEffect(() => {
+    setPage(routePage);
+    setData(null);
+    focusedReturnTarget.current = null;
+  }, [articleId, routePage]);
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError(null);
+    setData(null);
     fetchArticleReferences(articleId, { page, pageSize: PAGE_SIZE })
       .then((response) => {
         if (active) {
@@ -44,8 +65,32 @@ export function StructuredReferencesPanel({ articleId }: Readonly<{ articleId: s
     };
   }, [articleId, page]);
 
+  useEffect(() => {
+    if (!data?.items.length || typeof window === "undefined") {
+      return;
+    }
+    const hash = decodeHash(window.location.hash);
+    if (!hash.startsWith("structured-reference-") || focusedReturnTarget.current === hash) {
+      return;
+    }
+    const target = document.getElementById(hash);
+    if (!target) {
+      return;
+    }
+    const frame = window.requestAnimationFrame(() => {
+      target.scrollIntoView({ block: "center" });
+      target.focus({ preventScroll: true });
+      focusedReturnTarget.current = hash;
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [data]);
+
   return (
-    <section className="mt-8 border-t border-slate-200 pt-6" aria-labelledby="structured-references-heading">
+    <section
+      className="mt-8 border-t border-slate-200 pt-6"
+      aria-busy={loading}
+      aria-labelledby="structured-references-heading"
+    >
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 id="structured-references-heading" className="text-lg font-semibold">
           Structured References
@@ -66,8 +111,26 @@ export function StructuredReferencesPanel({ articleId }: Readonly<{ articleId: s
       {data?.items.length ? (
         <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
           {data.items.map((record) => (
-            <li key={record.reference_id} className="py-4">
-              <ReferenceRow record={record} />
+            <li
+              key={record.reference_id}
+              id={referenceRowId(record.reference_id)}
+              className="scroll-mt-24 py-4 outline-none focus:ring-2 focus:ring-sky-600 focus:ring-offset-4"
+              data-reference-id={record.reference_id}
+              tabIndex={-1}
+            >
+              <ReferenceRow
+                record={record}
+                reviewHref={createReferenceReviewHref({
+                  ...DEFAULT_REFERENCE_REVIEW_STATE,
+                  referenceId: record.reference_id,
+                  returnTo: createArticleReferenceReturnPath({
+                    articleId,
+                    referenceId: record.reference_id,
+                    referencePage: page,
+                    currentArticlePath: `${pathname}${searchParams.size ? `?${searchParams.toString()}` : ""}`,
+                  }),
+                })}
+              />
             </li>
           ))}
         </ul>
@@ -100,9 +163,16 @@ export function StructuredReferencesPanel({ articleId }: Readonly<{ articleId: s
   );
 }
 
-function ReferenceRow({ record }: Readonly<{ record: ReferenceRecord }>) {
+function ReferenceRow({
+  record,
+  reviewHref,
+}: Readonly<{
+  record: ReferenceRecord;
+  reviewHref: string;
+}>) {
   const href = referenceHref(record);
   const identity = record.normalized_identifier ?? record.normalized_url ?? record.evidence_text;
+  const reviewLabel = toPlainTextPreview(identity, 120) || "unidentified reference";
 
   return (
     <div className="min-w-0">
@@ -122,10 +192,48 @@ function ReferenceRow({ record }: Readonly<{ record: ReferenceRecord }>) {
           identity
         )}
       </p>
-      <p className="mt-2 break-words text-sm leading-6 text-slate-600 [overflow-wrap:anywhere]">{record.evidence_text}</p>
-      <p className="mt-2 text-xs text-slate-500">
-        Section: {record.source_section || "Article root"}
+      <p className="mt-2 break-words text-sm leading-6 text-slate-600 [overflow-wrap:anywhere]">
+        {record.evidence_text}
       </p>
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-xs text-slate-500">
+          Section: {record.source_section || "Article root"}
+        </p>
+        <Link
+          className="border border-slate-300 px-3 py-2 text-xs font-medium text-slate-800 hover:border-slate-950 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-600"
+          href={reviewHref}
+          aria-label={`Review Zotero candidates for ${reviewLabel}`}
+          onClick={(event) => rememberReviewFocus(event, record.reference_id)}
+        >
+          Review candidates
+        </Link>
+      </div>
     </div>
   );
+}
+
+function parseReferencePage(value: string | null): number {
+  const page = Number.parseInt(value ?? "", 10);
+  return Number.isSafeInteger(page) && page > 0 ? Math.min(page, 100_000) : 1;
+}
+
+function decodeHash(hash: string): string {
+  try {
+    return decodeURIComponent(hash.replace(/^#/, ""));
+  } catch {
+    return "";
+  }
+}
+
+function rememberReviewFocus(event: ReactMouseEvent<HTMLAnchorElement>, referenceId: string): void {
+  if (
+    event.button === 0
+    && !event.altKey
+    && !event.ctrlKey
+    && !event.metaKey
+    && !event.shiftKey
+    && event.currentTarget.target !== "_blank"
+  ) {
+    rememberReferenceDetailFocus(referenceId);
+  }
 }

@@ -11,8 +11,15 @@ import {
 } from "@/lib/zotero";
 import { ZoteroReferenceReview } from "@/components/ZoteroReferenceReview";
 import { WorkspaceState } from "@/components/WorkspaceState";
+import {
+  ReferenceReviewState,
+} from "@/lib/referenceReview";
 
-export function ZoteroLibraryView() {
+export function ZoteroLibraryView({
+  initialReferenceState,
+}: Readonly<{
+  initialReferenceState: ReferenceReviewState;
+}>) {
   const [status, setStatus] = useState<ZoteroStatus | null>(null);
   const [query, setQuery] = useState("attention");
   const [items, setItems] = useState<ZoteroItem[]>([]);
@@ -81,17 +88,23 @@ export function ZoteroLibraryView() {
         {status?.error ? <p className="mt-3 text-sm text-slate-600">{status.error}</p> : null}
       </section>
 
-      <ZoteroReferenceReview />
+      <ZoteroReferenceReview initialState={initialReferenceState} />
 
       <section className="rounded border border-slate-200 bg-white p-4">
         <form className="flex flex-col gap-3 sm:flex-row" onSubmit={handleSearch}>
+          <label className="sr-only" htmlFor="zotero-library-query">Search Zotero library</label>
           <input
+            id="zotero-library-query"
             className="min-w-0 flex-1 rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950"
             placeholder="Search title, creator, tag"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
-          <button className="rounded bg-slate-950 px-4 py-2 text-sm font-medium text-white" type="submit">
+          <button
+            aria-label="Search Zotero library"
+            className="rounded bg-slate-950 px-4 py-2 text-sm font-medium text-white"
+            type="submit"
+          >
             Search
           </button>
         </form>

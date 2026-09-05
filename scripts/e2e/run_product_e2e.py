@@ -1491,6 +1491,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.wait_for_function(
         "() => Number(document.querySelector('[data-testid=reading-progress]')?.getAttribute('aria-valuenow') || 0) > 0"
     )
+    expect(target_outline_link).to_have_attribute("aria-current", "location")
     expect(outline.locator('[aria-current="location"]')).to_have_text("数值检查")
     progress_value = int(page.get_by_test_id("reading-progress").get_attribute("aria-valuenow") or "0")
     _require(0 < progress_value <= 100, f"reader progress is out of bounds: {progress_value}")
@@ -6686,6 +6687,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     mobile_context.close()
 
     checks.update(
+        _verify_structured_reference_review_round_trip(
+            browser,
+            blocked_external=blocked_external,
+            console_errors=console_errors,
+            page_errors=page_errors,
+        )
+    )
+
+    checks.update(
         _verify_zotero_links_panel_integrity(
             browser,
             iteration=iteration,
@@ -6727,6 +6737,1145 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console_error_count": len(unexpected_console_errors),
         "page_error_count": len(page_errors),
     }
+
+
+def _verify_structured_reference_review_round_trip(
+    browser,
+    *,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+) -> dict[str, bool]:
+    from playwright.sync_api import expect
+
+    checks: dict[str, bool] = {}
+    context = browser.new_context(viewport={"width": 1440, "height": 900}, locale="zh-CN")
+    _install_network_guard(context, blocked_external)
+    page = _new_observed_page(
+        context,
+        console_errors,
+        page_errors,
+        label="P3-033 reference review",
+    )
+    reference_api_requests: list[str] = []
+
+    def track_reference_api_request(request) -> None:
+        parsed = urlparse(request.url)
+        if (
+            parsed.hostname in {"127.0.0.1", "localhost", "::1"}
+            and parsed.path.startswith("/v1.2/references")
+        ):
+            reference_api_requests.append(request.url)
+
+    page.on("request", track_reference_api_request)
+
+    page.goto(
+        f"{FRONTEND_URL}/zotero?page=1&candidate=all&unknown=discard&q=%20attention%20",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(page)
+    expect(page).to_have_url(f"{FRONTEND_URL}/zotero?q=attention", timeout=30_000)
+    checks["reference_inbound_url_canonicalization"] = True
+
+    page.goto(
+        f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Farticles%3Fq%3DCRB",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(page)
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    review_link = page.get_by_role(
+        "link",
+        name=re.compile(r"^Review Zotero candidates for "),
+    ).first
+    expect(review_link).to_be_visible(timeout=30_000)
+    source_row = review_link.locator("xpath=ancestor::li[1]")
+    reference_id = source_row.get_attribute("data-reference-id")
+    _require(bool(reference_id), "Article review action is missing its exact reference identity")
+    source_row_id = source_row.get_attribute("id")
+    _require(bool(source_row_id), "Article structured reference row is missing its focus target id")
+    provenance_requests = {"count": 0}
+    provenance_pattern = re.compile(
+        rf".*/v1\.2/references/{re.escape(str(reference_id))}(?:\?.*)?$"
+    )
+
+    def provide_bounded_provenance(route) -> None:
+        response = route.fetch()
+        payload = response.json()
+        base_evidence = dict(payload["evidence"][0])
+        payload["record"]["source_count"] = 25
+        payload["evidence"] = [
+            {
+                **base_evidence,
+                "evidence_id": f"p3-033-evidence-{index + 1}",
+                "source_article_id": (
+                    CRB_ARTICLE_ID if index % 2 == 0 else ATTENTION_ARTICLE_ID
+                ),
+                "source_article_title": (
+                    CRB_TITLE if index % 2 == 0 else ATTENTION_TITLE
+                ),
+                "source_article_url": (
+                    "https://spaces.ac.cn/archives/crb"
+                    if index % 2 == 0
+                    else "https://spaces.ac.cn/archives/attention"
+                ),
+                "source_section": f"Evidence section {index + 1}",
+                "evidence_text": f"Bounded provenance occurrence {index + 1}",
+                "candidate_ordinal": index,
+            }
+            for index in range(20)
+        ]
+        payload["evidence_total"] = 25
+        payload["provenance_limit"] = 20
+        payload["provenance_truncated"] = True
+        provenance_requests["count"] += 1
+        route.fulfill(
+            status=response.status,
+            content_type="application/json",
+            body=json.dumps(payload),
+        )
+
+    page.route(provenance_pattern, provide_bounded_provenance)
+    initial_reference_reader_session = page.get_by_role("button", name="End session", exact=True)
+    expect(initial_reference_reader_session).to_be_enabled(timeout=30_000)
+    initial_reference_reader_session.click()
+    expect(initial_reference_reader_session).to_be_disabled()
+    review_link.click()
+
+    page.wait_for_function(
+        "expected => new URL(location.href).searchParams.get('reference_id') === expected",
+        arg=str(reference_id),
+        timeout=30_000,
+    )
+    selected_detail = page.get_by_test_id("selected-reference-detail")
+    review_workspace = page.get_by_test_id("reference-review-workspace")
+    expect(selected_detail).to_have_attribute("data-reference-id", str(reference_id), timeout=30_000)
+    expect(selected_detail).to_be_focused(timeout=30_000)
+    _require_visible_focus(selected_detail, "selected structured reference")
+    expect(selected_detail).to_contain_text(CRB_TITLE)
+    expect(selected_detail).to_contain_text("References")
+    _require(
+        any("provenance_limit=20" in request for request in reference_api_requests),
+        f"selected reference did not request the frozen maximum provenance bound: {reference_api_requests}",
+    )
+    provenance_disclosure = selected_detail.locator("details")
+    provenance_disclosure.get_by_text("Show provenance occurrences", exact=True).click()
+    expect(provenance_disclosure.locator("li")).to_have_count(20)
+    expect(provenance_disclosure.get_by_role("link", name=CRB_TITLE, exact=True).first).to_be_visible()
+    expect(provenance_disclosure.get_by_role("link", name=ATTENTION_TITLE, exact=True).first).to_be_visible()
+    expect(provenance_disclosure).to_contain_text(
+        "Showing the API-bounded 20 of 25 occurrences; the complete count remains visible."
+    )
+    _require(provenance_requests["count"] == 1, "bounded provenance fixture did not own one detail request")
+    _require(
+        "return_to=" in page.url and "%23structured-reference-" in page.url,
+        f"reference deep link lost its bounded Article return: {page.url}",
+    )
+    page.reload(wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    selected_detail = page.get_by_test_id("selected-reference-detail")
+    expect(selected_detail).to_have_attribute("data-reference-id", str(reference_id), timeout=30_000)
+    _require(provenance_requests["count"] == 2, "reload did not restore bounded provenance detail")
+    page.unroute(provenance_pattern, provide_bounded_provenance)
+    checks["reference_exact_deep_link_and_detail_focus"] = True
+    checks["reference_reload_and_bounded_provenance"] = True
+
+    page.get_by_role("link", name="Back to source reference", exact=True).click()
+    expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
+    returned_row = page.locator(f'[data-reference-id="{reference_id}"]')
+    expect(returned_row).to_have_attribute("id", str(source_row_id))
+    expect(returned_row).to_be_focused(timeout=30_000)
+    _require_visible_focus(returned_row, "returned structured reference row")
+    _require("reference_page=" not in page.url, f"page-one return persisted redundant state: {page.url}")
+    reference_reader_session = page.get_by_role("button", name="End session", exact=True)
+    expect(reference_reader_session).to_be_enabled(timeout=30_000)
+    reference_reader_session.click()
+    expect(reference_reader_session).to_be_disabled()
+    checks["reference_owned_article_return_focus"] = True
+
+    page.go_back()
+    expect(selected_detail).to_have_attribute("data-reference-id", str(reference_id), timeout=30_000)
+    selected_url = page.url
+
+    selected_reference_payload = _api_json(
+        context,
+        "GET",
+        f"/v1.2/references/{reference_id}?provenance_limit=1",
+    )
+    selected_record = selected_reference_payload["record"]
+    alternate_article_pattern = re.compile(
+        rf".*/v1\.2/articles/{re.escape(ATTENTION_ARTICLE_ID)}/references(?:\?.*)?$"
+    )
+    alternate_article_requests = {"count": 0}
+
+    def provide_alternate_article_reference(route) -> None:
+        alternate_article_requests["count"] += 1
+        if alternate_article_requests["count"] == 2:
+            route.fulfill(
+                status=503,
+                content_type="application/json",
+                body=json.dumps({"detail": "intentional Article return verification failure"}),
+            )
+            return
+        requested_page = parse_qs(urlparse(route.request.url).query).get("page", ["1"])[0]
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "items": [selected_record] if requested_page == "1" else [],
+                    "total": 1,
+                    "page": int(requested_page),
+                    "page_size": 20,
+                    "total_pages": 1,
+                    "has_next": False,
+                    "has_previous": False,
+                    "article_id": ATTENTION_ARTICLE_ID,
+                    "reference_type": None,
+                    "classification": None,
+                }
+            ),
+        )
+
+    page.route(alternate_article_pattern, provide_alternate_article_reference)
+    page.goto(
+        f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}?from=%2Farticles%3Fq%3DAttention",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(page)
+    expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    alternate_review_link = page.get_by_role(
+        "link", name=re.compile(r"^Review Zotero candidates for ")
+    ).first
+    alternate_row = alternate_review_link.locator("xpath=ancestor::li[1]")
+    expect(alternate_row).to_have_attribute("data-reference-id", str(reference_id))
+    alternate_session = page.get_by_role("button", name="End session", exact=True)
+    expect(alternate_session).to_be_enabled(timeout=30_000)
+    alternate_session.click()
+    expect(alternate_session).to_be_disabled()
+    alternate_review_link.click()
+    page.wait_for_function(
+        "expected => new URL(location.href).searchParams.get('reference_id') === expected",
+        arg=str(reference_id),
+        timeout=30_000,
+    )
+    alternate_selected_detail = page.get_by_test_id("selected-reference-detail")
+    expect(alternate_selected_detail).to_have_attribute(
+        "data-reference-id", str(reference_id), timeout=30_000
+    )
+    expect(alternate_selected_detail.get_by_role("alert")).to_contain_text(
+        "Return verification failed: intentional Article return verification failure",
+        timeout=30_000,
+    )
+    page.evaluate(
+        """
+        articleId => {
+          const originalFetch = window.fetch.bind(window);
+          window.__p3033PendingReturnRetryFetch = originalFetch;
+          window.fetch = async (...args) => {
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const url = new URL(target);
+            if (url.pathname === `/v1.2/articles/${encodeURIComponent(articleId)}/references`) {
+              await new Promise(resolve => setTimeout(resolve, 600));
+            }
+            return originalFetch(...args);
+          };
+        }
+        """,
+        ATTENTION_ARTICLE_ID,
+    )
+    page.get_by_role("button", name="Retry return verification", exact=True).click()
+    expect(alternate_selected_detail).to_be_focused(timeout=1_000)
+    expect(page.get_by_text("Verifying originating Article return...", exact=True)).to_be_visible(
+        timeout=1_000
+    )
+    alternate_return = page.get_by_role("link", name="Back to source reference", exact=True)
+    expect(alternate_return).to_be_visible(timeout=30_000)
+    page.evaluate(
+        """
+        () => {
+          window.fetch = window.__p3033PendingReturnRetryFetch;
+          delete window.__p3033PendingReturnRetryFetch;
+        }
+        """
+    )
+    expect(alternate_selected_detail).to_be_focused()
+    expect(alternate_return).to_have_attribute(
+        "href", re.compile(rf"^/articles/{re.escape(ATTENTION_ARTICLE_ID)}\?")
+    )
+    alternate_return.click()
+    expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    alternate_returned_row = page.locator(f'[data-reference-id="{reference_id}"]')
+    expect(alternate_returned_row).to_be_focused(timeout=30_000)
+    _require_focus_in_viewport(
+        alternate_returned_row,
+        "alternate source Article reference return",
+    )
+    alternate_return_session = page.get_by_role("button", name="End session", exact=True)
+    expect(alternate_return_session).to_be_enabled(timeout=30_000)
+    alternate_return_session.click()
+    expect(alternate_return_session).to_be_disabled()
+    page.unroute(alternate_article_pattern, provide_alternate_article_reference)
+    _require(
+        alternate_article_requests["count"] >= 4,
+        f"Article return failure/retry/readback path was incomplete: {alternate_article_requests}",
+    )
+    checks["reference_multi_article_owned_return"] = True
+    checks["reference_return_verification_retry_focus"] = True
+
+    page.goto(selected_url, wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    page_two_pattern = re.compile(
+        rf".*/v1\.2/articles/{re.escape(CRB_ARTICLE_ID)}/references(?:\?.*)?$"
+    )
+
+    def provide_reference_page_two(route) -> None:
+        requested_page = parse_qs(urlparse(route.request.url).query).get("page", ["1"])[0]
+        if requested_page != "2":
+            route.continue_()
+            return
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "items": [selected_record],
+                    "total": 21,
+                    "page": 2,
+                    "page_size": 20,
+                    "total_pages": 2,
+                    "has_next": False,
+                    "has_previous": True,
+                    "article_id": CRB_ARTICLE_ID,
+                    "reference_type": None,
+                    "classification": None,
+                }
+            ),
+        )
+
+    page.route(page_two_pattern, provide_reference_page_two)
+    page_two_return = (
+        f"/articles/{CRB_ARTICLE_ID}?from=%2Farticles%3Fq%3DCRB&reference_page=2"
+        f"#structured-reference-{reference_id}"
+    )
+    page.goto(
+        f"{FRONTEND_URL}/zotero?{urlencode({'reference_id': reference_id, 'return_to': page_two_return})}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(page)
+    expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
+        "data-reference-id", str(reference_id), timeout=30_000
+    )
+    page.get_by_role("link", name="Back to source reference", exact=True).click()
+    expect(page).to_have_url(re.compile(r"reference_page=2.*#structured-reference-"), timeout=30_000)
+    page_two_row = page.locator(f'[data-reference-id="{reference_id}"]')
+    expect(page_two_row).to_be_focused(timeout=30_000)
+    _require_focus_in_viewport(page_two_row, "page-two structured reference return")
+    page_two_reader_session = page.get_by_role("button", name="End session", exact=True)
+    expect(page_two_reader_session).to_be_enabled(timeout=30_000)
+    page_two_reader_session.click()
+    expect(page_two_reader_session).to_be_disabled()
+    page.unroute(page_two_pattern, provide_reference_page_two)
+    checks["reference_page_two_owned_return_focus"] = True
+
+    out_of_range_pattern = re.compile(r".*/v1\.2/references\?.*")
+    out_of_range_requests: list[int] = []
+
+    def provide_out_of_range_page(route) -> None:
+        parsed = urlparse(route.request.url)
+        query = parse_qs(parsed.query)
+        if query.get("q", [""])[0] != "p3-033-out-of-range":
+            route.continue_()
+            return
+        requested_page = int(query.get("page", ["1"])[0])
+        out_of_range_requests.append(requested_page)
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "items": [
+                        {**selected_record, "source_article_title": "LAST AVAILABLE PAGE"}
+                    ] if requested_page == 3 else [],
+                    "total": 41,
+                    "page": requested_page,
+                    "page_size": 20,
+                    "total_pages": 3,
+                    "has_next": requested_page < 3,
+                    "has_previous": requested_page > 1,
+                    "reference_type": None,
+                    "classification": None,
+                    "query": "p3-033-out-of-range",
+                }
+            ),
+        )
+
+    page.route(out_of_range_pattern, provide_out_of_range_page)
+    page.goto(
+        f"{FRONTEND_URL}/zotero?q=p3-033-out-of-range&page=100000",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(page)
+    expect(page).to_have_url(
+        f"{FRONTEND_URL}/zotero?q=p3-033-out-of-range&page=3",
+        timeout=30_000,
+    )
+    expect(page.get_by_text("LAST AVAILABLE PAGE", exact=True)).to_be_visible(timeout=30_000)
+    expect(page.get_by_text("No references match these filters.", exact=True)).to_have_count(0)
+    _require(
+        out_of_range_requests == [100000, 3],
+        f"out-of-range page did not canonicalize exactly once: {out_of_range_requests}",
+    )
+    page.unroute(out_of_range_pattern, provide_out_of_range_page)
+    checks["reference_out_of_range_page_canonicalization"] = True
+
+    pagination_pattern = re.compile(r".*/v1\.2/references\?.*")
+
+    def provide_reference_pagination(route) -> None:
+        query = parse_qs(urlparse(route.request.url).query)
+        if query.get("q", [""])[0] != "p3-033-pagination":
+            route.continue_()
+            return
+        requested_page = int(query.get("page", ["1"])[0])
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "items": [
+                        {
+                            **selected_record,
+                            "source_article_title": f"PAGINATION PAGE {requested_page}",
+                        }
+                    ],
+                    "total": 41,
+                    "page": requested_page,
+                    "page_size": 20,
+                    "total_pages": 3,
+                    "has_next": requested_page < 3,
+                    "has_previous": requested_page > 1,
+                    "reference_type": None,
+                    "classification": None,
+                    "query": "p3-033-pagination",
+                }
+            ),
+        )
+
+    page.route(pagination_pattern, provide_reference_pagination)
+    page.goto(
+        f"{FRONTEND_URL}/zotero?q=p3-033-pagination",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(page)
+    review_workspace = page.get_by_test_id("reference-review-workspace")
+    results_heading = page.get_by_role("heading", name="Reference results", exact=True)
+    result_pages = review_workspace.get_by_role(
+        "navigation", name="Reference result pages", exact=True
+    )
+    expect(review_workspace.get_by_text("PAGINATION PAGE 1", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    result_pages.get_by_role("button", name="Next", exact=True).click()
+    expect(page).to_have_url(
+        f"{FRONTEND_URL}/zotero?q=p3-033-pagination&page=2", timeout=30_000
+    )
+    expect(review_workspace.get_by_text("PAGINATION PAGE 2", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    expect(results_heading).to_be_focused(timeout=30_000)
+    page.reload(wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    review_workspace = page.get_by_test_id("reference-review-workspace")
+    results_heading = page.get_by_role("heading", name="Reference results", exact=True)
+    result_pages = review_workspace.get_by_role(
+        "navigation", name="Reference result pages", exact=True
+    )
+    expect(review_workspace.get_by_text("PAGINATION PAGE 2", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    result_pages.get_by_role("button", name="Previous", exact=True).click()
+    expect(page).to_have_url(f"{FRONTEND_URL}/zotero?q=p3-033-pagination", timeout=30_000)
+    expect(review_workspace.get_by_text("PAGINATION PAGE 1", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    expect(results_heading).to_be_focused(timeout=30_000)
+    page.go_back()
+    expect(page).to_have_url(
+        f"{FRONTEND_URL}/zotero?q=p3-033-pagination&page=2", timeout=30_000
+    )
+    expect(review_workspace.get_by_text("PAGINATION PAGE 2", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    page.go_forward()
+    expect(page).to_have_url(f"{FRONTEND_URL}/zotero?q=p3-033-pagination", timeout=30_000)
+    expect(review_workspace.get_by_text("PAGINATION PAGE 1", exact=True)).to_be_visible(
+        timeout=30_000
+    )
+    page.unroute(pagination_pattern, provide_reference_pagination)
+    checks["reference_pagination_reload_history"] = True
+
+    page.goto(selected_url, wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    review_workspace = page.get_by_test_id("reference-review-workspace")
+    expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
+        "data-reference-id", str(reference_id), timeout=30_000
+    )
+    review_workspace.get_by_label("Search references", exact=True).fill("10.1000")
+    review_workspace.locator("#reference-type").select_option("doi")
+    review_workspace.get_by_role(
+        "button", name="Search structured references", exact=True
+    ).click()
+    results_heading = page.get_by_role("heading", name="Reference results", exact=True)
+    expect(results_heading).to_be_focused(timeout=30_000)
+    expect(page).to_have_url(re.compile(r"/zotero\?q=10\.1000&reference_type=doi"), timeout=30_000)
+    expect(page.get_by_test_id("selected-reference-detail")).to_have_count(0)
+    filtered_url = page.url
+    page.go_back()
+    expect(page).to_have_url(selected_url, timeout=30_000)
+    expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
+        "data-reference-id", str(reference_id), timeout=30_000
+    )
+    page.go_forward()
+    expect(page).to_have_url(filtered_url, timeout=30_000)
+    expect(page.get_by_role("heading", name="Reference results", exact=True)).to_be_visible()
+    checks["reference_filter_url_history_restore"] = True
+
+    result_buttons = page.get_by_test_id("reference-result-list").locator("button")
+    expect(result_buttons.first).to_be_visible(timeout=30_000)
+    result_buttons.first.click()
+    selected_detail = page.get_by_test_id("selected-reference-detail")
+    expect(selected_detail).to_be_focused(timeout=30_000)
+    requests_before_candidate_filter = len(reference_api_requests)
+    review_workspace.get_by_label("Search references", exact=True).fill(
+        "unsaved candidate navigation draft"
+    )
+    page.get_by_role("button", name="Unmatched", exact=True).click()
+    unmatched_filter = page.get_by_role("button", name="Unmatched", exact=True)
+    expect(unmatched_filter).to_be_focused(timeout=30_000)
+    _require_focus_in_viewport(unmatched_filter, "candidate filter")
+    expect(unmatched_filter).to_have_attribute("aria-pressed", "true")
+    expect(review_workspace.get_by_label("Search references", exact=True)).to_have_value(
+        "unsaved candidate navigation draft"
+    )
+    _require("candidate=unmatched" in page.url, f"candidate filter is not canonical URL state: {page.url}")
+    page.wait_for_timeout(250)
+    _require(
+        len(reference_api_requests) == requests_before_candidate_filter,
+        "local candidate filtering unexpectedly re-fetched reference APIs: "
+        f"before={requests_before_candidate_filter}, after={len(reference_api_requests)}",
+    )
+    checks["reference_candidate_filter_focus_and_url"] = True
+    checks["reference_candidate_filter_is_local"] = True
+    unmatched_url = page.url
+    page.reload(wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    review_workspace = page.get_by_test_id("reference-review-workspace")
+    expect(review_workspace.get_by_role("button", name="Unmatched", exact=True)).to_have_attribute(
+        "aria-pressed", "true", timeout=30_000
+    )
+    page.go_back()
+    expect(review_workspace.get_by_role("button", name="All", exact=True)).to_have_attribute(
+        "aria-pressed", "true", timeout=30_000
+    )
+    page.go_forward()
+    expect(page).to_have_url(unmatched_url, timeout=30_000)
+    expect(review_workspace.get_by_role("button", name="Unmatched", exact=True)).to_have_attribute(
+        "aria-pressed", "true", timeout=30_000
+    )
+    checks["reference_candidate_filter_reload_history"] = True
+
+    failure_pattern = re.compile(r".*/v1\.2/references\?.*")
+    failed_attempts = {"count": 0}
+
+    def fail_reference_results_once(route) -> None:
+        parsed = urlparse(route.request.url)
+        query = parse_qs(parsed.query).get("q", [""])[0]
+        if query == "p3-033-failure" and failed_attempts["count"] < 2:
+            failed_attempts["count"] += 1
+            route.fulfill(
+                status=503,
+                content_type="application/json",
+                body=json.dumps(
+                    {
+                        "detail": (
+                            "intentional P3-033 reference result failure "
+                            f"{failed_attempts['count']}"
+                        )
+                    }
+                ),
+            )
+            return
+        route.continue_()
+
+    page.route(failure_pattern, fail_reference_results_once)
+    review_workspace.get_by_label("Search references", exact=True).fill("p3-033-failure")
+    review_workspace.locator("#reference-type").select_option("")
+    review_workspace.get_by_role(
+        "button", name="Search structured references", exact=True
+    ).click()
+    expect(review_workspace.get_by_role("alert")).to_contain_text(
+        "intentional P3-033 reference result failure 1", timeout=30_000
+    )
+    page.evaluate(
+        """
+        () => {
+          const originalFetch = window.fetch.bind(window);
+          window.__p3033PendingListRetryFetch = originalFetch;
+          window.fetch = async (...args) => {
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const url = new URL(target);
+            if (url.pathname === '/v1.2/references'
+                && url.searchParams.get('q') === 'p3-033-failure') {
+              await new Promise(resolve => setTimeout(resolve, 600));
+            }
+            return originalFetch(...args);
+          };
+        }
+        """
+    )
+    review_workspace.get_by_role("button", name="Retry reference results", exact=True).click()
+    expect(results_heading).to_be_focused(timeout=1_000)
+    expect(page.get_by_text("Loading reference results...", exact=True)).to_be_visible(
+        timeout=1_000
+    )
+    expect(review_workspace.get_by_role("alert")).to_contain_text(
+        "intentional P3-033 reference result failure 2", timeout=30_000
+    )
+    page.evaluate(
+        """
+        () => {
+          window.fetch = window.__p3033PendingListRetryFetch;
+          delete window.__p3033PendingListRetryFetch;
+        }
+        """
+    )
+    expect(results_heading).to_be_focused(timeout=30_000)
+    _require_focus_in_viewport(results_heading, "failed reference result retry destination")
+    review_workspace.get_by_role("button", name="Retry reference results", exact=True).click()
+    expect(page.get_by_text("No references match these filters.", exact=True)).to_be_visible(timeout=30_000)
+    expect(results_heading).to_be_focused(timeout=30_000)
+    _require_focus_in_viewport(results_heading, "reference result retry destination")
+    _require(failed_attempts["count"] == 2, "reference failure/retry probe did not intercept twice")
+    page.unroute(failure_pattern, fail_reference_results_once)
+    checks["reference_result_failure_retry_truth"] = True
+
+    page.goto(f"{FRONTEND_URL}/zotero", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    review_workspace = page.get_by_test_id("reference-review-workspace")
+    page.evaluate(
+        """
+        async apiBase => {
+          const originalFetch = window.fetch.bind(window);
+          const response = await originalFetch(`${apiBase}/v1.2/references?page=1&page_size=1`);
+          const seed = (await response.json()).items[0];
+          window.__p3033ListOriginalFetch = originalFetch;
+          window.__p3033ListRequests = [];
+          const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+          window.fetch = async (...args) => {
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const url = new URL(target);
+            if (url.pathname !== '/v1.2/references') return originalFetch(...args);
+            const query = url.searchParams.get('q');
+            if (!['p3-033-slow-list', 'p3-033-fast-list'].includes(query)) {
+              return originalFetch(...args);
+            }
+            window.__p3033ListRequests.push(query);
+            if (query === 'p3-033-slow-list') await wait(800);
+            const label = query === 'p3-033-slow-list' ? 'STALE LIST A' : 'CURRENT LIST B';
+            return new Response(JSON.stringify({
+              items: [{ ...seed, source_article_title: label }],
+              total: 1, page: 1, page_size: 20, total_pages: 1,
+              has_next: false, has_previous: false, query,
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          };
+        }
+        """,
+        "http://localhost:8000",
+    )
+    review_workspace.get_by_label("Search references", exact=True).fill("p3-033-slow-list")
+    review_workspace.get_by_role(
+        "button", name="Search structured references", exact=True
+    ).click()
+    page.wait_for_function(
+        "() => window.__p3033ListRequests?.includes('p3-033-slow-list')",
+        timeout=30_000,
+    )
+    expect(review_workspace.get_by_role(
+        "button", name="Search structured references", exact=True
+    )).to_be_enabled(
+        timeout=30_000
+    )
+    review_workspace.get_by_label("Search references", exact=True).fill("p3-033-fast-list")
+    review_workspace.get_by_role(
+        "button", name="Search structured references", exact=True
+    ).click()
+    expect(review_workspace.get_by_text("CURRENT LIST B", exact=True)).to_be_visible(timeout=30_000)
+    page.wait_for_timeout(1_000)
+    expect(review_workspace.get_by_text("STALE LIST A", exact=True)).to_have_count(0)
+    _require(
+        page.evaluate("window.__p3033ListRequests")
+        == ["p3-033-slow-list", "p3-033-fast-list"],
+        f"list ownership probe emitted unexpected requests: "
+        f"{page.evaluate('window.__p3033ListRequests')}",
+    )
+    page.evaluate(
+        """
+        () => {
+          window.fetch = window.__p3033ListOriginalFetch;
+          delete window.__p3033ListOriginalFetch;
+          delete window.__p3033ListRequests;
+        }
+        """
+    )
+    checks["reference_list_request_ownership"] = True
+
+    page.goto(f"{FRONTEND_URL}/zotero", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    review_workspace = page.get_by_test_id("reference-review-workspace")
+    race_buttons = review_workspace.get_by_test_id("reference-result-list").locator("button")
+    page.wait_for_function(
+        "() => document.querySelectorAll('[data-testid=reference-result-list] button[data-reference-id]').length >= 2",
+        timeout=30_000,
+    )
+    race_ids = race_buttons.evaluate_all(
+        "nodes => nodes.slice(0, 2).map(node => node.getAttribute('data-reference-id'))"
+    )
+    _require(
+        len(race_ids) == 2 and all(race_ids) and race_ids[0] != race_ids[1],
+        f"reference race needs two distinct result records: {race_ids}",
+    )
+    race_a, race_b = map(str, race_ids)
+
+    outside_record = _api_json(
+        context,
+        "GET",
+        f"/v1.2/references/{race_b}?provenance_limit=1",
+    )["record"]
+    outside_page_pattern = re.compile(r".*/v1\.2/references\?.*")
+
+    def provide_outside_selected_page(route) -> None:
+        query = parse_qs(urlparse(route.request.url).query)
+        if query.get("q", [""])[0] != "p3-033-outside-page":
+            route.continue_()
+            return
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "items": [outside_record],
+                    "total": 1,
+                    "page": 1,
+                    "page_size": 20,
+                    "total_pages": 1,
+                    "has_next": False,
+                    "has_previous": False,
+                    "reference_type": None,
+                    "classification": None,
+                    "query": "p3-033-outside-page",
+                }
+            ),
+        )
+
+    page.route(outside_page_pattern, provide_outside_selected_page)
+    page.goto(
+        f"{FRONTEND_URL}/zotero?{urlencode({'q': 'p3-033-outside-page', 'reference_id': race_a})}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(page)
+    expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
+        "data-reference-id", race_a, timeout=30_000
+    )
+    expect(page.get_by_text(
+        "The selected deep-linked reference is outside this result page and remains available below.",
+        exact=True,
+    )).to_be_visible()
+    page.unroute(outside_page_pattern, provide_outside_selected_page)
+    checks["reference_outside_page_deep_link"] = True
+
+    zero_candidate_pattern = re.compile(
+        r".*/v1\.2/references/[^/?]+/zotero-candidates(?:\?.*)?$"
+    )
+
+    def provide_zero_candidates(route) -> None:
+        selected_id = unquote(urlparse(route.request.url).path.split("/")[-2])
+        if selected_id != race_a:
+            route.continue_()
+            return
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "items": [],
+                    "total": 0,
+                    "limit": 20,
+                    "truncated": False,
+                    "reference_id": race_a,
+                    "decision": None,
+                }
+            ),
+        )
+
+    page.route(zero_candidate_pattern, provide_zero_candidates)
+    page.goto(
+        f"{FRONTEND_URL}/zotero?{urlencode({'reference_id': race_a})}",
+        wait_until="domcontentloaded",
+    )
+    _wait_for_application_shell(page)
+    expect(page.get_by_text(
+        "No Zotero match candidates were recorded for this reference.", exact=True
+    )).to_be_visible(timeout=30_000)
+    page.unroute(zero_candidate_pattern, provide_zero_candidates)
+    checks["reference_zero_candidate_state"] = True
+
+    page.goto(f"{FRONTEND_URL}/zotero", wait_until="domcontentloaded")
+    _wait_for_application_shell(page)
+    review_workspace = page.get_by_test_id("reference-review-workspace")
+    race_buttons = review_workspace.get_by_test_id("reference-result-list").locator("button")
+    page.wait_for_function(
+        "() => document.querySelectorAll('[data-testid=reference-result-list] button[data-reference-id]').length >= 2",
+        timeout=30_000,
+    )
+    expect(race_buttons.nth(0)).to_have_attribute("data-reference-id", race_a)
+    expect(race_buttons.nth(1)).to_have_attribute("data-reference-id", race_b)
+
+    wrong_detail_attempts = {"identity": False, "retry_failure": False}
+    detail_pattern = re.compile(r".*/v1\.2/references/[^/?]+(?:\?.*)?$")
+
+    def return_wrong_detail_identity_once(route) -> None:
+        selected_id = unquote(urlparse(route.request.url).path.rsplit("/", 1)[-1])
+        if selected_id != race_a:
+            route.continue_()
+            return
+        if wrong_detail_attempts["identity"]:
+            if not wrong_detail_attempts["retry_failure"]:
+                wrong_detail_attempts["retry_failure"] = True
+                route.fulfill(
+                    status=503,
+                    content_type="application/json",
+                    body=json.dumps({"detail": "intentional detail retry failure"}),
+                )
+                return
+            route.continue_()
+            return
+        wrong_detail_attempts["identity"] = True
+        response = route.fetch()
+        payload = response.json()
+        payload["record"]["reference_id"] = "unexpected-detail-identity"
+        route.fulfill(
+            status=response.status,
+            content_type="application/json",
+            body=json.dumps(payload),
+        )
+
+    page.route(detail_pattern, return_wrong_detail_identity_once)
+    race_buttons.nth(0).click()
+    expect(review_workspace.get_by_role("alert")).to_contain_text(
+        "unexpected identity", timeout=30_000
+    )
+    page.evaluate(
+        """
+        referenceId => {
+          const originalFetch = window.fetch.bind(window);
+          window.__p3033PendingDetailRetryFetch = originalFetch;
+          window.fetch = async (...args) => {
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const url = new URL(target);
+            if (url.pathname === `/v1.2/references/${encodeURIComponent(referenceId)}`) {
+              await new Promise(resolve => setTimeout(resolve, 600));
+            }
+            return originalFetch(...args);
+          };
+        }
+        """,
+        race_a,
+    )
+    review_workspace.get_by_role("button", name="Retry selected reference", exact=True).click()
+    selected_reference_region = review_workspace.get_by_test_id("selected-reference-region")
+    expect(selected_reference_region).to_be_focused(timeout=1_000)
+    expect(page.get_by_text("Loading selected reference...", exact=True)).to_be_visible(
+        timeout=1_000
+    )
+    expect(review_workspace.get_by_role("alert")).to_contain_text(
+        "intentional detail retry failure", timeout=30_000
+    )
+    page.evaluate(
+        """
+        () => {
+          window.fetch = window.__p3033PendingDetailRetryFetch;
+          delete window.__p3033PendingDetailRetryFetch;
+        }
+        """
+    )
+    expect(review_workspace.get_by_role("alert")).to_be_focused(timeout=30_000)
+    _require_focus_in_viewport(
+        review_workspace.get_by_role("alert"),
+        "failed detail retry destination",
+    )
+    page.unroute(detail_pattern, return_wrong_detail_identity_once)
+    review_workspace.get_by_role("button", name="Retry selected reference", exact=True).click()
+    selected_a = page.get_by_test_id("selected-reference-detail")
+    expect(selected_a).to_have_attribute("data-reference-id", race_a, timeout=30_000)
+    expect(selected_a).to_be_focused(timeout=30_000)
+    _require_focus_in_viewport(selected_a, "detail identity retry destination")
+    _require(
+        all(wrong_detail_attempts.values()),
+        f"detail identity/retry probes did not both run: {wrong_detail_attempts}",
+    )
+
+    wrong_candidate_attempts = {"identity": False, "retry_failure": False}
+    candidate_identity_pattern = re.compile(
+        r".*/v1\.2/references/[^/?]+/zotero-candidates(?:\?.*)?$"
+    )
+
+    def return_wrong_candidate_identity_once(route) -> None:
+        selected_id = unquote(urlparse(route.request.url).path.split("/")[-2])
+        if selected_id != race_b:
+            route.continue_()
+            return
+        if wrong_candidate_attempts["identity"]:
+            if not wrong_candidate_attempts["retry_failure"]:
+                wrong_candidate_attempts["retry_failure"] = True
+                route.fulfill(
+                    status=503,
+                    content_type="application/json",
+                    body=json.dumps({"detail": "intentional candidate retry failure"}),
+                )
+                return
+            route.continue_()
+            return
+        wrong_candidate_attempts["identity"] = True
+        response = route.fetch()
+        payload = response.json()
+        payload["reference_id"] = "unexpected-candidate-identity"
+        route.fulfill(
+            status=response.status,
+            content_type="application/json",
+            body=json.dumps(payload),
+        )
+
+    page.route(candidate_identity_pattern, return_wrong_candidate_identity_once)
+    race_buttons.nth(1).click()
+    expect(selected_a).to_have_count(0, timeout=1_000)
+    expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
+        "data-reference-id", race_b, timeout=30_000
+    )
+    expect(review_workspace.get_by_role("alert")).to_contain_text(
+        "unexpected reference identity", timeout=30_000
+    )
+    page.evaluate(
+        """
+        referenceId => {
+          const originalFetch = window.fetch.bind(window);
+          window.__p3033PendingCandidateRetryFetch = originalFetch;
+          window.fetch = async (...args) => {
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const url = new URL(target);
+            if (url.pathname === `/v1.2/references/${encodeURIComponent(referenceId)}/zotero-candidates`) {
+              await new Promise(resolve => setTimeout(resolve, 600));
+            }
+            return originalFetch(...args);
+          };
+        }
+        """,
+        race_b,
+    )
+    review_workspace.get_by_role("button", name="Retry Zotero candidates", exact=True).click()
+    all_filter = review_workspace.get_by_role("button", name="All", exact=True)
+    expect(all_filter).to_be_focused(timeout=1_000)
+    expect(page.get_by_text("Loading Zotero candidates...", exact=True)).to_be_visible(
+        timeout=1_000
+    )
+    expect(review_workspace.get_by_role("alert")).to_contain_text(
+        "intentional candidate retry failure", timeout=30_000
+    )
+    page.evaluate(
+        """
+        () => {
+          window.fetch = window.__p3033PendingCandidateRetryFetch;
+          delete window.__p3033PendingCandidateRetryFetch;
+        }
+        """
+    )
+    expect(all_filter).to_be_focused(timeout=30_000)
+    page.unroute(candidate_identity_pattern, return_wrong_candidate_identity_once)
+    review_workspace.get_by_role("button", name="Retry Zotero candidates", exact=True).click()
+    expect(all_filter).to_be_focused(timeout=30_000)
+    _require_focus_in_viewport(all_filter, "candidate identity retry destination")
+    expect(review_workspace.get_by_test_id("candidate-result-list")).to_be_visible(timeout=30_000)
+    matched_filter = review_workspace.get_by_role("button", name="Matched", exact=True)
+    matched_filter.click()
+    expect(
+        review_workspace.get_by_text(
+            "No candidates in the loaded bounded set match the selected result filter.", exact=True
+        )
+    ).to_be_visible(timeout=30_000)
+    expect(matched_filter).to_be_focused(timeout=30_000)
+    _require(
+        all(wrong_candidate_attempts.values()),
+        f"candidate identity/retry probes did not both run: {wrong_candidate_attempts}",
+    )
+    checks["reference_identity_mismatch_retry_truth"] = True
+    checks["reference_selection_immediate_invalidation"] = True
+
+    page.evaluate(
+        """
+        ({ raceA, raceB }) => {
+          const originalFetch = window.fetch.bind(window);
+          window.__p3033OriginalFetch = originalFetch;
+          window.__p3033CandidateRequests = [];
+          window.__p3033DetailRequests = [];
+          const wait = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+          window.fetch = async (...args) => {
+            const target = String(args[0] instanceof Request ? args[0].url : args[0]);
+            const detailMatch = target.match(/\/v1\.2\/references\/([^/?]+)(?:\?.*)?$/);
+            if (detailMatch) {
+              const referenceId = decodeURIComponent(detailMatch[1]);
+              window.__p3033DetailRequests.push(referenceId);
+              if (referenceId === raceA) await wait(800);
+              const response = await originalFetch(...args);
+              if (!window.__p3033LongResponsiveContent) return response;
+              const payload = await response.json();
+              payload.record.normalized_identifier =
+                `10.9999/${'LONG_IDENTIFIER_SEGMENT_'.repeat(32)}`;
+              payload.record.evidence_text =
+                `LONG_EVIDENCE_SEGMENT_${'evidence'.repeat(120)}`;
+              if (payload.evidence?.length) {
+                payload.evidence[0].evidence_text =
+                  `LONG_PROVENANCE_SEGMENT_${'provenance'.repeat(120)}`;
+              }
+              return new Response(JSON.stringify(payload), {
+                status: response.status,
+                headers: { 'Content-Type': 'application/json' },
+              });
+            }
+            const match = target.match(/\/v1\.2\/references\/([^/]+)\/zotero-candidates/);
+            if (!match) return originalFetch(...args);
+            const referenceId = decodeURIComponent(match[1]);
+            window.__p3033CandidateRequests.push(referenceId);
+            if (referenceId === raceA) await wait(800);
+            const title = referenceId === raceA ? 'STALE CANDIDATE A' : 'CURRENT CANDIDATE B';
+            const matchedFields = window.__p3033LongResponsiveContent
+              ? ['title', `LONG_CANDIDATE_FIELD_${'field'.repeat(100)}`]
+              : ['title'];
+            return new Response(JSON.stringify({
+              items: [{
+                schema_version: '1.0', candidate_id: `candidate-${referenceId}`,
+                reference_id: referenceId, zotero_item_key: 'ITEM1', item_type: 'journalArticle',
+                title, doi: null, url: null, arxiv_id: null, arxiv_version: null,
+                match_method: 'fixture', match_score: 0.8, matched_fields: matchedFields,
+                conflicting_fields: [], provenance: { evidence_ids: [], matcher_version: 'fixture' },
+                decision: 'probable', matcher_version: 'fixture', zotero_snapshot_fingerprint: null,
+              }],
+              total: 1, limit: 20, truncated: false, reference_id: referenceId, decision: null,
+            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+          };
+        }
+        """,
+        {"raceA": race_a, "raceB": race_b},
+    )
+    race_buttons.nth(0).click()
+    page.wait_for_function(
+        "expected => new URL(location.href).searchParams.get('reference_id') === expected",
+        arg=race_a,
+        timeout=30_000,
+    )
+    page.wait_for_function(
+        "expected => window.__p3033CandidateRequests?.includes(expected)",
+        arg=race_a,
+        timeout=30_000,
+    )
+    page.wait_for_function(
+        "expected => window.__p3033DetailRequests?.includes(expected)",
+        arg=race_a,
+        timeout=30_000,
+    )
+    second_race_button = review_workspace.get_by_test_id("reference-result-list").locator("button").nth(1)
+    second_race_button.click()
+    expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
+        "data-reference-id", race_b, timeout=30_000
+    )
+    expect(page.get_by_text("CURRENT CANDIDATE B", exact=True)).to_be_visible(timeout=30_000)
+    page.wait_for_timeout(1_000)
+    expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
+        "data-reference-id", race_b
+    )
+    expect(page.get_by_text("STALE CANDIDATE A", exact=True)).to_have_count(0)
+    _require(
+        page.evaluate("window.__p3033CandidateRequests") == [race_a, race_b],
+        f"candidate race emitted unexpected requests: {page.evaluate('window.__p3033CandidateRequests')}",
+    )
+    _require(
+        page.evaluate("window.__p3033DetailRequests") == [race_a, race_b],
+        f"detail race emitted unexpected requests: {page.evaluate('window.__p3033DetailRequests')}",
+    )
+    checks["reference_candidate_request_ownership"] = True
+
+    page.evaluate("window.__p3033LongResponsiveContent = true")
+    responsive_filters = ("Matched", "Needs review", "Unmatched", "Matched")
+    for index, viewport in enumerate((
+        {"width": 1440, "height": 900},
+        {"width": 390, "height": 844},
+        {"width": 320, "height": 844},
+        {"width": 720, "height": 450},
+    )):
+        page.set_viewport_size(viewport)
+        target_index = index % 2
+        target_id = (race_a, race_b)[target_index]
+        review_workspace.get_by_test_id("reference-result-list").locator("button").nth(target_index).click()
+        responsive_detail = page.get_by_test_id("selected-reference-detail")
+        expect(responsive_detail).to_have_attribute("data-reference-id", target_id, timeout=30_000)
+        expect(responsive_detail).to_be_focused(timeout=30_000)
+        expect(responsive_detail).to_contain_text("LONG_IDENTIFIER_SEGMENT_")
+        expect(responsive_detail).to_contain_text("LONG_EVIDENCE_SEGMENT_")
+        responsive_candidates = review_workspace.get_by_test_id("candidate-result-list")
+        expect(responsive_candidates).to_be_visible(timeout=30_000)
+        expect(responsive_candidates).to_contain_text(
+            "LONG_CANDIDATE_FIELD_", timeout=30_000
+        )
+        _require_visible_focus(responsive_detail, f"{viewport['width']}x{viewport['height']} reference detail")
+        _require_focus_in_viewport(responsive_detail, f"{viewport['width']}x{viewport['height']} reference detail")
+        width_with_candidates = _document_width(page)
+        _require(
+            width_with_candidates <= viewport["width"],
+            "visible candidate metadata overflowed "
+            f"{viewport['width']}x{viewport['height']} to {width_with_candidates}px",
+        )
+        filter_button = review_workspace.get_by_role(
+            "button", name=responsive_filters[index], exact=True
+        )
+        filter_button.click()
+        expect(filter_button).to_be_focused(timeout=30_000)
+        _require_focus_in_viewport(
+            filter_button,
+            f"{viewport['width']}x{viewport['height']} candidate filter",
+        )
+        width = _document_width(page)
+        _require(
+            width <= viewport["width"],
+            f"reference review overflowed {viewport['width']}x{viewport['height']} to {width}px",
+        )
+    checks["reference_review_required_viewports"] = True
+
+    page.evaluate(
+        """
+        () => {
+          if (typeof window.__p3033OriginalFetch === 'function') {
+            window.fetch = window.__p3033OriginalFetch;
+            delete window.__p3033OriginalFetch;
+            delete window.__p3033CandidateRequests;
+            delete window.__p3033DetailRequests;
+            delete window.__p3033LongResponsiveContent;
+          }
+        }
+        """
+    )
+    context.close()
+    return checks
 
 
 def _verify_zotero_links_panel_integrity(
@@ -9614,7 +10763,7 @@ def verify_backend_restart_persistence(
             "completed_states": stats.get("completed_count") == 2,
             "bookmark": stats.get("bookmark_count") == 1,
             "note": stats.get("note_count") == 1,
-            "ended_sessions": sessions.get("total") == 20
+            "ended_sessions": sessions.get("total") == 25
             and all(item.get("ended_at") for item in sessions.get("items", [])),
         }
         _require(all(checks.values()), f"restart persistence checks failed: {checks}")
@@ -10051,6 +11200,33 @@ def _require_visible_focus(locator, label: str) -> None:
     )
 
 
+def _require_focus_in_viewport(locator, label: str) -> None:
+    focus_state = locator.evaluate(
+        """
+        node => {
+          const box = node.getBoundingClientRect();
+          return {
+            active: node === document.activeElement,
+            top: box.top,
+            right: box.right,
+            bottom: box.bottom,
+            left: box.left,
+            viewportWidth: window.innerWidth,
+            viewportHeight: window.innerHeight,
+          };
+        }
+        """
+    )
+    _require(
+        focus_state["active"]
+        and focus_state["top"] >= 0
+        and focus_state["left"] >= 0
+        and focus_state["top"] < focus_state["viewportHeight"]
+        and focus_state["left"] < focus_state["viewportWidth"],
+        f"{label} starts outside the viewport: {focus_state}",
+    )
+
+
 def _install_fetch_response_gate(
     page,
     endpoint: str,
@@ -10142,7 +11318,7 @@ def _restore_fetch_response_gate(page) -> None:
 
 
 def _unexpected_console_errors(messages: list[str]) -> list[str]:
-    expected_statuses = {"404": 1, "503": 8}
+    expected_statuses = {"404": 1, "503": 13}
     unexpected: list[str] = []
     for message in messages:
         matched = False

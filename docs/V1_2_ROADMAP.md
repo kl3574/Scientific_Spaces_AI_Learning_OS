@@ -910,6 +910,26 @@ artifacts. Attempt 1 failed only at a pre-existing P3-028 Graph-origin Reader
 saved-progress assertion. This docs-only closure commit requires its own
 exact-SHA main CI before final reporting.
 
+### P3-033 - Structured Reference Review Round Trip and Context Ownership
+
+Status: **LOCAL IMPLEMENTATION PASS / IMPLEMENTATION CI PENDING**.
+
+P3-033 connects each Article structured reference to its exact standalone
+review, adds canonical searchable/filterable reference URL state, binds
+list/detail/candidate reads to their exact request owner, and restores the
+originating Article row and focus. It changes no Backend, API, reference data,
+provider, dependency, workflow, or private Zotero state. The canonical task is
+`docs/tasks/P3-033_STRUCTURED_REFERENCE_REVIEW_ROUND_TRIP.md`.
+
+Application-wide ordinary-route focus continuity remains a separate reviewed
+candidate and is not part of P3-033.
+
+Local evidence passes 131 focused Frontend tests, the 11-route production
+build, 600 Backend tests with 4 skipped, three complete Product E2E runs,
+restart persistence, two independent final reviews, and repository safety
+gates with zero external requests or unexpected console/page errors. The
+implementation and docs-only closure commits still require exact-SHA main CI.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -942,8 +962,8 @@ exact-SHA main CI before final reporting.
 
 ## Next Recommended Task
 
-Verify the P3-032 docs-only closure commit on exact-SHA main CI. No subsequent
-task is staged.
+Push the P3-033 implementation commit, verify exact-SHA main CI, then complete
+the docs-only closure and its exact-SHA main CI.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain
