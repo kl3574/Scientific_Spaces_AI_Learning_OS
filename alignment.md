@@ -3,11 +3,11 @@
 Canonical task:
 `docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md`
 
-Status: **LOCAL VERIFICATION PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 BOUNDED READER FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE PUSH TO `main`,
-AND EXACT-SHA CI READBACK: **GRANTED**
+AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED**
 
 BACKEND, FROZEN M1, SOURCE OR ARTICLE RECORDS, DERIVED ASSETS, GRAPH/TUTOR DATA,
 PERSISTENCE OR PUBLISHED API CONTRACTS, DEPENDENCIES, LOCKFILES, WORKFLOWS,
@@ -69,3 +69,17 @@ changes, or if an unknown worktree change, forbidden artifact, unrepairable
 gate, or exact-SHA CI failure appears.
 
 No v1.2 candidate is assigned.
+
+## Closure Evidence
+
+- implementation commit:
+  `7b4ac74cd0d4b2e7ce708511387a78eb5f61b7b7`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33935734608`
+- Frontend build, Backend pytest, Product E2E, dependency audit, secret audit,
+  workflow/suppression policy, and SBOM validation: PASS
+- normal-main Docker compose smoke and release evidence: skipped as designed
+- uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI is required before
+  final reporting
+- next bounded candidate: P3-030 Shell Modal-Origin Route Focus Continuity

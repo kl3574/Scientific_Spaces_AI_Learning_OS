@@ -5,8 +5,9 @@
 - task: P3-029 Reader Learning Mutation Integrity
 - local implementation: PASS
 - independent final review: PASS, 2 reviewers, 0 Critical / 0 Important
-- exact-SHA implementation main CI: pending
-- closure: IN PROGRESS until implementation CI and a separate docs-only closure
+- exact-SHA implementation main CI: PASS
+- closure: PASS / CLOSED by this separate docs-only closure commit; final
+  reporting waits for its exact-SHA main CI readback
 - formal version: `v1.1.0`
 - v1.2 candidate: not assigned
 
@@ -88,6 +89,14 @@ was changed.
 - Product E2E non-loopback requests: 0
 - Product E2E unexpected console errors: 0
 - Product E2E page errors: 0
+- implementation commit:
+  `7b4ac74cd0d4b2e7ce708511387a78eb5f61b7b7`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33935734608`
+- CI Frontend build, Backend pytest, Product E2E, dependency audit, secret
+  audit, workflow/suppression policy, and SBOM validation: PASS
+- normal-main Docker compose smoke and release evidence: skipped as designed
+- uploaded CI artifacts: 0
 
 ## 7. Review Findings And Repairs
 
@@ -119,8 +128,9 @@ read back exactly.
 - non-loopback source, external search, private Zotero, and real/paid Provider
   access: 0
 
-The local dependency audit is deferred because it requires registry access,
-which this task prohibits. Exact-SHA main CI must run that existing gate.
+The local dependency audit was deferred because it requires registry access,
+which this task prohibits. The exact-SHA implementation main CI ran and passed
+that existing gate.
 
 ## 9. Known Risks
 
@@ -134,10 +144,14 @@ which this task prohibits. Exact-SHA main CI must run that existing gate.
   until the Article is reloaded.
 - Shell modal-origin route-focus continuity is a separate verified usability
   gap and remains deferred to P3-030.
+- GitHub Actions reports that its Node.js 20 action runtime is deprecated and
+  currently forced to Node.js 24. This did not fail a P3-029 gate; it is future
+  CI-maintenance work and does not change the immutable workflow in this task.
 
 ## 10. Decision
 
-P3-029 local implementation, full machine gates, repository safety checks, and
-both independent final reviews are PASS. The task remains open until the
-implementation commit passes exact-SHA main CI and a separate docs-only closure
-commit passes its own exact-SHA main CI. No v1.2 candidate is assigned.
+P3-029 local implementation, full machine gates, repository safety checks, both
+independent final reviews, and exact-SHA implementation main CI are PASS. This
+docs-only commit closes P3-029; its exact-SHA main CI remains the final reporting
+gate. P3-030 Shell Modal-Origin Route Focus Continuity is the next bounded
+candidate. No v1.2 candidate is assigned.

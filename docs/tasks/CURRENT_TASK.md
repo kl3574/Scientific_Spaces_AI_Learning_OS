@@ -2,22 +2,23 @@
 
 ## Active Implementation Task
 
-`docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md`
+None
 
 ## Staged Task
 
-None
+P3-030 Shell Modal-Origin Route Focus Continuity (candidate only; canonical
+task not yet created)
 
 ## Last Closed Task
 
-`docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md`
+`docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md`
 
 ## Status
 
 - P3-026: PASS / CLOSED
 - P3-027: PASS / CLOSED
 - P3-028: PASS / CLOSED
-- P3-029: LOCAL VERIFICATION PASS / IMPLEMENTATION CI PENDING
+- P3-029: PASS / CLOSED
 
 ## Authorization
 
@@ -41,7 +42,8 @@ None
   docs-only closure commit
 - P3-029 bounded Reader Frontend implementation, focused tests, governance
   documentation, isolated fake-runtime validation, local commits, non-force
-  push, and exact-SHA CI execution: GRANTED / ACTIVE
+  push, and exact-SHA CI execution: CONSUMED / CLOSED after this docs-only
+  closure commit
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -136,7 +138,23 @@ None
 
 ## Next Gate
 
-Create and push the verified P3-029 implementation commit, require exact-SHA
-main CI, then create a separate docs-only closure. P3-030 Shell route-focus
-continuity is the next bounded candidate but is not active. No v1.2 candidate
-is assigned.
+Verify this P3-029 docs-only closure commit on exact-SHA main CI. Then persist
+and execute the separately bounded P3-030 Shell Modal-Origin Route Focus
+Continuity task under the product owner's standing autonomous in-scope
+continuation direction. No v1.2 candidate is assigned.
+
+## P3-029 Closure Evidence
+
+- local verification: 130 focused Frontend tests; production build with 11
+  routes; 600 Backend tests with 4 skipped; Product E2E 3/3 with 155 checks
+  each; restart persistence PASS; zero external requests or unexpected
+  console/page errors
+- independent final reviews: 2 PASS, 0 Critical / 0 Important
+- implementation commit:
+  `7b4ac74cd0d4b2e7ce708511387a78eb5f61b7b7`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33935734608`
+- required implementation jobs: PASS; normal-main Docker/release jobs skipped
+  as designed; uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting

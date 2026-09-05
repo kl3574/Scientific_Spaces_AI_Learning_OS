@@ -2,7 +2,7 @@
 
 ## Status
 
-LOCAL VERIFICATION PASS / IMPLEMENTATION CI PENDING
+PASS / CLOSED
 
 ## Task Identity
 
@@ -179,6 +179,19 @@ the task open.
 P3-030 should address Shell modal-origin route-focus continuity. Global Search,
 mobile Drawer, and Back navigation currently leave focus on `body`; that work
 must not be mixed into this data-integrity repair.
+
+## Closure Evidence
+
+- implementation commit:
+  `7b4ac74cd0d4b2e7ce708511387a78eb5f61b7b7`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33935734608`
+- required implementation jobs: PASS
+- normal-main Docker compose smoke and release evidence: skipped as designed
+- uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA closure CI is required before
+  final reporting
+- implementation authorization: CONSUMED / CLOSED
 
 ## Stop Conditions
 

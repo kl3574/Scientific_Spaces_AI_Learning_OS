@@ -11,10 +11,10 @@ Current task:
 `docs/tasks/CURRENT_TASK.md`
 
 Current milestone:
-P3-029 Reader Learning Mutation Integrity
+P3-030 Shell Modal-Origin Route Focus Continuity (next bounded candidate)
 
 Status:
-P3-028 PASS / CLOSED; P3-029 LOCAL VERIFICATION PASS / IMPLEMENTATION CI PENDING
+P3-029 PASS / CLOSED; P3-030 NOT YET ACTIVE
 
 ## Historical Notes
 
