@@ -8,18 +8,18 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-P3-036 Workspace Mutation Focus Continuity
+None
 
 Current milestone:
 P3-036
 
 Status:
-P3-036 LOCAL PASS / IMPLEMENTATION CI PENDING
+P3-036 PASS / CLOSED
 
 Next gate:
-Commit and push the locally verified fail-closed Product E2E repair exposed by
-initial implementation CI, then require exact-SHA repair CI and a separately
-verified docs-only closure commit. No v1.2 candidate is assigned.
+Push this docs-only P3-036 closure commit and require exact-SHA main CI. A later
+bounded GUI task may be selected through independent review; no v1.2 candidate
+is assigned.
 
 ## Historical Notes
 

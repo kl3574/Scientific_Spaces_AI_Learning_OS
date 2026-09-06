@@ -3,11 +3,12 @@
 Canonical task:
 `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**
+Status: **PASS / CLOSED**
 
 BOUNDED FRONTEND FOCUS OWNERSHIP, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, TWO INDEPENDENT SUB-AGENT REVIEWS, LOCAL
-COMMITS, NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **GRANTED / ACTIVE**
+COMMITS, NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED
+AFTER THIS DOCS-ONLY COMMIT**
 
 BACKEND, API, PROVIDER, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE
 RECORDS, CORPUS, GRAPH OR REFERENCE DATA, MATCHING, DERIVED ASSETS, DEPENDENCIES,
@@ -84,9 +85,8 @@ No v1.2 candidate is assigned.
 
 ## Current Gate
 
-Initial implementation commit `d864cc1755b050a1dfeb247beaaa8a9d20a2eab3`
-passed every CI job except Product E2E, whose two attempts exposed independent
-404-classification and Dashboard-readiness races in the harness. The bounded
-fail-closed repair passes predicate, 10-run 404, 20-run Shell, three-run Product
-E2E, and two-reviewer gates locally. Commit and non-force push the repair, then
-require exact-SHA main CI before closure.
+Cumulative repair commit `39369ea430e942ce12c176fb9a9ca24111e59ef3`
+passed exact-SHA main CI run
+`https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34023028516`
+with all required jobs passing and zero uploaded artifacts. This docs-only
+closure commit requires its own exact-SHA main CI before final reporting.

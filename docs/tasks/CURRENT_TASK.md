@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-`docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
+None
 
 ## Staged Task
 
@@ -10,7 +10,7 @@ None
 
 ## Last Closed Task
 
-`docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
+`docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
 
 ## Status
 
@@ -24,7 +24,7 @@ None
 - P3-033: PASS / CLOSED
 - P3-034: PASS / CLOSED
 - P3-035: PASS / CLOSED
-- P3-036: LOCAL PASS / IMPLEMENTATION CI PENDING
+- P3-036: PASS / CLOSED
 
 ## Authorization
 
@@ -76,7 +76,8 @@ None
   closure commit
 - P3-036 bounded Frontend focus ownership, Product E2E, governance
   documentation, isolated fake-runtime validation, local commits, non-force
-  push, and exact-SHA CI execution: GRANTED / ACTIVE
+  push, and exact-SHA CI execution: CONSUMED / CLOSED after this docs-only
+  closure commit
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -184,9 +185,8 @@ None
 
 ## Next Gate
 
-Implement and verify P3-036 against the exact cross-workspace focus contract,
-then require two independent final reviews and exact-SHA CI. No v1.2 candidate
-is staged.
+Push this docs-only P3-036 closure commit and require exact-SHA main CI. No
+active or staged implementation task exists, and no v1.2 candidate is staged.
 
 ## P3-033 Local Evidence
 
@@ -360,7 +360,15 @@ is staged.
 - bounded repair: exact page-scoped 404 ownership and semantic Dashboard
   stabilization; endpoint negative matrix, 10/10 404 probes, 20/20 Shell stress,
   final 3 x 225 Product E2E checks, and 2/2 final reviews PASS
-- repair exact-SHA main CI: PENDING
+- cumulative repair commit:
+  `39369ea430e942ce12c176fb9a9ca24111e59ef3`
+- repair exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34023028516`
+- required repair jobs: PASS; normal-main Docker/release jobs skipped as
+  designed; uploaded artifacts: 0
+- task disposition: PASS / CLOSED
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
 
 ## P3-032 Local Evidence
 

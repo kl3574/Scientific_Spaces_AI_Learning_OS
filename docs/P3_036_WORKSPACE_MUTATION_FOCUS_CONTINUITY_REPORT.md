@@ -5,13 +5,14 @@
 - Local implementation: **PASS**
 - Independent final review: **PASS**, 2/2 reviewers, 0 Critical / 0 Important /
   0 Minor
-- Exact-SHA implementation main CI: **BLOCKED ON INITIAL COMMIT; REPAIR CI PENDING**
-- Task closure: **PENDING**
+- Exact-SHA cumulative repair main CI: **PASS**
+- Task closure: **PASS / CLOSED**
+- Exact-SHA docs-only closure CI: **PENDING FOR THIS COMMIT**
 - Candidate version: not assigned
 
-All required local behavior, regression, browser, review, and offline repository
-safety gates pass. The implementation must still pass exact-SHA main CI before
-P3-036 can be closed.
+All required local behavior, regression, browser, review, repository safety,
+and exact-SHA cumulative implementation gates pass. This docs-only commit
+records closure and requires its own exact-SHA main CI before final reporting.
 
 ## 2. Entry Evidence
 
@@ -156,8 +157,26 @@ Repair evidence:
   and zero external requests, console errors, or page errors
 - final independent reviews: 2/2 PASS, 0 Critical / 0 Important / 0 Minor
 
-## 10. Final Disposition Before Repair CI
+## 10. Exact-SHA Repair CI
 
-Local result: **PASS**. P3-036 remains open until the cumulative repair commit
-passes exact-SHA main CI. A separate docs-only closure commit and its own
-exact-SHA CI are then required. No v1.2 candidate, tag, or Release is assigned.
+- cumulative repair commit:
+  `39369ea430e942ce12c176fb9a9ca24111e59ef3`
+- exact-SHA main CI:
+  [`34023028516`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34023028516)
+- event / branch / head SHA: `push` / `main` /
+  `39369ea430e942ce12c176fb9a9ca24111e59ef3`
+- Backend pytest: PASS
+- Frontend build: PASS
+- Product E2E: PASS
+- dependency, workflow/suppression, secret, and SBOM jobs: PASS
+- normal-main Docker and release evidence: skipped as designed
+- uploaded artifacts: 0
+- non-blocking platform notice: GitHub reported the existing future Node.js 20
+  Action runtime deprecation; workflow changes are outside P3-036 scope
+
+## 11. Final Disposition
+
+P3-036 result: **PASS / CLOSED**. The cumulative repair passed exact-SHA main
+CI. This docs-only closure commit consumes the remaining authorization and
+requires its own exact-SHA CI readback. No v1.2 candidate, tag, or Release is
+assigned.

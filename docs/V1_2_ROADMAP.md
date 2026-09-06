@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED with exact-SHA CI; P3-036 Workspace Mutation Focus Continuity is LOCAL PASS / IMPLEMENTATION CI PENDING; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-036 are PASS / CLOSED with exact-SHA cumulative implementation CI; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -996,7 +996,7 @@ with every required job passing and zero uploaded artifacts.
 
 ### P3-036 - Workspace Mutation Focus Continuity
 
-Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+Status: **PASS / CLOSED**.
 
 Two independent GUI reviews and controlled Chromium found that in-page actions
 can settle on `BODY` when their initiating control disables, unmounts, or
@@ -1017,8 +1017,11 @@ console/page errors were zero. Initial implementation commit
 Product E2E; two attempts exposed separate intentional-404 classification and
 Dashboard-readiness races in the harness. A bounded fail-closed test repair now
 passes endpoint negatives, 10 404 probes, 20 Shell stress runs, three complete
-Product E2E runs, and two final reviews locally. Exact-SHA repair CI remains
-required.
+Product E2E runs, and two final reviews locally. Cumulative repair commit
+`39369ea430e942ce12c176fb9a9ca24111e59ef3` passed exact-SHA main CI run
+[`34023028516`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34023028516)
+with every required job passing and zero uploaded artifacts. This docs-only
+closure commit requires its own exact-SHA CI before final reporting.
 
 ## Release Criteria
 
@@ -1052,8 +1055,8 @@ required.
 
 ## Next Recommended Task
 
-Commit and push the locally verified P3-036 CI-test repair, then require
-exact-SHA repair and docs-only closure CI.
+Push the P3-036 docs-only closure commit and require exact-SHA main CI. A later
+bounded GUI task may be selected through independent review.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain

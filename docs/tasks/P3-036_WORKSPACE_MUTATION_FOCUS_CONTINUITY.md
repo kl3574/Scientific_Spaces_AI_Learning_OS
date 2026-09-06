@@ -2,7 +2,7 @@
 
 ## Status
 
-LOCAL PASS / IMPLEMENTATION CI PENDING
+PASS / CLOSED
 
 ## Task Identity
 
@@ -212,8 +212,8 @@ zero external requests, unexpected console errors, or page errors. Every focus
 contract and required viewport passed. Two independent final reviewers reported
 0 Critical, 0 Important, and 0 Minor findings. Workflow, suppression, secret,
 temporary SBOM, artifact, and protected-path gates pass. The network-dependent
-dependency gate is deferred to exact-SHA CI. P3-036 remains open until the
-implementation and docs-only closure commits each pass exact-SHA main CI.
+dependency gate passed in exact-SHA CI. The cumulative implementation repair is
+complete; this docs-only closure commit still requires exact-SHA main CI.
 
 Initial implementation commit `d864cc1755b050a1dfeb247beaaa8a9d20a2eab3`
 passed every remote job except Product E2E. Its first attempt exposed a global
@@ -223,7 +223,16 @@ correlates every accepted 404 console event and response to an exact loopback
 endpoint, removes the global 404 allowance, and waits for semantic Dashboard
 completion before capturing scroll. Predicate negatives, 10 Article/route 404
 probes, 20 Shell stress runs, three complete 225-check Product E2E runs, and two
-final independent reviews pass. Exact-SHA repair CI remains pending.
+final independent reviews pass. Exact-SHA repair CI passed in run
+[`34023028516`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34023028516).
+
+Cumulative repair commit `39369ea430e942ce12c176fb9a9ca24111e59ef3`
+passed exact-SHA main CI run
+[`34023028516`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34023028516).
+Backend, Frontend, Product E2E, dependency, workflow/suppression, secret, and
+SBOM jobs passed; normal-main Docker and release evidence skipped as designed;
+uploaded artifacts were zero. This docs-only closure commit consumes the
+remaining P3-036 authorization and requires its own exact-SHA main CI readback.
 
 ## Stop Conditions
 
