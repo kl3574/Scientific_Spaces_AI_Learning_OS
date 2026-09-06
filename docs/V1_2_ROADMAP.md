@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-034 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-034 are PASS / CLOSED with exact-SHA CI; P3-035 Mobile Article Discovery Result Visibility is LOCAL IMPLEMENTATION PASS / CI PENDING; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -966,6 +966,25 @@ with all required jobs passing, normal-main Docker and release jobs skipped as
 designed, and zero uploaded artifacts. This docs-only closure commit requires
 its own exact-SHA CI before final reporting.
 
+The docs-only closure commit
+`c248eb43ce69ba14d8836f4a81a7f27f522d2ca0` passed exact-SHA main CI run
+[`34006691288`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34006691288)
+with every required job passing and zero uploaded artifacts.
+
+### P3-035 - Mobile Article Discovery Result Visibility
+
+Status: **LOCAL IMPLEMENTATION PASS / CI PENDING**.
+
+Controlled Chromium measured the first Article at `y=712` in `390x844`,
+`y=780` in `320x844`, and below the entire `720x450` viewport at `y=491`.
+The responsive independent reviewer confirmed that pre-result search,
+pagination, and always-expanded zero-selection Session controls delay useful
+discovery content. P3-035 now compacts only this Article List chrome, moves
+paging after results, and preserves every existing search and Session workflow.
+Local tests, three Product E2E runs, two final reviews, and repository safety
+gates pass; exact-SHA implementation CI remains pending. The canonical task is
+`docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -998,8 +1017,8 @@ its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-No active or staged task. Any subsequent bounded work requires a new canonical
-task and alignment.
+Push P3-035 and require exact-SHA implementation CI, then record docs-only
+closure and require its exact-SHA CI.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain

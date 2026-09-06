@@ -8,17 +8,17 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-None
+P3-035 Mobile Article Discovery Result Visibility
 
 Current milestone:
-None; P3-034 is closed
+P3-035
 
 Status:
-P3-034 PASS / CLOSED
+P3-035 LOCAL IMPLEMENTATION PASS / CI PENDING
 
 Next gate:
-No task is staged. Any subsequent bounded task requires alignment. No v1.2
-candidate is assigned.
+Push the bounded Article List implementation commit and require exact-SHA main
+CI before docs-only closure. No v1.2 candidate is assigned.
 
 ## Historical Notes
 

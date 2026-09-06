@@ -1,14 +1,13 @@
-# P3-034 Ordinary Route and Reader Hash Focus Continuity Alignment
+# P3-035 Mobile Article Discovery Result Visibility Alignment
 
 Canonical task:
-`docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
+`docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL IMPLEMENTATION PASS / CI PENDING**
 
-BOUNDED SHELL/READER FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE
-DOCUMENTATION, ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE
-PUSH TO `main`, AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED AFTER THIS
-DOCS-ONLY CLOSURE COMMIT**
+BOUNDED ARTICLE LIST FRONTEND, PRODUCT E2E, GOVERNANCE DOCUMENTATION, ISOLATED
+LOCAL FAKE-RUNTIME VALIDATION, TWO INDEPENDENT SUB-AGENT REVIEWS, LOCAL COMMITS,
+NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **GRANTED / ACTIVE**
 
 BACKEND, API, PROVIDER, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE
 RECORDS, CORPUS, GRAPH OR REFERENCE DATA, MATCHING, DERIVED ASSETS, DEPENDENCIES,
@@ -20,41 +19,29 @@ DESTRUCTIVE GIT ACTIONS, AND HISTORY REWRITING: **NOT GRANTED**
 
 ## Objective
 
-Make ordinary same-tab navigation announce its committed destination through
-visible keyboard focus, while preserving all destination-owned focus contracts
-and repairing the Reader's explicit Outline, Reading tools, and Back to article
-fragment destinations.
+Make the first useful Article result visible in constrained initial viewports
+while preserving every existing search, sort, pagination, Focused Session,
+feedback, keyboard, route, and data contract.
 
 ## Binding Contract
 
-- Initial hydration never moves focus.
-- Pathname and normalized query form Shell route identity; hash-only changes do
-  not trigger Shell fallback.
-- Search and mobile Drawer navigation retain their pending-route ownership and
-  stale-operation cancellation.
-- A changed route without pending modal ownership is an ordinary committed
-  route. It schedules a main fallback instead of being discarded as stale.
-- A connected focused element inside `main#main-content` owns focus. Otherwise
-  Shell focuses main without scrolling after the route commits.
-- Mismatched pending routes remain invalid and cannot claim focus.
-- Desktop rail and brand use the existing accepted Next.js navigation event.
-  Same-route activation adds no history entry and focuses current main;
-  modified and new-tab activation stays native.
-- Reader fragment links focus their exact target with visible focus treatment.
-- New route, modal, or focus operations invalidate older deferred callbacks.
+- The first Article title and preview intersect the initial `390x844` and
+  `320x844` viewports at `scrollY === 0`.
+- The first Article title intersects the initial `720x450` viewport.
+- Search and sort remain complete at every required viewport.
+- Multi-page navigation follows current results and remains functional; no
+  pagination is shown for a single-page result set.
+- Select page and Open Focused Session remain available before selection.
+- Clear and Add mutations appear when at least one current-page Article is
+  selected and preserve all existing feedback/failure behavior.
+- No horizontal overflow, focus loss, route change, or data mutation is added.
 
 ## Allowed Changes
 
-- `frontend/src/components/AppShell.tsx`
-- `frontend/src/components/PrimaryNav.tsx`
-- `frontend/src/components/ArticleDetailView.tsx`
-- `frontend/src/components/StructuredReferencesPanel.tsx`
-- `frontend/src/lib/navigation.ts`
-- `frontend/tests/navigation.test.ts`
-- `frontend/scripts/test-articles.sh`
+- `frontend/src/components/ArticleListView.tsx`
 - `scripts/e2e/run_product_e2e.py`
-- `docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
-- `docs/P3_034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY_REPORT.md`
+- `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
+- `docs/P3_035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY_REPORT.md`
 - `alignment.md`
 - `docs/tasks/CURRENT_TASK.md`
 - `docs/00_PROJECT_STATE.md`
@@ -64,19 +51,14 @@ fragment destinations.
 
 ## Acceptance
 
-- Each desktop primary workspace, ordinary local content route, and browser
-  Back/Forward commit lands on a destination-owned target or visible Shell main,
-  never `BODY` or a persistent source-route link.
-- Different-route activation creates exactly one history entry. Same-route rail
-  or brand activation creates none and preserves URL and scroll.
-- Delayed, superseded, and mismatched route operations cannot move focus early
-  or overwrite a newer destination-owned target.
-- Search, Drawer, Graph, Reader, and Reference focus ownership remains intact.
-- Reader Outline, Reading tools, and Back to article links focus their exact
-  visible targets; managed outline entries continue to focus their heading.
-- Modified/new-tab and external links remain native.
-- Desktop, `390x844`, `320x844`, and `720x450` coverage records no page-level
-  overflow, focus loss, external request, or unexpected console/page error.
+- Initial viewport result visibility satisfies the exact portrait and
+  short-landscape contract above.
+- Search, sort, paging, page selection, individual selection, add, clear, open,
+  duplicate, capacity, failure, retry, live feedback, and keyboard behavior
+  remains complete.
+- Existing URL/query/history contracts remain unchanged.
+- Required desktop and mobile viewports have no page-level overflow or clipped
+  controls.
 - Focused Frontend suites, production build, full Backend regression, three
   Product E2E runs, repository safety gates, and two independent final reviews
   pass.
@@ -85,17 +67,25 @@ fragment destinations.
 
 ## Authorization Basis
 
-The product owner explicitly directed the agent to continue bounded platform
-and GUI improvements after independent sub-agent review without recurring plan
-confirmation. Two independent reviewers reproduced this Important accessibility
-gap and found no Critical issue. Both reviewers also identified the
-structured-reference panel's independent autofocus as an Important ownership
-conflict, so the exact scope above includes that single bounded repair. This
-standing direction authorizes only the exact scope above.
+The product owner explicitly directed continued platform and GUI improvement,
+independent sub-agent review, and automatic execution without recurring plan
+confirmation. Controlled Chromium measured the first result at `y=712`,
+`y=780`, and `y=491` in the three constrained viewports. An independent
+responsive reviewer reproduced the same Important information-priority defect;
+the other reviewer did not complete equivalent bounding-box measurements and
+therefore neither confirmed nor contradicted it. This standing direction
+authorizes only the exact bounded scope above.
+
+## Deferred Review Findings
+
+The reviewers separately reported Reader mutation focus loss, stale Article
+IDs, Reader duplicate H1 semantics, and extraction-noise presentation. These
+cross different ownership boundaries and are not silently included in P3-035;
+they remain evidence for later bounded tasks.
 
 ## Stop Conditions
 
-Stop rather than widen scope if correct behavior requires Backend, API,
+Stop rather than widen scope if correct behavior requires Backend, API, data,
 provider, persistence, dependency, workflow, external/private, or release
 changes, or if an unknown worktree change, forbidden artifact, unrepairable
 gate, or exact-SHA CI failure appears.
@@ -104,19 +94,15 @@ No v1.2 candidate is assigned.
 
 ## Git Plan
 
-- Implementation commit: `fix: preserve ordinary route focus continuity`
+- Implementation commit: `fix: prioritize mobile article results`
 - Non-force push to `main`, followed by exact-SHA implementation CI readback
-- Docs-only closure commit: `docs: close P3-034 route focus continuity`
+- Docs-only closure commit: `docs: close P3-035 mobile article discovery`
 - Non-force push to `main`, followed by exact-SHA closure CI readback
 - Tag and Release operations are not authorized
 
-## Local Gate Result
+## Current Gate
 
 All required local implementation, focused Frontend, production build, full
 Backend, three-run Product E2E, two-reviewer, security, SBOM, artifact, and
-protected-path gates pass. Implementation commit
-`05d18ffc9c359446d264bf8baa79785420af7769` passed exact-SHA main CI run
-[`34005666793`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34005666793)
-with every required job passing and zero uploaded artifacts. This docs-only
-closure commit consumes the remaining P3-034 authorization; no later task is
-staged or authorized.
+protected-path gates pass. Create and non-force push the authorized
+implementation commit, then require exact-SHA main CI before closure.

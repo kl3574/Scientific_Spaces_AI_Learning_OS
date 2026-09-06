@@ -3500,9 +3500,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     article_race_page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
     _wait_for_application_shell(article_race_page)
-    expect(article_race_page.get_by_text(re.compile(r"^Page 1 / "))).to_be_visible(
+    expect(article_race_page.get_by_text("Showing 1-3 of 3", exact=True)).to_be_visible(
         timeout=30_000
     )
+    expect(article_race_page.get_by_test_id("article-pagination")).to_have_count(0)
     race_search = article_race_page.get_by_placeholder("Search title or keyword")
     race_submit = article_race_page.get_by_role("button", name="Search", exact=True)
     race_search.fill("CRB")
@@ -4162,9 +4163,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     full_capture_page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
     _wait_for_application_shell(full_capture_page)
-    expect(full_capture_page.get_by_text(re.compile(r"^Page 1 / "))).to_be_visible(
+    expect(full_capture_page.get_by_role("link", name=CRB_TITLE, exact=True)).to_be_visible(
         timeout=30_000
     )
+    expect(full_capture_page.get_by_test_id("article-pagination")).to_have_count(0)
     full_capture_page.get_by_role("button", name="Select page", exact=True).click()
     expect(full_capture_page.get_by_test_id("article-session-capture")).to_contain_text(
         "3 selected on this page"
@@ -5871,9 +5873,35 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             f"{FRONTEND_URL}/articles?q=CRB", wait_until="domcontentloaded"
         )
         _wait_for_application_shell(completion_viewport_page)
-        expect(
-            completion_viewport_page.get_by_role("link", name=CRB_TITLE, exact=True)
-        ).to_be_visible(timeout=30_000)
+        viewport_first_article = completion_viewport_page.get_by_role(
+            "link", name=CRB_TITLE, exact=True
+        )
+        expect(viewport_first_article).to_be_visible(timeout=30_000)
+        _wait_for_animation_frames(completion_viewport_page, 3)
+        _require(
+            completion_viewport_page.evaluate("window.scrollY") == 0,
+            f"{viewport_label} Article discovery did not begin at the top of the page",
+        )
+        first_article_box = viewport_first_article.bounding_box()
+        _require(
+            first_article_box is not None
+            and first_article_box["y"] < viewport_height
+            and first_article_box["y"] + first_article_box["height"] > 0,
+            f"{viewport_label} first Article title is outside the initial viewport: "
+            f"{first_article_box}",
+        )
+        if viewport_width <= 390:
+            first_preview_box = completion_viewport_page.get_by_test_id(
+                "article-preview"
+            ).first.bounding_box()
+            _require(
+                first_preview_box is not None
+                and first_preview_box["y"] < viewport_height
+                and first_preview_box["y"] + first_preview_box["height"] > 0,
+                f"{viewport_label} first Article preview is outside the initial viewport: "
+                f"{first_preview_box}",
+            )
+        checks[f"article_discovery_initial_result_{viewport_label}_viewport"] = True
         viewport_capture = completion_viewport_page.get_by_test_id(
             "article-session-capture"
         )
@@ -5889,8 +5917,6 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         )
         for role, name in (
             ("button", "Select page"),
-            ("button", "Clear selection"),
-            ("button", "Add selected to session"),
             ("link", "Open Focused Session"),
         ):
             control_box = completion_viewport_page.get_by_role(
@@ -5910,16 +5936,18 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         viewport_select_page = completion_viewport_page.get_by_role(
             "button", name="Select page", exact=True
         )
-        viewport_clear = completion_viewport_page.get_by_role(
-            "button", name="Clear selection", exact=True
-        )
-        viewport_add = completion_viewport_page.get_by_role(
-            "button", name="Add selected to session", exact=True
-        )
         expect(viewport_checkbox).not_to_be_checked()
         expect(viewport_select_page).to_be_enabled()
-        expect(viewport_clear).to_be_disabled()
-        expect(viewport_add).to_be_disabled()
+        expect(
+            completion_viewport_page.get_by_role(
+                "button", name="Clear selection", exact=True
+            )
+        ).to_have_count(0)
+        expect(
+            completion_viewport_page.get_by_role(
+                "button", name="Add selected to session", exact=True
+            )
+        ).to_have_count(0)
         checkbox_box = viewport_checkbox.bounding_box()
         _require(
             checkbox_box is not None
@@ -5935,6 +5963,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         expect(viewport_checkbox).to_be_focused()
         viewport_checkbox.press("Space")
         expect(viewport_checkbox).to_be_checked()
+        viewport_clear = completion_viewport_page.get_by_role(
+            "button", name="Clear selection", exact=True
+        )
+        viewport_add = completion_viewport_page.get_by_role(
+            "button", name="Add selected to session", exact=True
+        )
         expect(viewport_clear).to_be_enabled()
         expect(viewport_add).to_be_enabled()
         completion_viewport_page.keyboard.press("Shift+Tab")
@@ -6700,7 +6734,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(mobile_page.get_by_test_id("application-shell")).to_have_attribute(
         "data-workspace", "articles"
     )
-    expect(mobile_page.get_by_text(re.compile(r"^Page 1 / "))).to_be_visible(timeout=30_000)
+    expect(mobile_page.get_by_text("Showing 1-3 of 3", exact=True)).to_be_visible(timeout=30_000)
+    expect(mobile_page.get_by_test_id("article-pagination")).to_have_count(0)
     checks["mobile_navigation_route_selection"] = True
     list_width = _document_width(mobile_page)
     mobile_page.get_by_role("link", name=CRB_TITLE, exact=True).click()

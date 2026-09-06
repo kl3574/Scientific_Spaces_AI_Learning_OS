@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
 
 ## Staged Task
 
@@ -23,6 +23,7 @@ None
 - P3-032: PASS / CLOSED
 - P3-033: PASS / CLOSED
 - P3-034: PASS / CLOSED
+- P3-035: LOCAL IMPLEMENTATION PASS / CI PENDING
 
 ## Authorization
 
@@ -68,6 +69,9 @@ None
   governance documentation, isolated fake-runtime validation, local commits,
   non-force push, and exact-SHA CI execution: CONSUMED / CLOSED after this
   docs-only closure commit
+- P3-035 bounded Article List Frontend implementation, Product E2E, governance
+  documentation, isolated fake-runtime validation, local commits, non-force
+  push, and exact-SHA CI execution: GRANTED / ACTIVE
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -174,8 +178,8 @@ None
 
 ## Next Gate
 
-No active or staged task. Any subsequent work requires a new bounded task and
-alignment. No v1.2 candidate is staged.
+Create and non-force push the P3-035 implementation commit, then require its
+exact-SHA main CI before docs-only closure. No v1.2 candidate is staged.
 
 ## P3-033 Local Evidence
 
@@ -252,6 +256,43 @@ alignment. No v1.2 candidate is staged.
   final reporting
 - active task: none
 - staged task: none
+
+## P3-034 Closure CI
+
+- docs-only closure commit:
+  `c248eb43ce69ba14d8836f4a81a7f27f522d2ca0`
+- exact-SHA closure run:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34006691288`
+- required jobs: PASS; normal-main Docker/release jobs skipped as designed;
+  uploaded artifacts: 0
+
+## P3-035 Entry Evidence
+
+- controlled Chromium first Article top: `419px` at `1440x900`, `712px` at
+  `390x844`, `780px` at `320x844`, and `491px` at `720x450`
+- portrait previews and the short-landscape first result are below the initial
+  viewport content target
+- responsive independent reviewer: Important finding confirmed
+- workflow independent reviewer: no equivalent geometry measurement, so no
+  contradiction; 0 Critical findings across both reviews
+- external requests during controlled fixture measurement: 0
+- canonical task:
+  `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
+- evidence report:
+  `docs/P3_035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY_REPORT.md`
+
+## P3-035 Local Evidence
+
+- initial viewport contract: PASS at `390x844`, `320x844`, and `720x450`
+- focused Frontend: 139/139 PASS
+- production build: PASS, 11 routes
+- Backend: 600 passed / 4 skipped
+- Product E2E: 3/3 runs, 221 checks each, restart persistence PASS
+- external requests, unexpected console errors, and page errors: 0
+- independent final reviews: 2 PASS, 0 Critical / 0 Important
+- workflow, suppression, dependency, secret, temporary SBOM, artifact, and
+  protected-path gates: PASS
+- exact-SHA implementation CI: pending
 
 ## P3-032 Local Evidence
 

@@ -452,8 +452,8 @@ export function ArticleListView({
             {effectiveStatus === "loaded" ? getRangeLabel() : ""}
           </p>
         </div>
-        <form className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_180px_auto_auto] sm:items-end" onSubmit={handleSubmit}>
-          <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
+        <form className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_180px_auto_auto] sm:items-end" onSubmit={handleSubmit}>
+          <label className="col-span-2 grid min-w-0 gap-1 text-xs font-medium text-slate-600 sm:col-span-1">
             Search
             <input
               className="min-w-0 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-slate-950"
@@ -464,7 +464,7 @@ export function ArticleListView({
               onChange={(event) => setQuery(event.target.value)}
             />
           </label>
-          <label className="grid gap-1 text-xs font-medium text-slate-600">
+          <label className="col-span-2 grid min-w-0 gap-1 text-xs font-medium text-slate-600 sm:col-span-1">
             Sort
             <select
               className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-slate-950"
@@ -514,32 +514,6 @@ export function ArticleListView({
         />
       ) : null}
 
-      {effectiveStatus === "loaded" ? (
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm text-slate-600">
-            Page {page} / {Math.max(articlePage.totalPages, 1)}
-          </p>
-          <div className="flex gap-2">
-            <button
-              className="min-h-10 rounded border border-slate-300 px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-              disabled={!articlePage.hasPrevious}
-              type="button"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
-            >
-              Previous
-            </button>
-            <button
-              className="min-h-10 rounded border border-slate-300 px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-              disabled={!articlePage.hasNext}
-              type="button"
-              onClick={() => setPage((current) => current + 1)}
-            >
-              Next
-            </button>
-          </div>
-        </div>
-      ) : null}
-
       {effectiveStatus === "loaded" && articlePage.total === 0 ? (
         <WorkspaceState title="No articles found." tone="empty" />
       ) : null}
@@ -568,22 +542,24 @@ export function ArticleListView({
             >
               Select page
             </button>
-            <button
-              className="min-h-10 rounded border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:border-slate-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
-              disabled={!selectedVisibleIds.length}
-              type="button"
-              onClick={() => setSelectedArticleIds([])}
-            >
-              Clear selection
-            </button>
-            <button
-              className="min-h-10 rounded bg-slate-950 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-              disabled={!selectedVisibleIds.length}
-              type="button"
-              onClick={captureSelectedArticles}
-            >
-              Add selected to session
-            </button>
+            {selectedVisibleIds.length ? (
+              <>
+                <button
+                  className="min-h-10 rounded border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:border-slate-600"
+                  type="button"
+                  onClick={() => setSelectedArticleIds([])}
+                >
+                  Clear selection
+                </button>
+                <button
+                  className="min-h-10 rounded bg-slate-950 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800"
+                  type="button"
+                  onClick={captureSelectedArticles}
+                >
+                  Add selected to session
+                </button>
+              </>
+            ) : null}
             <Link className="min-h-10 py-2 text-xs font-semibold text-emerald-800 hover:text-emerald-950 hover:underline" href="/session">
               Open Focused Session
             </Link>
@@ -671,6 +647,32 @@ export function ArticleListView({
           );
         })}
       </div>
+
+      {effectiveStatus === "loaded" && articlePage.totalPages > 1 ? (
+        <nav aria-label="Article result pages" className="flex flex-wrap items-center justify-between gap-2" data-testid="article-pagination">
+          <p className="text-sm text-slate-600">
+            Page {page} / {articlePage.totalPages}
+          </p>
+          <div className="flex gap-2">
+            <button
+              className="min-h-10 rounded border border-slate-300 px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+              disabled={!articlePage.hasPrevious}
+              type="button"
+              onClick={() => setPage((current) => Math.max(1, current - 1))}
+            >
+              Previous
+            </button>
+            <button
+              className="min-h-10 rounded border border-slate-300 px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
+              disabled={!articlePage.hasNext}
+              type="button"
+              onClick={() => setPage((current) => current + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </nav>
+      ) : null}
     </section>
   );
 }
