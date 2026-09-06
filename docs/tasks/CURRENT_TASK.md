@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-`docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
+None
 
 ## Staged Task
 
@@ -23,7 +23,7 @@ None
 - P3-032: PASS / CLOSED
 - P3-033: PASS / CLOSED
 - P3-034: PASS / CLOSED
-- P3-035: LOCAL IMPLEMENTATION PASS / CI PENDING
+- P3-035: PASS / CLOSED
 
 ## Authorization
 
@@ -71,7 +71,8 @@ None
   docs-only closure commit
 - P3-035 bounded Article List Frontend implementation, Product E2E, governance
   documentation, isolated fake-runtime validation, local commits, non-force
-  push, and exact-SHA CI execution: GRANTED / ACTIVE
+  push, and exact-SHA CI execution: CONSUMED / CLOSED after this docs-only
+  closure commit
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -178,8 +179,9 @@ None
 
 ## Next Gate
 
-Create and non-force push the P3-035 implementation commit, then require its
-exact-SHA main CI before docs-only closure. No v1.2 candidate is staged.
+No active or staged task. Continue platform and GUI improvement through the
+next bounded task after this docs-only closure commit passes exact-SHA main CI.
+No v1.2 candidate is staged.
 
 ## P3-033 Local Evidence
 
@@ -292,7 +294,18 @@ exact-SHA main CI before docs-only closure. No v1.2 candidate is staged.
 - independent final reviews: 2 PASS, 0 Critical / 0 Important
 - workflow, suppression, dependency, secret, temporary SBOM, artifact, and
   protected-path gates: PASS
-- exact-SHA implementation CI: pending
+- exact-SHA implementation CI: PASS, run `34010502972`
+
+## P3-035 Implementation CI
+
+- implementation commit:
+  `6f5844c80b092a1919f20e5e93f75a9b6ae1e38a`
+- exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34010502972`
+- required jobs: PASS; normal-main Docker/release jobs skipped as designed;
+  uploaded artifacts: 0
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
 
 ## P3-032 Local Evidence
 

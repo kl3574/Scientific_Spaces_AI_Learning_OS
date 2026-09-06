@@ -3,11 +3,12 @@
 Canonical task:
 `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
 
-Status: **LOCAL IMPLEMENTATION PASS / CI PENDING**
+Status: **PASS / CLOSED**
 
 BOUNDED ARTICLE LIST FRONTEND, PRODUCT E2E, GOVERNANCE DOCUMENTATION, ISOLATED
 LOCAL FAKE-RUNTIME VALIDATION, TWO INDEPENDENT SUB-AGENT REVIEWS, LOCAL COMMITS,
-NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **GRANTED / ACTIVE**
+NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED AFTER
+THIS DOCS-ONLY CLOSURE COMMIT**
 
 BACKEND, API, PROVIDER, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE
 RECORDS, CORPUS, GRAPH OR REFERENCE DATA, MATCHING, DERIVED ASSETS, DEPENDENCIES,
@@ -104,5 +105,9 @@ No v1.2 candidate is assigned.
 
 All required local implementation, focused Frontend, production build, full
 Backend, three-run Product E2E, two-reviewer, security, SBOM, artifact, and
-protected-path gates pass. Create and non-force push the authorized
-implementation commit, then require exact-SHA main CI before closure.
+protected-path gates pass. Implementation commit
+`6f5844c80b092a1919f20e5e93f75a9b6ae1e38a` passed exact-SHA main CI run
+[`34010502972`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34010502972)
+with every required job passing and zero uploaded artifacts. This docs-only
+closure commit consumes the remaining P3-035 authorization; no later task is
+staged or authorized.
