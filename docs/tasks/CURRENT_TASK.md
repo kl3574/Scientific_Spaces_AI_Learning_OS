@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-`docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
+None
 
 ## Staged Task
 
@@ -10,7 +10,7 @@ None
 
 ## Last Closed Task
 
-`docs/tasks/P3-033_STRUCTURED_REFERENCE_REVIEW_ROUND_TRIP.md`
+`docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
 
 ## Status
 
@@ -22,7 +22,7 @@ None
 - P3-031: PASS / CLOSED
 - P3-032: PASS / CLOSED
 - P3-033: PASS / CLOSED
-- P3-034: LOCAL IMPLEMENTATION PASS / CI PENDING
+- P3-034: PASS / CLOSED
 
 ## Authorization
 
@@ -66,7 +66,8 @@ None
   this docs-only closure commit
 - P3-034 bounded Shell/Reader Frontend implementation, pure tests, Product E2E,
   governance documentation, isolated fake-runtime validation, local commits,
-  non-force push, and exact-SHA CI execution: GRANTED / ACTIVE
+  non-force push, and exact-SHA CI execution: CONSUMED / CLOSED after this
+  docs-only closure commit
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -173,8 +174,8 @@ None
 
 ## Next Gate
 
-Create and non-force push the P3-034 implementation commit, then require its
-exact-SHA main CI to pass. No v1.2 candidate is staged.
+No active or staged task. Any subsequent work requires a new bounded task and
+alignment. No v1.2 candidate is staged.
 
 ## P3-033 Local Evidence
 
@@ -237,7 +238,20 @@ exact-SHA main CI to pass. No v1.2 candidate is staged.
 - independent final reviews: 2 PASS, 0 Critical / 0 Important
 - workflow, suppression, dependency, secret, temporary SBOM, artifact, and
   protected-path gates: PASS
-- implementation commit and exact-SHA main CI: pending
+- implementation commit:
+  `05d18ffc9c359446d264bf8baa79785420af7769`
+- exact-SHA implementation main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34005666793`
+- required implementation jobs: PASS; normal-main Docker and release jobs
+  skipped as designed; uploaded artifacts: 0
+
+## P3-034 Closure Evidence
+
+- task disposition: PASS / CLOSED
+- docs-only closure commit: this commit; exact-SHA main CI required before
+  final reporting
+- active task: none
+- staged task: none
 
 ## P3-032 Local Evidence
 

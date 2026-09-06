@@ -3,11 +3,12 @@
 Canonical task:
 `docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
 
-Status: **LOCAL IMPLEMENTATION PASS / CI PENDING**
+Status: **PASS / CLOSED**
 
 BOUNDED SHELL/READER FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE
 DOCUMENTATION, ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE
-PUSH TO `main`, AND EXACT-SHA CI READBACK: **GRANTED / ACTIVE**
+PUSH TO `main`, AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED AFTER THIS
+DOCS-ONLY CLOSURE COMMIT**
 
 BACKEND, API, PROVIDER, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE
 RECORDS, CORPUS, GRAPH OR REFERENCE DATA, MATCHING, DERIVED ASSETS, DEPENDENCIES,
@@ -113,5 +114,9 @@ No v1.2 candidate is assigned.
 
 All required local implementation, focused Frontend, production build, full
 Backend, three-run Product E2E, two-reviewer, security, SBOM, artifact, and
-protected-path gates pass. The next authorized action is the implementation
-commit and non-force `main` push followed by exact-SHA CI readback.
+protected-path gates pass. Implementation commit
+`05d18ffc9c359446d264bf8baa79785420af7769` passed exact-SHA main CI run
+[`34005666793`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34005666793)
+with every required job passing and zero uploaded artifacts. This docs-only
+closure commit consumes the remaining P3-034 authorization; no later task is
+staged or authorized.

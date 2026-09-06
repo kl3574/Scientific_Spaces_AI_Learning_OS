@@ -4,13 +4,17 @@
 
 - Local implementation: **PASS**
 - Independent final review: **PASS**, 2/2 reviewers, 0 Critical / 0 Important
-- Exact-SHA implementation main CI: **PENDING**
-- Task closure: **OPEN / CI PENDING**
+- Exact-SHA implementation main CI: **PASS**
+- Task closure: **PASS / CLOSED**
+- Exact-SHA docs-only closure CI: **PENDING FOR THIS COMMIT**
 - Candidate version: not assigned
 
 All required local behavior, regression, browser, review, and repository safety
-gates pass. The implementation commit and exact-SHA main CI remain before the
-docs-only closure commit.
+gates pass. Implementation commit `05d18ffc9c359446d264bf8baa79785420af7769`
+passed exact-SHA main CI run
+[`34005666793`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34005666793).
+This docs-only commit records the completed task closure and requires its own
+exact-SHA main CI readback before final reporting.
 
 ## 2. Implemented Focus Contract
 
@@ -126,16 +130,22 @@ as repository policy.
 
 ## 9. Exact-SHA Implementation CI
 
-- implementation commit: this commit
-- non-force push to `main`: pending
-- exact-SHA main CI: pending
-- required jobs: Backend, Frontend, three-run Product E2E, dependency,
-  workflow/suppression, secret, and SBOM
-- normal-main Docker and release evidence: expected to skip by workflow policy
-- uploaded artifacts required: 0
+- implementation commit: `05d18ffc9c359446d264bf8baa79785420af7769`
+- exact-SHA main CI run:
+  [`34005666793`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34005666793)
+- event / branch / head SHA: `push` / `main` /
+  `05d18ffc9c359446d264bf8baa79785420af7769`
+- Backend pytest: PASS
+- Frontend build: PASS
+- Product E2E: PASS
+- dependency, workflow, suppression, secret, and SBOM jobs: PASS
+- normal-main Docker and release evidence: skipped as designed
+- uploaded artifacts: 0
+- non-blocking platform notice: GitHub reported the future Node.js 20 Action
+  runtime deprecation; workflow changes are outside P3-034 scope
 
 ## 10. Next Gate
 
-Create and non-force push the implementation commit, require exact-SHA main CI
-to pass, then record that evidence in the authorized docs-only closure commit.
-No subsequent task or v1.2 candidate is staged here.
+Create and non-force push this authorized docs-only closure commit and require
+its exact-SHA main CI to pass. No subsequent task or v1.2 candidate is staged;
+any future work requires its own bounded task alignment.

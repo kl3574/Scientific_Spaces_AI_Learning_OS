@@ -8,17 +8,17 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-P3-034 Ordinary Route and Reader Hash Focus Continuity
+None
 
 Current milestone:
-P3-034
+None; P3-034 is closed
 
 Status:
-P3-034 LOCAL IMPLEMENTATION PASS / CI PENDING
+P3-034 PASS / CLOSED
 
 Next gate:
-Commit and non-force push the verified P3-034 implementation, then require
-exact-SHA main CI. No v1.2 candidate is staged.
+No task is staged. Any subsequent bounded task requires alignment. No v1.2
+candidate is assigned.
 
 ## Historical Notes
 

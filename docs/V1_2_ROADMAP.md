@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-033 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; P3-034 local implementation is PASS and exact-SHA main CI is pending; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-034 product convergence tasks are PASS / CLOSED with exact-SHA implementation or repair main CI passing; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -944,7 +944,7 @@ with every required job passing and zero uploaded artifacts.
 
 ### P3-034 - Ordinary Route and Reader Hash Focus Continuity
 
-Status: **LOCAL IMPLEMENTATION PASS / CI PENDING**.
+Status: **PASS / CLOSED**.
 
 Two independent reviews and controlled local Chromium reproduction show that
 ordinary local navigation can leave focus on a persistent desktop rail link or
@@ -959,7 +959,12 @@ Local evidence is PASS: 139 focused Frontend tests, the 11-route production
 build, 600 Backend tests with 4 skipped, three Product E2E runs with 217 checks
 each, restart persistence, two independent final reviews, and all repository
 safety gates passed. External requests and unexpected console/page errors were
-zero. The implementation commit and exact-SHA main CI remain pending.
+zero. Implementation commit
+`05d18ffc9c359446d264bf8baa79785420af7769` passed exact-SHA main CI run
+[`34005666793`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34005666793)
+with all required jobs passing, normal-main Docker and release jobs skipped as
+designed, and zero uploaded artifacts. This docs-only closure commit requires
+its own exact-SHA CI before final reporting.
 
 ## Release Criteria
 
@@ -993,8 +998,8 @@ zero. The implementation commit and exact-SHA main CI remain pending.
 
 ## Next Recommended Task
 
-Create and non-force push the verified P3-034 implementation commit, then
-require exact-SHA main CI before its docs-only closure commit.
+No active or staged task. Any subsequent bounded work requires a new canonical
+task and alignment.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain
