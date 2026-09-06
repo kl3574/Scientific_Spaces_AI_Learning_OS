@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
 
 ## Staged Task
 
@@ -10,7 +10,7 @@ None
 
 ## Last Closed Task
 
-`docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
+`docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
 
 ## Status
 
@@ -24,6 +24,7 @@ None
 - P3-033: PASS / CLOSED
 - P3-034: PASS / CLOSED
 - P3-035: PASS / CLOSED
+- P3-036: LOCAL PASS / IMPLEMENTATION CI PENDING
 
 ## Authorization
 
@@ -73,6 +74,9 @@ None
   documentation, isolated fake-runtime validation, local commits, non-force
   push, and exact-SHA CI execution: CONSUMED / CLOSED after this docs-only
   closure commit
+- P3-036 bounded Frontend focus ownership, Product E2E, governance
+  documentation, isolated fake-runtime validation, local commits, non-force
+  push, and exact-SHA CI execution: GRANTED / ACTIVE
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -126,8 +130,9 @@ None
   uploaded artifacts: 0
 - evidence report:
   `docs/P3_027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_REPORT.md`
-- docs-only closure commit: this commit; exact-SHA main CI required before
-  final reporting
+- docs-only closure commit:
+  `7997cceca268bae1e43806efb5460674a699dc92`
+- docs-only closure exact-SHA main CI: PASS, run `34011480204`
 
 ## P3-027 Closure CI
 
@@ -179,9 +184,9 @@ None
 
 ## Next Gate
 
-No active or staged task. Continue platform and GUI improvement through the
-next bounded task after this docs-only closure commit passes exact-SHA main CI.
-No v1.2 candidate is staged.
+Implement and verify P3-036 against the exact cross-workspace focus contract,
+then require two independent final reviews and exact-SHA CI. No v1.2 candidate
+is staged.
 
 ## P3-033 Local Evidence
 
@@ -306,6 +311,46 @@ No v1.2 candidate is staged.
   uploaded artifacts: 0
 - docs-only closure commit: this commit; exact-SHA main CI required before
   final reporting
+
+## P3-035 Closure CI
+
+- docs-only closure commit:
+  `7997cceca268bae1e43806efb5460674a699dc92`
+- exact-SHA closure run:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34011480204`
+- required jobs: PASS; normal-main Docker/release jobs skipped as designed;
+  uploaded artifacts: 0
+
+## P3-036 Entry Evidence
+
+- exact entry HEAD and cached `origin/main`:
+  `7997cceca268bae1e43806efb5460674a699dc92`
+- controlled Chromium: Article List, Reader, Saved Learning, Focused Session,
+  and Concept capture actions repeatedly settled on `BODY`
+- two independent reviews: 0 Critical / 10 Important categories, including
+  additional Graph and Tutor focus-loss paths
+- isolated three-Article fixture, fake providers, temporary storage, and zero
+  external requests
+- canonical task:
+  `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
+- evidence report:
+  `docs/P3_036_WORKSPACE_MUTATION_FOCUS_CONTINUITY_REPORT.md`
+
+## P3-036 Local Evidence
+
+- focused Frontend: 139/139 PASS
+- production build: PASS, 11 routes
+- Backend: 600 passed / 4 skipped
+- Product E2E: 3/3 complete runs, 225/225 checks each; restart persistence PASS
+- external requests, unexpected console errors, and page errors: 0
+- all required mutation-focus targets, async ownership, visible focus, and four
+  required viewport cases: PASS
+- independent final reviews: 2 PASS, 0 Critical / 0 Important / 0 Minor
+- workflow, suppression, secret, temporary SBOM, artifact, and protected-path
+  gates: PASS
+- local dependency audit: deferred to exact-SHA CI because registry network
+  access is outside P3-036 authorization
+- implementation exact-SHA main CI: PENDING
 
 ## P3-032 Local Evidence
 

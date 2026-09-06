@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import { WorkspaceState } from "@/components/WorkspaceState";
 import { fetchLearningStates, type LearningState } from "@/lib/learning";
@@ -21,6 +21,12 @@ import {
   type StudySessionState,
 } from "@/lib/studySession";
 
+type SessionFocusRequest = Readonly<{
+  articleId?: string;
+  origin: HTMLElement | null;
+  target: "clear" | "completion" | "confirm" | "empty" | "item";
+}>;
+
 export function StudySessionView() {
   const [snapshot, setSnapshot] = useState<StudySessionLoadResult | null>(null);
   const [persistenceWarning, setPersistenceWarning] = useState<string | null>(null);
@@ -28,6 +34,12 @@ export function StudySessionView() {
   const [learningStates, setLearningStates] = useState<LearningState[] | null>(null);
   const [completionState, setCompletionState] = useState<"loading" | "loaded" | "error">("loading");
   const [completionError, setCompletionError] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState<SessionFocusRequest | null>(null);
+  const clearQueueButtonRef = useRef<HTMLButtonElement>(null);
+  const completionStatusRef = useRef<HTMLElement>(null);
+  const confirmClearButtonRef = useRef<HTMLButtonElement>(null);
+  const emptyRecoveryRef = useRef<HTMLAnchorElement>(null);
+  const itemLinkRefs = useRef(new Map<string, HTMLAnchorElement>());
 
   useEffect(() => {
     const refresh = () => setSnapshot(loadStudySession());
@@ -41,7 +53,10 @@ export function StudySessionView() {
     };
   }, []);
 
-  async function refreshCompletion() {
+  async function refreshCompletion(origin?: HTMLButtonElement) {
+    if (origin) {
+      setFocusRequest({ origin, target: "completion" });
+    }
     setCompletionState("loading");
     setCompletionError(null);
     try {
@@ -64,6 +79,38 @@ export function StudySessionView() {
     [learningStates, snapshot],
   );
 
+  useLayoutEffect(() => {
+    const request = focusRequest;
+    if (!request) {
+      return;
+    }
+    const target = request.target === "clear"
+      ? clearQueueButtonRef.current
+      : request.target === "completion"
+        ? completionStatusRef.current
+      : request.target === "confirm"
+        ? confirmClearButtonRef.current
+        : request.target === "empty"
+          ? emptyRecoveryRef.current
+          : request.articleId
+            ? itemLinkRefs.current.get(request.articleId) ?? null
+            : null;
+    const activeElement = document.activeElement;
+    if (
+      target?.isConnected
+      && (
+        !activeElement
+        || activeElement === document.body
+        || !activeElement.isConnected
+        || activeElement === request.origin
+      )
+    ) {
+      target.scrollIntoView({ behavior: "auto", block: "nearest" });
+      target.focus({ preventScroll: true });
+    }
+    setFocusRequest((current) => (current === request ? null : current));
+  }, [focusRequest, snapshot]);
+
   function persist(nextState: StudySessionState) {
     setSnapshot((current) => current ? { ...current, state: nextState } : current);
     if (saveStudySession(nextState)) {
@@ -73,34 +120,73 @@ export function StudySessionView() {
     }
   }
 
-  function moveItem(item: StudySessionItem, direction: -1 | 1) {
+  function moveItem(item: StudySessionItem, direction: -1 | 1, origin: HTMLButtonElement) {
     if (!snapshot) {
       return;
     }
-    persist(moveStudySessionItem(snapshot.state, item.articleId, direction, new Date().toISOString()));
+    const nextState = moveStudySessionItem(
+      snapshot.state,
+      item.articleId,
+      direction,
+      new Date().toISOString(),
+    );
+    persist(nextState);
+    const nextIndex = nextState.items.findIndex((candidate) => candidate.articleId === item.articleId);
+    const movedIntoDisabledBoundary = direction === -1
+      ? nextIndex === 0
+      : nextIndex === nextState.items.length - 1;
+    if (movedIntoDisabledBoundary) {
+      setFocusRequest({ articleId: item.articleId, origin, target: "item" });
+    }
   }
 
-  function setCurrent(item: StudySessionItem) {
+  function setCurrent(item: StudySessionItem, origin: HTMLButtonElement) {
     if (!snapshot) {
       return;
     }
     persist(activateStudySessionItem(snapshot.state, item.articleId, new Date().toISOString()));
+    setFocusRequest({ articleId: item.articleId, origin, target: "item" });
   }
 
-  function removeItem(item: StudySessionItem) {
+  function removeItem(item: StudySessionItem, origin: HTMLButtonElement) {
     if (!snapshot) {
       return;
     }
-    persist(removeStudySessionItem(snapshot.state, item.articleId, new Date().toISOString()));
+    const removedIndex = snapshot.state.items.findIndex(
+      (candidate) => candidate.articleId === item.articleId,
+    );
+    const nextState = removeStudySessionItem(
+      snapshot.state,
+      item.articleId,
+      new Date().toISOString(),
+    );
+    const survivingItem = nextState.items[Math.min(removedIndex, nextState.items.length - 1)];
+    persist(nextState);
     setConfirmClear(false);
+    setFocusRequest(
+      survivingItem
+        ? { articleId: survivingItem.articleId, origin, target: "item" }
+        : { origin, target: "empty" },
+    );
   }
 
-  function clearQueue() {
+  function clearQueue(origin: HTMLButtonElement) {
     if (!snapshot) {
       return;
     }
     persist(clearStudySession(snapshot.state, new Date().toISOString()));
     setConfirmClear(false);
+    setFocusRequest({ origin, target: "empty" });
+  }
+
+  function requestClearQueue(origin: HTMLButtonElement) {
+    setConfirmClear(true);
+    setFocusRequest({ origin, target: "confirm" });
+  }
+
+  function cancelClearQueue(origin: HTMLButtonElement) {
+    setConfirmClear(false);
+    setFocusRequest({ origin, target: "clear" });
   }
 
   return (
@@ -146,25 +232,42 @@ export function StudySessionView() {
         </p>
       ) : null}
 
-      {snapshot?.storageAvailable && completionState === "error" ? (
-        <div className="flex flex-col gap-3 border border-amber-300 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between" role="alert">
-          <div>
-            <p className="text-sm font-semibold text-amber-950">Completion status is unavailable.</p>
-            <p className="mt-1 text-xs text-amber-900">{completionError}</p>
-          </div>
-          <button
-            className="w-fit rounded border border-amber-700 bg-white px-3 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100"
-            type="button"
-            onClick={() => void refreshCompletion()}
-          >
-            Retry status
-          </button>
-        </div>
+      {snapshot?.storageAvailable ? (
+        <section
+          ref={completionStatusRef}
+          aria-atomic="true"
+          aria-live="polite"
+          className="outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
+          data-testid="study-session-completion-status"
+          tabIndex={-1}
+        >
+          {completionState === "error" ? (
+            <div className="flex flex-col gap-3 border border-amber-300 bg-amber-50 p-3 sm:flex-row sm:items-center sm:justify-between" role="alert">
+              <div>
+                <p className="text-sm font-semibold text-amber-950">Completion status is unavailable.</p>
+                <p className="mt-1 text-xs text-amber-900">{completionError}</p>
+              </div>
+              <button
+                className="w-fit rounded border border-amber-700 bg-white px-3 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100"
+                type="button"
+                onClick={(event) => void refreshCompletion(event.currentTarget)}
+              >
+                Retry status
+              </button>
+            </div>
+          ) : (
+            <p className="border-y border-slate-200 py-3 text-sm text-slate-600" role="status">
+              {completionState === "loading"
+                ? "Refreshing canonical completion status..."
+                : "Canonical completion status is available."}
+            </p>
+          )}
+        </section>
       ) : null}
 
       {snapshot?.storageAvailable && snapshot.state.items.length === 0 ? (
         <WorkspaceState
-          action={<Link className="text-sm font-semibold text-emerald-800" href="/library">Browse saved learning</Link>}
+          action={<Link ref={emptyRecoveryRef} className="text-sm font-semibold text-emerald-800 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700" href="/library">Browse saved learning</Link>}
           detail="Add readable Articles from Saved Learning to assemble a focused session."
           testId="study-session-empty"
           title="Your study queue is empty"
@@ -200,12 +303,6 @@ export function StudySessionView() {
               </p>
             </div>
           </section>
-
-          {completionState === "loading" ? (
-            <p className="border-y border-slate-200 py-3 text-sm text-slate-600" role="status">
-              Refreshing canonical completion status...
-            </p>
-          ) : null}
 
           {completion?.isComplete === true ? (
             <div className="border-l-4 border-emerald-700 bg-emerald-50 px-4 py-3" data-testid="study-session-complete" role="status">
@@ -246,25 +343,27 @@ export function StudySessionView() {
                 {confirmClear ? (
                   <>
                     <button
+                      ref={confirmClearButtonRef}
                       className="rounded border border-red-700 bg-red-700 px-3 py-2 text-sm font-semibold text-white hover:bg-red-800"
                       type="button"
-                      onClick={clearQueue}
+                      onClick={(event) => clearQueue(event.currentTarget)}
                     >
                       Confirm clear queue
                     </button>
                     <button
                       className="rounded border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-500"
                       type="button"
-                      onClick={() => setConfirmClear(false)}
+                      onClick={(event) => cancelClearQueue(event.currentTarget)}
                     >
                       Cancel
                     </button>
                   </>
                 ) : (
                   <button
+                    ref={clearQueueButtonRef}
                     className="rounded border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:border-red-600"
                     type="button"
-                    onClick={() => setConfirmClear(true)}
+                    onClick={(event) => requestClearQueue(event.currentTarget)}
                   >
                     Clear queue
                   </button>
@@ -284,7 +383,17 @@ export function StudySessionView() {
                           {index + 1}
                         </span>
                         <div className="min-w-0">
-                          <Link className="break-words text-base font-semibold text-slate-950 hover:underline" href={createStudySessionReaderHref(item)}>
+                          <Link
+                            ref={(node) => {
+                              if (node) {
+                                itemLinkRefs.current.set(item.articleId, node);
+                              } else {
+                                itemLinkRefs.current.delete(item.articleId);
+                              }
+                            }}
+                            className="break-words text-base font-semibold text-slate-950 hover:underline focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700"
+                            href={createStudySessionReaderHref(item)}
+                          >
                             {item.title}
                           </Link>
                           <p className={`mt-1 text-xs font-semibold ${isCurrent ? "text-emerald-800" : "text-slate-500"}`}>
@@ -299,7 +408,7 @@ export function StudySessionView() {
                           disabled={index === 0}
                           title="Move up"
                           type="button"
-                          onClick={() => moveItem(item, -1)}
+                          onClick={(event) => moveItem(item, -1, event.currentTarget)}
                         >
                           <span aria-hidden="true">&#8593;</span>
                         </button>
@@ -309,7 +418,7 @@ export function StudySessionView() {
                           disabled={index === snapshot.state.items.length - 1}
                           title="Move down"
                           type="button"
-                          onClick={() => moveItem(item, 1)}
+                          onClick={(event) => moveItem(item, 1, event.currentTarget)}
                         >
                           <span aria-hidden="true">&#8595;</span>
                         </button>
@@ -318,7 +427,7 @@ export function StudySessionView() {
                           className="rounded border border-emerald-300 bg-white px-3 py-2 text-sm font-semibold text-emerald-900 hover:border-emerald-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
                           disabled={isCurrent}
                           type="button"
-                          onClick={() => setCurrent(item)}
+                          onClick={(event) => setCurrent(item, event.currentTarget)}
                         >
                           Set current
                         </button>
@@ -326,7 +435,7 @@ export function StudySessionView() {
                           aria-label={`Remove ${item.title} from session`}
                           className="rounded border border-red-300 bg-white px-3 py-2 text-sm font-semibold text-red-800 hover:border-red-600"
                           type="button"
-                          onClick={() => removeItem(item)}
+                          onClick={(event) => removeItem(item, event.currentTarget)}
                         >
                           Remove
                         </button>

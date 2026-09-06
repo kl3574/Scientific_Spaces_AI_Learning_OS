@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 import { createConceptTutorHref } from "@/lib/conceptLearningLaunch";
@@ -32,6 +32,7 @@ export function ConceptStudySetPanel({
   const studySet = useMemo(() => createConceptStudySet(node), [node]);
   const [session, setSession] = useState<StudySessionLoadResult | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const noticeRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     function refresh() {
@@ -67,9 +68,28 @@ export function ConceptStudySetPanel({
   const sessionFull = sessionCount >= STUDY_SESSION_ITEM_LIMIT;
   const storageReady = session?.storageAvailable === true;
 
-  function addArticles(articles: readonly ConceptStudyArticle[]) {
+  function announceSessionResult(message: string, origin: HTMLButtonElement) {
+    setNotice(message);
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement;
+      if (
+        noticeRef.current?.isConnected
+        && (
+          !activeElement
+          || activeElement === document.body
+          || !activeElement.isConnected
+          || activeElement === origin
+        )
+      ) {
+        noticeRef.current.scrollIntoView({ behavior: "auto", block: "nearest" });
+        noticeRef.current.focus({ preventScroll: true });
+      }
+    });
+  }
+
+  function addArticles(articles: readonly ConceptStudyArticle[], origin: HTMLButtonElement) {
     if (!session?.storageAvailable) {
-      setNotice("Browser-local storage is unavailable. No Articles were added.");
+      announceSessionResult("Browser-local storage is unavailable. No Articles were added.", origin);
       return;
     }
     const mutation = addStudySessionItems(
@@ -78,15 +98,18 @@ export function ConceptStudySetPanel({
       new Date().toISOString(),
     );
     if (!mutation.changed) {
-      setNotice(formatSessionOutcomes(mutation.outcomes));
+      announceSessionResult(formatSessionOutcomes(mutation.outcomes), origin);
       return;
     }
     if (!saveStudySession(mutation.state)) {
-      setNotice("Focused Session storage failed. No saved change is being reported.");
+      announceSessionResult(
+        "Focused Session storage failed. No saved change is being reported.",
+        origin,
+      );
       return;
     }
     setSession((current) => current ? { ...current, state: mutation.state, recovered: false } : current);
-    setNotice(formatSessionOutcomes(mutation.outcomes));
+    announceSessionResult(formatSessionOutcomes(mutation.outcomes), origin);
   }
 
   return (
@@ -168,7 +191,7 @@ export function ConceptStudySetPanel({
                       disabled={addDisabled}
                       title={!storageReady ? "Browser-local storage is unavailable" : sessionFull && !queued ? "Focused Session is full" : undefined}
                       type="button"
-                      onClick={() => addArticles([article])}
+                      onClick={(event) => addArticles([article], event.currentTarget)}
                     >
                       {queued ? "In session" : "Add to session"}
                     </button>
@@ -184,7 +207,7 @@ export function ConceptStudySetPanel({
               className="rounded border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:border-slate-600 disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
               disabled={!storageReady || studySet.articles.length === 0}
               type="button"
-              onClick={() => addArticles(studySet.articles)}
+              onClick={(event) => addArticles(studySet.articles, event.currentTarget)}
             >
               Add eligible Articles
             </button>
@@ -202,7 +225,18 @@ export function ConceptStudySetPanel({
               Browser-local Focused Session storage is unavailable.
             </p>
           ) : null}
-          {notice ? <p className="mt-2 text-xs leading-5 text-slate-700" role="status" aria-live="polite">{notice}</p> : null}
+          {notice ? (
+            <p
+              ref={noticeRef}
+              aria-live="polite"
+              className="mt-2 scroll-mt-24 text-xs leading-5 text-slate-700 outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
+              data-testid="concept-study-session-status"
+              role="status"
+              tabIndex={-1}
+            >
+              {notice}
+            </p>
+          ) : null}
         </StudyStep>
 
         <StudyStep index={3} title="Inspect related evidence">

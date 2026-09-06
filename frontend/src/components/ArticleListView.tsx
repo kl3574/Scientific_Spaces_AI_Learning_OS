@@ -109,6 +109,8 @@ export function ArticleListView({
   const feedbackSequence = useRef(0);
   const badgeAvailabilityRef = useRef<HTMLElement>(null);
   const badgeFocusFrame = useRef<number | null>(null);
+  const articleStatusRef = useRef<HTMLParagraphElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const captureRegionRef = useRef<HTMLElement>(null);
   const feedbackRef = useRef<HTMLDivElement>(null);
   const feedbackFocusFrame = useRef<number | null>(null);
@@ -335,14 +337,38 @@ export function ArticleListView({
     setAppliedQuery(nextQuery);
   }
 
-  function clearSearch() {
+  function clearSearch(origin: HTMLButtonElement) {
     setQuery("");
     if (!appliedQuery && page === 1) {
       void loadArticles();
-      return;
+    } else {
+      setAppliedQuery("");
+      setPage(1);
     }
-    setAppliedQuery("");
-    setPage(1);
+    focusAfterArticleListMutation(searchInputRef.current, origin);
+  }
+
+  function retryArticles(origin: HTMLButtonElement) {
+    focusAfterArticleListMutation(articleStatusRef.current, origin);
+    void loadArticles();
+  }
+
+  function focusAfterArticleListMutation(target: HTMLElement | null, origin: HTMLElement) {
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement;
+      if (
+        target?.isConnected
+        && (
+          !activeElement
+          || activeElement === document.body
+          || !activeElement.isConnected
+          || activeElement === origin
+        )
+      ) {
+        target.scrollIntoView({ behavior: "auto", block: "nearest" });
+        target.focus({ preventScroll: true });
+      }
+    });
   }
 
   function announceCapture(message: string, tone: CaptureFeedback["tone"]) {
@@ -405,6 +431,25 @@ export function ArticleListView({
     );
   }
 
+  function clearArticleSelection(origin: HTMLButtonElement) {
+    setSelectedArticleIds([]);
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement;
+      if (
+        captureRegionRef.current?.isConnected
+        && (
+          !activeElement
+          || activeElement === document.body
+          || !activeElement.isConnected
+          || activeElement === origin
+        )
+      ) {
+        captureRegionRef.current.scrollIntoView({ behavior: "auto", block: "nearest" });
+        captureRegionRef.current.focus({ preventScroll: true });
+      }
+    });
+  }
+
   function retryStudySessionStatus() {
     const refreshed = loadStudySession();
     setStudySession(refreshed);
@@ -448,14 +493,25 @@ export function ArticleListView({
         <div>
           <h1 className="text-2xl font-semibold">Article List</h1>
           <p className="mt-1 text-sm text-slate-600">Search Scientific Spaces articles by title or keyword.</p>
-          <p className="mt-2 text-xs text-slate-500">
-            {effectiveStatus === "loaded" ? getRangeLabel() : ""}
+          <p
+            ref={articleStatusRef}
+            aria-live="polite"
+            className="mt-2 w-fit text-xs text-slate-500 outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
+            data-testid="article-list-status"
+            tabIndex={-1}
+          >
+            {effectiveStatus === "loaded"
+              ? getRangeLabel()
+              : effectiveStatus === "error"
+                ? "Article results unavailable"
+                : "Article results loading"}
           </p>
         </div>
         <form className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-[minmax(0,1fr)_180px_auto_auto] sm:items-end" onSubmit={handleSubmit}>
           <label className="col-span-2 grid min-w-0 gap-1 text-xs font-medium text-slate-600 sm:col-span-1">
             Search
             <input
+              ref={searchInputRef}
               className="min-w-0 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-slate-950"
               name="q"
               placeholder="Search title or keyword"
@@ -487,7 +543,7 @@ export function ArticleListView({
             className="min-h-10 rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-600 hover:border-slate-500 disabled:cursor-not-allowed disabled:text-slate-300"
             disabled={!query && !appliedQuery}
             type="button"
-            onClick={clearSearch}
+            onClick={(event) => clearSearch(event.currentTarget)}
           >
             Clear
           </button>
@@ -507,7 +563,7 @@ export function ArticleListView({
       {effectiveStatus === "loading" ? <WorkspaceState title="Loading articles" tone="loading" /> : null}
       {effectiveStatus === "error" ? (
         <WorkspaceState
-          action={<RetryButton label="Retry articles" onRetry={() => void loadArticles()} />}
+          action={<RetryButton label="Retry articles" onRetry={retryArticles} />}
           detail={articlePage.error}
           title="Article library unavailable"
           tone="error"
@@ -547,7 +603,7 @@ export function ArticleListView({
                 <button
                   className="min-h-10 rounded border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:border-slate-600"
                   type="button"
-                  onClick={() => setSelectedArticleIds([])}
+                  onClick={(event) => clearArticleSelection(event.currentTarget)}
                 >
                   Clear selection
                 </button>
@@ -728,8 +784,8 @@ function BadgeAvailability({
   bookmarkStatus: LoadState;
   learningRetryPhase: BadgeRetryPhase;
   bookmarkRetryPhase: BadgeRetryPhase;
-  onRetryLearning: () => void;
-  onRetryBookmarks: () => void;
+  onRetryLearning: (origin: HTMLButtonElement) => void;
+  onRetryBookmarks: (origin: HTMLButtonElement) => void;
 }>) {
   const showLearning = learningStatus === "error" || learningRetryPhase !== "idle";
   const showBookmark = bookmarkStatus === "error" || bookmarkRetryPhase !== "idle";
@@ -802,14 +858,18 @@ function RetryButton({
   disabled = false,
   label,
   onRetry,
-}: Readonly<{ disabled?: boolean; label: string; onRetry: () => void }>) {
+}: Readonly<{
+  disabled?: boolean;
+  label: string;
+  onRetry: (origin: HTMLButtonElement) => void;
+}>) {
   return (
     <button
       aria-busy={disabled}
       className="min-h-10 rounded border border-slate-400 bg-white px-3 py-2 text-xs font-semibold text-slate-800 hover:border-slate-700 disabled:cursor-wait disabled:border-slate-300 disabled:text-slate-500"
       disabled={disabled}
       type="button"
-      onClick={onRetry}
+      onClick={(event) => onRetry(event.currentTarget)}
     >
       {label}
     </button>

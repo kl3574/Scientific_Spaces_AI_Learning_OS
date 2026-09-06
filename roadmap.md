@@ -8,17 +8,18 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-None
+P3-036 Workspace Mutation Focus Continuity
 
 Current milestone:
-None; P3-035 is closed
+P3-036
 
 Status:
-P3-035 PASS / CLOSED
+P3-036 LOCAL PASS / IMPLEMENTATION CI PENDING
 
 Next gate:
-No task is staged. Continue platform and GUI improvement through the next
-bounded task. No v1.2 candidate is assigned.
+Commit and push the locally verified bounded cross-workspace mutation focus
+repair, then require exact-SHA implementation CI and a separately verified
+docs-only closure commit. No v1.2 candidate is assigned.
 
 ## Historical Notes
 

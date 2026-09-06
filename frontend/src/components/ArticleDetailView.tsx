@@ -117,11 +117,21 @@ type MutationFeedback = {
   message: string;
 };
 
-type NoteFocusRequest = Readonly<{
+type ReaderFocusRequest = Readonly<{
   articleId: string;
   generation: number;
-  noteId: string;
-  target: "delete-trigger" | "status";
+  interactionVersion: number | null;
+  noteId?: string;
+  origin?: HTMLElement | null;
+  target:
+    | "bookmark"
+    | "completion"
+    | "delete-trigger"
+    | "edit-trigger"
+    | "learning-state"
+    | "note-editor"
+    | "note-feedback"
+    | "session";
 }>;
 
 const ARTICLE_LOAD_TIMEOUT_MS = 10_000;
@@ -298,7 +308,7 @@ export function ArticleDetailView({
   const [noteDeleteIntent, setNoteDeleteIntent] = useState<ReaderNoteDeleteIntent | null>(null);
   const [noteDeleteReconciliationRequired, setNoteDeleteReconciliationRequired] =
     useState<ReaderNoteDeleteIntent | null>(null);
-  const [noteFocusRequest, setNoteFocusRequest] = useState<NoteFocusRequest | null>(null);
+  const [readerFocusRequest, setReaderFocusRequest] = useState<ReaderFocusRequest | null>(null);
   const [bookmarkLoadState, setBookmarkLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [noteLoadState, setNoteLoadState] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const learningLoadArticleRef = useRef<string | null>(null);
@@ -325,6 +335,12 @@ export function ArticleDetailView({
   const noteDeleteConfirmationRef = useRef<HTMLDivElement | null>(null);
   const noteDeleteButtonRefs = useRef(new Map<string, HTMLButtonElement>());
   const noteStatusRef = useRef<HTMLParagraphElement | null>(null);
+  const noteErrorRef = useRef<HTMLParagraphElement | null>(null);
+  const noteEditorRefs = useRef(new Map<string, HTMLTextAreaElement>());
+  const noteEditButtonRefs = useRef(new Map<string, HTMLButtonElement>());
+  const learningStateRegionRef = useRef<HTMLElement | null>(null);
+  const bookmarkRegionRef = useRef<HTMLElement | null>(null);
+  const sessionRegionRef = useRef<HTMLElement | null>(null);
   const noteDeleteRouteQueryRef = useRef(routeQuery);
   const returnLabel = listReturnTo === "/session"
     ? "Back to study session"
@@ -570,11 +586,11 @@ export function ArticleDetailView({
     }
     focusVisibleElement(articleHeadingRef.current);
     setNoteDeleteIntent(null);
-    setNoteFocusRequest(null);
+    setReaderFocusRequest(null);
   }, [activeNoteDeleteIntent, noteDeleteIntent, routeQuery]);
 
   useLayoutEffect(() => {
-    const request = noteFocusRequest;
+    const request = readerFocusRequest;
     if (!request) {
       return;
     }
@@ -582,15 +598,51 @@ export function ArticleDetailView({
       articleIdRef.current !== request.articleId
       || articleGenerationRef.current !== request.generation
     ) {
-      setNoteFocusRequest((current) => (current === request ? null : current));
+      setReaderFocusRequest((current) => (current === request ? null : current));
       return;
     }
-    const target = request.target === "status"
-      ? noteStatusRef.current
-      : noteDeleteButtonRefs.current.get(request.noteId) ?? null;
-    focusVisibleElement(target);
-    setNoteFocusRequest((current) => (current === request ? null : current));
-  }, [noteFocusRequest]);
+    const activeElement = document.activeElement;
+    const stillOwnsFocus = request.interactionVersion === null
+      || (
+        readerInteractionVersionRef.current === request.interactionVersion
+        && (
+          !activeElement
+          || activeElement === document.body
+          || !activeElement.isConnected
+          || activeElement === request.origin
+        )
+      );
+    const target = resolveReaderFocusTarget(request);
+    if (stillOwnsFocus) {
+      focusVisibleElement(target);
+    }
+    setReaderFocusRequest((current) => (current === request ? null : current));
+  }, [readerFocusRequest, noteFeedback]);
+
+  function resolveReaderFocusTarget(request: ReaderFocusRequest): HTMLElement | null {
+    if (request.target === "learning-state") {
+      return learningStateRegionRef.current;
+    }
+    if (request.target === "bookmark") {
+      return bookmarkRegionRef.current;
+    }
+    if (request.target === "completion") {
+      return completionRegionRef.current;
+    }
+    if (request.target === "session") {
+      return sessionRegionRef.current;
+    }
+    if (request.target === "note-feedback") {
+      return noteFeedback?.tone === "error" ? noteErrorRef.current : noteStatusRef.current;
+    }
+    if (request.target === "note-editor") {
+      return request.noteId ? noteEditorRefs.current.get(request.noteId) ?? null : null;
+    }
+    if (request.target === "edit-trigger") {
+      return request.noteId ? noteEditButtonRefs.current.get(request.noteId) ?? null : null;
+    }
+    return request.noteId ? noteDeleteButtonRefs.current.get(request.noteId) ?? null : null;
+  }
 
   function prepareGraphReturnFocus(event: ReactMouseEvent<HTMLAnchorElement>) {
     if (isSameTabNavigation(event) && listReturnTo.startsWith("/graph")) {
@@ -1057,7 +1109,7 @@ export function ArticleDetailView({
     setNoteFeedback(null);
     setNoteDeleteIntent(null);
     setNoteDeleteReconciliationRequired(null);
-    setNoteFocusRequest(null);
+    setReaderFocusRequest(null);
     setBookmarkLoadState("idle");
     setNoteLoadState("idle");
     completionOperationRef.current = null;
@@ -1474,7 +1526,7 @@ export function ArticleDetailView({
     }
   }
 
-  async function handleStatusChange(nextStatus: LearningStatus) {
+  async function handleStatusChange(nextStatus: LearningStatus, origin: HTMLButtonElement) {
     if (
       !article
       || completionOperationRef.current
@@ -1487,6 +1539,7 @@ export function ArticleDetailView({
       articleId: article.id,
       generation: articleGenerationRef.current,
     };
+    const interactionVersion = readerInteractionVersionRef.current;
     learningMutationRef.current = operation;
     setLearningMutationPending(true);
     setLearningError(null);
@@ -1519,13 +1572,14 @@ export function ArticleDetailView({
       }
     } finally {
       if (isCurrentOperation(learningMutationRef, operation)) {
+        queueOwnedReaderFocus(operation, "learning-state", origin, interactionVersion);
         learningMutationRef.current = null;
         setLearningMutationPending(false);
       }
     }
   }
 
-  async function handleBookmarkToggle() {
+  async function handleBookmarkToggle(origin: HTMLButtonElement) {
     if (
       !article
       || article.id !== articleIdRef.current
@@ -1538,6 +1592,7 @@ export function ArticleDetailView({
       article.id,
       isBookmarked ? "bookmark-remove" : "bookmark-add",
     );
+    const interactionVersion = readerInteractionVersionRef.current;
     bookmarkMutationRef.current = operation;
     setBookmarkMutationPending(true);
     setBookmarkFeedback({
@@ -1573,6 +1628,7 @@ export function ArticleDetailView({
           articleIdRef.current === operation.articleId
           && articleGenerationRef.current === operation.generation
         ) {
+          queueOwnedReaderFocus(operation, "bookmark", origin, interactionVersion);
           setBookmarkMutationPending(false);
         }
       }
@@ -1581,6 +1637,8 @@ export function ArticleDetailView({
 
   async function handleCreateNote(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const interactionVersion = readerInteractionVersionRef.current;
     const submittedDraft = noteDraft.trim();
     if (
       !article
@@ -1621,14 +1679,16 @@ export function ArticleDetailView({
           articleIdRef.current === operation.articleId
           && articleGenerationRef.current === operation.generation
         ) {
+          queueOwnedReaderFocus(operation, "note-feedback", origin, interactionVersion);
           setNoteMutationPending(null);
         }
       }
     }
   }
 
-  async function handleUpdateNote(noteId: string) {
+  async function handleUpdateNote(noteId: string, origin: HTMLButtonElement) {
     const submittedContent = editingContent.trim();
+    const interactionVersion = readerInteractionVersionRef.current;
     if (
       !article
       || article.id !== articleIdRef.current
@@ -1669,6 +1729,13 @@ export function ArticleDetailView({
           articleIdRef.current === operation.articleId
           && articleGenerationRef.current === operation.generation
         ) {
+          queueOwnedReaderFocus(
+            operation,
+            "note-feedback",
+            origin,
+            interactionVersion,
+            noteId,
+          );
           setNoteMutationPending(null);
         }
       }
@@ -1677,14 +1744,60 @@ export function ArticleDetailView({
 
   function queueNoteFocus(
     intent: ReaderNoteDeleteIntent,
-    target: NoteFocusRequest["target"],
+    target: "delete-trigger" | "note-feedback",
   ) {
-    setNoteFocusRequest({
+    setReaderFocusRequest({
       articleId: intent.articleId,
       generation: intent.generation,
+      interactionVersion: null,
       noteId: intent.noteId,
       target,
     });
+  }
+
+  function queueOwnedReaderFocus(
+    operation: ArticleOperation,
+    target: ReaderFocusRequest["target"],
+    origin: HTMLElement | null,
+    interactionVersion: number,
+    noteId?: string,
+  ) {
+    setReaderFocusRequest({
+      articleId: operation.articleId,
+      generation: operation.generation,
+      interactionVersion,
+      noteId,
+      origin,
+      target,
+    });
+  }
+
+  function beginEditingNote(note: LearningNote, origin: HTMLButtonElement) {
+    if (!article || article.id !== articleIdRef.current) {
+      return;
+    }
+    const operation = {
+      articleId: article.id,
+      generation: articleGenerationRef.current,
+    };
+    const interactionVersion = readerInteractionVersionRef.current;
+    setEditingNoteId(note.note_id);
+    setEditingContent(note.content);
+    queueOwnedReaderFocus(operation, "note-editor", origin, interactionVersion, note.note_id);
+  }
+
+  function cancelEditingNote(noteId: string, origin: HTMLButtonElement) {
+    if (!article || article.id !== articleIdRef.current) {
+      return;
+    }
+    const operation = {
+      articleId: article.id,
+      generation: articleGenerationRef.current,
+    };
+    const interactionVersion = readerInteractionVersionRef.current;
+    setEditingNoteId(null);
+    setEditingContent("");
+    queueOwnedReaderFocus(operation, "edit-trigger", origin, interactionVersion, noteId);
   }
 
   function handleRequestNoteDelete(noteId: string) {
@@ -1738,7 +1851,7 @@ export function ArticleDetailView({
     handleCancelNoteDelete(intent);
   }
 
-  async function handleDeleteNote(intent: ReaderNoteDeleteIntent) {
+  async function handleDeleteNote(intent: ReaderNoteDeleteIntent, origin: HTMLButtonElement) {
     if (
       !article
       || article.id !== articleIdRef.current
@@ -1754,7 +1867,9 @@ export function ArticleDetailView({
     ) {
       return;
     }
-    focusVisibleElement(noteDeleteConfirmationRef.current);
+    const focusOrigin = noteDeleteConfirmationRef.current ?? origin;
+    const interactionVersion = readerInteractionVersionRef.current;
+    focusVisibleElement(focusOrigin);
     const operation = nextReaderMutation(article.id, "note-delete", intent.noteId);
     noteMutationRef.current = operation;
     setNoteMutationPending(operation);
@@ -1764,7 +1879,6 @@ export function ArticleDetailView({
       if (!isCurrentReaderMutation(noteMutationRef, operation)) {
         return;
       }
-      focusVisibleElement(noteStatusRef.current);
       setNotes((current) => removeLearningNote(current, intent.noteId));
       if (editingNoteId === intent.noteId) {
         setEditingNoteId(null);
@@ -1772,16 +1886,27 @@ export function ArticleDetailView({
       }
       setNoteDeleteIntent(null);
       setNoteFeedback({ tone: "success", message: "Note deleted." });
-      queueNoteFocus(intent, "status");
+      queueOwnedReaderFocus(
+        operation,
+        "note-feedback",
+        focusOrigin,
+        interactionVersion,
+        intent.noteId,
+      );
     } catch (err) {
       if (isCurrentReaderMutation(noteMutationRef, operation)) {
-        focusVisibleElement(noteStatusRef.current);
         setNoteDeleteIntent(null);
         setNoteFeedback({
           tone: "error",
           message: `The note deletion could not be confirmed. ${errorText(err, "The request failed.")} The current Reader rendering was kept, but the saved result may differ. Reload this Article before retrying.`,
         });
-        queueNoteFocus(intent, "delete-trigger");
+        queueOwnedReaderFocus(
+          operation,
+          "delete-trigger",
+          focusOrigin,
+          interactionVersion,
+          intent.noteId,
+        );
       }
     } finally {
       if (noteMutationRef.current === operation) {
@@ -1796,7 +1921,7 @@ export function ArticleDetailView({
     }
   }
 
-  async function handleEndSession() {
+  async function handleEndSession(origin: HTMLButtonElement) {
     if (
       !article
       || !activeSession
@@ -1810,6 +1935,7 @@ export function ArticleDetailView({
       articleId: article.id,
       generation: articleGenerationRef.current,
     };
+    const interactionVersion = readerInteractionVersionRef.current;
     const sessionId = activeSession.session_id;
     sessionEndOperationRef.current = operation;
     setSessionEndPending(true);
@@ -1876,6 +2002,7 @@ export function ArticleDetailView({
       }
     } finally {
       if (isCurrentOperation(sessionEndOperationRef, operation)) {
+        queueOwnedReaderFocus(operation, "session", origin, interactionVersion);
         sessionEndOperationRef.current = null;
         setSessionEndPending(false);
       }
@@ -1922,7 +2049,7 @@ export function ArticleDetailView({
     );
   }
 
-  function loadEligibleSessionState(targetArticleId: string) {
+  function loadEligibleSessionState(targetArticleId: string, focusOnFailure = true) {
     if (articleIdRef.current !== targetArticleId) {
       return null;
     }
@@ -1931,13 +2058,17 @@ export function ArticleDetailView({
     if (!snapshot.storageAvailable) {
       setStudySessionEligible(false);
       setCompletionError("Browser-local session storage is unavailable.");
-      focusCompletionRegion();
+      if (focusOnFailure) {
+        focusCompletionRegion();
+      }
       return null;
     }
     if (!position || snapshot.state.activeArticleId !== targetArticleId) {
       setStudySessionEligible(false);
       setCompletionError("This Article is no longer the active item in the focused session.");
-      focusCompletionRegion();
+      if (focusOnFailure) {
+        focusCompletionRegion();
+      }
       return null;
     }
     setStudySessionPosition(position);
@@ -2018,7 +2149,7 @@ export function ArticleDetailView({
     }
   }
 
-  async function handlePrepareCompletion() {
+  async function handlePrepareCompletion(origin: HTMLButtonElement) {
     if (
       !article
       || completionOperationRef.current
@@ -2032,6 +2163,7 @@ export function ArticleDetailView({
       articleId: article.id,
       generation: articleGenerationRef.current,
     };
+    const interactionVersion = readerInteractionVersionRef.current;
     completionOperationRef.current = operation;
     if (!loadEligibleSessionState(operation.articleId)) {
       completionOperationRef.current = null;
@@ -2086,12 +2218,12 @@ export function ArticleDetailView({
       if (isCurrentOperation(completionOperationRef, operation)) {
         completionOperationRef.current = null;
         setCompletionPending(null);
-        focusCompletionRegion();
+        queueOwnedReaderFocus(operation, "completion", origin, interactionVersion);
       }
     }
   }
 
-  async function handleRetryTimer() {
+  async function handleRetryTimer(origin: HTMLButtonElement) {
     if (
       !article
       || !activeSession
@@ -2108,6 +2240,7 @@ export function ArticleDetailView({
       articleId: article.id,
       generation: articleGenerationRef.current,
     };
+    const interactionVersion = readerInteractionVersionRef.current;
     const sessionId = activeSession.session_id;
     completionOperationRef.current = operation;
     const previousWarning = timerWarning;
@@ -2170,12 +2303,15 @@ export function ArticleDetailView({
       if (isCurrentOperation(completionOperationRef, operation)) {
         completionOperationRef.current = null;
         setCompletionPending(null);
-        focusCompletionRegion();
+        queueOwnedReaderFocus(operation, "completion", origin, interactionVersion);
       }
     }
   }
 
-  async function handleOpenNextUnfinished(allowUnconfirmedTimer = false) {
+  async function handleOpenNextUnfinished(
+    origin: HTMLButtonElement,
+    allowUnconfirmedTimer = false,
+  ) {
     if (
       !article
       || completionOperationRef.current
@@ -2194,6 +2330,7 @@ export function ArticleDetailView({
       articleId: article.id,
       generation: articleGenerationRef.current,
     };
+    const interactionVersion = readerInteractionVersionRef.current;
     completionOperationRef.current = operation;
     if (!loadEligibleSessionState(operation.articleId)) {
       completionOperationRef.current = null;
@@ -2213,7 +2350,7 @@ export function ArticleDetailView({
         return;
       }
       setLearningState(currentState);
-      const latestQueueState = loadEligibleSessionState(operation.articleId);
+      const latestQueueState = loadEligibleSessionState(operation.articleId, false);
       if (!latestQueueState) {
         return;
       }
@@ -2252,7 +2389,7 @@ export function ArticleDetailView({
       if (isCurrentOperation(completionOperationRef, operation) && !navigationStarted) {
         completionOperationRef.current = null;
         setCompletionPending(null);
-        focusCompletionRegion();
+        queueOwnedReaderFocus(operation, "completion", origin, interactionVersion);
       }
     }
   }
@@ -2506,7 +2643,7 @@ export function ArticleDetailView({
     <section
       ref={completionRegionRef}
       aria-labelledby="focused-completion-heading"
-      className="mt-4 scroll-mt-24 border-l-4 border-sky-700 bg-sky-50 px-4 py-4 outline-none focus-visible:ring-2 focus-visible:ring-sky-700"
+      className="mt-4 scroll-mt-24 border-l-4 border-sky-700 bg-sky-50 px-4 py-4 outline-none focus:ring-2 focus:ring-sky-700"
       data-state={
         error
           ? "unavailable"
@@ -2552,7 +2689,7 @@ export function ArticleDetailView({
             || sessionEndPending
           }
           type="button"
-          onClick={() => void handlePrepareCompletion()}
+          onClick={(event) => void handlePrepareCompletion(event.currentTarget)}
         >
           {completionPending === "complete"
             ? "Confirming completion..."
@@ -2574,7 +2711,7 @@ export function ArticleDetailView({
             || sessionEndPending
           }
           type="button"
-          onClick={() => void handleOpenNextUnfinished()}
+          onClick={(event) => void handleOpenNextUnfinished(event.currentTarget)}
         >
           {completionPending === "advance" ? "Finding next Article..." : "Open next unfinished Article"}
         </button>
@@ -2593,7 +2730,7 @@ export function ArticleDetailView({
                 className="rounded border border-amber-700 bg-white px-3 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100 disabled:text-slate-400"
                 disabled={completionPending !== null || learningMutationPending || sessionEndPending}
                 type="button"
-                onClick={() => void handleRetryTimer()}
+                onClick={(event) => void handleRetryTimer(event.currentTarget)}
               >
                 {completionPending === "timer" ? "Checking timer..." : "Retry timer check"}
               </button>
@@ -2602,7 +2739,7 @@ export function ArticleDetailView({
               className="rounded bg-amber-800 px-3 py-2 text-sm font-semibold text-white hover:bg-amber-900 disabled:bg-slate-300"
               disabled={completionPending !== null || learningMutationPending || sessionEndPending}
               type="button"
-              onClick={() => void handleOpenNextUnfinished(true)}
+              onClick={(event) => void handleOpenNextUnfinished(event.currentTarget, true)}
             >
               Continue without timer confirmation
             </button>
@@ -2816,7 +2953,12 @@ export function ArticleDetailView({
           <ReaderDisplayControls preferences={readerPreferences} onChange={handleReaderPreferences} />
         </section>
 
-        <section className="rounded border border-slate-200 bg-white p-4">
+        <section
+          ref={learningStateRegionRef}
+          className="scroll-mt-24 rounded border border-slate-200 bg-white p-4 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700"
+          data-testid="learning-state-controls"
+          tabIndex={-1}
+        >
           <h2 className="text-base font-semibold">Learning State</h2>
           {learningError ? <p className="mt-3 text-sm text-red-700">{learningError}</p> : null}
           <div className="mt-3 grid grid-cols-3 gap-2">
@@ -2831,7 +2973,7 @@ export function ArticleDetailView({
                 }
                 disabled={completionPending !== null || learningMutationPending || learningState?.status === status}
                 type="button"
-                onClick={() => void handleStatusChange(status)}
+                onClick={(event) => void handleStatusChange(status, event.currentTarget)}
               >
                 {status}
               </button>
@@ -2854,9 +2996,11 @@ export function ArticleDetailView({
         </section>
 
         <section
+          ref={bookmarkRegionRef}
           aria-busy={bookmarkLoadState === "loading" || bookmarkMutationPending}
-          className="rounded border border-slate-200 bg-white p-4"
+          className="scroll-mt-24 rounded border border-slate-200 bg-white p-4 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700"
           data-testid="bookmark-controls"
+          tabIndex={-1}
         >
           <div className="flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold">Bookmark</h2>
@@ -2864,7 +3008,7 @@ export function ArticleDetailView({
               className="rounded border border-slate-300 px-3 py-1 text-sm font-medium hover:bg-slate-50 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500"
               disabled={!bookmarkControlsReady || bookmarkMutationPending}
               type="button"
-              onClick={() => void handleBookmarkToggle()}
+              onClick={(event) => void handleBookmarkToggle(event.currentTarget)}
             >
               {bookmarkMutationPending
                 ? isBookmarked ? "Removing..." : "Saving..."
@@ -2899,7 +3043,12 @@ export function ArticleDetailView({
           </p>
         </section>
 
-        <section className="rounded border border-slate-200 bg-white p-4">
+        <section
+          ref={sessionRegionRef}
+          className="scroll-mt-24 rounded border border-slate-200 bg-white p-4 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700"
+          data-testid="reader-session-controls"
+          tabIndex={-1}
+        >
           <h2 className="text-base font-semibold">Session</h2>
           <dl className="mt-3 space-y-2 text-sm">
             <div>
@@ -2924,7 +3073,7 @@ export function ArticleDetailView({
               || completionPending !== null
             }
             type="button"
-            onClick={() => void handleEndSession()}
+            onClick={(event) => void handleEndSession(event.currentTarget)}
           >
             {sessionEndPending ? "Ending session..." : "End session"}
           </button>
@@ -2939,7 +3088,7 @@ export function ArticleDetailView({
           <form className="mt-3 space-y-2" onSubmit={handleCreateNote}>
             <textarea
               aria-label="New learning note"
-              className="min-h-24 w-full resize-y rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950"
+              className="min-h-24 w-full resize-y rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950 focus:ring-2 focus:ring-sky-700 focus:ring-offset-2"
               disabled={noteInteractionLocked}
               placeholder="Write a learning note"
               value={noteDraft}
@@ -2956,7 +3105,7 @@ export function ArticleDetailView({
           <p
             aria-atomic="true"
             aria-live="polite"
-            className={`${noteFeedback && noteFeedback.tone !== "error" ? "mt-2 text-sm text-slate-600" : "sr-only"} outline-none focus-visible:ring-2 focus-visible:ring-sky-700 focus-visible:ring-offset-2`}
+            className={`${noteFeedback && noteFeedback.tone !== "error" ? "mt-2 text-sm text-slate-600" : "sr-only"} outline-none focus:ring-2 focus:ring-sky-700 focus:ring-offset-2`}
             data-testid="note-mutation-status"
             ref={noteStatusRef}
             role="status"
@@ -2966,9 +3115,11 @@ export function ArticleDetailView({
           </p>
           <p
             aria-atomic="true"
-            className={noteFeedback?.tone === "error" ? "mt-2 text-sm text-red-700" : "sr-only"}
+            className={`${noteFeedback?.tone === "error" ? "mt-2 text-sm text-red-700" : "sr-only"} outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2`}
             data-testid="note-mutation-error"
+            ref={noteErrorRef}
             role="alert"
+            tabIndex={-1}
           >
             {noteFeedback?.tone === "error" ? noteFeedback.message : ""}
           </p>
@@ -2996,8 +3147,15 @@ export function ArticleDetailView({
                       <div className="space-y-2">
                         <textarea
                           aria-label="Edit learning note"
-                          className="min-h-20 w-full resize-y rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950"
+                          className="min-h-20 w-full resize-y rounded border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-950 focus:ring-2 focus:ring-sky-700 focus:ring-offset-2"
                           disabled={noteInteractionLocked}
+                          ref={(node) => {
+                            if (node) {
+                              noteEditorRefs.current.set(note.note_id, node);
+                            } else {
+                              noteEditorRefs.current.delete(note.note_id);
+                            }
+                          }}
                           value={editingContent}
                           onChange={(event) => setEditingContent(event.target.value)}
                         />
@@ -3006,7 +3164,7 @@ export function ArticleDetailView({
                             className="rounded bg-slate-950 px-3 py-1 text-xs font-medium text-white"
                             disabled={!noteControlsReady || noteInteractionLocked || !editingContent.trim()}
                             type="button"
-                            onClick={() => void handleUpdateNote(note.note_id)}
+                            onClick={(event) => void handleUpdateNote(note.note_id, event.currentTarget)}
                           >
                             {noteMutationPending?.kind === "note-update"
                               && noteMutationPending.noteId === note.note_id
@@ -3017,10 +3175,7 @@ export function ArticleDetailView({
                             className="rounded border border-slate-300 px-3 py-1 text-xs font-medium"
                             disabled={!noteControlsReady || noteInteractionLocked}
                             type="button"
-                            onClick={() => {
-                              setEditingNoteId(null);
-                              setEditingContent("");
-                            }}
+                            onClick={(event) => cancelEditingNote(note.note_id, event.currentTarget)}
                           >
                             Cancel
                           </button>
@@ -3034,11 +3189,15 @@ export function ArticleDetailView({
                           <button
                             className="rounded border border-slate-300 px-3 py-1 text-xs font-medium"
                             disabled={!noteControlsReady || noteInteractionLocked}
-                            type="button"
-                            onClick={() => {
-                              setEditingNoteId(note.note_id);
-                              setEditingContent(note.content);
+                            ref={(node) => {
+                              if (node) {
+                                noteEditButtonRefs.current.set(note.note_id, node);
+                              } else {
+                                noteEditButtonRefs.current.delete(note.note_id);
+                              }
                             }}
+                            type="button"
+                            onClick={(event) => beginEditingNote(note, event.currentTarget)}
                           >
                             Edit
                           </button>
@@ -3089,7 +3248,7 @@ export function ArticleDetailView({
                               <button
                                 className="rounded bg-red-700 px-3 py-1 text-xs font-medium text-white disabled:cursor-not-allowed disabled:bg-red-300"
                                 disabled={deletePending}
-                                onClick={() => void handleDeleteNote(deleteIntent)}
+                                onClick={(event) => void handleDeleteNote(deleteIntent, event.currentTarget)}
                                 type="button"
                               >
                                 {deletePending ? "Deleting..." : "Delete permanently"}

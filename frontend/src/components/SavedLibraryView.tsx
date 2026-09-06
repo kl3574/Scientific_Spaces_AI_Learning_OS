@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 
 import { WorkspaceState } from "@/components/WorkspaceState";
 import { loadReaderProgressItems } from "@/lib/articleWorkspace";
@@ -53,6 +53,8 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
   const [remoteErrors, setRemoteErrors] = useState<string[]>([]);
   const [studySession, setStudySession] = useState<StudySessionLoadResult | null>(null);
   const [studySessionNotice, setStudySessionNotice] = useState<string | null>(null);
+  const filterInputRef = useRef<HTMLInputElement>(null);
+  const librarySummaryRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setHistory(loadReadingHistory());
@@ -105,6 +107,11 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
     setRemoteState(errors.length === 0 ? "loaded" : errors.length === results.length ? "error" : "partial");
   }
 
+  function retryRemoteRecords(origin: HTMLButtonElement) {
+    focusAfterMutation(librarySummaryRef.current, origin);
+    void loadRemoteRecords();
+  }
+
   const model = useMemo(
     () => buildSavedLibrary({ states, bookmarks, history, progressItems, recentArticles }),
     [bookmarks, history, progressItems, recentArticles, states],
@@ -122,14 +129,20 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
     setState((current) => ({ ...current, q: queryDraft }));
   }
 
-  function clearQuery() {
+  function clearQuery(origin?: HTMLElement) {
     setQueryDraft("");
     setState((current) => ({ ...current, q: "" }));
+    focusAfterMutation(filterInputRef.current, origin ?? null);
   }
 
-  function addToStudySession(item: SavedLibraryItem) {
+  function addToStudySession(
+    item: SavedLibraryItem,
+    origin: HTMLButtonElement,
+    resultTarget: HTMLAnchorElement | null,
+  ) {
     if (!studySession?.storageAvailable) {
       setStudySessionNotice("Browser-local storage is unavailable. The Article was not added.");
+      focusAfterMutation(resultTarget, origin);
       return;
     }
     const mutation = addStudySessionItem(
@@ -139,14 +152,17 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
     );
     if (mutation.outcome === "already-present") {
       setStudySessionNotice("This Article is already in the focused session.");
+      focusAfterMutation(resultTarget, origin);
       return;
     }
     if (mutation.outcome === "full") {
       setStudySessionNotice("The focused session is full. Remove an Article before adding another.");
+      focusAfterMutation(resultTarget, origin);
       return;
     }
     if (mutation.outcome === "invalid") {
       setStudySessionNotice("This saved record is not readable enough to add to the focused session.");
+      focusAfterMutation(resultTarget, origin);
       return;
     }
 
@@ -156,6 +172,25 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
     } else {
       setStudySessionNotice("The queue changed on this page, but browser-local storage could not save it.");
     }
+    focusAfterMutation(resultTarget, origin);
+  }
+
+  function focusAfterMutation(target: HTMLElement | null, origin: HTMLElement | null) {
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement;
+      if (
+        target?.isConnected
+        && (
+          !activeElement
+          || activeElement === document.body
+          || !activeElement.isConnected
+          || activeElement === origin
+        )
+      ) {
+        target.scrollIntoView({ behavior: "auto", block: "nearest" });
+        target.focus({ preventScroll: true });
+      }
+    });
   }
 
   return (
@@ -190,13 +225,20 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
         </p>
       ) : null}
 
-      <LibrarySummary model={model} />
+      <section
+        ref={librarySummaryRef}
+        className="outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
+        data-testid="saved-library-result-summary"
+        tabIndex={-1}
+      >
+        <LibrarySummary model={model} />
+      </section>
 
       <RemoteStatus
         errors={remoteErrors}
         hasLocalResults={model.items.length > 0}
         state={remoteState}
-        onRetry={loadRemoteRecords}
+        onRetry={retryRemoteRecords}
       />
 
       <section aria-label="Library controls" className="space-y-4 border-y border-slate-200 py-4">
@@ -222,7 +264,8 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
           <label className="grid min-w-0 gap-1 text-xs font-medium text-slate-600">
             Filter saved learning
             <input
-              className="min-w-0 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none"
+              ref={filterInputRef}
+              className="min-w-0 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
               maxLength={120}
               placeholder="Title, section, or status"
               type="search"
@@ -250,7 +293,7 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
             className="rounded border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:border-slate-500 disabled:cursor-not-allowed disabled:text-slate-300"
             disabled={!queryDraft && !state.q}
             type="button"
-            onClick={clearQuery}
+            onClick={(event) => clearQuery(event.currentTarget)}
           >
             Clear
           </button>
@@ -259,7 +302,7 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
 
       {remoteState === "error" && model.items.length === 0 ? (
         <WorkspaceState
-          action={<RetryButton onRetry={loadRemoteRecords} />}
+          action={<RetryButton onRetry={retryRemoteRecords} />}
           detail={remoteErrors.slice(0, 3).join(" · ")}
           testId="saved-library-unavailable"
           title="Saved learning is unavailable"
@@ -283,7 +326,7 @@ export function SavedLibraryView({ initialState }: Readonly<{ initialState: Save
 
       {model.items.length > 0 && !hasVisibleItems ? (
         <WorkspaceState
-          action={state.q ? <button className="text-sm font-semibold text-emerald-800" type="button" onClick={clearQuery}>Clear filter</button> : null}
+          action={state.q ? <button className="text-sm font-semibold text-emerald-800" type="button" onClick={(event) => clearQuery(event.currentTarget)}>Clear filter</button> : null}
           detail="Try another view or a shorter title, section, or status filter."
           testId="saved-library-no-results"
           title="No matching saved learning"
@@ -348,7 +391,7 @@ function RemoteStatus({
   errors: string[];
   hasLocalResults: boolean;
   state: RemoteState;
-  onRetry: () => void;
+  onRetry: (origin: HTMLButtonElement) => void;
 }>) {
   if (state === "loaded") {
     return null;
@@ -370,9 +413,13 @@ function RemoteStatus({
   );
 }
 
-function RetryButton({ onRetry }: Readonly<{ onRetry: () => void }>) {
+function RetryButton({ onRetry }: Readonly<{ onRetry: (origin: HTMLButtonElement) => void }>) {
   return (
-    <button className="rounded border border-amber-700 bg-white px-3 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100" type="button" onClick={onRetry}>
+    <button
+      className="rounded border border-amber-700 bg-white px-3 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100"
+      type="button"
+      onClick={(event) => onRetry(event.currentTarget)}
+    >
       Retry
     </button>
   );
@@ -419,7 +466,11 @@ function LibrarySection({
   section: LibrarySectionModel;
   sessionAvailable: boolean;
   state: SavedLibraryState;
-  onAddToSession: (item: SavedLibraryItem) => void;
+  onAddToSession: (
+    item: SavedLibraryItem,
+    origin: HTMLButtonElement,
+    resultTarget: HTMLAnchorElement | null,
+  ) => void;
 }>) {
   if (section.items.length === 0) {
     return null;
@@ -460,15 +511,20 @@ function LibraryItem({
   item: SavedLibraryItem;
   sessionAvailable: boolean;
   state: SavedLibraryState;
-  onAddToSession: (item: SavedLibraryItem) => void;
+  onAddToSession: (
+    item: SavedLibraryItem,
+    origin: HTMLButtonElement,
+    resultTarget: HTMLAnchorElement | null,
+  ) => void;
 }>) {
   const href = createSavedLibraryReaderHref(item.articleId, state, item.sectionId);
   const progressLabel = item.progress > 0 ? `${item.progress}% read` : "Ready to read";
+  const titleLinkRef = useRef<HTMLAnchorElement>(null);
   return (
     <article className="min-w-0 py-4" data-article-id={item.articleId} data-testid="saved-library-item">
       <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <Link className="break-words text-base font-semibold text-slate-950 hover:underline" href={href}>
+          <Link ref={titleLinkRef} className="break-words text-base font-semibold text-slate-950 hover:underline focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700" href={href}>
             {item.title}
           </Link>
           <div className="mt-2 flex flex-wrap gap-2 text-xs">
@@ -492,7 +548,7 @@ function LibraryItem({
           disabled={inStudySession || !sessionAvailable}
           title={!sessionAvailable ? "Browser-local storage is unavailable" : undefined}
           type="button"
-          onClick={() => onAddToSession(item)}
+          onClick={(event) => onAddToSession(item, event.currentTarget, titleLinkRef.current)}
         >
           {inStudySession ? "In session" : "Add to session"}
         </button>

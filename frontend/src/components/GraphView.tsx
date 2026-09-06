@@ -46,6 +46,13 @@ const SUBGRAPH_NODE_LIMIT = 25;
 const SUBGRAPH_EDGE_LIMIT = 50;
 const MAX_ANNOUNCEMENT_LABEL_LENGTH = 120;
 
+type GraphFocusTarget = "context" | "detail" | "results" | "results-heading" | "search";
+type GraphFocusRequest = Readonly<{
+  onlyIfOwned: boolean;
+  origin: HTMLElement | null;
+  target: GraphFocusTarget;
+}>;
+
 const nodeTypes: Array<{ value: GraphNodeType | ""; label: string }> = [
   { value: "", label: "All types" },
   { value: "article", label: "Articles" },
@@ -97,17 +104,22 @@ export function GraphView({
   const routeNodeRef = useRef(initialNodeId);
   const routeQueryRef = useRef(initialSearch.query);
   const appliedQueryRef = useRef(initialSearch.query);
-  const pendingFocusRef = useRef<"detail" | "results" | "context" | null>(null);
+  const pendingFocusRef = useRef<GraphFocusRequest | null>(null);
   const pendingDetailScrollRef = useRef(Boolean(initialNodeId));
-  const pendingContextFocusRef = useRef(false);
+  const pendingContextFocusRef = useRef<{ origin: HTMLElement | null } | null>(null);
   const selectionOriginRef = useRef<string | null>(null);
   const detailRegionRef = useRef<HTMLDivElement>(null);
   const resultsHeadingRef = useRef<HTMLHeadingElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const contextRegionRef = useRef<HTMLElement>(null);
   const resultButtonRefs = useRef(new Map<string, HTMLButtonElement>());
 
   useEffect(() => {
     if (pathname !== "/graph") {
+      return;
+    }
+    const browserRouteSearch = new URLSearchParams(window.location.search).toString();
+    if (routeSearch !== browserRouteSearch) {
       return;
     }
     const params = new URLSearchParams(routeSearch);
@@ -155,8 +167,9 @@ export function GraphView({
       setSubgraphStatus("loading");
       setExplorePanel("selected");
       if (workspaceMode === "context") {
-        pendingContextFocusRef.current = true;
-        requestFocus("context");
+        const contextOrigin = contextRegionRef.current;
+        pendingContextFocusRef.current = { origin: contextOrigin };
+        requestFocus("context", contextOrigin);
       } else {
         requestFocus("detail");
       }
@@ -173,9 +186,22 @@ export function GraphView({
       return;
     }
     const frame = window.requestAnimationFrame(() => {
-      const target = pendingFocusRef.current;
+      const request = pendingFocusRef.current;
       pendingFocusRef.current = null;
-      if (target === "detail") {
+      if (!request) {
+        return;
+      }
+      const activeElement = document.activeElement;
+      if (
+        request.onlyIfOwned
+        && activeElement
+        && activeElement !== document.body
+        && activeElement.isConnected
+        && activeElement !== request.origin
+      ) {
+        return;
+      }
+      if (request.target === "detail") {
         detailRegionRef.current?.focus({ preventScroll: true });
         if (isNarrowLayout()) {
           pendingDetailScrollRef.current = !isGraphLayoutSettled(
@@ -187,9 +213,18 @@ export function GraphView({
         }
         return;
       }
-      if (target === "context") {
+      if (request.target === "context") {
         contextRegionRef.current?.focus({ preventScroll: true });
         contextRegionRef.current?.scrollIntoView({ block: "start", behavior: "auto" });
+        return;
+      }
+      if (request.target === "search") {
+        searchInputRef.current?.focus({ preventScroll: true });
+        return;
+      }
+      if (request.target === "results-heading") {
+        resultsHeadingRef.current?.focus({ preventScroll: true });
+        resultsHeadingRef.current?.scrollIntoView({ block: "nearest", behavior: "auto" });
         return;
       }
       const origin = selectionOriginRef.current;
@@ -238,6 +273,16 @@ export function GraphView({
           )
         : null;
       const target = articleLink ?? detailRegionRef.current;
+      const activeElement = document.activeElement;
+      if (
+        activeElement
+        && activeElement !== document.body
+        && activeElement.isConnected
+        && activeElement !== detailRegionRef.current
+        && activeElement.getAttribute("data-testid") !== "shell-main-content"
+      ) {
+        return;
+      }
       target?.focus({ preventScroll: true });
       target?.scrollIntoView({ behavior: "auto", block: "nearest" });
     });
@@ -262,7 +307,12 @@ export function GraphView({
   }, [detailStatus, nodeStatus, selectedNodeId, summaryStatus]);
 
   useEffect(() => {
-    if (!pendingContextFocusRef.current || workspaceMode !== "context") {
+    const pendingFocus = pendingContextFocusRef.current;
+    if (workspaceMode !== "context") {
+      pendingContextFocusRef.current = null;
+      return;
+    }
+    if (!pendingFocus) {
       return;
     }
     const frame = window.requestAnimationFrame(() => {
@@ -270,12 +320,17 @@ export function GraphView({
       const activeElement = document.activeElement;
       if (
         region
-        && (!activeElement || activeElement === document.body || region.contains(activeElement))
+        && (
+          !activeElement
+          || activeElement === document.body
+          || !activeElement.isConnected
+          || activeElement === pendingFocus.origin
+        )
       ) {
         region.focus({ preventScroll: true });
       }
       if (subgraphStatus === "loaded" || subgraphStatus === "error") {
-        pendingContextFocusRef.current = false;
+        pendingContextFocusRef.current = null;
       }
     });
     return () => window.cancelAnimationFrame(frame);
@@ -410,7 +465,10 @@ export function GraphView({
 
   function handleFilters(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const nextQuery = normalizeGlobalSearchQuery(query);
+    setWorkspaceMode("explore");
+    setExplorePanel("results");
     setPage(1);
     setQuery(nextQuery);
     setAppliedQuery(nextQuery);
@@ -418,9 +476,10 @@ export function GraphView({
     setAppliedNodeType(nodeType);
     setNodeRevision((current) => current + 1);
     replaceCanonicalRoute(nextQuery);
+    requestFocus("results-heading", origin);
   }
 
-  function clearFilters() {
+  function clearFilters(origin: HTMLButtonElement) {
     setQuery("");
     setNodeType("");
     setAppliedQuery("");
@@ -429,6 +488,7 @@ export function GraphView({
     setPage(1);
     setNodeRevision((current) => current + 1);
     replaceCanonicalRoute("");
+    requestFocus("search", origin);
   }
 
   function replaceCanonicalRoute(nextQuery: string) {
@@ -466,9 +526,10 @@ export function GraphView({
       return;
     }
     if (options.source === "context") {
-      pendingContextFocusRef.current = true;
       contextRegionRef.current?.focus({ preventScroll: true });
-      requestFocus("context");
+      const contextOrigin = contextRegionRef.current;
+      pendingContextFocusRef.current = { origin: contextOrigin };
+      requestFocus("context", contextOrigin);
     }
 
     routeNodeRef.current = safeNodeId;
@@ -491,9 +552,20 @@ export function GraphView({
     );
   }
 
-  function requestFocus(target: "detail" | "results" | "context") {
-    pendingFocusRef.current = target;
+  function requestFocus(target: GraphFocusTarget, origin?: HTMLElement | null) {
+    pendingFocusRef.current = {
+      onlyIfOwned: origin !== undefined,
+      origin: origin ?? null,
+      target,
+    };
     setFocusRevision((current) => current + 1);
+  }
+
+  function changePage(nextPage: number, origin: HTMLButtonElement) {
+    setWorkspaceMode("explore");
+    setExplorePanel("results");
+    setPage(nextPage);
+    requestFocus("results-heading", origin);
   }
 
   function showResults() {
@@ -561,7 +633,8 @@ export function GraphView({
           <label className="min-w-0 text-xs font-medium text-slate-600">
             Search
             <input
-              className="mt-1 block w-full min-w-0 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-slate-950"
+              ref={searchInputRef}
+              className="mt-1 block w-full min-w-0 rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-slate-950 focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
               name="q"
               placeholder="Title, concept, or formula"
               type="search"
@@ -596,7 +669,7 @@ export function GraphView({
               <button
                 className="rounded border border-slate-300 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
                 type="button"
-                onClick={clearFilters}
+                onClick={(event) => clearFilters(event.currentTarget)}
               >
                 Clear
               </button>
@@ -676,15 +749,15 @@ export function GraphView({
           >
           <div className="flex flex-col gap-2 border-b border-slate-200 pb-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h2 className="scroll-mt-24 text-base font-semibold" ref={resultsHeadingRef} tabIndex={-1}>Nodes</h2>
+              <h2 className="scroll-mt-24 text-base font-semibold focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700" ref={resultsHeadingRef} tabIndex={-1}>Nodes</h2>
               <p className="mt-1 text-xs text-slate-500">{nodeStatus === "loaded" ? getResultRange(nodePage) : ""}</p>
             </div>
             {nodeStatus === "loaded" ? (
               <Pagination
                 page={responsePage}
                 pages={responsePages}
-                onPrevious={() => setPage(Math.max(1, responsePage - 1))}
-                onNext={() => setPage(responsePage + 1)}
+                onPrevious={(origin) => changePage(Math.max(1, responsePage - 1), origin)}
+                onNext={(origin) => changePage(responsePage + 1, origin)}
               />
             ) : null}
           </div>
@@ -857,7 +930,7 @@ function GraphContextExplorer({
             <button
               aria-controls="graph-context-panel"
               aria-pressed={viewMode === "map"}
-              className={`rounded px-3 py-1.5 text-xs font-semibold ${
+              className={`rounded px-3 py-1.5 text-xs font-semibold focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700 ${
                 viewMode === "map" ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"
               }`}
               data-testid="graph-view-map"
@@ -869,7 +942,7 @@ function GraphContextExplorer({
             <button
               aria-controls="graph-context-panel"
               aria-pressed={viewMode === "list"}
-              className={`rounded px-3 py-1.5 text-xs font-semibold ${
+              className={`rounded px-3 py-1.5 text-xs font-semibold focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700 ${
                 viewMode === "list" ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"
               }`}
               data-testid="graph-view-list"
@@ -1035,7 +1108,12 @@ function Pagination({
   pages,
   onPrevious,
   onNext,
-}: Readonly<{ page: number; pages: number; onPrevious: () => void; onNext: () => void }>) {
+}: Readonly<{
+  page: number;
+  pages: number;
+  onPrevious: (origin: HTMLButtonElement) => void;
+  onNext: (origin: HTMLButtonElement) => void;
+}>) {
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-xs text-slate-500">
@@ -1045,7 +1123,7 @@ function Pagination({
         className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
         disabled={page <= 1}
         type="button"
-        onClick={onPrevious}
+        onClick={(event) => onPrevious(event.currentTarget)}
       >
         Previous
       </button>
@@ -1053,7 +1131,7 @@ function Pagination({
         className="rounded border border-slate-300 px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
         disabled={pages === 0 || page >= pages}
         type="button"
-        onClick={onNext}
+        onClick={(event) => onNext(event.currentTarget)}
       >
         Next
       </button>

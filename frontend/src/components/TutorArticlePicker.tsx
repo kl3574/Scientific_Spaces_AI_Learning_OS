@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useRef, useState } from "react";
+import { FormEvent, useEffect, useLayoutEffect, useRef, useState } from "react";
 
 import { fetchArticles, formatMetadata, type ArticleSummary } from "@/lib/articles";
 import {
@@ -10,6 +10,11 @@ import {
 } from "@/lib/tutorWorkspace";
 
 type SearchStatus = "idle" | "loading" | "ready" | "error";
+type SearchFocusRequest = Readonly<{
+  interactionVersion: number;
+  origin: HTMLElement | null;
+  requestId: number;
+}>;
 
 export function TutorArticlePicker({
   selected,
@@ -22,11 +27,58 @@ export function TutorArticlePicker({
   const [results, setResults] = useState<ArticleSummary[]>([]);
   const [status, setStatus] = useState<SearchStatus>("idle");
   const [error, setError] = useState<string | null>(null);
+  const [focusRequest, setFocusRequest] = useState<SearchFocusRequest | null>(null);
   const requestId = useRef(0);
+  const interactionVersionRef = useRef(0);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const firstResultRef = useRef<HTMLButtonElement>(null);
+  const resultsRegionRef = useRef<HTMLDivElement>(null);
+  const errorRegionRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const recordInteraction = () => {
+      interactionVersionRef.current += 1;
+    };
+    window.addEventListener("keydown", recordInteraction, true);
+    window.addEventListener("pointerdown", recordInteraction, true);
+    window.addEventListener("touchstart", recordInteraction, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("keydown", recordInteraction, true);
+      window.removeEventListener("pointerdown", recordInteraction, true);
+      window.removeEventListener("touchstart", recordInteraction, true);
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    const request = focusRequest;
+    if (!request || request.requestId !== requestId.current || status === "loading") {
+      return;
+    }
+    const activeElement = document.activeElement;
+    const target = status === "error"
+      ? errorRegionRef.current
+      : firstResultRef.current ?? resultsRegionRef.current;
+    if (
+      interactionVersionRef.current === request.interactionVersion
+      && target?.isConnected
+      && (
+        !activeElement
+        || activeElement === document.body
+        || !activeElement.isConnected
+        || activeElement === request.origin
+      )
+    ) {
+      target.scrollIntoView({ behavior: "auto", block: "nearest" });
+      target.focus({ preventScroll: true });
+    }
+    setFocusRequest((current) => (current === request ? null : current));
+  }, [focusRequest, results, status]);
 
   async function search(event?: FormEvent<HTMLFormElement>) {
     event?.preventDefault();
     const currentRequest = requestId.current + 1;
+    const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const interactionVersion = interactionVersionRef.current;
     requestId.current = currentRequest;
     setStatus("loading");
     setError(null);
@@ -42,13 +94,35 @@ export function TutorArticlePicker({
       }
       setResults(response.items.slice(0, MAX_TUTOR_ARTICLE_RESULTS));
       setStatus("ready");
+      setFocusRequest({ interactionVersion, origin, requestId: currentRequest });
     } catch (reason) {
       if (requestId.current !== currentRequest) {
         return;
       }
       setStatus("error");
       setError(reason instanceof Error ? reason.message : "Article search failed.");
+      setFocusRequest({ interactionVersion, origin, requestId: currentRequest });
     }
+  }
+
+  function clearArticleContext(origin: HTMLButtonElement) {
+    const interactionVersion = interactionVersionRef.current;
+    onSelect(null);
+    window.requestAnimationFrame(() => {
+      const activeElement = document.activeElement;
+      if (
+        interactionVersionRef.current === interactionVersion
+        && searchInputRef.current?.isConnected
+        && (
+          !activeElement
+          || activeElement === document.body
+          || !activeElement.isConnected
+          || activeElement === origin
+        )
+      ) {
+        searchInputRef.current.focus({ preventScroll: true });
+      }
+    });
   }
 
   return (
@@ -61,7 +135,7 @@ export function TutorArticlePicker({
         {selected ? (
           <button
             className="w-fit text-sm font-medium text-slate-600 underline underline-offset-4 hover:text-slate-950"
-            onClick={() => onSelect(null)}
+            onClick={(event) => clearArticleContext(event.currentTarget)}
             type="button"
           >
             Clear article context
@@ -80,7 +154,8 @@ export function TutorArticlePicker({
         <label className="min-w-0 flex-1 text-sm">
           <span className="sr-only">Search articles</span>
           <input
-            className="w-full rounded border border-slate-300 px-3 py-2 outline-none focus:border-slate-950"
+            ref={searchInputRef}
+            className="w-full rounded border border-slate-300 px-3 py-2 outline-none focus:border-slate-950 focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
             aria-label="Search articles"
             placeholder="Search Article title or keyword"
             value={query}
@@ -97,7 +172,12 @@ export function TutorArticlePicker({
       </form>
 
       {status === "error" ? (
-        <div className="mt-3 flex flex-wrap items-center gap-3" role="alert">
+        <div
+          ref={errorRegionRef}
+          className="mt-3 flex flex-wrap items-center gap-3 outline-none focus:ring-2 focus:ring-red-700 focus:ring-offset-2"
+          role="alert"
+          tabIndex={-1}
+        >
           <p className="text-sm text-red-700">{error ?? "Article search failed."}</p>
           <button className="text-sm font-semibold text-red-800 underline" onClick={() => void search()} type="button">
             Retry search
@@ -106,13 +186,19 @@ export function TutorArticlePicker({
       ) : null}
 
       {status === "ready" ? (
-        <div className="mt-3" data-testid="tutor-article-results">
+        <div
+          ref={resultsRegionRef}
+          className="mt-3 scroll-mt-24 outline-none focus:ring-2 focus:ring-emerald-700 focus:ring-offset-2"
+          data-testid="tutor-article-results"
+          tabIndex={-1}
+        >
           {results.length ? (
             <ul className="grid gap-2 sm:grid-cols-2" aria-label="Article search results">
-              {results.map((article) => (
+              {results.map((article, index) => (
                 <li key={article.id}>
                   <button
-                    className="h-full w-full rounded border border-slate-200 px-3 py-3 text-left hover:border-emerald-700 hover:bg-emerald-50"
+                    ref={index === 0 ? firstResultRef : undefined}
+                    className="h-full w-full rounded border border-slate-200 px-3 py-3 text-left hover:border-emerald-700 hover:bg-emerald-50 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-emerald-700"
                     aria-label={`Select ${article.title}`}
                     onClick={() => onSelect(createTutorArticleSelection(article))}
                     type="button"

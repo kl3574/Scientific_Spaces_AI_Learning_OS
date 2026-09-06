@@ -1525,14 +1525,26 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     completed_button = page.get_by_role("button", name="completed", exact=True)
     completed_button.click()
     expect(completed_button).to_have_class(re.compile(r"\bbg-slate-950\b"), timeout=30_000)
+    learning_state_controls = page.get_by_test_id("learning-state-controls")
+    expect(learning_state_controls).to_be_focused(timeout=30_000)
+    _require_visible_focus(learning_state_controls, "Reader learning-state result")
     page.get_by_role("button", name="Save", exact=True).click()
     expect(page.get_by_role("button", name="Remove", exact=True)).to_be_visible(timeout=30_000)
+    bookmark_controls = page.get_by_test_id("bookmark-controls")
+    expect(bookmark_controls).to_be_focused(timeout=30_000)
+    _require_visible_focus(bookmark_controls, "Reader bookmark result")
     note_text = f"P3-011 iteration {iteration}"
     page.get_by_placeholder("Write a learning note").fill(note_text)
     page.get_by_role("button", name="Add note", exact=True).click()
     expect(page.get_by_text(note_text, exact=True)).to_be_visible()
+    note_status = page.get_by_test_id("note-mutation-status")
+    expect(note_status).to_be_focused(timeout=30_000)
+    _require_visible_focus(note_status, "Reader note-create result")
     end_session_button.click()
     expect(end_session_button).to_be_disabled()
+    reader_session_controls = page.get_by_test_id("reader-session-controls")
+    expect(reader_session_controls).to_be_focused(timeout=30_000)
+    _require_visible_focus(reader_session_controls, "Reader standalone session result")
 
     stats = _api_json(context, "GET", "/learning/stats")
     _require(stats["completed_count"] == 1, "completed learning state was not persisted")
@@ -1792,18 +1804,34 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     attention_library_item = page.get_by_test_id("saved-library-section-continue").locator(
         '[data-testid="saved-library-item"]'
     ).filter(has_text=ATTENTION_TITLE).first
-    attention_library_item.get_by_role(
+    attention_library_title = attention_library_item.get_by_role(
+        "link", name=ATTENTION_TITLE, exact=True
+    )
+    attention_library_add = attention_library_item.get_by_role(
         "button", name=f"Add {ATTENTION_TITLE} to study session", exact=True
-    ).click()
+    )
+    attention_library_add.focus()
+    attention_library_add.press("Enter")
     expect(
         attention_library_item.get_by_role(
             "button", name=f"{ATTENTION_TITLE} is in study session", exact=True
         )
     ).to_be_disabled()
+    expect(attention_library_title).to_be_focused()
+    _require_visible_focus(attention_library_title, "Saved Learning exact-item capture result")
 
     page.get_by_role("button", name=re.compile(r"^Saved \(1\)$")).click()
     page.get_by_label("Sort saved learning", exact=True).select_option("progress")
     page.get_by_label("Filter saved learning", exact=True).fill("CRB")
+    page.get_by_role("button", name="Filter", exact=True).click()
+    expect(page).to_have_url(re.compile(r"/library\?q=CRB&view=bookmarked&sort=progress$"))
+    saved_filter = page.get_by_label("Filter saved learning", exact=True)
+    saved_clear = page.get_by_role("button", name="Clear", exact=True)
+    saved_clear.focus()
+    saved_clear.press("Enter")
+    expect(saved_filter).to_be_focused()
+    _require_visible_focus(saved_filter, "Saved Learning cleared filter")
+    saved_filter.fill("CRB")
     page.get_by_role("button", name="Filter", exact=True).click()
     expect(page).to_have_url(re.compile(r"/library\?q=CRB&view=bookmarked&sort=progress$"))
     saved_crb_link = page.get_by_test_id("saved-library-section-bookmarked").get_by_role(
@@ -1837,11 +1865,16 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     saved_crb_item = page.get_by_test_id("saved-library-section-bookmarked").locator(
         '[data-testid="saved-library-item"]'
     ).filter(has_text=CRB_TITLE).first
-    saved_crb_item.get_by_role(
+    saved_crb_title = saved_crb_item.get_by_role("link", name=CRB_TITLE, exact=True)
+    saved_crb_add = saved_crb_item.get_by_role(
         "button", name=f"Add {CRB_TITLE} to study session", exact=True
-    ).click()
+    )
+    saved_crb_add.focus()
+    saved_crb_add.press("Enter")
     _require(page.url == session_url_before_add, "adding to Session discarded Saved Library URL state")
     expect(page.get_by_role("link", name="Open study session (2)", exact=True)).to_be_visible()
+    expect(saved_crb_title).to_be_focused()
+    _require_visible_focus(saved_crb_title, "Saved Learning second exact-item capture result")
     page.get_by_role("link", name="Dashboard", exact=True).click()
     dashboard_session = page.get_by_test_id("dashboard-study-session")
     expect(dashboard_session).to_have_attribute("data-state", "ready")
@@ -1864,9 +1897,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "Current · Reading"
     )
     crb_queue_item = page.get_by_test_id("study-session-item").filter(has_text=CRB_TITLE).first
-    crb_queue_item.get_by_role("button", name=f"Move {CRB_TITLE} up", exact=True).click()
-    crb_queue_item.get_by_role("button", name=f"Set {CRB_TITLE} as current", exact=True).click()
+    move_crb_up = crb_queue_item.get_by_role("button", name=f"Move {CRB_TITLE} up", exact=True)
+    move_crb_up.focus()
+    move_crb_up.press("Enter")
+    crb_queue_title = crb_queue_item.get_by_role("link", name=CRB_TITLE, exact=True)
+    expect(crb_queue_title).to_be_focused()
+    _require_visible_focus(crb_queue_title, "Focused Session boundary-move result")
+    set_crb_current = crb_queue_item.get_by_role(
+        "button", name=f"Set {CRB_TITLE} as current", exact=True
+    )
+    set_crb_current.focus()
+    set_crb_current.press("Enter")
     expect(crb_queue_item).to_contain_text("Current · Completed")
+    expect(crb_queue_title).to_be_focused()
+    _require_visible_focus(crb_queue_title, "Focused Session current-item result")
     page.wait_for_load_state("networkidle")
     page.evaluate(
         "() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))"
@@ -1968,11 +2012,24 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     crb_state_before = _api_json(context, "GET", f"/learning/state/{CRB_ARTICLE_ID}")
     mark_complete = completion_region.get_by_role("button", name="Mark Article complete", exact=True)
     expect(mark_complete).to_be_enabled(timeout=30_000)
+    _install_mutation_response_gate(
+        page,
+        f"/learning/state/{CRB_ARTICLE_ID}",
+        "GET",
+    )
     page.keyboard.press("Tab")
     expect(mark_complete).to_be_focused()
     mark_complete.press("Enter")
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1",
+        timeout=30_000,
+    )
+    crb_heading.focus()
+    _release_mutation_response_gate(page)
     expect(completion_region).to_have_attribute("data-state", "ready-to-advance", timeout=30_000)
-    expect(completion_region).to_be_focused(timeout=30_000)
+    expect(crb_heading).to_be_focused(timeout=30_000)
+    _require_visible_focus(crb_heading, "Reader completion newer focus owner")
+    _restore_mutation_response_gate(page)
     expect(completion_status).to_contain_text("Article completion is confirmed")
     expect(completion_region.get_by_role("button", name="Article completion confirmed", exact=True)).to_be_disabled()
     expect(page.get_by_role("button", name="End session", exact=True)).to_be_disabled(timeout=30_000)
@@ -1982,7 +2039,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "confirming an already completed Article duplicated its completion write",
     )
     open_next = completion_region.get_by_role("button", name="Open next unfinished Article", exact=True)
-    page.keyboard.press("Tab")
+    open_next.focus()
     expect(open_next).to_be_focused()
     open_next.press("Enter")
     attention_heading = page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
@@ -2024,11 +2081,24 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     terminal_action = completion_region.get_by_role(
         "button", name="Open next unfinished Article", exact=True
     )
+    _install_mutation_response_gate(
+        page,
+        f"/learning/state/{ATTENTION_ARTICLE_ID}",
+        "GET",
+    )
     page.keyboard.press("Tab")
     expect(terminal_action).to_be_focused()
     terminal_action.press("Enter")
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1",
+        timeout=30_000,
+    )
+    attention_heading.focus()
+    _release_mutation_response_gate(page)
     expect(completion_region).to_have_attribute("data-state", "complete", timeout=30_000)
-    expect(completion_region).to_be_focused(timeout=30_000)
+    expect(attention_heading).to_be_focused(timeout=30_000)
+    _require_visible_focus(attention_heading, "Reader terminal advance newer focus owner")
+    _restore_mutation_response_gate(page)
     expect(completion_region).to_contain_text("Every queued Article is confirmed complete")
     _require(page.url == terminal_url, "terminal completion navigated without an unfinished Article")
     completion_region.get_by_role("link", name="Review completed session", exact=True).click()
@@ -2048,13 +2118,37 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     dashboard_session.get_by_role("link", name="Review completed session", exact=True).click()
     expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
     crb_queue_item = page.get_by_test_id("study-session-item").filter(has_text=CRB_TITLE).first
-    crb_queue_item.get_by_role(
+    remove_crb = crb_queue_item.get_by_role(
         "button", name=f"Remove {CRB_TITLE} from session", exact=True
-    ).click()
+    )
+    remove_crb.focus()
+    remove_crb.press("Enter")
     expect(page.get_by_test_id("study-session-summary")).to_contain_text("1 Article")
-    page.get_by_role("button", name="Clear queue", exact=True).click()
-    page.get_by_role("button", name="Confirm clear queue", exact=True).click()
+    surviving_attention = page.get_by_test_id("study-session-item").get_by_role(
+        "link", name=ATTENTION_TITLE, exact=True
+    )
+    expect(surviving_attention).to_be_focused()
+    _require_visible_focus(surviving_attention, "Focused Session removal result")
+    clear_queue = page.get_by_role("button", name="Clear queue", exact=True)
+    clear_queue.focus()
+    clear_queue.press("Enter")
+    confirm_clear = page.get_by_role("button", name="Confirm clear queue", exact=True)
+    expect(confirm_clear).to_be_focused()
+    _require_visible_focus(confirm_clear, "Focused Session clear confirmation")
+    cancel_clear = page.get_by_role("button", name="Cancel", exact=True)
+    cancel_clear.focus()
+    cancel_clear.press("Enter")
+    clear_queue = page.get_by_role("button", name="Clear queue", exact=True)
+    expect(clear_queue).to_be_focused()
+    _require_visible_focus(clear_queue, "Focused Session cancelled clear")
+    clear_queue.press("Enter")
+    confirm_clear = page.get_by_role("button", name="Confirm clear queue", exact=True)
+    expect(confirm_clear).to_be_focused()
+    confirm_clear.press("Enter")
     expect(page.get_by_test_id("study-session-empty")).to_be_visible()
+    empty_recovery = page.get_by_role("link", name="Browse saved learning", exact=True)
+    expect(empty_recovery).to_be_focused()
+    _require_visible_focus(empty_recovery, "Focused Session cleared-queue recovery")
     checks["focused_study_session_workflow"] = True
 
     page.get_by_role("link", name="Dashboard", exact=True).click()
@@ -2079,10 +2173,77 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.get_by_role("link", name="Graph", exact=True).click()
     expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
     expect(page.get_by_text(re.compile(r"^Showing \d+-\d+ of \d+$"))).to_be_visible(timeout=30_000)
+
+    graph_pagination_pattern = re.compile(r".*/v1\.1/graph/nodes\?.*")
+
+    def provide_graph_pagination(route) -> None:
+        query = parse_qs(urlparse(route.request.url).query)
+        if query.get("q", [""])[0] != "p3-036-pagination":
+            route.continue_()
+            return
+        requested_page = int(query.get("page", ["1"])[0])
+        first_index = (requested_page - 1) * 20
+        remaining = max(0, 41 - first_index)
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "items": [
+                        {
+                            "node_id": f"concept:p3-036-{first_index + offset + 1}",
+                            "node_type": "concept",
+                            "label": f"P3-036 Graph page {requested_page} result {offset + 1}",
+                            "source_id": None,
+                            "source_url": None,
+                            "metadata": {},
+                        }
+                        for offset in range(min(20, remaining))
+                    ],
+                    "total": 41,
+                    "page": requested_page,
+                    "page_size": 20,
+                    "pages": 3,
+                },
+                ensure_ascii=False,
+            ),
+        )
+
+    page.route(graph_pagination_pattern, provide_graph_pagination)
+    graph_search = page.get_by_placeholder("Title, concept, or formula")
+    graph_search.fill("p3-036-pagination")
+    graph_apply = page.get_by_role("button", name="Apply", exact=True)
+    graph_apply.focus()
+    graph_apply.press("Enter")
+    graph_results_heading = page.get_by_role("heading", name="Nodes", exact=True)
+    expect(page.get_by_text("Showing 1-20 of 41", exact=True)).to_be_visible(timeout=30_000)
+    expect(graph_results_heading).to_be_focused()
+    _require_visible_focus(graph_results_heading, "Graph Apply result heading")
+    graph_next = page.get_by_role("button", name="Next", exact=True)
+    graph_next.focus()
+    graph_next.press("Enter")
+    expect(page.get_by_text("Showing 21-40 of 41", exact=True)).to_be_visible(timeout=30_000)
+    expect(graph_results_heading).to_be_focused()
+    _require_visible_focus(graph_results_heading, "Graph Next-page result heading")
+    graph_previous = page.get_by_role("button", name="Previous", exact=True)
+    graph_previous.focus()
+    graph_previous.press("Enter")
+    expect(page.get_by_text("Showing 1-20 of 41", exact=True)).to_be_visible(timeout=30_000)
+    expect(graph_results_heading).to_be_focused()
+    _require_visible_focus(graph_results_heading, "Graph Previous-page result heading")
+    graph_clear = page.get_by_role("button", name="Clear", exact=True)
+    graph_clear.focus()
+    graph_clear.press("Enter")
+    expect(graph_search).to_be_focused()
+    _require_visible_focus(graph_search, "Graph cleared search")
+    page.unroute(graph_pagination_pattern, provide_graph_pagination)
+
     page.get_by_placeholder("Title, concept, or formula").fill("Attention")
     page.locator('select[name="node_type"]').select_option("concept")
     page.get_by_role("button", name="Apply", exact=True).click()
     expect(page.get_by_text(re.compile(r"^Showing 1-\d+ of \d+$"))).to_be_visible(timeout=30_000)
+    expect(graph_results_heading).to_be_focused()
+    _require_visible_focus(graph_results_heading, "Graph filtered result heading")
     graph_node = (
         page.get_by_test_id("graph-node-results")
         .locator("button")
@@ -2348,9 +2509,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     bulk_add = study_set.get_by_role("button", name="Add eligible Articles", exact=True)
     _focus_via_tab(page, bulk_add)
     bulk_add.press("Enter")
-    expect(study_set.get_by_role("status").last).to_contain_text(
+    concept_session_status = study_set.get_by_test_id("concept-study-session-status")
+    expect(concept_session_status).to_contain_text(
         "1 added; 0 already present; 0 invalid; 0 omitted by capacity."
     )
+    expect(concept_session_status).to_be_focused()
+    _require_visible_focus(concept_session_status, "Concept Study Set capture result")
     _require(
         page.evaluate("window.__p3023SessionWrites") == 1,
         "Concept Study Set bulk append did not use exactly one storage write",
@@ -2365,9 +2529,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"Concept Study Set saved the wrong Session state: {persisted_concept_session}",
     )
     bulk_add.press("Enter")
-    expect(study_set.get_by_role("status").last).to_contain_text(
+    expect(concept_session_status).to_contain_text(
         "0 added; 1 already present; 0 invalid; 0 omitted by capacity."
     )
+    expect(concept_session_status).to_be_focused()
+    _require_visible_focus(concept_session_status, "Concept Study Set duplicate result")
     _require(
         page.evaluate("window.__p3023SessionWrites") == 1,
         "idempotent Concept Study Set append performed an extra storage write",
@@ -2606,13 +2772,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(graph_reader_session).to_be_enabled(timeout=30_000)
     graph_reader_session.click()
     expect(graph_reader_session).to_be_disabled()
-    graph_return_detail_pattern = re.compile(r".*/graph/nodes/[^/?]+(?:\?.*)?$")
-
-    def delay_graph_return_detail(route) -> None:
-        time.sleep(0.5)
-        route.continue_()
-
-    page.route(graph_return_detail_pattern, delay_graph_return_detail)
+    _install_mutation_response_gate(page, "/graph/nodes/", "GET")
     graph_reader_return.focus()
     expect(graph_reader_return).to_be_focused()
     _start_zotero_focus_trace(page)
@@ -2622,19 +2782,26 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         arg=graph_article_return,
         timeout=30_000,
     )
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1",
+        timeout=30_000,
+    )
+    returned_graph_search = page.get_by_placeholder("Title, concept, or formula")
+    returned_graph_search.focus()
+    _release_mutation_response_gate(page)
     returned_graph_article_link = page.locator(
         '[data-graph-article-focus="selected-node"]'
     )
     expect(returned_graph_article_link).to_be_visible(timeout=30_000)
-    expect(returned_graph_article_link).to_be_focused(timeout=30_000)
-    _require_visible_focus(returned_graph_article_link, "restored Graph Article action")
+    expect(returned_graph_search).to_be_focused(timeout=30_000)
+    _require_visible_focus(returned_graph_search, "newer Graph search focus owner")
     _assert_zotero_focus_continuity(
         page,
         "deferred Graph return owner",
+        ("input:",),
         ("A",),
-        ("testid:shell-main-content",),
     )
-    page.unroute(graph_return_detail_pattern, delay_graph_return_detail)
+    _restore_mutation_response_gate(page)
     checks["graph_reader_exact_round_trip"] = True
     checks["graph_reader_keyboard_focus"] = True
     checks["graph_reader_reload_return"] = True
@@ -2646,9 +2813,29 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     list_selection_url = page.url
     related_context_node = page.get_by_test_id("graph-context-list").locator("button").first
     expect(related_context_node).to_be_visible(timeout=30_000)
-    related_context_node.press("Enter")
+    _install_mutation_response_gate(page, "/v1.1/graph/subgraph", "GET")
+    page.evaluate(
+        """
+        () => {
+          const related = document.querySelector('[data-testid="graph-context-list"] button');
+          const map = document.querySelector('[data-testid="graph-view-map"]');
+          if (!(related instanceof HTMLButtonElement) || !(map instanceof HTMLButtonElement)) {
+            throw new Error("Graph context focus-race controls are unavailable");
+          }
+          related.click();
+          map.focus();
+        }
+        """
+    )
+    context_map_focus_owner = page.get_by_test_id("graph-view-map")
+    expect(context_map_focus_owner).to_be_focused()
+    _require_visible_focus(context_map_focus_owner, "initial Graph context focus owner")
     page.wait_for_function("previous => location.href !== previous", arg=list_selection_url)
-    _require_visible_focus(concept_context_region, "desktop Context region after list selection")
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1",
+        timeout=30_000,
+    )
+    _release_mutation_response_gate(page)
     expect(
         page.get_by_role("group", name="Graph workspace view").get_by_role(
             "button", name="Knowledge context", exact=True
@@ -2657,6 +2844,9 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name="Bounded Context", exact=True)).to_be_visible(
         timeout=30_000
     )
+    expect(context_map_focus_owner).to_be_focused()
+    _require_visible_focus(context_map_focus_owner, "newer Graph context focus owner")
+    _restore_mutation_response_gate(page)
     page.get_by_test_id("graph-view-map").click()
     expect(page.get_by_test_id("graph-visualization")).to_be_visible()
     checks["knowledge_graph"] = True
@@ -2664,11 +2854,71 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     page.get_by_role("link", name="Tutor", exact=True).click()
     expect(page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
-    page.get_by_label("Search articles").fill("CRB")
-    page.get_by_role("button", name="Search library", exact=True).click()
-    page.get_by_role("button", name=f"Select {CRB_TITLE}", exact=True).click()
+    _install_tutor_article_search_delays(page)
+    _set_tutor_article_search_delays(page, {"CRB": 700})
+    tutor_article_search = page.get_by_label("Search articles")
+    tutor_article_search.fill("CRB")
+    tutor_search_submit = page.get_by_role("button", name="Search library", exact=True)
+    tutor_search_submit.focus()
+    tutor_search_submit.press("Enter")
+    expect(page.get_by_role("button", name="Searching...", exact=True)).to_be_visible()
+    tutor_question_focus_owner = page.get_by_label("Question")
+    tutor_question_focus_owner.click()
+    tutor_crb_result = page.get_by_role("button", name=f"Select {CRB_TITLE}", exact=True)
+    expect(tutor_crb_result).to_be_visible(timeout=30_000)
+    expect(tutor_question_focus_owner).to_be_focused()
+    _require_visible_focus(tutor_question_focus_owner, "newer Tutor question focus owner")
+    _set_tutor_article_search_delays(page, {})
+    tutor_article_search.fill("CRB")
+    tutor_search_submit = page.get_by_role("button", name="Search library", exact=True)
+    tutor_search_submit.focus()
+    tutor_search_submit.press("Enter")
+    expect(tutor_crb_result).to_be_focused(timeout=30_000)
+    _require_visible_focus(tutor_crb_result, "Tutor Article search result")
+    tutor_crb_result.press("Enter")
     expect(page.get_by_test_id("tutor-selected-article")).to_contain_text(CRB_TITLE)
     _require(page.get_by_label("Article ID").count() == 0, "Tutor primary flow exposes Article ID")
+    clear_tutor_context = page.get_by_role("button", name="Clear article context", exact=True)
+    clear_tutor_context.focus()
+    clear_tutor_context.press("Enter")
+    expect(tutor_article_search).to_be_focused()
+    _require_visible_focus(tutor_article_search, "Tutor cleared Article context")
+
+    _set_tutor_article_search_delays(page, {"CRB": 800, "Attention": 80})
+    tutor_article_search.fill("CRB")
+    tutor_search_submit = page.get_by_role("button", name="Search library", exact=True)
+    tutor_search_submit.focus()
+    tutor_search_submit.press("Enter")
+    expect(page.get_by_role("button", name="Searching...", exact=True)).to_be_visible()
+    tutor_article_search.fill("Attention")
+    page.evaluate(
+        """
+        () => document.querySelector('input[aria-label="Search articles"]')
+          ?.closest('form')
+          ?.dispatchEvent(new SubmitEvent('submit', { bubbles: true, cancelable: true }))
+        """
+    )
+    tutor_attention_result = page.get_by_role(
+        "button", name=f"Select {ATTENTION_TITLE}", exact=True
+    )
+    expect(tutor_attention_result).to_be_focused(timeout=30_000)
+    page.wait_for_timeout(1_000)
+    expect(tutor_attention_result).to_be_focused()
+    expect(tutor_crb_result).to_have_count(0)
+
+    _set_tutor_article_search_delays(page, {})
+    tutor_article_search.fill("CRB")
+    tutor_search_submit = page.get_by_role("button", name="Search library", exact=True)
+    tutor_search_submit.focus()
+    tutor_search_submit.press("Enter")
+    tutor_crb_result = page.get_by_role("button", name=f"Select {CRB_TITLE}", exact=True)
+    expect(tutor_crb_result).to_be_focused(timeout=30_000)
+    _restore_tutor_article_search_delays(page)
+    tutor_crb_result.focus()
+    tutor_crb_result.press("Enter")
+    expect(page.get_by_test_id("tutor-selected-article")).to_contain_text(CRB_TITLE)
+    checks["tutor_article_search_newer_focus_owner"] = True
+    checks["tutor_article_search_stale_response_guard"] = True
 
     markdown_response = {
         "answer": (
@@ -3086,8 +3336,59 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     del console_errors[activity_order_console_start:]
     _restore_fetch_response_gate(activity_order_page)
+    activity_retry = activity_order_page.get_by_role("button", name="Retry activity", exact=True)
+    activity_retry.focus()
+    activity_retry.press("Enter")
+    activity_region = activity_order_page.get_by_test_id("tutor-activity")
+    expect(activity_region).to_be_focused(timeout=30_000)
+    _require_visible_focus(activity_region, "Tutor activity retry result")
+    expect(activity_region.get_by_role("alert")).to_have_count(0)
     checks["tutor_newer_activity_failure_supersedes_older_read"] = True
+    checks["tutor_activity_retry_focus"] = True
     activity_order_page.close()
+
+    activity_focus_console_start = len(console_errors)
+    activity_focus_page = _new_observed_page(
+        context, console_errors, page_errors, label="tutor-activity-retry-focus-owner"
+    )
+    activity_focus_page.route(
+        re.compile(r".*/tutor/sessions$"),
+        lambda route: route.fulfill(
+            status=503,
+            content_type="application/json",
+            body='{"detail":"intentional P3-036 activity focus failure"}',
+        ),
+        times=1,
+    )
+    activity_focus_page.goto(f"{FRONTEND_URL}/tutor", wait_until="domcontentloaded")
+    _wait_for_application_shell(activity_focus_page)
+    activity_focus_retry = activity_focus_page.get_by_role(
+        "button", name="Retry activity", exact=True
+    )
+    expect(activity_focus_retry).to_be_visible(timeout=30_000)
+    _install_fetch_response_gate(activity_focus_page, "/tutor/sessions", method="GET")
+    activity_focus_retry.focus()
+    activity_focus_retry.press("Enter")
+    _wait_for_fetch_response_gate_pending(activity_focus_page)
+    activity_question_focus_owner = activity_focus_page.get_by_label("Question")
+    activity_question_focus_owner.click()
+    _release_fetch_response_gate(activity_focus_page)
+    expect(activity_focus_retry).to_have_count(0, timeout=30_000)
+    expect(activity_question_focus_owner).to_be_focused()
+    _require_visible_focus(
+        activity_question_focus_owner,
+        "newer Tutor activity focus owner",
+    )
+    _restore_fetch_response_gate(activity_focus_page)
+    activity_focus_page.close()
+    activity_focus_console = console_errors[activity_focus_console_start:]
+    _require(
+        len(activity_focus_console) == 1
+        and "status of 503" in activity_focus_console[0],
+        f"unexpected Tutor activity focus console output: {activity_focus_console}",
+    )
+    del console_errors[activity_focus_console_start:]
+    checks["tutor_activity_retry_newer_focus_owner"] = True
 
     route_context_page = _new_observed_page(
         context, console_errors, page_errors, label="tutor-route-context-removal"
@@ -3506,6 +3807,13 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(article_race_page.get_by_test_id("article-pagination")).to_have_count(0)
     race_search = article_race_page.get_by_placeholder("Search title or keyword")
     race_submit = article_race_page.get_by_role("button", name="Search", exact=True)
+    race_search.fill("temporary query")
+    clear_search = article_race_page.get_by_role("button", name="Clear", exact=True)
+    clear_search.focus()
+    clear_search.press("Enter")
+    expect(race_search).to_be_focused()
+    _require_visible_focus(race_search, "Article List cleared search")
+    expect(race_search).to_have_value("")
     race_search.fill("CRB")
     race_submit.click()
     expect(article_race_page.get_by_text("Loading articles", exact=True)).to_be_visible()
@@ -3601,10 +3909,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         article_race_page.locator('[data-testid="article-discovery-workspace"] article').count() == 0,
         "failed Article request exposed actionable stale rows",
     )
-    article_race_page.get_by_role("button", name="Retry articles", exact=True).click()
+    article_retry = article_race_page.get_by_role("button", name="Retry articles", exact=True)
+    article_retry.focus()
+    article_retry.press("Enter")
     expect(article_race_page.get_by_text("No articles found.", exact=True)).to_be_visible(
         timeout=30_000
     )
+    article_status = article_race_page.get_by_test_id("article-list-status")
+    expect(article_status).to_be_focused()
+    _require_visible_focus(article_status, "Article List retry result")
     checks["article_result_generation_and_stale_failure_guard"] = True
     checks["article_result_stale_success_sort_page_retry_guard"] = True
     checks["article_result_failure_retry_and_selection_reset"] = True
@@ -4202,6 +4515,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
                 content_type="application/json",
                 body='{"detail":"intentional P3-020 unavailable state"}',
             ),
+            times=1,
         )
     unavailable_page = unavailable_context.new_page()
     unavailable_page.on(
@@ -4222,6 +4536,13 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(unavailable_page.get_by_test_id("saved-library-unavailable")).not_to_contain_text(
         CRB_ARTICLE_ID
     )
+    saved_retry = unavailable_page.get_by_role("button", name="Retry", exact=True)
+    saved_retry.focus()
+    saved_retry.press("Enter")
+    saved_summary = unavailable_page.get_by_test_id("saved-library-result-summary")
+    expect(saved_summary).to_be_focused(timeout=30_000)
+    _require_visible_focus(saved_summary, "Saved Library retry result")
+    expect(unavailable_page.get_by_test_id("saved-library-unavailable")).to_have_count(0)
     checks["saved_library_unavailable_state"] = True
     unavailable_context.close()
 
@@ -4494,6 +4815,16 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             has_text="browser-local storage could not save it"
         )
     ).to_be_visible()
+    non_boundary_item = write_failure_page.get_by_test_id("study-session-item").filter(
+        has_text="Guided advance target"
+    ).first
+    non_boundary_move = non_boundary_item.get_by_role(
+        "button", name="Move Guided advance target up", exact=True
+    )
+    non_boundary_move.focus()
+    non_boundary_move.press("Enter")
+    expect(non_boundary_move).to_be_focused()
+    _require_visible_focus(non_boundary_move, "Focused Session non-boundary reorder")
     write_failure_page.close()
     write_failure_context.route(
         re.compile(r".*/learning/sessions$"),
@@ -4690,13 +5021,23 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"uncertain timer end was replayed without user action: {timer_end_attempts}",
     )
     timer_retry = timer_completion.get_by_role("button", name="Retry timer check", exact=True)
+    _install_mutation_response_gate(timer_page, "/learning/sessions", "GET")
     timer_retry.focus()
     timer_retry.press("Enter")
+    timer_page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1",
+        timeout=30_000,
+    )
+    timer_heading = timer_page.get_by_role("heading", name=CRB_TITLE, exact=True)
+    timer_heading.focus()
+    _release_mutation_response_gate(timer_page)
     expect(timer_page.get_by_test_id("focused-session-timer-warning")).to_have_count(
         0, timeout=30_000
     )
     expect(timer_completion).to_contain_text("Reader timer end confirmed")
-    expect(timer_completion).to_be_focused(timeout=30_000)
+    expect(timer_heading).to_be_focused(timeout=30_000)
+    _require_visible_focus(timer_heading, "Reader timer retry newer focus owner")
+    _restore_mutation_response_gate(timer_page)
     _require(
         timer_end_attempts["count"] == 2,
         f"confirmed-open timer retry did not perform exactly one end request: {timer_end_attempts}",
@@ -4843,6 +5184,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(manual_timer_page.get_by_test_id("focused-session-timer-warning")).to_have_count(
         0, timeout=30_000
     )
+    expect(manual_completion).to_be_focused(timeout=30_000)
+    _require_visible_focus(manual_completion, "Reader timer retry result")
     _require(
         manual_timer_ends["count"] == 2,
         f"explicit timer retry did not issue exactly one new end request: {manual_timer_ends}",
@@ -5005,10 +5348,42 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     uncertain_advance = uncertain_completion.get_by_role(
         "button", name="Open next unfinished Article", exact=True
     )
+    _install_mutation_response_gate(
+        uncertain_page,
+        f"/learning/state/{RESEARCH_ARTICLE_ID}",
+        "GET",
+    )
     uncertain_advance.focus()
     uncertain_advance.press("Enter")
-    expect(uncertain_completion).to_have_attribute("data-state", "complete", timeout=30_000)
-    expect(uncertain_completion).to_be_focused(timeout=30_000)
+    uncertain_page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1",
+        timeout=30_000,
+    )
+    uncertain_page.evaluate(
+        """
+        () => localStorage.setItem(
+          "scientific-spaces-study-session-v1",
+          JSON.stringify({
+            version: 1,
+            active_article_id: null,
+            updated_at: new Date().toISOString(),
+            items: [],
+          }),
+        )
+        """
+    )
+    uncertain_heading = uncertain_page.get_by_role(
+        "heading", name=RESEARCH_TITLE, exact=True
+    )
+    uncertain_heading.focus()
+    _release_mutation_response_gate(uncertain_page)
+    expect(uncertain_completion).to_contain_text(
+        "This Article is no longer the active item in the focused session.",
+        timeout=30_000,
+    )
+    expect(uncertain_heading).to_be_focused()
+    _require_visible_focus(uncertain_heading, "Reader advance error newer focus owner")
+    _restore_mutation_response_gate(uncertain_page)
     checks["focused_session_uncertain_completion_reconciliation"] = True
     uncertain_context.close()
     expected_uncertain_console = console_errors[uncertain_console_start:]
@@ -5162,10 +5537,13 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     race_url = race_page.url
     race_next.click(force=True)
     _require(race_page.url == race_url, "manual navigation escaped while completion was pending")
+    race_heading = race_page.get_by_role("heading", name=CRB_TITLE, exact=True)
+    race_heading.focus()
     expect(race_completion).to_have_attribute(
         "data-state", "ready-to-advance", timeout=30_000
     )
-    expect(race_completion).to_be_focused(timeout=30_000)
+    expect(race_heading).to_be_focused(timeout=30_000)
+    _require_visible_focus(race_heading, "pending completion newer focus owner")
     expect(race_next).to_have_attribute("aria-disabled", "false")
     _require(
         race_state["put_count"] == 1,
@@ -5436,10 +5814,19 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "Status unavailable"
     )
     expect(completion_retry_page.get_by_test_id("study-session-complete")).to_have_count(0)
-    completion_retry_page.get_by_role("button", name="Retry status", exact=True).click()
+    completion_status_retry = completion_retry_page.get_by_role(
+        "button", name="Retry status", exact=True
+    )
+    completion_status_retry.focus()
+    completion_status_retry.press("Enter")
     expect(completion_retry_page.get_by_test_id("study-session-complete")).to_be_visible(
         timeout=30_000
     )
+    session_completion_status = completion_retry_page.get_by_test_id(
+        "study-session-completion-status"
+    )
+    expect(session_completion_status).to_be_focused()
+    _require_visible_focus(session_completion_status, "Focused Session retry result")
     checks["focused_session_completion_status_retry"] = True
     completion_retry_context.close()
     expected_completion_retry_console = console_errors[completion_retry_console_start:]
@@ -5971,6 +6358,19 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         )
         expect(viewport_clear).to_be_enabled()
         expect(viewport_add).to_be_enabled()
+        _focus_via_tab(completion_viewport_page, viewport_clear)
+        viewport_clear.press("Enter")
+        expect(viewport_capture).to_be_focused()
+        _require_visible_focus(
+            viewport_capture,
+            f"{viewport_label} Article capture after clearing selection",
+        )
+        expect(viewport_checkbox).not_to_be_checked()
+        viewport_checkbox.press("Space")
+        expect(viewport_checkbox).to_be_checked()
+        viewport_add = completion_viewport_page.get_by_role(
+            "button", name="Add selected to session", exact=True
+        )
         completion_viewport_page.keyboard.press("Shift+Tab")
         expect(
             completion_viewport_page.get_by_role(
@@ -10260,7 +10660,10 @@ def _verify_reader_learning_mutation_integrity(
         f"rapid note activation did not persist exactly one record: {pending_notes}",
     )
     _release_mutation_response_gate(page)
-    expect(page.get_by_test_id("note-mutation-status")).to_have_text("Note saved.")
+    note_mutation_status = page.get_by_test_id("note-mutation-status")
+    expect(note_mutation_status).to_have_text("Note saved.")
+    expect(note_mutation_status).to_be_focused()
+    _require_visible_focus(note_mutation_status, "Reader duplicate-safe note-create result")
     duplicate_note = page.get_by_test_id("learning-note").filter(has_text=duplicate_text)
     expect(duplicate_note).to_have_count(1)
     confirmed_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
@@ -10269,6 +10672,46 @@ def _verify_reader_learning_mutation_integrity(
         confirmed_notes["total"] == baseline_note_count + 1
         and len(duplicate_records) == 1,
         f"note persistence and Reader identity diverged: {confirmed_notes}",
+    )
+    _restore_mutation_response_gate(page)
+
+    updated_duplicate_text = f"P3-036 updated note {iteration}"
+    duplicate_edit = duplicate_note.get_by_role("button", name="Edit", exact=True)
+    duplicate_edit.focus()
+    duplicate_edit.press("Enter")
+    duplicate_edit_field = page.get_by_label("Edit learning note", exact=True)
+    expect(duplicate_edit_field).to_be_focused()
+    _require_visible_focus(duplicate_edit_field, "Reader note edit field")
+    duplicate_edit_field.fill(updated_duplicate_text)
+    duplicate_editor = duplicate_edit_field.locator(
+        "xpath=ancestor::article[@data-testid='learning-note']"
+    )
+    _install_mutation_response_gate(
+        page,
+        f"/learning/notes/{duplicate_records[0]['note_id']}",
+        "PUT",
+    )
+    duplicate_save = duplicate_editor.get_by_role("button", name="Save", exact=True)
+    duplicate_save.focus()
+    duplicate_save.press("Enter")
+    page.wait_for_function(
+        "() => window.__p3029MutationGate?.pendingCount === 1",
+        timeout=30_000,
+    )
+    _release_mutation_response_gate(page)
+    expect(note_mutation_status).to_have_text("Note updated.")
+    expect(note_mutation_status).to_be_focused()
+    _require_visible_focus(note_mutation_status, "Reader note-update result")
+    duplicate_note = page.get_by_test_id("learning-note").filter(has_text=updated_duplicate_text)
+    expect(duplicate_note).to_have_count(1)
+    updated_duplicate_records = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
+    _require(
+        any(
+            item["note_id"] == duplicate_records[0]["note_id"]
+            and item["content"] == updated_duplicate_text
+            for item in updated_duplicate_records["items"]
+        ),
+        f"note update did not preserve the exact record identity: {updated_duplicate_records}",
     )
     _restore_mutation_response_gate(page)
 
@@ -10368,14 +10811,17 @@ def _verify_reader_learning_mutation_integrity(
     expect(baseline_note.get_by_role("button", name="Edit", exact=True)).to_be_disabled()
     expect(baseline_note.get_by_role("button", name="Delete", exact=True)).to_be_disabled()
     _start_note_delete_focus_trace(page)
+    delete_wait_heading = page.get_by_role("heading", name=CRB_TITLE, exact=True)
+    delete_wait_heading.focus()
     _release_mutation_response_gate(page)
     note_status = page.get_by_test_id("note-mutation-status")
     expect(note_status).to_have_text("Note deleted.")
-    expect(note_status).to_be_focused()
+    expect(delete_wait_heading).to_be_focused()
+    _require_visible_focus(delete_wait_heading, "Reader note-delete newer focus owner")
     _assert_note_delete_focus_continuity(
         page,
         "completing confirmed note deletion",
-        (("testid:note-mutation-status", True),),
+        ((f"heading:{CRB_TITLE}", True),),
     )
     expect(duplicate_note).to_have_count(0)
     deleted_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
@@ -10429,10 +10875,7 @@ def _verify_reader_learning_mutation_integrity(
     _assert_note_delete_focus_continuity(
         page,
         "handling lost note deletion response",
-        (
-            ("testid:note-mutation-status", True),
-            ("button:Delete", False),
-        ),
+        (("button:Delete", False),),
     )
     expect(page.get_by_test_id("notes-controls")).to_have_attribute("aria-busy", "false")
     page.wait_for_timeout(250)
@@ -10464,6 +10907,8 @@ def _verify_reader_learning_mutation_integrity(
     failed_feedback = page.get_by_test_id("note-mutation-error")
     expect(failed_feedback).to_have_attribute("role", "alert")
     expect(failed_feedback).to_contain_text("could not be confirmed")
+    expect(failed_feedback).to_be_focused()
+    _require_visible_focus(failed_feedback, "Reader note-create failure")
     expect(note_draft).to_have_value(failed_text)
     expect(
         page.get_by_test_id("learning-note").filter(has_text=failed_text)
@@ -10484,9 +10929,13 @@ def _verify_reader_learning_mutation_integrity(
         has_text=baseline_note_content
     )
     expect(baseline_note).to_have_count(1)
-    baseline_note.get_by_role("button", name="Edit", exact=True).click()
+    baseline_edit = baseline_note.get_by_role("button", name="Edit", exact=True)
+    baseline_edit.focus()
+    baseline_edit.press("Enter")
     retained_edit = f"P3-029 retained edit {iteration}"
     edit_field = page.get_by_label("Edit learning note", exact=True)
+    expect(edit_field).to_be_focused()
+    _require_visible_focus(edit_field, "Reader existing-note edit field")
     editing_note = edit_field.locator("xpath=ancestor::article[@data-testid='learning-note']")
     edit_field.fill(retained_edit)
     _install_one_shot_mutation_response_loss(
@@ -10496,9 +10945,12 @@ def _verify_reader_learning_mutation_integrity(
         "intentional P3-029 unconfirmed update result",
     )
     editing_note.get_by_role("button", name="Save", exact=True).click()
-    expect(page.get_by_test_id("note-mutation-error")).to_contain_text(
+    update_failure = page.get_by_test_id("note-mutation-error")
+    expect(update_failure).to_contain_text(
         "update could not be confirmed"
     )
+    expect(update_failure).to_be_focused()
+    _require_visible_focus(update_failure, "Reader note-update failure")
     expect(edit_field).to_have_value(retained_edit)
     update_failure_notes = _api_json(context, "GET", f"/learning/notes/{CRB_ARTICLE_ID}")
     updated_unknown_records = [
@@ -10524,11 +10976,16 @@ def _verify_reader_learning_mutation_integrity(
         f"unknown-result note update restore did not read back exactly: {restored_update_notes}",
     )
     _restore_one_shot_mutation_failure(page)
-    editing_note.get_by_role("button", name="Cancel", exact=True).click()
+    cancel_note_edit = editing_note.get_by_role("button", name="Cancel", exact=True)
+    cancel_note_edit.focus()
+    cancel_note_edit.press("Enter")
 
     baseline_note = page.get_by_test_id("learning-note").filter(
         has_text=baseline_note_content
     )
+    restored_edit = baseline_note.get_by_role("button", name="Edit", exact=True)
+    expect(restored_edit).to_be_focused()
+    _require_visible_focus(restored_edit, "Reader cancelled note edit")
 
     _install_one_shot_mutation_failure(
         page,
@@ -10557,10 +11014,7 @@ def _verify_reader_learning_mutation_integrity(
     _assert_note_delete_focus_continuity(
         page,
         "handling rejected note deletion request",
-        (
-            ("testid:note-mutation-status", True),
-            ("button:Delete", False),
-        ),
+        (("button:Delete", False),),
     )
     page.wait_for_timeout(250)
     _require(
@@ -10907,6 +11361,7 @@ def _verify_reader_learning_mutation_integrity(
         f"/learning/bookmarks/{ATTENTION_ARTICLE_ID}",
         "POST",
     )
+    save_bookmark.focus()
     save_bookmark.evaluate("button => { button.click(); button.click(); }")
     page.wait_for_function(
         "() => window.__p3029MutationGate?.pendingCount === 1 && window.__p3029MutationGate?.callCount === 1",
@@ -10917,6 +11372,9 @@ def _verify_reader_learning_mutation_integrity(
     _release_mutation_response_gate(page)
     expect(page.get_by_test_id("bookmark-mutation-status")).to_have_text("Bookmark saved.")
     expect(page.get_by_role("button", name="Remove", exact=True)).to_be_visible()
+    bookmark_controls = page.get_by_test_id("bookmark-controls")
+    expect(bookmark_controls).to_be_focused()
+    _require_visible_focus(bookmark_controls, "Reader duplicate-safe bookmark result")
     stored_bookmarks = _api_json(context, "GET", "/learning/bookmarks")
     _require(
         stored_bookmarks["total"] == baseline_bookmark_count + 1
@@ -10930,6 +11388,7 @@ def _verify_reader_learning_mutation_integrity(
         "DELETE",
     )
     remove_bookmark = page.get_by_role("button", name="Remove", exact=True)
+    remove_bookmark.focus()
     remove_bookmark.evaluate("button => { button.click(); button.click(); }")
     page.wait_for_function(
         "() => window.__p3029MutationGate?.pendingCount === 1 && window.__p3029MutationGate?.callCount === 1",
@@ -10941,8 +11400,11 @@ def _verify_reader_learning_mutation_integrity(
         removed_before_release["total"] == baseline_bookmark_count,
         f"rapid bookmark removal did not persist exactly once: {removed_before_release}",
     )
+    attention_heading.focus()
     _release_mutation_response_gate(page)
     expect(page.get_by_test_id("bookmark-mutation-status")).to_have_text("Bookmark removed.")
+    expect(attention_heading).to_be_focused()
+    _require_visible_focus(attention_heading, "Reader newer focus after bookmark removal")
     cleaned_bookmarks = _api_json(context, "GET", "/learning/bookmarks")
     _require(cleaned_bookmarks["total"] == baseline_bookmark_count, "bookmark cleanup failed")
     _restore_mutation_response_gate(page)
@@ -10957,6 +11419,8 @@ def _verify_reader_learning_mutation_integrity(
     bookmark_failure = page.get_by_test_id("bookmark-mutation-error")
     expect(bookmark_failure).to_have_attribute("role", "alert")
     expect(bookmark_failure).to_contain_text("displayed bookmark state was kept")
+    expect(bookmark_controls).to_be_focused()
+    _require_visible_focus(bookmark_controls, "Reader bookmark failure result")
     expect(page.get_by_role("button", name="Save", exact=True)).to_be_visible()
     failed_bookmarks = _api_json(context, "GET", "/learning/bookmarks")
     _require(
@@ -13165,6 +13629,56 @@ def _restore_fetch_response_gate(page) -> None:
             window.fetch = window.__p3027OriginalFetch;
             delete window.__p3027OriginalFetch;
             delete window.__p3027FetchGate;
+          }
+        }
+        """
+    )
+
+
+def _install_tutor_article_search_delays(page) -> None:
+    page.evaluate(
+        """
+        () => {
+          if (typeof window.__p3036TutorOriginalFetch === "function") {
+            throw new Error("P3-036 Tutor Article delay is already installed");
+          }
+          const originalFetch = window.fetch.bind(window);
+          window.__p3036TutorOriginalFetch = originalFetch;
+          window.__p3036TutorArticleDelays = {};
+          window.fetch = async (...args) => {
+            const target = new URL(
+              String(args[0] instanceof Request ? args[0].url : args[0]),
+              window.location.href,
+            );
+            if (target.pathname === "/v1.1/articles") {
+              const query = target.searchParams.get("q") ?? "";
+              const delay = Number(window.__p3036TutorArticleDelays?.[query] ?? 0);
+              if (delay > 0) {
+                await new Promise((resolve) => window.setTimeout(resolve, delay));
+              }
+            }
+            return originalFetch(...args);
+          };
+        }
+        """
+    )
+
+
+def _set_tutor_article_search_delays(page, delays: dict[str, int]) -> None:
+    page.evaluate(
+        "delays => { window.__p3036TutorArticleDelays = {...delays}; }",
+        delays,
+    )
+
+
+def _restore_tutor_article_search_delays(page) -> None:
+    page.evaluate(
+        """
+        () => {
+          if (typeof window.__p3036TutorOriginalFetch === "function") {
+            window.fetch = window.__p3036TutorOriginalFetch;
+            delete window.__p3036TutorOriginalFetch;
+            delete window.__p3036TutorArticleDelays;
           }
         }
         """

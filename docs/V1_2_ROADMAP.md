@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED with exact-SHA implementation CI; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED with exact-SHA CI; P3-036 Workspace Mutation Focus Continuity is LOCAL PASS / IMPLEMENTATION CI PENDING; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -989,6 +989,31 @@ with every required job passing and zero uploaded artifacts. This docs-only
 closure commit requires its own exact-SHA CI. The canonical task is
 `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`.
 
+The docs-only P3-035 closure commit
+`7997cceca268bae1e43806efb5460674a699dc92` passed exact-SHA main CI run
+[`34011480204`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34011480204)
+with every required job passing and zero uploaded artifacts.
+
+### P3-036 - Workspace Mutation Focus Continuity
+
+Status: **LOCAL PASS / IMPLEMENTATION CI PENDING**.
+
+Two independent GUI reviews and controlled Chromium found that in-page actions
+can settle on `BODY` when their initiating control disables, unmounts, or
+switches rendering mode. P3-036 establishes one bounded focus-ownership
+contract across the affected Article, Reader, Saved, Session, Graph, Concept,
+and Tutor interactions while preserving all data, request, route, and storage
+behavior. The canonical task is
+`docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`.
+
+The bounded repair now preserves focus across all required Article, Reader,
+Saved, Session, Graph, Concept, and Tutor mutation paths with operation-owned
+async guards. Local evidence is PASS: 139 focused Frontend tests, the 11-route
+production build, 600 Backend tests with 4 skips, three Product E2E runs with
+225/225 checks each, restart persistence, two independent final reviews, and
+all offline repository-safety gates passed. External requests and unexpected
+console/page errors were zero. Exact-SHA implementation CI remains required.
+
 ## Release Criteria
 
 - P3-002 scope and architecture approved with no unresolved compatibility ambiguity.
@@ -1021,8 +1046,8 @@ closure commit requires its own exact-SHA CI. The canonical task is
 
 ## Next Recommended Task
 
-No task is staged. Continue platform and GUI improvement through the next
-bounded task after this docs-only closure commit passes exact-SHA CI.
+Commit and push the locally verified P3-036 implementation, then require
+exact-SHA implementation and docs-only closure CI.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain
