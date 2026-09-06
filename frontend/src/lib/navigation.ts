@@ -22,9 +22,31 @@ export type ShellRouteCommitAction =
   | "source"
   | "pending"
   | "modal"
+  | "route"
   | "invalidate";
 
 export type ShellPendingRouteLifecycleAction = "target" | "observe" | "wait" | "invalidate";
+
+export type ShellHistoryNavigation = Readonly<{
+  hash: string;
+  pathname: string;
+  search: string;
+}>;
+
+export type ShellRouteCommit = Readonly<{
+  action: ShellRouteCommitAction;
+  focusOperationVersion: number;
+  identity: string;
+}>;
+
+export const SHELL_HISTORY_NAVIGATION_EVENT = "scientific-spaces:shell-history-navigation";
+export const SHELL_FOCUS_OPERATION_EVENT = "scientific-spaces:shell-focus-operation";
+export const SHELL_ROUTE_COMMIT_EVENT = "scientific-spaces:shell-route-commit";
+
+let pendingShellHistoryNavigation: ShellHistoryNavigation | null = null;
+let latestShellRouteCommit: ShellRouteCommit | null = null;
+let shellFocusOperationVersion = 0;
+const pendingShellDestinationFocusIntents = new Map<string, string>();
 
 export const PRIMARY_NAVIGATION: readonly PrimaryNavigationItem[] = [
   { id: "dashboard", href: "/", label: "Dashboard" },
@@ -98,12 +120,161 @@ export function resolveShellNavigationTarget(href: string, baseHref: string): st
   return createShellRouteIdentity(target.pathname, target.search);
 }
 
+export function recordShellDestinationFocusIntent(href: string, baseHref: string): void {
+  const targetIdentity = resolveShellNavigationTarget(href, baseHref);
+  let sourceIdentity: string | null = null;
+  try {
+    const source = new URL(baseHref);
+    if (source.protocol === "http:" || source.protocol === "https:") {
+      sourceIdentity = createShellRouteIdentity(source.pathname, source.search);
+    }
+  } catch {
+    sourceIdentity = null;
+  }
+  if (!targetIdentity || !sourceIdentity) {
+    return;
+  }
+  pendingShellDestinationFocusIntents.delete(targetIdentity);
+  pendingShellDestinationFocusIntents.set(targetIdentity, sourceIdentity);
+  while (pendingShellDestinationFocusIntents.size > 8) {
+    const oldest = pendingShellDestinationFocusIntents.keys().next().value;
+    if (typeof oldest !== "string") {
+      break;
+    }
+    pendingShellDestinationFocusIntents.delete(oldest);
+  }
+}
+
+export function consumeShellDestinationFocusIntent(
+  targetIdentity: string,
+  sourceIdentity: string | null,
+): boolean {
+  const expectedSourceIdentity = pendingShellDestinationFocusIntents.get(targetIdentity);
+  if (!expectedSourceIdentity) {
+    return false;
+  }
+  pendingShellDestinationFocusIntents.delete(targetIdentity);
+  return sourceIdentity === expectedSourceIdentity;
+}
+
+export function recordShellHistoryNavigation(
+  pathname: string,
+  search: string,
+  hash: string,
+): void {
+  pendingShellHistoryNavigation = { pathname, search, hash };
+}
+
+export function consumeShellHistoryNavigation(
+  pathname: string,
+  search: string,
+  hash: string,
+): ShellHistoryNavigation | null {
+  const pending = pendingShellHistoryNavigation;
+  if (
+    !pending
+    || pending.pathname !== pathname
+    || pending.search !== search
+    || pending.hash !== hash
+  ) {
+    return null;
+  }
+  pendingShellHistoryNavigation = null;
+  return pending;
+}
+
+export function hasPendingShellHistoryNavigation(
+  pathname: string,
+  search: string,
+  hash: string,
+): boolean {
+  return pendingShellHistoryNavigation?.pathname === pathname
+    && pendingShellHistoryNavigation.search === search
+    && pendingShellHistoryNavigation.hash === hash;
+}
+
+export function recordShellRouteCommit(
+  identity: string,
+  action: ShellRouteCommitAction,
+): void {
+  if (
+    pendingShellHistoryNavigation
+    && createShellRouteIdentity(
+      pendingShellHistoryNavigation.pathname,
+      pendingShellHistoryNavigation.search,
+    ) !== identity
+  ) {
+    pendingShellHistoryNavigation = null;
+  }
+  if (action !== "unchanged") {
+    latestShellRouteCommit = {
+      action,
+      focusOperationVersion: shellFocusOperationVersion,
+      identity,
+    };
+  }
+}
+
+export function recordShellFocusOperation(): number {
+  shellFocusOperationVersion += 1;
+  pendingShellDestinationFocusIntents.clear();
+  return shellFocusOperationVersion;
+}
+
+export function getShellFocusOperationVersion(): number {
+  return shellFocusOperationVersion;
+}
+
+export function getShellRouteCommitAction(identity: string): ShellRouteCommitAction | null {
+  return latestShellRouteCommit?.identity === identity
+    ? latestShellRouteCommit.action
+    : null;
+}
+
+export function getShellRouteCommitFocusOperationVersion(identity: string): number | null {
+  return latestShellRouteCommit?.identity === identity
+    ? latestShellRouteCommit.focusOperationVersion
+    : null;
+}
+
+export function isShellDestinationFocusAction(
+  action: ShellRouteCommitAction | null,
+): boolean {
+  return action === "pending" || action === "modal" || action === "route";
+}
+
 export function shouldUseShellMainFocus(
   activeIsBody: boolean,
   activeIsConnected: boolean,
   activeIsShellOrigin: boolean,
+  activeIsInsideMain: boolean,
 ): boolean {
-  return activeIsBody || !activeIsConnected || activeIsShellOrigin;
+  return activeIsBody || !activeIsConnected || activeIsShellOrigin || !activeIsInsideMain;
+}
+
+export function shouldScheduleShellHistoryMainFocus(
+  previousIdentity: string | null,
+  nextIdentity: string,
+  previousHash: string | null,
+  nextHash: string,
+): boolean {
+  return previousIdentity === nextIdentity
+    && previousHash !== null
+    && previousHash === nextHash;
+}
+
+export function shouldTransferDeferredReaderFragmentFocus(
+  activeIsBody: boolean,
+  activeIsConnected: boolean,
+  activeIsMain: boolean,
+  activeIsTarget: boolean,
+  activeMatchesInitial: boolean,
+): boolean {
+  return activeIsBody
+    || !activeIsConnected
+    || activeIsMain
+    || activeIsTarget
+    || activeMatchesInitial;
 }
 
 export function resolveShellRouteCommitAction(
@@ -119,16 +290,21 @@ export function resolveShellRouteCommitAction(
   if (pendingSourceIdentity === nextIdentity) {
     return "source";
   }
+  if (pendingSourceIdentity !== null || pendingTargetIdentity !== null) {
+    return "invalidate";
+  }
   if (previousIdentity === nextIdentity) {
     return "unchanged";
   }
-  if (previousIdentity === null && pendingTargetIdentity === null) {
-    return "initialize";
+  if (previousIdentity === null) {
+    return pendingSourceIdentity !== null || pendingTargetIdentity !== null
+      ? "invalidate"
+      : "initialize";
   }
   if (modalOpen) {
     return "modal";
   }
-  return "invalidate";
+  return "route";
 }
 
 export function resolveShellPendingRouteLifecycleAction(

@@ -2,7 +2,7 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
 
 ## Staged Task
 
@@ -22,6 +22,7 @@ None
 - P3-031: PASS / CLOSED
 - P3-032: PASS / CLOSED
 - P3-033: PASS / CLOSED
+- P3-034: LOCAL IMPLEMENTATION PASS / CI PENDING
 
 ## Authorization
 
@@ -63,6 +64,9 @@ None
   E2E, governance documentation, isolated fake-runtime validation, local
   commits, non-force push, and exact-SHA CI execution: CONSUMED / CLOSED after
   this docs-only closure commit
+- P3-034 bounded Shell/Reader Frontend implementation, pure tests, Product E2E,
+  governance documentation, isolated fake-runtime validation, local commits,
+  non-force push, and exact-SHA CI execution: GRANTED / ACTIVE
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -169,8 +173,8 @@ None
 
 ## Next Gate
 
-Push this P3-033 docs-only closure commit and verify its exact-SHA main CI. No
-subsequent task or v1.2 candidate is staged.
+Create and non-force push the P3-034 implementation commit, then require its
+exact-SHA main CI to pass. No v1.2 candidate is staged.
 
 ## P3-033 Local Evidence
 
@@ -199,6 +203,41 @@ subsequent task or v1.2 candidate is staged.
 - uploaded artifacts: 0
 - docs-only closure commit: this commit; exact-SHA main CI required before
   final reporting
+
+## P3-033 Closure CI
+
+- docs-only closure commit:
+  `b7159446dd96e893a64c72fa81d9baeb00a14eb1`
+- exact-SHA closure run:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33977608632`
+- required jobs: PASS; normal-main Docker/release jobs skipped as designed;
+  uploaded artifacts: 0
+
+## P3-034 Entry Evidence
+
+- two independent reviews: 2 Important ordinary-route focus findings; no
+  Critical finding
+- controlled local Chromium: desktop rail focus remained outside main;
+  ordinary content navigation and Back settled on `BODY`
+- external requests during reproduction: 0
+- canonical task:
+  `docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
+- evidence report:
+  `docs/P3_034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY_REPORT.md`
+
+## P3-034 Local Evidence
+
+- focused Frontend: 139/139 PASS
+- production build: PASS, 11 routes
+- Backend: 600 passed / 4 skipped
+- Product E2E: 3/3 complete runs, 217 checks each; restart persistence PASS
+- ordinary routes, Back/Forward, same-route semantics, delayed and superseded
+  navigation, destination ownership, and Reader hash focus: PASS
+- external requests, unexpected console errors, and page errors: 0
+- independent final reviews: 2 PASS, 0 Critical / 0 Important
+- workflow, suppression, dependency, secret, temporary SBOM, artifact, and
+  protected-path gates: PASS
+- implementation commit and exact-SHA main CI: pending
 
 ## P3-032 Local Evidence
 

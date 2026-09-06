@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-033 PASS / CLOSED`
+- Status: `P3-034 LOCAL IMPLEMENTATION PASS / CI PENDING`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-033 exact-SHA implementation main CI PASS; docs-only closure CI pending`
-- Current task: `None`
+- Latest gate: `P3-034 local implementation and independent review PASS`
+- Current task: `P3-034 Ordinary Route and Reader Hash Focus Continuity`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -58,6 +58,8 @@ P3-032 canonical task: `docs/tasks/P3-032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_AC
 P3-032 evidence: `docs/P3_032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_REPORT.md` (PASS / CLOSED).
 P3-033 canonical task: `docs/tasks/P3-033_STRUCTURED_REFERENCE_REVIEW_ROUND_TRIP.md` (PASS / CLOSED).
 P3-033 evidence: `docs/P3_033_STRUCTURED_REFERENCE_REVIEW_ROUND_TRIP_REPORT.md` (PASS / CLOSED).
+P3-034 canonical task: `docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md` (local implementation PASS; CI pending).
+P3-034 evidence: `docs/P3_034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY_REPORT.md` (local gates PASS; exact-SHA CI pending).
 
 v1.2 planning specifications:
 
@@ -198,9 +200,9 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `None`
+- Active task: `docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
 - Staged task: `None`
-- Status: `P3-033 PASS / CLOSED`
+- Status: `P3-034 LOCAL IMPLEMENTATION PASS / CI PENDING`
 - Last closed task: `docs/tasks/P3-033_STRUCTURED_REFERENCE_REVIEW_ROUND_TRIP.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`

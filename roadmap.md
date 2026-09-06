@@ -8,17 +8,17 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-None
+P3-034 Ordinary Route and Reader Hash Focus Continuity
 
 Current milestone:
-None
+P3-034
 
 Status:
-P3-033 PASS / CLOSED
+P3-034 LOCAL IMPLEMENTATION PASS / CI PENDING
 
 Next gate:
-Push the P3-033 docs-only closure commit and verify its exact-SHA main CI. No
-subsequent task or v1.2 candidate is staged.
+Commit and non-force push the verified P3-034 implementation, then require
+exact-SHA main CI. No v1.2 candidate is staged.
 
 ## Historical Notes
 

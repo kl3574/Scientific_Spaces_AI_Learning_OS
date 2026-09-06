@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useEffect, useState, type MouseEvent as ReactMouseEvent } from "react";
 
 import { toPlainTextPreview } from "@/lib/articlePresentation";
+import { recordShellDestinationFocusIntent } from "@/lib/navigation";
 import {
   ReferencePage,
   ReferenceRecord,
@@ -30,16 +31,18 @@ export function StructuredReferencesPanel({ articleId }: Readonly<{ articleId: s
   const [data, setData] = useState<ReferencePage | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const focusedReturnTarget = useRef<string | null>(null);
+  const [requestKey, setRequestKey] = useState<string | null>(null);
+  const currentRequestKey = `${articleId}:${page}`;
 
   useEffect(() => {
     setPage(routePage);
     setData(null);
-    focusedReturnTarget.current = null;
   }, [articleId, routePage]);
 
   useEffect(() => {
     let active = true;
+    const nextRequestKey = `${articleId}:${page}`;
+    setRequestKey(nextRequestKey);
     setLoading(true);
     setError(null);
     setData(null);
@@ -65,52 +68,47 @@ export function StructuredReferencesPanel({ articleId }: Readonly<{ articleId: s
     };
   }, [articleId, page]);
 
-  useEffect(() => {
-    if (!data?.items.length || typeof window === "undefined") {
-      return;
-    }
-    const hash = decodeHash(window.location.hash);
-    if (!hash.startsWith("structured-reference-") || focusedReturnTarget.current === hash) {
-      return;
-    }
-    const target = document.getElementById(hash);
-    if (!target) {
-      return;
-    }
-    const frame = window.requestAnimationFrame(() => {
-      target.scrollIntoView({ block: "center" });
-      target.focus({ preventScroll: true });
-      focusedReturnTarget.current = hash;
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [data]);
+  const requestIsCurrent = requestKey === currentRequestKey;
+  const visibleData = requestIsCurrent ? data : null;
+  const visibleError = requestIsCurrent ? error : null;
+  const visibleLoading = !requestIsCurrent || loading;
+  const loadState = visibleLoading
+    ? "loading"
+    : visibleError
+      ? "error"
+      : visibleData?.items.length
+        ? "ready"
+        : "empty";
 
   return (
     <section
       className="mt-8 border-t border-slate-200 pt-6"
-      aria-busy={loading}
+      aria-busy={visibleLoading}
       aria-labelledby="structured-references-heading"
+      data-structured-references-article-id={articleId}
+      data-structured-references-page={page}
+      data-structured-references-state={loadState}
     >
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <h2 id="structured-references-heading" className="text-lg font-semibold">
           Structured References
         </h2>
-        {data ? <span className="text-xs text-slate-500">{data.total} records</span> : null}
+        {visibleData ? <span className="text-xs text-slate-500">{visibleData.total} records</span> : null}
       </div>
 
-      {loading ? <p className="mt-4 text-sm text-slate-600">Loading references...</p> : null}
-      {error ? (
+      {visibleLoading ? <p className="mt-4 text-sm text-slate-600">Loading references...</p> : null}
+      {visibleError ? (
         <p className="mt-4 border-l-2 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          {error}
+          {visibleError}
         </p>
       ) : null}
-      {!loading && !error && data?.items.length === 0 ? (
+      {!visibleLoading && !visibleError && visibleData?.items.length === 0 ? (
         <p className="mt-4 text-sm text-slate-600">No structured references for this article.</p>
       ) : null}
 
-      {data?.items.length ? (
+      {visibleData?.items.length ? (
         <ul className="mt-4 divide-y divide-slate-200 border-y border-slate-200">
-          {data.items.map((record) => (
+          {visibleData.items.map((record) => (
             <li
               key={record.reference_id}
               id={referenceRowId(record.reference_id)}
@@ -136,22 +134,22 @@ export function StructuredReferencesPanel({ articleId }: Readonly<{ articleId: s
         </ul>
       ) : null}
 
-      {data && data.total_pages > 1 ? (
+      {visibleData && visibleData.total_pages > 1 ? (
         <nav className="mt-4 flex items-center justify-between gap-3" aria-label="Reference pages">
           <button
             className="border border-slate-300 px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:text-slate-400"
-            disabled={!data.has_previous}
+            disabled={!visibleData.has_previous}
             type="button"
             onClick={() => setPage((current) => Math.max(1, current - 1))}
           >
             Previous
           </button>
           <span className="text-xs text-slate-500">
-            Page {data.page} of {data.total_pages}
+            Page {visibleData.page} of {visibleData.total_pages}
           </span>
           <button
             className="border border-slate-300 px-3 py-2 text-sm font-medium disabled:cursor-not-allowed disabled:text-slate-400"
-            disabled={!data.has_next}
+            disabled={!visibleData.has_next}
             type="button"
             onClick={() => setPage((current) => current + 1)}
           >
@@ -217,14 +215,6 @@ function parseReferencePage(value: string | null): number {
   return Number.isSafeInteger(page) && page > 0 ? Math.min(page, 100_000) : 1;
 }
 
-function decodeHash(hash: string): string {
-  try {
-    return decodeURIComponent(hash.replace(/^#/, ""));
-  } catch {
-    return "";
-  }
-}
-
 function rememberReviewFocus(event: ReactMouseEvent<HTMLAnchorElement>, referenceId: string): void {
   if (
     event.button === 0
@@ -234,6 +224,7 @@ function rememberReviewFocus(event: ReactMouseEvent<HTMLAnchorElement>, referenc
     && !event.shiftKey
     && event.currentTarget.target !== "_blank"
   ) {
+    recordShellDestinationFocusIntent(event.currentTarget.href, window.location.href);
     rememberReferenceDetailFocus(referenceId);
   }
 }

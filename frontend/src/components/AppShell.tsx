@@ -3,16 +3,31 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
-import { Suspense, useCallback, useEffect, useRef, useState, useTransition } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 
 import { GlobalSearchDialog } from "@/components/GlobalSearchDialog";
 import { PrimaryNav } from "@/components/PrimaryNav";
 import {
+  SHELL_FOCUS_OPERATION_EVENT,
+  SHELL_HISTORY_NAVIGATION_EVENT,
+  SHELL_ROUTE_COMMIT_EVENT,
+  consumeShellDestinationFocusIntent,
   createShellRouteIdentity,
+  recordShellFocusOperation,
+  recordShellHistoryNavigation,
+  recordShellRouteCommit,
   resolveShellPendingRouteLifecycleAction,
   resolveShellRouteCommitAction,
   resolveShellNavigationTarget,
   resolveWorkspaceLocation,
+  shouldScheduleShellHistoryMainFocus,
   shouldUseShellMainFocus,
   type ShellNavigationEvent,
 } from "@/lib/navigation";
@@ -29,6 +44,9 @@ type ShellFocusableElement = Element & {
   focus: (options?: FocusOptions) => void;
 };
 
+const SHELL_FOCUS_OWNER_MAX_WAIT_MS = 35_000;
+const SHELL_DESTINATION_MOUNT_GRACE_FRAMES = 8;
+
 export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const pathname = usePathname();
   const router = useRouter();
@@ -44,9 +62,13 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const navigationOpenRef = useRef(false);
   const searchOpenRef = useRef(false);
   const routeIdentityRef = useRef<string | null>(null);
+  const routeContentRootRef = useRef<Element | null>(null);
   const pendingRouteFocusRef = useRef<PendingRouteFocus | null>(null);
+  const historyDestinationFocusRef = useRef<string | null>(null);
   const focusOperationRef = useRef(0);
   const focusFramesRef = useRef<Set<number>>(new Set());
+  const shellInteractionVersionRef = useRef(0);
+  const historyHashRef = useRef<string | null>(null);
   const location = hydrated
     ? resolveWorkspaceLocation(pathname)
     : { id: "unknown" as const, label: "Workspace", trail: ["Workspace"] };
@@ -61,6 +83,8 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   const beginFocusOperation = useCallback(() => {
     cancelFocusFrames();
     focusOperationRef.current += 1;
+    recordShellFocusOperation();
+    window.dispatchEvent(new Event(SHELL_FOCUS_OPERATION_EVENT));
     return focusOperationRef.current;
   }, [cancelFocusFrames]);
 
@@ -95,26 +119,97 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   }, []);
 
   const scheduleMainFocus = useCallback(
-    (operationId: number, expectedIdentity: string, originElement: ShellFocusableElement | null = null) => {
-      scheduleOwnedFocus(
-        operationId,
-        () => {
-          if (getCurrentShellRouteIdentity() !== expectedIdentity) {
+    (
+      operationId: number,
+      expectedIdentity: string,
+      originElement: ShellFocusableElement | null = null,
+      waitForDestinationMount = true,
+      sourceRouteRoot: Element | null = null,
+      destinationFocusExpected = false,
+    ) => {
+      const ownerWaitDeadline = window.performance.now() + SHELL_FOCUS_OWNER_MAX_WAIT_MS;
+      const expectedInteractionVersion = shellInteractionVersionRef.current;
+      let destinationMountGracePending = waitForDestinationMount;
+      let destinationOwnerPendingObserved = false;
+      let waitingForDestinationOwner = destinationFocusExpected;
+      const scheduleAttempt = (frameCount: number) => {
+        scheduleOwnedFocus(operationId, () => {
+          if (
+            getCurrentShellRouteIdentity() !== expectedIdentity
+            || shellInteractionVersionRef.current !== expectedInteractionVersion
+          ) {
             return;
           }
-          const activeElement = document.activeElement;
+          const expectedPathname = expectedIdentity.split("?", 1)[0];
+          const sourceRouteStillMounted = Boolean(
+            waitForDestinationMount
+            && sourceRouteRoot?.isConnected
+            && mainRef.current?.contains(sourceRouteRoot),
+          );
           if (
-            shouldUseShellMainFocus(
-              !activeElement || activeElement === document.body,
-              Boolean(activeElement?.isConnected),
-              activeElement === originElement,
-            )
+            window.performance.now() < ownerWaitDeadline
+            && sourceRouteStillMounted
           ) {
-            mainRef.current?.focus({ preventScroll: true });
+            scheduleAttempt(4);
+            return;
           }
-        },
-        3,
-      );
+          routeContentRootRef.current = mainRef.current?.firstElementChild ?? null;
+          const activeElement = document.activeElement;
+          const needsMainFocus = shouldUseShellMainFocus(
+            !activeElement || activeElement === document.body,
+            Boolean(activeElement?.isConnected),
+            activeElement === originElement,
+            Boolean(activeElement && mainRef.current?.contains(activeElement)),
+          );
+          if (!needsMainFocus) {
+            return;
+          }
+          if (
+            window.performance.now() < ownerWaitDeadline
+            && destinationMountGracePending
+          ) {
+            destinationMountGracePending = false;
+            scheduleAttempt(SHELL_DESTINATION_MOUNT_GRACE_FRAMES);
+            return;
+          }
+          const readerRoutePending = expectedPathname.startsWith("/articles/")
+            && !mainRef.current?.querySelector('[data-shell-route-ready="article-detail"]');
+          const destinationOwnerPending = Boolean(
+            waitForDestinationMount
+            && (
+              readerRoutePending
+              || mainRef.current?.querySelector('[data-shell-focus-owner="pending"]')
+              || mainRef.current?.querySelector('[aria-busy="true"]')
+            ),
+          );
+          if (
+            window.performance.now() < ownerWaitDeadline
+            && destinationOwnerPending
+          ) {
+            waitingForDestinationOwner = false;
+            destinationOwnerPendingObserved = true;
+            scheduleAttempt(4);
+            return;
+          }
+          if (
+            window.performance.now() < ownerWaitDeadline
+            && waitingForDestinationOwner
+          ) {
+            scheduleAttempt(4);
+            return;
+          }
+          if (
+            window.performance.now() < ownerWaitDeadline
+            && destinationOwnerPendingObserved
+          ) {
+            destinationOwnerPendingObserved = false;
+            scheduleAttempt(4);
+            return;
+          }
+          mainRef.current?.focus({ preventScroll: true });
+        }, frameCount);
+      };
+      scheduleAttempt(3);
     },
     [scheduleOwnedFocus],
   );
@@ -134,6 +229,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         recoveryOperationId,
         recoveryIdentity,
         pendingRouteFocus.originElement,
+        false,
       );
     },
     [beginFocusOperation, scheduleMainFocus],
@@ -145,6 +241,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         return;
       }
       const previousIdentity = routeIdentityRef.current;
+      const previousRouteContentRoot = routeContentRootRef.current;
       const pendingRouteFocus = pendingRouteFocusRef.current;
       const modalWasOpen = navigationOpenRef.current || searchOpenRef.current;
       const ownedPendingRoute =
@@ -161,9 +258,14 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       );
       routeIdentityRef.current = nextIdentity;
       if (action === "initialize" || action === "unchanged" || action === "source") {
+        routeContentRootRef.current = mainRef.current?.firstElementChild ?? null;
+        recordShellRouteCommit(nextIdentity, action);
         return;
       }
 
+      const destinationFocusExpected = historyDestinationFocusRef.current === nextIdentity
+        || consumeShellDestinationFocusIntent(nextIdentity, previousIdentity);
+      historyDestinationFocusRef.current = null;
       const operationId = action === "pending"
         ? ownedPendingRoute!.operationId
         : beginFocusOperation();
@@ -178,12 +280,19 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
         cancelFocusFrames();
       }
       pendingRouteFocusRef.current = null;
-      if (action === "invalidate") {
-        return;
-      }
-
+      recordShellRouteCommit(nextIdentity, action);
+      window.dispatchEvent(new Event(SHELL_ROUTE_COMMIT_EVENT));
       hideShellModals();
-      scheduleMainFocus(operationId, nextIdentity, originElement);
+      scheduleMainFocus(
+        operationId,
+        nextIdentity,
+        originElement,
+        true,
+        previousIdentity?.split("?", 1)[0] !== nextIdentity.split("?", 1)[0]
+          ? previousRouteContentRoot
+          : null,
+        destinationFocusExpected,
+      );
     },
     [beginFocusOperation, cancelFocusFrames, hideShellModals, scheduleMainFocus],
   );
@@ -191,6 +300,78 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
   useEffect(() => {
     setHydrated(true);
   }, []);
+
+  useEffect(() => {
+    const recordHash = () => {
+      historyHashRef.current = window.location.hash;
+    };
+    recordHash();
+    window.addEventListener("hashchange", recordHash);
+    return () => window.removeEventListener("hashchange", recordHash);
+  }, []);
+
+  useEffect(() => {
+    const recordShellInteraction = () => {
+      shellInteractionVersionRef.current += 1;
+    };
+    window.addEventListener("keydown", recordShellInteraction, true);
+    window.addEventListener("pointerdown", recordShellInteraction, true);
+    window.addEventListener("touchstart", recordShellInteraction, { capture: true, passive: true });
+    window.addEventListener("wheel", recordShellInteraction, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("keydown", recordShellInteraction, true);
+      window.removeEventListener("pointerdown", recordShellInteraction, true);
+      window.removeEventListener("touchstart", recordShellInteraction, true);
+      window.removeEventListener("wheel", recordShellInteraction, true);
+    };
+  }, []);
+
+  useEffect(() => {
+    function handleHistoryNavigation() {
+      const previousIdentity = routeIdentityRef.current;
+      const previousHash = historyHashRef.current;
+      const historyIdentity = getCurrentShellRouteIdentity();
+      const historyHash = window.location.hash;
+      const destinationFocusExpected = consumeShellDestinationFocusIntent(
+        historyIdentity,
+        previousIdentity,
+      );
+      historyDestinationFocusRef.current = destinationFocusExpected ? historyIdentity : null;
+      const operationId = beginFocusOperation();
+      pendingRouteFocusRef.current = null;
+      recordShellHistoryNavigation(
+        window.location.pathname,
+        window.location.search,
+        window.location.hash,
+      );
+      historyHashRef.current = historyHash;
+      window.dispatchEvent(new Event(SHELL_HISTORY_NAVIGATION_EVENT));
+      if (
+        shouldScheduleShellHistoryMainFocus(
+          previousIdentity,
+          historyIdentity,
+          previousHash,
+          historyHash,
+        )
+        && !navigationOpenRef.current
+        && !searchOpenRef.current
+      ) {
+        scheduleMainFocus(
+          operationId,
+          historyIdentity,
+          null,
+          true,
+          previousIdentity?.split("?", 1)[0] !== historyIdentity.split("?", 1)[0]
+            ? routeContentRootRef.current
+            : null,
+          destinationFocusExpected,
+        );
+      }
+    }
+
+    window.addEventListener("popstate", handleHistoryNavigation);
+    return () => window.removeEventListener("popstate", handleHistoryNavigation);
+  }, [beginFocusOperation, scheduleMainFocus]);
 
   useEffect(() => {
     return cancelFocusFrames;
@@ -298,7 +479,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       hideShellModals();
       if (targetIdentity === currentIdentity) {
         pendingRouteFocusRef.current = null;
-        scheduleMainFocus(operationId, currentIdentity, originElement);
+        scheduleMainFocus(operationId, currentIdentity, originElement, false);
         return;
       }
 
@@ -417,7 +598,7 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
 
       <aside className="hidden h-screen border-r border-slate-200 bg-white lg:sticky lg:top-0 lg:flex lg:flex-col">
         <div className="border-b border-slate-200 px-5 py-5">
-          <Brand />
+          <Brand onNavigate={handleShellNavigate} />
         </div>
         <div className="px-3 pt-4">
           <SearchTrigger
@@ -426,7 +607,10 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
           />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-          <PrimaryNav activePathname={hydrated ? pathname : null} />
+          <PrimaryNav
+            activePathname={hydrated ? pathname : null}
+            onNavigate={handleShellNavigate}
+          />
         </div>
         <div className="border-t border-slate-200 px-5 py-4 text-xs text-slate-500">
           Scientific learning workspace
@@ -436,7 +620,11 @@ export function AppShell({ children }: Readonly<{ children: ReactNode }>) {
       <div className="min-w-0">
         <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur lg:hidden">
           <div className="flex min-h-16 items-center justify-between gap-2 px-4 py-2.5">
-            <Brand compact currentLabel={location.label} />
+            <Brand
+              compact
+              currentLabel={location.label}
+              onNavigate={handleShellNavigate}
+            />
             <div className="flex shrink-0 items-center gap-2">
               <SearchTrigger
                 compact
@@ -591,12 +779,21 @@ function SearchTrigger({
   );
 }
 
-function Brand({ compact = false, currentLabel }: Readonly<{ compact?: boolean; currentLabel?: string }>) {
+function Brand({
+  compact = false,
+  currentLabel,
+  onNavigate,
+}: Readonly<{
+  compact?: boolean;
+  currentLabel?: string;
+  onNavigate?: (href: string, event: ShellNavigationEvent) => void;
+}>) {
   return (
     <Link
       aria-label="Scientific Spaces AI Learning OS home"
       className="flex min-w-0 flex-1 items-center gap-3 text-slate-950"
       href="/"
+      onNavigate={(event) => onNavigate?.("/", event)}
     >
       <span
         aria-hidden="true"

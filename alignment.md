@@ -1,17 +1,17 @@
-# P3-033 Structured Reference Review Round Trip and Context Ownership Alignment
+# P3-034 Ordinary Route and Reader Hash Focus Continuity Alignment
 
 Canonical task:
-`docs/tasks/P3-033_STRUCTURED_REFERENCE_REVIEW_ROUND_TRIP.md`
+`docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
 
-Status: **PASS / CLOSED**
+Status: **LOCAL IMPLEMENTATION PASS / CI PENDING**
 
-BOUNDED REFERENCE/READER FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE
+BOUNDED SHELL/READER FRONTEND, PURE TESTS, PRODUCT E2E, GOVERNANCE
 DOCUMENTATION, ISOLATED LOCAL FAKE-RUNTIME VALIDATION, LOCAL COMMITS, NON-FORCE
-PUSH TO `main`, AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED**
+PUSH TO `main`, AND EXACT-SHA CI READBACK: **GRANTED / ACTIVE**
 
 BACKEND, API, PROVIDER, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE
 RECORDS, CORPUS, GRAPH OR REFERENCE DATA, MATCHING, DERIVED ASSETS, DEPENDENCIES,
-LOCKFILES, WORKFLOWS, CANDIDATE, TAG, RELEASE, AND ATTESTATION CHANGES:
+LOCKFILES, WORKFLOWS, CANDIDATE, VERSION, TAG, RELEASE, AND ATTESTATION CHANGES:
 **NOT GRANTED**
 
 SOURCE NETWORK, EXTERNAL SEARCH, PRIVATE ZOTERO, REAL OR PAID PROVIDERS,
@@ -19,68 +19,78 @@ DESTRUCTIVE GIT ACTIONS, AND HISTORY REWRITING: **NOT GRANTED**
 
 ## Objective
 
-Connect each Article structured reference to its exact standalone review,
-preserve canonical URL/history and a safe Article return, bind list/detail/
-candidate reads to the selected record, and make evidence review accessible
-and responsive.
+Make ordinary same-tab navigation announce its committed destination through
+visible keyboard focus, while preserving all destination-owned focus contracts
+and repairing the Reader's explicit Outline, Reading tools, and Back to article
+fragment destinations.
 
 ## Binding Contract
 
-- Query, type, classification, page, selected reference, candidate filter, and
-  sanitized Article return are canonical URL state.
-- Only the owned local source Article can be a rendered return target.
-- List, detail, and candidate reads have independent generation/request owners.
-- Selection immediately hides prior detail and candidates; response identity
-  must equal the current selected reference before rendering.
-- Deep-linked records remain reviewable outside the visible result page.
-- Article return restores the reference page and exact asynchronous row focus.
-- Loading, empty, failed, retry, selected, and filtered-empty states are
-  distinct and truthful.
-- Standalone evidence is concise while every occurrence exposed by the frozen
-  20-row v1.2 detail bound, complete occurrence count, truthful truncation, and
-  existing Reader evidence remain available. Unbounded provenance pagination
-  is a separate API-revision candidate.
+- Initial hydration never moves focus.
+- Pathname and normalized query form Shell route identity; hash-only changes do
+  not trigger Shell fallback.
+- Search and mobile Drawer navigation retain their pending-route ownership and
+  stale-operation cancellation.
+- A changed route without pending modal ownership is an ordinary committed
+  route. It schedules a main fallback instead of being discarded as stale.
+- A connected focused element inside `main#main-content` owns focus. Otherwise
+  Shell focuses main without scrolling after the route commits.
+- Mismatched pending routes remain invalid and cannot claim focus.
+- Desktop rail and brand use the existing accepted Next.js navigation event.
+  Same-route activation adds no history entry and focuses current main;
+  modified and new-tab activation stays native.
+- Reader fragment links focus their exact target with visible focus treatment.
+- New route, modal, or focus operations invalidate older deferred callbacks.
 
 ## Allowed Changes
 
-- `frontend/src/app/zotero/page.tsx`
-- `frontend/src/components/ZoteroLibraryView.tsx`
-- `frontend/src/components/ZoteroReferenceReview.tsx`
+- `frontend/src/components/AppShell.tsx`
+- `frontend/src/components/PrimaryNav.tsx`
+- `frontend/src/components/ArticleDetailView.tsx`
 - `frontend/src/components/StructuredReferencesPanel.tsx`
-- `frontend/src/lib/references.ts`
-- `frontend/src/lib/referenceReview.ts`
-- `frontend/tests/references.test.ts`
-- `frontend/tests/referenceReview.test.ts`
-- `frontend/scripts/test-references.sh`
+- `frontend/src/lib/navigation.ts`
+- `frontend/tests/navigation.test.ts`
+- `frontend/scripts/test-articles.sh`
 - `scripts/e2e/run_product_e2e.py`
-- the exact P3-033 canonical, alignment, current-state, roadmap, README, and
-  report files enumerated by the canonical task
+- `docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md`
+- `docs/P3_034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY_REPORT.md`
+- `alignment.md`
+- `docs/tasks/CURRENT_TASK.md`
+- `docs/00_PROJECT_STATE.md`
+- `roadmap.md`
+- `docs/V1_2_ROADMAP.md`
+- `README.md`
 
 ## Acceptance
 
-- Article reference actions deep-link to the exact selected record and can
-  return to the owned Article row with visible focus.
-- Search, filters, pagination, selection, and candidate filter survive reload
-  and Back/Forward through bounded canonical URL state.
-- Delayed or stale list/detail/candidate results never render under newer state.
-- Evidence, provenance, candidate identity, and loading/empty/error/retry state
-  remain truthful and accessible.
-- Desktop integration covers the complete deep-link, filter, failure/retry,
-  race, history, and return semantics. Four required viewports cover
-  representative selected-detail and candidate-filter focus plus long-content
-  master-detail layout without horizontal overflow.
-- Focused/full tests, build, three Product E2E runs, safety gates, and two final
-  reviews pass with zero unexpected external/console/page activity.
-- Implementation and docs-only closure commits each pass exact-SHA main CI.
+- Each desktop primary workspace, ordinary local content route, and browser
+  Back/Forward commit lands on a destination-owned target or visible Shell main,
+  never `BODY` or a persistent source-route link.
+- Different-route activation creates exactly one history entry. Same-route rail
+  or brand activation creates none and preserves URL and scroll.
+- Delayed, superseded, and mismatched route operations cannot move focus early
+  or overwrite a newer destination-owned target.
+- Search, Drawer, Graph, Reader, and Reference focus ownership remains intact.
+- Reader Outline, Reading tools, and Back to article links focus their exact
+  visible targets; managed outline entries continue to focus their heading.
+- Modified/new-tab and external links remain native.
+- Desktop, `390x844`, `320x844`, and `720x450` coverage records no page-level
+  overflow, focus loss, external request, or unexpected console/page error.
+- Focused Frontend suites, production build, full Backend regression, three
+  Product E2E runs, repository safety gates, and two independent final reviews
+  pass.
+- Implementation and docs-only closure commits each pass exact-SHA main CI;
+  final `main` is clean and synchronized.
 
 ## Authorization Basis
 
-The product owner explicitly directed the agent to stop recurring plan
-confirmations and automatically execute bounded platform and GUI improvements
-after sub-agent review. Two independent reviewers completed the GUI audit. The
-product-flow Important finding is incorporated here; the separate application-
-wide ordinary-route focus finding remains deferred. This standing direction
-authorizes only the exact scope above.
+The product owner explicitly directed the agent to continue bounded platform
+and GUI improvements after independent sub-agent review without recurring plan
+confirmation. Two independent reviewers reproduced this Important accessibility
+gap and found no Critical issue. Both reviewers also identified the
+structured-reference panel's independent autofocus as an Important ownership
+conflict, so the exact scope above includes that single bounded repair. This
+standing direction authorizes only the exact scope above.
 
 ## Stop Conditions
 
@@ -91,16 +101,17 @@ gate, or exact-SHA CI failure appears.
 
 No v1.2 candidate is assigned.
 
+## Git Plan
+
+- Implementation commit: `fix: preserve ordinary route focus continuity`
+- Non-force push to `main`, followed by exact-SHA implementation CI readback
+- Docs-only closure commit: `docs: close P3-034 route focus continuity`
+- Non-force push to `main`, followed by exact-SHA closure CI readback
+- Tag and Release operations are not authorized
+
 ## Local Gate Result
 
-The final worktree passes 131 focused Frontend tests, the 11-route production
-build, 600 Backend tests with 4 skipped, three complete Product E2E runs,
-restart persistence, two independent final reviews, and all local non-network
-safety gates. External requests and unexpected console/page errors are zero.
-Implementation commit `b97dd56fbad4a1f5b9da8742bd923b7dc267c51d`
-passed exact-SHA main CI run
-[`33976815403`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33976815403).
-Frontend, Backend, three-run Product E2E, dependency, workflow/suppression,
-secret, and SBOM jobs passed; normal-main Docker and release jobs skipped as
-designed; uploaded artifacts were zero. This docs-only closure commit requires
-its own exact-SHA main CI readback. No subsequent task is staged.
+All required local implementation, focused Frontend, production build, full
+Backend, three-run Product E2E, two-reviewer, security, SBOM, artifact, and
+protected-path gates pass. The next authorized action is the implementation
+commit and non-force `main` push followed by exact-SHA CI readback.

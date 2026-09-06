@@ -484,6 +484,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["dashboard"] = True
     checks["dashboard_command_center"] = True
     checks["desktop_application_shell"] = True
+    _verify_ordinary_shell_route_focus(
+        browser,
+        blocked_external=blocked_external,
+        console_errors=console_errors,
+        page_errors=page_errors,
+    )
+    checks["shell_ordinary_route_focus_continuity"] = True
+    _verify_reader_fragment_focus_ownership(
+        browser,
+        blocked_external=blocked_external,
+        console_errors=console_errors,
+        page_errors=page_errors,
+    )
+    checks["reader_fragment_route_focus_ownership"] = True
     _verify_overlapping_shell_route_cancellation(
         browser,
         blocked_external=blocked_external,
@@ -498,6 +512,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         page_errors=page_errors,
     )
     checks["shell_reader_destination_focus_ownership"] = True
+    checks["shell_superseding_ordinary_route_focus"] = True
 
     search_trigger = page.get_by_test_id("global-search-trigger-desktop")
     expect(search_trigger).to_be_visible()
@@ -1864,12 +1879,82 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(crb_queue_item).to_contain_text(CRB_TITLE)
     expect(crb_queue_item).to_contain_text("Current · Completed")
     _require(not page_errors, f"Study Session hard reload emitted page errors: {page_errors}")
-    page.get_by_role(
+    page.evaluate(
+        """
+        () => {
+          window.__p3034GuidedReaderEvents = [];
+          window.__p3034GuidedReaderFocus = event => {
+            if (event.target instanceof Element) {
+              window.__p3034GuidedReaderEvents.push({
+                kind: 'focus',
+                target: event.target.getAttribute('data-testid')
+                  || event.target.id
+                  || event.target.tagName,
+              });
+            }
+          };
+          window.__p3034GuidedReaderCommit = () => {
+            window.__p3034GuidedReaderEvents.push({kind: 'route-commit'});
+          };
+          window.__p3034GuidedReaderOperation = () => {
+            window.__p3034GuidedReaderEvents.push({kind: 'focus-operation'});
+          };
+          document.addEventListener('focusin', window.__p3034GuidedReaderFocus, true);
+          window.addEventListener(
+            'scientific-spaces:shell-route-commit',
+            window.__p3034GuidedReaderCommit,
+          );
+          window.addEventListener(
+            'scientific-spaces:shell-focus-operation',
+            window.__p3034GuidedReaderOperation,
+          );
+        }
+        """
+    )
+    session_reader_link = page.get_by_role(
         "link", name=f"Review current Article: {CRB_TITLE}", exact=True
-    ).click()
+    )
+    session_reader_href = session_reader_link.get_attribute("href") or ""
+    session_reader_link.click()
     crb_heading = page.get_by_role("heading", name=CRB_TITLE, exact=True)
     expect(crb_heading).to_be_visible(timeout=30_000)
-    expect(crb_heading).to_be_focused(timeout=30_000)
+    try:
+        expect(crb_heading).to_be_focused(timeout=30_000)
+    except AssertionError as exc:
+        guided_reader_diagnostics = page.evaluate(
+            """
+            () => ({
+              active: document.activeElement instanceof Element
+                ? document.activeElement.getAttribute('data-testid')
+                  || document.activeElement.id
+                  || document.activeElement.tagName
+                : null,
+              events: window.__p3034GuidedReaderEvents,
+              owner: document.querySelector('article#article-start')
+                ?.getAttribute('data-shell-focus-owner'),
+              url: location.href,
+            })
+            """
+        )
+        raise AssertionError(
+            "guided Reader destination did not claim focus "
+            f"for {session_reader_href}: {guided_reader_diagnostics}"
+        ) from exc
+    page.evaluate(
+        """
+        () => {
+          document.removeEventListener('focusin', window.__p3034GuidedReaderFocus, true);
+          window.removeEventListener(
+            'scientific-spaces:shell-route-commit',
+            window.__p3034GuidedReaderCommit,
+          );
+          window.removeEventListener(
+            'scientific-spaces:shell-focus-operation',
+            window.__p3034GuidedReaderOperation,
+          );
+        }
+        """
+    )
     session_reader_navigation = page.get_by_test_id("study-session-reader-navigation")
     expect(session_reader_navigation).to_contain_text("Article 1 of 2")
     expect(session_reader_navigation.get_by_role(
@@ -2521,7 +2606,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(graph_reader_session).to_be_enabled(timeout=30_000)
     graph_reader_session.click()
     expect(graph_reader_session).to_be_disabled()
-    graph_reader_return.click()
+    graph_return_detail_pattern = re.compile(r".*/graph/nodes/[^/?]+(?:\?.*)?$")
+
+    def delay_graph_return_detail(route) -> None:
+        time.sleep(0.5)
+        route.continue_()
+
+    page.route(graph_return_detail_pattern, delay_graph_return_detail)
+    graph_reader_return.focus()
+    expect(graph_reader_return).to_be_focused()
+    _start_zotero_focus_trace(page)
+    graph_reader_return.press("Enter")
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
         arg=graph_article_return,
@@ -2533,6 +2628,13 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(returned_graph_article_link).to_be_visible(timeout=30_000)
     expect(returned_graph_article_link).to_be_focused(timeout=30_000)
     _require_visible_focus(returned_graph_article_link, "restored Graph Article action")
+    _assert_zotero_focus_continuity(
+        page,
+        "deferred Graph return owner",
+        ("A",),
+        ("testid:shell-main-content",),
+    )
+    page.unroute(graph_return_detail_pattern, delay_graph_return_detail)
     checks["graph_reader_exact_round_trip"] = True
     checks["graph_reader_keyboard_focus"] = True
     checks["graph_reader_reload_return"] = True
@@ -3601,6 +3703,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "link", name="Return to graph", exact=True
     )
     expect(recovery_retry).to_be_visible()
+    _require(
+        article_recovery_page.evaluate("document.activeElement === document.body"),
+        "hard-loaded Reader recovery moved focus without user interaction",
+    )
+    recovery_retry.focus()
     expect(recovery_retry).to_be_focused()
     _require_visible_focus(recovery_retry, "narrow Article retry action")
     expect(recovery_return).to_have_attribute("href", graph_recovery_return)
@@ -5671,7 +5778,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         viewport_heading = completion_viewport_page.get_by_role(
             "heading", name=CRB_TITLE, exact=True
         )
-        expect(viewport_heading).to_be_focused(timeout=30_000)
+        expect(viewport_heading).to_be_visible(timeout=30_000)
+        _wait_for_animation_frames(completion_viewport_page, 5)
+        _require(
+            completion_viewport_page.evaluate("document.activeElement === document.body"),
+            f"{viewport_label} hard-loaded guided Reader moved focus during hydration",
+        )
+        viewport_heading.focus()
+        expect(viewport_heading).to_be_focused()
         heading_box = viewport_heading.bounding_box()
         _require(
             heading_box is not None
@@ -5679,6 +5793,38 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             and heading_box["y"] + heading_box["height"] > 0,
             f"{viewport_label} guided Reader heading does not intersect the viewport: {heading_box}",
         )
+        if viewport_width < 1024:
+            viewport_outline_link = completion_viewport_page.get_by_role(
+                "link", name="Outline", exact=True
+            )
+            viewport_tools_link = completion_viewport_page.get_by_role(
+                "link", name="Reading tools", exact=True
+            )
+            viewport_outline_link.click()
+            viewport_outline_target = completion_viewport_page.locator("#article-outline")
+            expect(viewport_outline_target).to_be_focused(timeout=30_000)
+            _require_visible_focus(
+                viewport_outline_target,
+                f"{viewport_label} Reader outline target",
+            )
+            viewport_tools_link.click()
+            viewport_tools_target = completion_viewport_page.locator("#reading-tools")
+            expect(viewport_tools_target).to_be_focused(timeout=30_000)
+            _require_visible_focus(
+                viewport_tools_target,
+                f"{viewport_label} Reader tools target",
+            )
+            viewport_back_link = completion_viewport_page.get_by_role(
+                "link", name="Back to article", exact=True
+            )
+            viewport_back_link.click()
+            viewport_article_target = completion_viewport_page.locator("article#article-start")
+            expect(viewport_article_target).to_be_focused(timeout=30_000)
+            _require_visible_focus(
+                viewport_article_target,
+                f"{viewport_label} Reader article target",
+            )
+            checks[f"reader_hash_focus_{viewport_label}_viewport"] = True
         viewport_completion = completion_viewport_page.get_by_test_id(
             "focused-session-completion"
         )
@@ -5710,6 +5856,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             "button", name="Mark Article complete", exact=True
         )
         expect(viewport_mark).to_be_enabled(timeout=30_000)
+        viewport_heading.focus()
+        expect(viewport_heading).to_be_focused()
         completion_viewport_page.keyboard.press("Tab")
         expect(viewport_mark).to_be_focused()
         checks[f"focused_session_completion_{viewport_label}_viewport"] = True
@@ -6263,6 +6411,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     storage_denied_heading = storage_denied_page.locator("article#article-start > h1")
     expect(storage_denied_heading).to_have_text(CRB_TITLE, timeout=30_000)
+    _wait_for_animation_frames(storage_denied_page, 5)
+    _require(
+        storage_denied_page.evaluate("document.activeElement === document.body"),
+        "storage-denied hard-loaded Reader moved focus during hydration",
+    )
+    storage_denied_heading.focus()
     expect(storage_denied_heading).to_be_focused()
     _require_visible_focus(storage_denied_heading, "storage-denied Reader heading")
     expect(
@@ -6572,11 +6726,34 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         mobile_page.evaluate("() => matchMedia('(prefers-reduced-motion: reduce)').matches"),
         "reduced-motion browser preference is not active",
     )
+    mobile_hash_history = int(mobile_page.evaluate("history.length"))
     outline_link.click()
-    expect(mobile_page.get_by_test_id("article-outline")).to_be_visible()
+    mobile_outline_target = mobile_page.locator("#article-outline")
+    expect(mobile_outline_target).to_be_focused(timeout=30_000)
+    _require_visible_focus(mobile_outline_target, "mobile Reader outline target")
     reading_tools_link.click()
+    mobile_tools_target = mobile_page.locator("#reading-tools")
+    expect(mobile_tools_target).to_be_focused(timeout=30_000)
+    _require_visible_focus(mobile_tools_target, "mobile Reader tools target")
     expect(mobile_page.get_by_role("link", name="Ask tutor", exact=True)).to_be_visible()
     expect(mobile_page.get_by_role("link", name="Explore graph", exact=True)).to_be_visible()
+    mobile_page.get_by_role("link", name="Back to article", exact=True).click()
+    mobile_article_target = mobile_page.locator("article#article-start")
+    expect(mobile_article_target).to_be_focused(timeout=30_000)
+    _require_visible_focus(mobile_article_target, "mobile Reader article target")
+    _require(
+        int(mobile_page.evaluate("history.length")) == mobile_hash_history + 3,
+        "Reader fragment navigation did not add exactly one entry per changed hash",
+    )
+    mobile_page.go_back()
+    expect(mobile_page).to_have_url(re.compile(r"#reading-tools$"), timeout=30_000)
+    expect(mobile_tools_target).to_be_focused(timeout=30_000)
+    _require_visible_focus(mobile_tools_target, "mobile Reader hash Back target")
+    mobile_page.go_forward()
+    expect(mobile_page).to_have_url(re.compile(r"#article-start$"), timeout=30_000)
+    expect(mobile_article_target).to_be_focused(timeout=30_000)
+    _require_visible_focus(mobile_article_target, "mobile Reader hash Forward target")
+    checks["reader_hash_history_focus"] = True
     mobile_end_button = mobile_page.get_by_role("button", name="End session", exact=True)
     expect(mobile_end_button).to_be_enabled(timeout=30_000)
     mobile_end_button.click()
@@ -6799,6 +6976,7 @@ def _verify_structured_reference_review_round_trip(
     )
 
     def provide_bounded_provenance(route) -> None:
+        time.sleep(0.5)
         response = route.fetch()
         payload = response.json()
         base_evidence = dict(payload["evidence"][0])
@@ -6839,7 +7017,10 @@ def _verify_structured_reference_review_round_trip(
     expect(initial_reference_reader_session).to_be_enabled(timeout=30_000)
     initial_reference_reader_session.click()
     expect(initial_reference_reader_session).to_be_disabled()
-    review_link.click()
+    review_link.focus()
+    expect(review_link).to_be_focused()
+    _start_zotero_focus_trace(page)
+    review_link.press("Enter")
 
     page.wait_for_function(
         "expected => new URL(location.href).searchParams.get('reference_id') === expected",
@@ -6851,6 +7032,12 @@ def _verify_structured_reference_review_round_trip(
     expect(selected_detail).to_have_attribute("data-reference-id", str(reference_id), timeout=30_000)
     expect(selected_detail).to_be_focused(timeout=30_000)
     _require_visible_focus(selected_detail, "selected structured reference")
+    _assert_zotero_focus_continuity(
+        page,
+        "deferred structured Reference detail owner",
+        ("testid:selected-reference-detail",),
+        ("testid:shell-main-content",),
+    )
     expect(selected_detail).to_contain_text(CRB_TITLE)
     expect(selected_detail).to_contain_text("References")
     _require(
@@ -7031,6 +7218,12 @@ def _verify_structured_reference_review_round_trip(
     page_two_pattern = re.compile(
         rf".*/v1\.2/articles/{re.escape(CRB_ARTICLE_ID)}/references(?:\?.*)?$"
     )
+    page_two_only_reference_id = f"p3-034-page-two-only-{reference_id}"
+    page_two_only_record = {
+        **selected_record,
+        "reference_id": page_two_only_reference_id,
+        "evidence_text": "P3-034 page-two request ownership probe",
+    }
 
     def provide_reference_page_two(route) -> None:
         requested_page = parse_qs(urlparse(route.request.url).query).get("page", ["1"])[0]
@@ -7042,8 +7235,8 @@ def _verify_structured_reference_review_round_trip(
             content_type="application/json",
             body=json.dumps(
                 {
-                    "items": [selected_record],
-                    "total": 21,
+                    "items": [selected_record, page_two_only_record],
+                    "total": 22,
                     "page": 2,
                     "page_size": 20,
                     "total_pages": 2,
@@ -7074,10 +7267,420 @@ def _verify_structured_reference_review_round_trip(
     page_two_row = page.locator(f'[data-reference-id="{reference_id}"]')
     expect(page_two_row).to_be_focused(timeout=30_000)
     _require_focus_in_viewport(page_two_row, "page-two structured reference return")
+    reference_panel = page.locator("[data-structured-references-state]")
+    expect(reference_panel).to_have_attribute(
+        "data-structured-references-article-id", CRB_ARTICLE_ID
+    )
+    expect(reference_panel).to_have_attribute("data-structured-references-page", "2")
+    expect(reference_panel).to_have_attribute("data-structured-references-state", "ready")
+
+    page_two_only_return = (
+        f"/articles/{CRB_ARTICLE_ID}?from=%2Farticles%3Fq%3DCRB&reference_page=2"
+        f"#structured-reference-{page_two_only_reference_id}"
+    )
+    page_one_route = (
+        f"/articles/{CRB_ARTICLE_ID}?from=%2Farticles%3Fq%3DCRB&reference_page=1"
+        "#article-outline"
+    )
+    page.evaluate(
+        "url => history.replaceState(history.state, '', url)",
+        page_two_only_return,
+    )
+    page.evaluate(
+        """
+        url => {
+          history.replaceState(history.state, '', url);
+          dispatchEvent(new PopStateEvent('popstate', { state: history.state }));
+        }
+        """,
+        page_one_route,
+    )
+    expect(page).to_have_url(re.compile(r"reference_page=1.*#article-outline$"), timeout=30_000)
+    expect(reference_panel).to_have_attribute("data-structured-references-page", "1")
+    expect(reference_panel).to_have_attribute(
+        "data-structured-references-state", "ready", timeout=30_000
+    )
+    page.evaluate(
+        f"""
+        () => {{
+          const originalFetch = window.fetch.bind(window);
+          let delayPageTwo = true;
+          window.__p3034ReferencePageTransitionFetch = originalFetch;
+          window.__p3034ReferencePageTransitionRequests = 0;
+          window.fetch = async (input, init) => {{
+            const rawUrl = typeof input === 'string' ? input : input.url;
+            const url = new URL(rawUrl, location.href);
+            if (
+              delayPageTwo
+              && ['127.0.0.1', 'localhost'].includes(url.hostname)
+              && url.port === '8000'
+              && url.pathname === '/v1.2/articles/{CRB_ARTICLE_ID}/references'
+              && url.searchParams.get('page') === '2'
+            ) {{
+              delayPageTwo = false;
+              window.__p3034ReferencePageTransitionRequests += 1;
+              await new Promise(resolve => setTimeout(resolve, 1500));
+            }}
+            return originalFetch(input, init);
+          }};
+        }}
+        """
+    )
+    page.evaluate(
+        """
+        url => {
+          history.replaceState(history.state, '', url);
+          dispatchEvent(new PopStateEvent('popstate', { state: history.state }));
+        }
+        """,
+        page_two_only_return,
+    )
+    expect(page).to_have_url(
+        re.compile(
+            rf"reference_page=2.*#structured-reference-{re.escape(page_two_only_reference_id)}$"
+        ),
+        timeout=30_000,
+    )
+    expect(reference_panel).to_have_attribute(
+        "data-structured-references-page", "2", timeout=2_000
+    )
+    expect(reference_panel).to_have_attribute("data-structured-references-state", "loading")
+    page_two_row = page.locator(f'[data-reference-id="{page_two_only_reference_id}"]')
+    _require(
+        page.evaluate(
+            "targetId => document.activeElement?.id !== targetId",
+            f"structured-reference-{page_two_only_reference_id}",
+        ),
+        "stale page-one state focused the page-two Reference target before its request settled",
+    )
+    expect(page_two_row).to_be_focused(timeout=30_000)
+    _require_focus_in_viewport(page_two_row, "request-keyed page-two Reference target")
+    _require(
+        page.evaluate("window.__p3034ReferencePageTransitionRequests") == 1,
+        "same-mounted Reference page transition did not delay exactly one page-two request",
+    )
+    page.evaluate(
+        """
+        () => {
+          window.fetch = window.__p3034ReferencePageTransitionFetch;
+          delete window.__p3034ReferencePageTransitionFetch;
+        }
+        """
+    )
+    page_two_history_length = int(page.evaluate("history.length"))
+    page.set_viewport_size({"width": 390, "height": 844})
+    page.get_by_role("link", name="Outline", exact=True).click()
+    page_two_outline = page.locator("#article-outline")
+    expect(page_two_outline).to_be_focused(timeout=30_000)
+    page.go_back()
+    expect(page).to_have_url(re.compile(r"#structured-reference-"), timeout=30_000)
+    expect(page_two_row).to_be_focused(timeout=30_000)
+    page.go_forward()
+    expect(page).to_have_url(re.compile(r"#article-outline$"), timeout=30_000)
+    expect(page_two_outline).to_be_focused(timeout=30_000)
+    page.go_back()
+    expect(page_two_row).to_be_focused(timeout=30_000)
+    _require(
+        int(page.evaluate("history.length")) == page_two_history_length + 1,
+        "structured Reference hash Back/Forward changed history length",
+    )
+    page.set_viewport_size({"width": 1440, "height": 900})
     page_two_reader_session = page.get_by_role("button", name="End session", exact=True)
     expect(page_two_reader_session).to_be_enabled(timeout=30_000)
     page_two_reader_session.click()
     expect(page_two_reader_session).to_be_disabled()
+
+    isolated_focus_sessions: dict[str, dict[str, object]] = {}
+
+    def provide_isolated_focus_session(route) -> None:
+        if route.request.method != "POST":
+            route.continue_()
+            return
+        payload = route.request.post_data_json
+        session_id = f"p3-034-reference-focus-{len(isolated_focus_sessions) + 1}"
+        session = {
+            "session_id": session_id,
+            "article_id": payload["article_id"],
+            "started_at": "2026-09-06T00:00:00Z",
+            "ended_at": None,
+            "duration_seconds": None,
+            "source": "reader",
+        }
+        isolated_focus_sessions[session_id] = session
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(session))
+
+    def provide_isolated_focus_session_end(route) -> None:
+        session_id = route.request.url.rsplit("/", 2)[-2]
+        session = isolated_focus_sessions[session_id]
+        session["ended_at"] = "2026-09-06T00:01:00Z"
+        session["duration_seconds"] = 60
+        route.fulfill(status=200, content_type="application/json", body=json.dumps(session))
+
+    isolated_focus_session_pattern = re.compile(r".*/learning/sessions$")
+    isolated_focus_session_end_pattern = re.compile(r".*/learning/sessions/[^/]+/end$")
+    page.route(isolated_focus_session_pattern, provide_isolated_focus_session)
+    page.route(isolated_focus_session_end_pattern, provide_isolated_focus_session_end)
+
+    page.get_by_test_id("primary-nav-dashboard").click()
+    expect(page).to_have_url(f"{FRONTEND_URL}/", timeout=30_000)
+    expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+    persistent_history_origin = page.get_by_test_id("primary-nav-dashboard")
+    page.evaluate(
+        f"""
+        () => {{
+          const originalFetch = window.fetch.bind(window);
+          let delayArticle = true;
+          let delayReferences = true;
+          window.__p3034DeferredHistoryFetch = originalFetch;
+          window.fetch = async (input, init) => {{
+            const rawUrl = typeof input === 'string' ? input : input.url;
+            const url = new URL(rawUrl, location.href);
+            const localApi = ['127.0.0.1', 'localhost'].includes(url.hostname)
+              && url.port === '8000';
+            if (
+              localApi
+              && delayArticle
+              && url.pathname === '/articles/{CRB_ARTICLE_ID}'
+            ) {{
+              delayArticle = false;
+              await new Promise(resolve => setTimeout(resolve, 5000));
+            }} else if (
+              localApi
+              && delayReferences
+              && url.pathname === '/v1.2/articles/{CRB_ARTICLE_ID}/references'
+            ) {{
+              delayReferences = false;
+              await new Promise(resolve => setTimeout(resolve, 11000));
+            }}
+            return originalFetch(input, init);
+          }};
+          window.__p3034DeferredHistoryFocusEvents = [];
+          window.__p3034DeferredHistoryFocusObserver = event => {{
+            if (event.target instanceof Element) {{
+              window.__p3034DeferredHistoryFocusEvents.push(
+                event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+              );
+            }}
+          }};
+          document.addEventListener(
+            'focusin',
+            window.__p3034DeferredHistoryFocusObserver,
+            true
+          );
+        }}
+        """
+    )
+    deferred_history_started = time.monotonic()
+    persistent_history_origin.evaluate("element => { element.focus(); history.back(); }")
+    expect(page).to_have_url(re.compile(r"reference_page=2.*#structured-reference-"), timeout=30_000)
+    expect(page_two_row).to_be_focused(timeout=30_000)
+    _require_focus_in_viewport(page_two_row, "deferred structured Reference history target")
+    _require(
+        time.monotonic() - deferred_history_started >= 15,
+        "deferred structured Reference history probe did not cross the old Reader deadline",
+    )
+    deferred_history_focus_events = page.evaluate(
+        """
+        () => {
+          document.removeEventListener(
+            'focusin',
+            window.__p3034DeferredHistoryFocusObserver,
+            true
+          );
+          window.fetch = window.__p3034DeferredHistoryFetch;
+          delete window.__p3034DeferredHistoryFetch;
+          return window.__p3034DeferredHistoryFocusEvents;
+        }
+        """
+    )
+    _require(
+        "shell-main-content" not in deferred_history_focus_events,
+        "Shell focused main before the deferred structured Reference owner: "
+        f"{deferred_history_focus_events}",
+    )
+
+    page.get_by_test_id("primary-nav-dashboard").click()
+    expect(page).to_have_url(f"{FRONTEND_URL}/", timeout=30_000)
+    page.evaluate(
+        f"""
+        () => {{
+          const originalFetch = window.fetch.bind(window);
+          let delayArticle = true;
+          let delayReferences = true;
+          window.__p3034CanceledHistoryFetch = originalFetch;
+          window.fetch = async (input, init) => {{
+            const rawUrl = typeof input === 'string' ? input : input.url;
+            const url = new URL(rawUrl, location.href);
+            if (
+              delayArticle
+              && ['127.0.0.1', 'localhost'].includes(url.hostname)
+              && url.port === '8000'
+              && url.pathname === '/articles/{CRB_ARTICLE_ID}'
+            ) {{
+              delayArticle = false;
+              await new Promise(resolve => setTimeout(resolve, 2500));
+            }} else if (
+              delayReferences
+              && ['127.0.0.1', 'localhost'].includes(url.hostname)
+              && url.port === '8000'
+              && url.pathname === '/v1.2/articles/{CRB_ARTICLE_ID}/references'
+            ) {{
+              delayReferences = false;
+              await new Promise(resolve => setTimeout(resolve, 2500));
+            }}
+            return originalFetch(input, init);
+          }};
+          window.__p3034CanceledHistoryFocusEvents = [];
+          window.__p3034CanceledHistoryFocusObserver = event => {{
+            if (event.target instanceof Element) {{
+              window.__p3034CanceledHistoryFocusEvents.push(
+                event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+              );
+            }}
+          }};
+          document.addEventListener(
+            'focusin',
+            window.__p3034CanceledHistoryFocusObserver,
+            true
+          );
+        }}
+        """
+    )
+    canceled_history_origin = page.get_by_test_id("primary-nav-dashboard")
+    canceled_history_origin.evaluate("element => { element.focus(); history.back(); }")
+    expect(page).to_have_url(re.compile(r"reference_page=2.*#structured-reference-"), timeout=30_000)
+    expect(page.get_by_text("Loading article", exact=True)).to_be_visible(timeout=5_000)
+    page.keyboard.press("Tab")
+    canceled_history_user_focus = page.get_by_test_id("primary-nav-library")
+    expect(canceled_history_user_focus).to_be_focused()
+    expect(page.get_by_text("Loading references...", exact=True)).to_be_visible(timeout=30_000)
+    expect(page_two_row).to_be_visible(timeout=30_000)
+    _wait_for_animation_frames(page, 5)
+    expect(page_two_row).not_to_be_focused()
+    expect(canceled_history_user_focus).to_be_focused()
+    canceled_history_focus_events = page.evaluate(
+        """
+        targetId => {
+          document.removeEventListener(
+            'focusin',
+            window.__p3034CanceledHistoryFocusObserver,
+            true
+          );
+          window.fetch = window.__p3034CanceledHistoryFetch;
+          delete window.__p3034CanceledHistoryFetch;
+          return {
+            events: window.__p3034CanceledHistoryFocusEvents,
+            targetId,
+          };
+        }
+        """,
+        f"structured-reference-{page_two_only_reference_id}",
+    )
+    _require(
+        canceled_history_focus_events["targetId"]
+        not in canceled_history_focus_events["events"],
+        "user keyboard focus did not cancel deferred structured Reference focus: "
+        f"{canceled_history_focus_events['events']}",
+    )
+    _require(
+        "shell-main-content" not in canceled_history_focus_events["events"],
+        "Shell main fallback overrode acquisition-time user focus: "
+        f"{canceled_history_focus_events['events']}",
+    )
+
+    def provide_empty_reference_page_two(route) -> None:
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "items": [],
+                    "total": 0,
+                    "page": 2,
+                    "page_size": 20,
+                    "total_pages": 0,
+                    "has_next": False,
+                    "has_previous": False,
+                    "article_id": CRB_ARTICLE_ID,
+                    "reference_type": None,
+                    "classification": None,
+                }
+            ),
+        )
+
+    page.route(page_two_pattern, provide_empty_reference_page_two)
+    page.get_by_test_id("primary-nav-dashboard").click()
+    expect(page).to_have_url(f"{FRONTEND_URL}/", timeout=30_000)
+    terminal_history_origin = page.get_by_test_id("primary-nav-dashboard")
+    terminal_history_started = time.monotonic()
+    terminal_history_origin.evaluate("element => { element.focus(); history.back(); }")
+    expect(page).to_have_url(
+        re.compile(r"reference_page=2.*#structured-reference-"),
+        timeout=30_000,
+    )
+    expect(page.get_by_text("No structured references for this article.", exact=True)).to_be_visible(
+        timeout=5_000
+    )
+    terminal_history_main = page.get_by_test_id("shell-main-content")
+    expect(terminal_history_main).to_be_focused(timeout=5_000)
+    _require_visible_focus(terminal_history_main, "terminal structured Reference fallback")
+    _require(
+        time.monotonic() - terminal_history_started < 8,
+        "terminal structured Reference state held focus ownership until the timeout",
+    )
+    page.unroute(page_two_pattern, provide_empty_reference_page_two)
+
+    page.get_by_test_id("primary-nav-dashboard").click()
+    expect(page).to_have_url(f"{FRONTEND_URL}/", timeout=30_000)
+    page.evaluate(
+        f"""
+        () => {{
+          const originalFetch = window.fetch.bind(window);
+          window.__p3034ReferenceTimeoutFetch = originalFetch;
+          window.fetch = (input, init) => {{
+            const rawUrl = typeof input === 'string' ? input : input.url;
+            const url = new URL(rawUrl, location.href);
+            if (
+              ['127.0.0.1', 'localhost'].includes(url.hostname)
+              && url.port === '8000'
+              && url.pathname === '/v1.2/articles/{CRB_ARTICLE_ID}/references'
+              && url.searchParams.get('page') === '2'
+            ) {{
+              return new Promise(() => {{}});
+            }}
+            return originalFetch(input, init);
+          }};
+        }}
+        """
+    )
+    timeout_history_origin = page.get_by_test_id("primary-nav-dashboard")
+    timeout_history_started = time.monotonic()
+    timeout_history_origin.evaluate("element => { element.focus(); history.back(); }")
+    expect(page).to_have_url(
+        re.compile(r"reference_page=2.*#structured-reference-"),
+        timeout=30_000,
+    )
+    expect(page.get_by_text("Loading references...", exact=True)).to_be_visible(timeout=30_000)
+    timeout_history_main = page.get_by_test_id("shell-main-content")
+    page.wait_for_timeout(2_000)
+    expect(timeout_history_main).not_to_be_focused()
+    expect(timeout_history_main).to_be_focused(timeout=23_000)
+    _require_visible_focus(timeout_history_main, "timed-out structured Reference fallback")
+    _require(
+        19 <= time.monotonic() - timeout_history_started < 28,
+        "deferred structured Reference timeout did not release Reader focus ownership on time",
+    )
+    page.evaluate(
+        """
+        () => {
+          window.fetch = window.__p3034ReferenceTimeoutFetch;
+          delete window.__p3034ReferenceTimeoutFetch;
+        }
+        """
+    )
+
+    page.unroute(isolated_focus_session_pattern, provide_isolated_focus_session)
+    page.unroute(isolated_focus_session_end_pattern, provide_isolated_focus_session_end)
     page.unroute(page_two_pattern, provide_reference_page_two)
     checks["reference_page_two_owned_return_focus"] = True
 
@@ -9357,6 +9960,10 @@ def _start_zotero_focus_trace(page) -> None:
               source,
               target: describe(active),
               connected: active instanceof HTMLElement && active.isConnected,
+              href: location.pathname + location.search + location.hash,
+              owner: document.querySelector('[data-shell-focus-owner="pending"]')
+                ?.getAttribute('data-shell-route-ready') || null,
+              at: Math.round(performance.now()),
             });
           };
           const listener = () => record("focusin");
@@ -9367,9 +9974,33 @@ def _start_zotero_focus_trace(page) -> None:
             attributes: true,
             childList: true,
             subtree: true,
-            attributeFilter: ["disabled", "aria-busy"],
+            attributeFilter: [
+              "disabled",
+              "aria-busy",
+              "data-shell-focus-owner",
+              "data-shell-route-ready",
+            ],
           });
           window.__p3032FocusObserver = observer;
+          window.__p3032FocusSignals = {
+            history: () => record("history-event"),
+            route: () => record("route-commit"),
+            operation: () => record("focus-operation"),
+            hash: () => record("hashchange"),
+          };
+          window.addEventListener(
+            'scientific-spaces:shell-history-navigation',
+            window.__p3032FocusSignals.history,
+          );
+          window.addEventListener(
+            'scientific-spaces:shell-route-commit',
+            window.__p3032FocusSignals.route,
+          );
+          window.addEventListener(
+            'scientific-spaces:shell-focus-operation',
+            window.__p3032FocusSignals.operation,
+          );
+          window.addEventListener('hashchange', window.__p3032FocusSignals.hash);
           record("start");
         }
         """
@@ -9380,6 +10011,7 @@ def _assert_zotero_focus_continuity(
     page,
     label: str,
     expected_focus_sequence: tuple[str, ...],
+    forbidden_focus_targets: tuple[str, ...] = (),
 ) -> None:
     trace = page.evaluate(
         """
@@ -9388,9 +10020,25 @@ def _assert_zotero_focus_continuity(
           if (typeof window.__p3032FocusListener === "function") {
             document.removeEventListener("focusin", window.__p3032FocusListener, true);
           }
+          if (window.__p3032FocusSignals) {
+            window.removeEventListener(
+              'scientific-spaces:shell-history-navigation',
+              window.__p3032FocusSignals.history,
+            );
+            window.removeEventListener(
+              'scientific-spaces:shell-route-commit',
+              window.__p3032FocusSignals.route,
+            );
+            window.removeEventListener(
+              'scientific-spaces:shell-focus-operation',
+              window.__p3032FocusSignals.operation,
+            );
+            window.removeEventListener('hashchange', window.__p3032FocusSignals.hash);
+          }
           const result = [...(window.__p3032FocusTrace ?? [])];
           delete window.__p3032FocusObserver;
           delete window.__p3032FocusListener;
+          delete window.__p3032FocusSignals;
           delete window.__p3032FocusTrace;
           return result;
         }
@@ -9401,11 +10049,25 @@ def _assert_zotero_focus_continuity(
         all(entry.get("connected") for entry in trace),
         f"{label} observed disconnected focus: {trace}",
     )
-    _require(
-        all(entry.get("target") not in {"BODY", "missing"} for entry in trace),
-        f"{label} dropped focus to body or a missing element: {trace}",
-    )
     focus_events = [entry.get("target") for entry in trace if entry.get("source") == "focusin"]
+    _require(
+        not any(target in focus_events for target in forbidden_focus_targets),
+        f"{label} observed a forbidden intermediate focus target: {trace}",
+    )
+    for index, entry in enumerate(trace):
+        if entry.get("source") not in {"start", "focusin", "mutation"}:
+            continue
+        if entry.get("target") not in {"BODY", "missing"}:
+            continue
+        recovered = any(
+            later.get("source") == "focusin"
+            and later.get("target") in expected_focus_sequence
+            for later in trace[index + 1 :]
+        )
+        _require(
+            entry.get("source") == "mutation" and recovered,
+            f"{label} settled on body or a missing element: {trace}",
+        )
     next_index = 0
     for expected in expected_focus_sequence:
         try:
@@ -10854,6 +11516,1094 @@ def _wait_for_application_shell(page) -> None:
     )
 
 
+def _verify_ordinary_shell_route_focus(
+    browser,
+    *,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+) -> None:
+    from playwright.sync_api import expect
+
+    context = browser.new_context(viewport={"width": 1440, "height": 640}, locale="zh-CN")
+    _install_network_guard(context, blocked_external)
+    page = context.new_page()
+    page.on(
+        "console",
+        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+    )
+    page.on(
+        "pageerror",
+        lambda error: _capture_page_error(page_errors, "shell-ordinary-route", page, error),
+    )
+    try:
+        page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        _wait_for_animation_frames(page, 5)
+        _require(
+            page.evaluate("document.activeElement === document.body"),
+            "ordinary-route probe moved focus during initial hydration",
+        )
+
+        for navigation_id, source_pathname, pathname, heading in (
+            ("library", "/", "/library", "Saved Learning Library"),
+            ("session", "/", "/session", "Focused Study Session"),
+            ("articles", "/", "/articles", "Article List"),
+            ("references", "/", "/zotero", "Zotero Library"),
+            ("graph", "/", "/graph", "Knowledge Graph"),
+            ("tutor", "/", "/tutor", "AI Research Tutor"),
+            ("dashboard", "/articles", "/", "Scientific Spaces AI Learning OS"),
+        ):
+            page.goto(f"{FRONTEND_URL}{source_pathname}", wait_until="domcontentloaded")
+            _wait_for_application_shell(page)
+            previous_history_length = int(page.evaluate("history.length"))
+            navigation = page.get_by_test_id(f"primary-nav-{navigation_id}")
+            navigation.focus()
+            navigation.press("Enter")
+            page.wait_for_function("path => location.pathname === path", arg=pathname)
+            expect(page.get_by_role("heading", name=heading, exact=True)).to_be_visible(
+                timeout=30_000
+            )
+            shell_main = page.get_by_test_id("shell-main-content")
+            expect(shell_main).to_be_focused(timeout=30_000)
+            _require_visible_focus(shell_main, f"desktop {navigation_id} route destination")
+            _require(
+                int(page.evaluate("history.length")) == previous_history_length + 1,
+                f"desktop {navigation_id} route did not add exactly one history entry",
+            )
+
+        expect(
+            page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
+        ).to_be_visible(timeout=30_000)
+        same_route_scroll = int(
+            page.evaluate(
+                """
+                () => {
+                  const maximum = document.documentElement.scrollHeight - innerHeight;
+                  scrollTo(0, Math.min(240, maximum));
+                  return scrollY;
+                }
+                """
+            )
+        )
+        _require(same_route_scroll > 0, "same-route rail probe did not establish scroll state")
+        same_route_history = int(page.evaluate("history.length"))
+        same_route_url = page.url
+        page.get_by_test_id("primary-nav-dashboard").press("Enter")
+        shell_main = page.get_by_test_id("shell-main-content")
+        expect(shell_main).to_be_focused(timeout=30_000)
+        _require(
+            int(page.evaluate("history.length")) == same_route_history
+            and page.url == same_route_url
+            and int(page.evaluate("scrollY")) == same_route_scroll,
+            "same-route desktop rail activation changed history, URL, or scroll",
+        )
+
+        content_history = int(page.evaluate("history.length"))
+        page.get_by_role("link", name="View all", exact=True).press("Enter")
+        expect(page).to_have_url(re.compile(r"/articles$"), timeout=30_000)
+        shell_main = page.get_by_test_id("shell-main-content")
+        expect(shell_main).to_be_focused(timeout=30_000)
+        _require(
+            int(page.evaluate("history.length")) == content_history + 1,
+            "ordinary content navigation did not add exactly one history entry",
+        )
+        content_history_after_navigation = int(page.evaluate("history.length"))
+        page.go_back()
+        expect(page).to_have_url(re.compile(r"/$"), timeout=30_000)
+        expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+        _require(
+            int(page.evaluate("history.length")) == content_history_after_navigation,
+            "ordinary browser Back changed history length",
+        )
+        page.go_forward()
+        expect(page).to_have_url(re.compile(r"/articles$"), timeout=30_000)
+        expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+        _require(
+            int(page.evaluate("history.length")) == content_history_after_navigation,
+            "ordinary browser Forward changed history length",
+        )
+
+        page.get_by_test_id("primary-nav-dashboard").click()
+        expect(page).to_have_url(re.compile(r"/$"), timeout=30_000)
+        brand = page.get_by_role("link", name="Scientific Spaces AI Learning OS home", exact=True)
+        brand_scroll = int(
+            page.evaluate(
+                """
+                () => {
+                  const maximum = document.documentElement.scrollHeight - innerHeight;
+                  scrollTo(0, Math.min(180, maximum));
+                  return scrollY;
+                }
+                """
+            )
+        )
+        _require(brand_scroll > 0, "same-route brand probe did not establish scroll state")
+        brand_history = int(page.evaluate("history.length"))
+        brand_url = page.url
+        brand.press("Enter")
+        expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+        _require(
+            int(page.evaluate("history.length")) == brand_history
+            and page.url == brand_url
+            and int(page.evaluate("scrollY")) == brand_scroll,
+            "same-route brand activation changed history, URL, or scroll",
+        )
+
+        modified = page.get_by_test_id("primary-nav-tutor")
+        modified.focus()
+        current_url = page.url
+        def observe_modified_page(opened) -> None:
+            opened.on(
+                "console",
+                lambda message: console_errors.append(message.text)
+                if message.type == "error"
+                else None,
+            )
+            opened.on(
+                "pageerror",
+                lambda error: _capture_page_error(
+                    page_errors,
+                    "shell-ordinary-modified-navigation",
+                    opened,
+                    error,
+                ),
+            )
+
+        context.on("page", observe_modified_page)
+        try:
+            with context.expect_page(timeout=10_000) as opened_page:
+                modified.click(modifiers=["Control"])
+            new_page = opened_page.value
+        finally:
+            context.remove_listener("page", observe_modified_page)
+        new_page.wait_for_load_state("domcontentloaded")
+        _wait_for_application_shell(new_page)
+        _require(new_page.url.endswith("/tutor"), f"modified rail opened wrong URL: {new_page.url}")
+        new_page.close()
+        page.bring_to_front()
+        _require(page.url == current_url, "modified rail activation changed the source page")
+        expect(modified).to_be_focused()
+    finally:
+        context.close()
+
+
+def _verify_reader_fragment_focus_ownership(
+    browser,
+    *,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+) -> None:
+    from playwright.sync_api import expect
+
+    context = browser.new_context(viewport={"width": 390, "height": 844}, locale="zh-CN")
+    context.add_init_script(
+        f"""
+        (() => {{
+          const originalFetch = window.fetch.bind(window);
+          window.__p3034DelayNextArticle = true;
+          window.__p3034DelayNextReferenceList = true;
+          window.fetch = (input, init) => {{
+            const rawUrl = typeof input === 'string' ? input : input.url;
+            const url = new URL(rawUrl, location.href);
+            const localApi = ['127.0.0.1', 'localhost'].includes(url.hostname)
+              && url.port === '8000';
+            if (
+              window.__p3034DelayNextArticle
+              && localApi
+              && url.pathname === '/articles/{CRB_ARTICLE_ID}'
+            ) {{
+              window.__p3034DelayNextArticle = false;
+              return new Promise((resolve, reject) => {{
+                setTimeout(() => originalFetch(input, init).then(resolve, reject), 2500);
+              }});
+            }}
+            if (
+              window.__p3034DelayNextReferenceList
+              && localApi
+              && url.pathname === '/v1.2/articles/{CRB_ARTICLE_ID}/references'
+            ) {{
+              window.__p3034DelayNextReferenceList = false;
+              return new Promise((resolve, reject) => {{
+                setTimeout(() => originalFetch(input, init).then(resolve, reject), 1200);
+              }});
+            }}
+            return originalFetch(input, init);
+          }};
+        }})();
+        """
+    )
+    _install_network_guard(context, blocked_external)
+    page = _new_observed_page(
+        context,
+        console_errors,
+        page_errors,
+        label="reader-fragment-route-owner",
+    )
+
+    def isolate_reader_session(route) -> None:
+        if route.request.method != "POST":
+            route.continue_()
+            return
+        route.fulfill(
+            status=200,
+            content_type="application/json",
+            body=json.dumps(
+                {
+                    "session_id": "p3-034-fragment-focus-probe",
+                    "article_id": CRB_ARTICLE_ID,
+                    "started_at": "2026-09-06T00:00:00Z",
+                    "ended_at": None,
+                    "duration_seconds": None,
+                    "source": "reader",
+                }
+            ),
+        )
+
+    page.route(re.compile(r".*/learning/sessions$"), isolate_reader_session)
+    try:
+        reference_payload = _api_json(
+            context,
+            "GET",
+            f"/v1.2/articles/{CRB_ARTICLE_ID}/references?page=1&page_size=20",
+        )
+        reference_items = reference_payload.get("items")
+        _require(
+            isinstance(reference_items, list) and bool(reference_items),
+            "structured-reference focus probe found no reference fixture",
+        )
+        structured_reference_id = str(reference_items[0]["reference_id"])
+        structured_reference_url = (
+            f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}"
+            f"#structured-reference-{structured_reference_id}"
+        )
+
+        page.goto(structured_reference_url, wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        _require(
+            page.evaluate("document.activeElement === document.body"),
+            "hard-loaded structured-reference hash moved focus during hydration",
+        )
+        expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        structured_reference_row = page.locator(
+            f"#structured-reference-{structured_reference_id}"
+        )
+        expect(structured_reference_row).to_be_visible(timeout=30_000)
+        _wait_for_animation_frames(page, 5)
+        _require(
+            page.evaluate("document.activeElement === document.body"),
+            "late structured-reference data moved focus on a hard load",
+        )
+
+        page.goto(structured_reference_url, wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        delayed_reference_search_trigger = page.get_by_test_id(
+            "global-search-trigger-mobile"
+        )
+        delayed_reference_search_trigger.click()
+        delayed_reference_dialog = page.get_by_test_id("global-search-dialog")
+        delayed_reference_input = delayed_reference_dialog.get_by_label("Search library")
+        expect(delayed_reference_input).to_be_focused()
+        expect(page.locator(f"#structured-reference-{structured_reference_id}")).to_be_visible(
+            timeout=30_000
+        )
+        _wait_for_animation_frames(page, 5)
+        expect(delayed_reference_dialog).to_be_visible()
+        expect(delayed_reference_input).to_be_focused()
+        delayed_reference_dialog.get_by_role("button", name="Close", exact=True).click()
+        expect(delayed_reference_dialog).to_have_count(0)
+
+        page.close()
+        page = _new_observed_page(
+            context,
+            console_errors,
+            page_errors,
+            label="reader-fragment-route-owner",
+        )
+        page.route(re.compile(r".*/learning/sessions$"), isolate_reader_session)
+        page.goto(
+            f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}#article-outline",
+            wait_until="domcontentloaded",
+        )
+        _wait_for_application_shell(page)
+        _require(
+            page.evaluate("document.activeElement === document.body"),
+            "cold hashed Reader hydration moved focus before user interaction",
+        )
+        page.get_by_test_id("global-search-trigger-mobile").click()
+        search_dialog = page.get_by_test_id("global-search-dialog")
+        search_input = search_dialog.get_by_label("Search library")
+        expect(search_input).to_be_focused()
+        expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        _wait_for_animation_frames(page, 5)
+        expect(search_dialog).to_be_visible()
+        expect(search_input).to_be_focused()
+
+        search_dialog.get_by_role("button", name="Close", exact=True).click()
+        expect(search_dialog).to_have_count(0)
+        page.get_by_role("link", name="Back to articles", exact=True).click()
+        expect(page).to_have_url(re.compile(r"/articles$"), timeout=30_000)
+        expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+        persistent_fragment_history_origin = page.get_by_test_id(
+            "global-search-trigger-mobile"
+        )
+        fragment_history_length = int(page.evaluate("history.length"))
+        page.evaluate("window.__p3034DelayNextArticle = true")
+        page.evaluate(
+            """
+            () => {
+              window.__p3034FragmentRouteFocusEvents = [];
+              window.__p3034FragmentRouteFocusObserver = event => {
+                if (event.target instanceof Element) {
+                  window.__p3034FragmentRouteFocusEvents.push(
+                    event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+                  );
+                }
+              };
+              document.addEventListener(
+                'focusin',
+                window.__p3034FragmentRouteFocusObserver,
+                true
+              );
+            }
+            """
+        )
+        persistent_fragment_history_origin.evaluate(
+            "element => { element.focus(); history.back(); }"
+        )
+        expect(page).to_have_url(re.compile(r"#article-outline$"), timeout=30_000)
+        outline_target = page.locator("#article-outline")
+        expect(outline_target).to_be_focused(timeout=30_000)
+        _require_visible_focus(outline_target, "cross-route Reader hash history target")
+        fragment_route_focus_events = page.evaluate(
+            """
+            () => {
+              document.removeEventListener(
+                'focusin',
+                window.__p3034FragmentRouteFocusObserver,
+                true
+              );
+              return window.__p3034FragmentRouteFocusEvents;
+            }
+            """
+        )
+        _require(
+            "shell-main-content" not in fragment_route_focus_events,
+            "Shell focused main before the cross-route Reader fragment owner: "
+            f"{fragment_route_focus_events}",
+        )
+        _require(
+            int(page.evaluate("history.length")) == fragment_history_length,
+            "Reader hash cross-route Back changed history length",
+        )
+
+        page.goto(
+            f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession#reading-tools",
+            wait_until="domcontentloaded",
+        )
+        _wait_for_application_shell(page)
+        expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        _wait_for_animation_frames(page, 5)
+        tools_target = page.locator("#reading-tools")
+        _require(
+            page.evaluate("document.activeElement === document.body"),
+            "hard-loaded guided Reader moved focus during initial hydration",
+        )
+
+        guided_base_reader_url = (
+            f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession"
+        )
+        page.goto(guided_base_reader_url, wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        guided_heading = page.get_by_role("heading", name=CRB_TITLE, exact=True)
+        expect(guided_heading).to_be_visible(timeout=30_000)
+        _wait_for_animation_frames(page, 5)
+        _require(
+            page.evaluate("document.activeElement === document.body"),
+            "hard-loaded hashless guided Reader moved focus during hydration",
+        )
+        guided_history_length = int(page.evaluate("history.length"))
+        page.get_by_role("link", name="Outline", exact=True).click()
+        expect(page.locator("#article-outline")).to_be_focused(timeout=30_000)
+        page.go_back()
+        expect(page).to_have_url(guided_base_reader_url, timeout=30_000)
+        expect(guided_heading).to_be_focused(timeout=30_000)
+        _require_visible_focus(guided_heading, "hashless guided Reader history target")
+        _require(
+            int(page.evaluate("history.length")) == guided_history_length + 1,
+            "hashless guided Reader Back changed history length",
+        )
+
+        base_reader_url = f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}"
+        page.goto(base_reader_url, wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        _wait_for_animation_frames(page, 5)
+        _require(
+            page.evaluate("document.activeElement === document.body"),
+            "hard-loaded hashless Reader moved focus during initial hydration",
+        )
+        interrupted_fragment_trigger = page.get_by_test_id("global-search-trigger-mobile")
+        page.get_by_role("link", name="Outline", exact=True).evaluate(
+            """
+            (element) => {
+              element.click();
+              window.dispatchEvent(new KeyboardEvent('keydown', {key: 'Tab'}));
+              document.querySelector('[data-testid="global-search-trigger-mobile"]')?.focus();
+            }
+            """
+        )
+        _wait_for_animation_frames(page, 3)
+        expect(interrupted_fragment_trigger).to_be_focused()
+        expect(page.locator("#article-outline")).not_to_be_focused()
+        page.goto(base_reader_url, wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        _wait_for_animation_frames(page, 5)
+        _require(
+            page.evaluate("document.activeElement === document.body"),
+            "fragment interruption reset moved focus during initial hydration",
+        )
+        hashless_history_length = int(page.evaluate("history.length"))
+        page.get_by_role("link", name="Outline", exact=True).click()
+        outline_target = page.locator("#article-outline")
+        expect(outline_target).to_be_focused(timeout=30_000)
+        hash_history_search_trigger = page.get_by_test_id("global-search-trigger-mobile")
+        hash_history_search_trigger.click()
+        hash_history_dialog = page.get_by_test_id("global-search-dialog")
+        expect(hash_history_dialog.get_by_label("Search library")).to_be_focused()
+        hash_history_dialog.get_by_role("button", name="Close", exact=True).evaluate(
+            "element => { element.click(); history.back(); }"
+        )
+        expect(page).to_have_url(base_reader_url, timeout=30_000)
+        article_target = page.locator("article#article-start")
+        expect(article_target).to_be_focused(timeout=30_000)
+        _require_visible_focus(article_target, "hashless Reader history target")
+        expect(hash_history_search_trigger).not_to_be_focused()
+        _require(
+            int(page.evaluate("history.length")) == hashless_history_length + 1,
+            "hashless Reader Back changed history length",
+        )
+        page.go_forward()
+        expect(page).to_have_url(re.compile(r"#article-outline$"), timeout=30_000)
+        expect(outline_target).to_be_focused(timeout=30_000)
+
+        heading_history_length = int(page.evaluate("history.length"))
+        heading_outline_link = page.get_by_test_id("article-outline").locator(
+            'a[href^="#"]'
+        ).first
+        heading_href = heading_outline_link.get_attribute("href")
+        _require(bool(heading_href), "Reader heading history probe found no outline target")
+        heading_target_id = unquote((heading_href or "").lstrip("#"))
+        heading_outline_link.click()
+        heading_target = page.locator(f'[id="{heading_target_id}"]')
+        expect(heading_target).to_be_focused(timeout=30_000)
+        _require(
+            page.evaluate(
+                "targetId => decodeURIComponent(location.hash.slice(1)) === targetId",
+                heading_target_id,
+            ),
+            "Reader outline navigation did not persist its exact heading hash",
+        )
+        page.get_by_role("link", name="Outline", exact=True).click()
+        expect(outline_target).to_be_focused(timeout=30_000)
+        page.go_back()
+        _require(
+            page.evaluate(
+                "targetId => decodeURIComponent(location.hash.slice(1)) === targetId",
+                heading_target_id,
+            ),
+            "Reader heading Back did not restore the exact hash",
+        )
+        expect(heading_target).to_be_focused(timeout=30_000)
+        _require_visible_focus(heading_target, "Reader heading hash history target")
+        page.go_forward()
+        expect(page).to_have_url(re.compile(r"#article-outline$"), timeout=30_000)
+        expect(outline_target).to_be_focused(timeout=30_000)
+        _require(
+            int(page.evaluate("history.length")) == heading_history_length + 1,
+            "Reader heading hash Back/Forward changed history length",
+        )
+
+        page.evaluate(
+            """
+            ([key, value]) => localStorage.setItem(key, value)
+            """,
+            [
+                "scientific-spaces-study-session-v1",
+                json.dumps(
+                    {
+                        "version": 1,
+                        "active_article_id": CRB_ARTICLE_ID,
+                        "updated_at": "2026-09-06T00:00:00.000Z",
+                        "items": [
+                            {
+                                "article_id": CRB_ARTICLE_ID,
+                                "title": CRB_TITLE,
+                                "section_id": "reading-tools",
+                                "added_at": "2026-09-06T00:00:00.000Z",
+                            }
+                        ],
+                    },
+                    ensure_ascii=False,
+                ),
+            ],
+        )
+        page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        page.evaluate(
+            """
+            () => {
+              window.__p3034GuidedReaderFocusEvents = [];
+              window.__p3034GuidedReaderFocusObserver = event => {
+                if (event.target instanceof Element) {
+                  window.__p3034GuidedReaderFocusEvents.push(
+                    event.target.getAttribute('data-testid') || event.target.id || event.target.tagName
+                  );
+                }
+              };
+              document.addEventListener(
+                'focusin',
+                window.__p3034GuidedReaderFocusObserver,
+                true
+              );
+            }
+            """
+        )
+        page.get_by_role("link", name=CRB_TITLE, exact=True).click()
+        expect(page).to_have_url(re.compile(r"#reading-tools$"), timeout=30_000)
+        expect(tools_target).to_be_focused(timeout=30_000)
+        _require_visible_focus(tools_target, "guided Reader hash route target")
+        guided_focus_events = page.evaluate(
+            """
+            () => {
+              document.removeEventListener(
+                'focusin',
+                window.__p3034GuidedReaderFocusObserver,
+                true
+              );
+              return window.__p3034GuidedReaderFocusEvents;
+            }
+            """
+        )
+        _require(
+            "shell-main-content" not in guided_focus_events,
+            f"Shell focused main before the guided Reader target: {guided_focus_events}",
+        )
+        focused_scroll = int(page.evaluate("scrollY"))
+        _require(focused_scroll > 0, "guided Reader target did not establish scroll state")
+        page.mouse.wheel(0, -100_000)
+        page.wait_for_timeout(250)
+        user_scroll = int(page.evaluate("scrollY"))
+        _require(user_scroll < focused_scroll, "Reader ignored user scroll away from fragment")
+        page.wait_for_timeout(600)
+        _require(
+            int(page.evaluate("scrollY")) == user_scroll,
+            "Reader fragment visibility guard overrode subsequent user scroll",
+        )
+        expect(tools_target).to_be_focused()
+
+        page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        expect(page.get_by_role("link", name=CRB_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        page.get_by_role("link", name=CRB_TITLE, exact=True).click()
+        expect(page).to_have_url(re.compile(r"#reading-tools$"), timeout=30_000)
+        modal_trigger = page.get_by_test_id("global-search-trigger-mobile")
+        modal_trigger.click()
+        modal = page.get_by_test_id("global-search-dialog")
+        modal_input = modal.get_by_label("Search library")
+        expect(modal_input).to_be_focused()
+        modal.get_by_role("button", name="Close", exact=True).click()
+        expect(modal).to_have_count(0)
+        expect(modal_trigger).to_be_focused()
+        expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        _wait_for_animation_frames(page, 5)
+        expect(modal_trigger).to_be_focused()
+        expect(page.locator("#reading-tools")).not_to_be_focused()
+
+        saved_section_link = page.get_by_test_id("article-outline").get_by_role(
+            "link", name="数值检查", exact=True
+        ).first
+        saved_section_href = saved_section_link.get_attribute("href")
+        _require(bool(saved_section_href), "ordinary Reader probe found no saved section target")
+        saved_section_id = unquote((saved_section_href or "").lstrip("#"))
+        saved_section_label = saved_section_link.inner_text().strip()
+        _require(
+            "%" in (saved_section_href or "") and saved_section_label == "数值检查",
+            f"ordinary Reader probe did not select an encoded Chinese heading: {saved_section_href}",
+        )
+        guided_heading_history_length = int(page.evaluate("history.length"))
+        saved_section_link.click()
+        guided_section_target = page.locator(f'[id="{saved_section_id}"]')
+        expect(guided_section_target).to_be_focused(timeout=30_000)
+        page.get_by_role("link", name="Reading tools", exact=True).click()
+        expect(page.locator("#reading-tools")).to_be_focused(timeout=30_000)
+        _start_zotero_focus_trace(page)
+        page.go_back()
+        page.wait_for_function(
+            "sectionId => decodeURIComponent(location.hash.slice(1)) === sectionId",
+            arg=saved_section_id,
+            timeout=30_000,
+        )
+        _wait_for_animation_frames(page, 8)
+        _assert_zotero_focus_continuity(
+            page,
+            "guided Reader arbitrary heading history",
+            (f"heading:{saved_section_label}",),
+            ("testid:shell-main-content",),
+        )
+        expect(guided_section_target).to_be_focused(timeout=30_000)
+        _require_visible_focus(
+            guided_section_target,
+            "guided Reader arbitrary heading history target",
+        )
+        _require(
+            int(page.evaluate("history.length")) == guided_heading_history_length + 1,
+            "guided Reader heading history changed history length",
+        )
+        page.evaluate(
+            """
+            ([key, sectionId, sectionTitle]) => {
+              const raw = localStorage.getItem(key);
+              const snapshot = raw ? JSON.parse(raw) : null;
+              if (!snapshot || !Array.isArray(snapshot.items) || !snapshot.items[0]) {
+                throw new Error('guided Reader session fixture is unavailable');
+              }
+              snapshot.items[0] = {
+                ...snapshot.items[0],
+                section_id: sectionId,
+                section_title: sectionTitle,
+              };
+              localStorage.setItem(key, JSON.stringify(snapshot));
+            }
+            """,
+            [
+                "scientific-spaces-study-session-v1",
+                saved_section_id,
+                saved_section_label,
+            ],
+        )
+        page.get_by_role("link", name="Back to study session", exact=True).first.click()
+        expect(page).to_have_url(re.compile(r"/session$"), timeout=30_000)
+        expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        session_saved_heading_link = page.get_by_role(
+            "link", name=f"Continue current Article: {CRB_TITLE}", exact=True
+        )
+        expect(session_saved_heading_link).to_be_visible(timeout=30_000)
+        session_saved_heading_link.click()
+        page.wait_for_function(
+            "sectionId => decodeURIComponent(location.hash.slice(1)) === sectionId",
+            arg=saved_section_id,
+            timeout=30_000,
+        )
+        expect(guided_heading).to_be_focused(timeout=30_000)
+        _require_visible_focus(guided_heading, "guided Reader saved-heading route target")
+        session_completion_action = page.get_by_test_id(
+            "focused-session-completion"
+        ).locator("button:not([disabled])").first
+        page.keyboard.press("Tab")
+        expect(session_completion_action).to_be_focused()
+        session_forward_history_length = int(page.evaluate("history.length"))
+        page.go_back()
+        expect(page).to_have_url(re.compile(r"/session$"), timeout=30_000)
+        expect(page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        session_forward_origin = page.get_by_role(
+            "link", name=f"Continue current Article: {CRB_TITLE}", exact=True
+        )
+        session_forward_origin.focus()
+        expect(session_forward_origin).to_be_focused()
+        _start_zotero_focus_trace(page)
+        page.go_forward()
+        page.wait_for_function(
+            "sectionId => decodeURIComponent(location.hash.slice(1)) === sectionId",
+            arg=saved_section_id,
+            timeout=30_000,
+        )
+        expect(guided_heading).to_be_focused(timeout=30_000)
+        _require_visible_focus(guided_heading, "guided Reader saved-heading Forward target")
+        _assert_zotero_focus_continuity(
+            page,
+            "guided Reader saved-heading Forward",
+            (f"heading:{CRB_TITLE}",),
+            ("testid:shell-main-content",),
+        )
+        page.keyboard.press("Tab")
+        expect(session_completion_action).to_be_focused()
+        _require(
+            int(page.evaluate("history.length")) == session_forward_history_length,
+            "guided Reader saved-heading Back/Forward changed history length",
+        )
+        guided_unmanaged_history_length = int(page.evaluate("history.length"))
+        page.get_by_role("link", name="Reading tools", exact=True).click()
+        expect(page.locator("#reading-tools")).to_be_focused(timeout=30_000)
+        _start_zotero_focus_trace(page)
+        page.go_back()
+        page.wait_for_function(
+            "sectionId => decodeURIComponent(location.hash.slice(1)) === sectionId",
+            arg=saved_section_id,
+            timeout=30_000,
+        )
+        expect(guided_section_target).to_be_focused(timeout=30_000)
+        page.wait_for_function(
+            """
+            sectionId => {
+              const target = document.getElementById(sectionId);
+              if (!target) return false;
+              const top = target.getBoundingClientRect().top;
+              return top >= -8 && top <= Math.min(220, window.innerHeight * 0.3);
+            }
+            """,
+            arg=saved_section_id,
+            timeout=30_000,
+        )
+        _assert_zotero_focus_continuity(
+            page,
+            "guided Reader unmanaged heading history",
+            (f"heading:{saved_section_label}",),
+            ("testid:shell-main-content",),
+        )
+        _require_visible_focus(
+            guided_section_target,
+            "guided Reader unmanaged heading history target",
+        )
+        _require(
+            int(page.evaluate("history.length")) == guided_unmanaged_history_length + 1,
+            "guided Reader unmanaged heading Back changed history length",
+        )
+        page.evaluate(
+            """
+            ([articleId, title, sectionId, sectionTitle]) => {
+              localStorage.setItem(
+                'scientific-spaces-reading-history-v1',
+                JSON.stringify([{
+                  id: articleId,
+                  title,
+                  url: 'https://spaces.ac.cn/archives/11787',
+                  last_read_at: '2026-09-06T00:00:00.000Z',
+                }])
+              );
+              localStorage.setItem(
+                'scientific-spaces-reader-progress-v1',
+                JSON.stringify({
+                  version: 1,
+                  items: [{
+                    article_id: articleId,
+                    section_id: sectionId,
+                    section_title: sectionTitle,
+                    progress: 90,
+                    updated_at: '2026-09-06T00:00:00.000Z',
+                  }],
+                })
+              );
+            }
+            """,
+            [CRB_ARTICLE_ID, CRB_TITLE, saved_section_id, saved_section_label],
+        )
+
+        learning_state_list_pattern = re.compile(r".*/learning/state$")
+
+        def provide_incomplete_learning_states(route) -> None:
+            route.fulfill(
+                status=200,
+                content_type="application/json",
+                body=json.dumps({"items": [], "total": 0}),
+            )
+
+        page.route(learning_state_list_pattern, provide_incomplete_learning_states)
+        page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        continue_crb = page.get_by_role(
+            "link", name=f"Continue learning {CRB_TITLE}", exact=True
+        )
+        expect(continue_crb).to_be_visible(timeout=30_000)
+        continue_href = str(continue_crb.get_attribute("href") or "")
+        _require(
+            continue_href.startswith(f"/articles/{CRB_ARTICLE_ID}#"),
+            f"ordinary Reader resume link lost its explicit heading hash: {continue_href}",
+        )
+        continue_crb.focus()
+        continue_history_length = int(page.evaluate("history.length"))
+        page.evaluate("window.__p3034DelayNextArticle = true")
+        _start_zotero_focus_trace(page)
+        continue_crb.press("Enter")
+        page.wait_for_function(
+            """
+            ([articleId, sectionId]) => (
+              location.pathname === `/articles/${articleId}`
+              && decodeURIComponent(location.hash.slice(1)) === sectionId
+            )
+            """,
+            arg=[CRB_ARTICLE_ID, saved_section_id],
+            timeout=30_000,
+        )
+        cross_route_heading_target = page.locator(f'[id="{saved_section_id}"]')
+        expect(cross_route_heading_target).to_be_focused(timeout=30_000)
+        _require_visible_focus(
+            cross_route_heading_target,
+            "ordinary cross-route Reader heading hash target",
+        )
+        _assert_zotero_focus_continuity(
+            page,
+            "ordinary cross-route Reader heading hash",
+            (f"heading:{saved_section_label}",),
+            ("testid:shell-main-content",),
+        )
+        _require(
+            int(page.evaluate("history.length")) == continue_history_length + 1,
+            "ordinary Reader heading hash navigation did not add exactly one history entry",
+        )
+        page.unroute(learning_state_list_pattern, provide_incomplete_learning_states)
+
+        page.goto(
+            f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+            wait_until="domcontentloaded",
+        )
+        _wait_for_application_shell(page)
+        attention_heading = page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
+        expect(attention_heading).to_be_visible(timeout=30_000)
+        recent_section = page.locator("section").filter(
+            has=page.get_by_role("heading", name="Recent Reading", exact=True)
+        )
+        recent_crb = recent_section.get_by_role(
+            "link", name=re.compile(rf"^{re.escape(CRB_TITLE)}")
+        )
+        expect(recent_crb).to_be_visible(timeout=30_000)
+        recent_crb.focus()
+        expect(recent_crb).to_be_focused()
+        ordinary_reader_history_length = int(page.evaluate("history.length"))
+        page.evaluate("window.__p3034DelayNextArticle = true")
+        _start_zotero_focus_trace(page)
+        recent_crb.press("Enter")
+        expect(page).to_have_url(
+            re.compile(rf"/articles/{re.escape(CRB_ARTICLE_ID)}$"),
+            timeout=30_000,
+        )
+        ordinary_reader_main = page.get_by_test_id("shell-main-content")
+        expect(ordinary_reader_main).to_be_focused(timeout=2_000)
+        expect(page.get_by_text("Loading article", exact=True)).to_be_visible(timeout=5_000)
+        page.mouse.wheel(0, 1)
+        crb_heading = page.get_by_role("heading", name=CRB_TITLE, exact=True)
+        expect(crb_heading).to_be_visible(timeout=30_000)
+        saved_route_target = page.locator(f'[id="{saved_section_id}"]')
+        _wait_for_animation_frames(page, 5)
+        expect(ordinary_reader_main).to_be_focused()
+        expect(saved_route_target).not_to_be_focused()
+        _assert_zotero_focus_continuity(
+            page,
+            "interaction-canceled ordinary delayed Article navigation",
+            ("testid:shell-main-content",),
+        )
+
+        page.go_back()
+        expect(page).to_have_url(
+            re.compile(rf"/articles/{re.escape(ATTENTION_ARTICLE_ID)}$"),
+            timeout=30_000,
+        )
+        expect(page.locator("article#article-start")).to_be_focused(timeout=30_000)
+        page.evaluate("window.__p3034DelayNextArticle = true")
+        _start_zotero_focus_trace(page)
+        recent_crb.press("Enter")
+        expect(page).to_have_url(
+            re.compile(rf"/articles/{re.escape(CRB_ARTICLE_ID)}$"),
+            timeout=30_000,
+        )
+        expect(ordinary_reader_main).to_be_focused(timeout=2_000)
+        expect(crb_heading).to_be_visible(timeout=30_000)
+        expect(saved_route_target).to_be_focused(timeout=30_000)
+        _require_visible_focus(saved_route_target, "ordinary delayed Reader saved section")
+        _assert_zotero_focus_continuity(
+            page,
+            "ordinary delayed Article-to-Article navigation",
+            ("testid:shell-main-content", f"heading:{saved_section_label}"),
+        )
+        page.wait_for_timeout(500)
+        restored_position = page.evaluate(
+            """
+            articleId => {
+              const raw = localStorage.getItem('scientific-spaces-reader-progress-v1');
+              const parsed = raw ? JSON.parse(raw) : null;
+              return parsed?.items?.find(item => item.article_id === articleId) ?? null;
+            }
+            """,
+            CRB_ARTICLE_ID,
+        )
+        _require(
+            restored_position
+            and restored_position.get("section_id") == saved_section_id
+            and restored_position.get("progress", 0) > 0,
+            f"ordinary Reader route lost saved progress: {restored_position}",
+        )
+        _require(
+            int(page.evaluate("scrollY")) > 0,
+            "ordinary Reader route did not restore its saved section position",
+        )
+        _require(
+            int(page.evaluate("history.length")) == ordinary_reader_history_length + 1,
+            "ordinary Article-to-Article navigation did not add exactly one history entry",
+        )
+        page.go_back()
+        expect(page).to_have_url(
+            re.compile(rf"/articles/{re.escape(ATTENTION_ARTICLE_ID)}$"),
+            timeout=30_000,
+        )
+        attention_target = page.locator("article#article-start")
+        expect(attention_target).to_be_focused(timeout=30_000)
+        _require_visible_focus(attention_target, "ordinary Reader Back target")
+        _require(
+            int(page.evaluate("history.length")) == ordinary_reader_history_length + 1,
+            "ordinary Article-to-Article Back changed history length",
+        )
+        page.go_forward()
+        expect(page).to_have_url(
+            re.compile(rf"/articles/{re.escape(CRB_ARTICLE_ID)}$"),
+            timeout=30_000,
+        )
+        crb_target = page.locator("article#article-start")
+        expect(crb_target).to_be_focused(timeout=30_000)
+        _require_visible_focus(crb_target, "ordinary Reader Forward target")
+
+        graph_query_return = "/graph?q=CRB"
+        graph_query_reader = (
+            f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?"
+            + urlencode({"from": graph_query_return})
+        )
+        page.goto(graph_query_reader, wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        query_graph_return = page.get_by_role("link", name="Return to graph", exact=True).first
+        expect(query_graph_return).to_have_attribute("href", graph_query_return)
+        query_graph_return.focus()
+        expect(query_graph_return).to_be_focused()
+        _start_zotero_focus_trace(page)
+        query_graph_return.press("Enter")
+        page.wait_for_function(
+            "expected => location.pathname + location.search === expected",
+            arg=graph_query_return,
+            timeout=30_000,
+        )
+        graph_query_main = page.get_by_test_id("shell-main-content")
+        expect(graph_query_main).to_be_focused(timeout=5_000)
+        _require_visible_focus(graph_query_main, "Graph query-only return main fallback")
+        _assert_zotero_focus_continuity(
+            page,
+            "Graph query-only return",
+            ("testid:shell-main-content",),
+        )
+
+        page.goto(
+            f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+            wait_until="domcontentloaded",
+        )
+        _wait_for_application_shell(page)
+        expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        page.evaluate(
+            f"""
+            () => {{
+              const originalFetch = window.fetch.bind(window);
+              let pendingFailures = 2;
+              window.__p3034FailureArticleRequests = 0;
+              window.fetch = async (input, init) => {{
+                const rawUrl = typeof input === 'string' ? input : input.url;
+                const url = new URL(rawUrl, location.href);
+                if (
+                  pendingFailures > 0
+                  && ['127.0.0.1', 'localhost'].includes(url.hostname)
+                  && url.port === '8000'
+                  && url.pathname === '/articles/{CRB_ARTICLE_ID}'
+                ) {{
+                  pendingFailures -= 1;
+                  window.__p3034FailureArticleRequests += 1;
+                  await new Promise(resolve => setTimeout(resolve, 2000));
+                  return new Response(
+                    JSON.stringify({{ detail: 'intentional delayed Article failure' }}),
+                    {{ status: 503, headers: {{ 'Content-Type': 'application/json' }} }}
+                  );
+                }}
+                return originalFetch(input, init);
+              }};
+            }}
+            """
+        )
+        failure_recent_section = page.locator("section").filter(
+            has=page.get_by_role("heading", name="Recent Reading", exact=True)
+        )
+        failure_recent_link = failure_recent_section.get_by_role(
+            "link", name=re.compile(rf"^{re.escape(CRB_TITLE)}")
+        )
+        failure_recent_link.press("Enter")
+        expect(page).to_have_url(
+            re.compile(rf"/articles/{re.escape(CRB_ARTICLE_ID)}$"),
+            timeout=30_000,
+        )
+        failure_main = page.get_by_test_id("shell-main-content")
+        expect(failure_main).to_be_focused(timeout=2_000)
+        expect(page.get_by_text("Loading article", exact=True)).to_be_visible(timeout=5_000)
+        page.mouse.wheel(0, 1)
+        expect(page.get_by_text("Article unavailable", exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        expect(failure_main).to_be_focused()
+        expect(page.get_by_role("button", name="Retry article", exact=True)).not_to_be_focused()
+        page.go_back()
+        expect(page).to_have_url(
+            re.compile(rf"/articles/{re.escape(ATTENTION_ARTICLE_ID)}$"),
+            timeout=30_000,
+        )
+        expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
+            timeout=30_000
+        )
+
+        failure_recent_link.press("Enter")
+        expect(page).to_have_url(
+            re.compile(rf"/articles/{re.escape(CRB_ARTICLE_ID)}$"),
+            timeout=30_000,
+        )
+        newer_shell_focus = page.get_by_test_id("global-search-trigger-mobile")
+        newer_shell_focus.click()
+        failure_search_dialog = page.get_by_test_id("global-search-dialog")
+        expect(failure_search_dialog.get_by_label("Search library")).to_be_focused()
+        failure_search_dialog.get_by_role("button", name="Close", exact=True).click()
+        expect(failure_search_dialog).to_have_count(0)
+        expect(newer_shell_focus).to_be_focused()
+        expect(page.get_by_text("Article unavailable", exact=True)).to_be_visible(
+            timeout=30_000
+        )
+        expect(newer_shell_focus).to_be_focused()
+        expect(page.get_by_role("button", name="Retry article", exact=True)).not_to_be_focused()
+        _require(
+            page.evaluate("window.__p3034FailureArticleRequests") == 2,
+            "Article failure fixture did not intercept exactly two requests",
+        )
+    finally:
+        context.close()
+
+
 def _verify_shell_reader_focus_ownership(
     browser,
     *,
@@ -10966,7 +12716,25 @@ def _verify_shell_reader_focus_ownership(
         expect(page).to_have_url(re.compile(rf"/articles/{ATTENTION_ARTICLE_ID}\?"), timeout=30_000)
         reader_heading = page.locator("article#article-start > h1")
         expect(reader_heading).to_have_text(ATTENTION_TITLE, timeout=30_000)
-        expect(reader_heading).to_be_focused(timeout=30_000)
+        try:
+            expect(reader_heading).to_be_focused(timeout=30_000)
+        except AssertionError as exc:
+            focus_diagnostics = page.evaluate(
+                """
+                () => ({
+                  active: document.activeElement instanceof Element
+                    ? document.activeElement.getAttribute('data-testid')
+                      || document.activeElement.id
+                      || document.activeElement.tagName
+                    : null,
+                  actions: window.__p3030ReaderOwnerActions,
+                  focusEvents: window.__p3030ReaderOwnerFocusEvents,
+                })
+                """
+            )
+            raise AssertionError(
+                f"Reader destination did not claim focus: {focus_diagnostics}"
+            ) from exc
         _wait_for_animation_frames(page, 5)
         focus_evidence = page.evaluate(
             """
@@ -10996,6 +12764,40 @@ def _verify_shell_reader_focus_ownership(
         _require(
             len(delayed_requests) == 1 and "/session?" in delayed_requests[0],
             f"Reader ownership probe did not delay the Shell route: {delayed_requests}",
+        )
+
+        page.goto(FRONTEND_URL, wait_until="domcontentloaded")
+        _wait_for_application_shell(page)
+        delayed_requests.clear()
+        dashboard_articles = page.get_by_role("link", name="View all", exact=True)
+        dashboard_articles.evaluate(
+            "element => element.setAttribute('data-p3034-ordinary-race-link', 'true')"
+        )
+        page.get_by_test_id("global-search-trigger-desktop").click()
+        dialog = page.get_by_test_id("global-search-dialog")
+        expect(dialog.get_by_label("Search library")).to_be_focused()
+        page.evaluate(
+            """
+            () => {
+              setTimeout(() => {
+                document.querySelector('[data-p3034-ordinary-race-link="true"]')?.click();
+              }, 150);
+            }
+            """
+        )
+        dialog.get_by_test_id("global-search-result-workspace").filter(
+            has_text=re.compile(r"^Session")
+        ).click()
+        expect(page).to_have_url(re.compile(r"/articles$"), timeout=30_000)
+        shell_main = page.get_by_test_id("shell-main-content")
+        expect(shell_main).to_be_focused(timeout=30_000)
+        _require_visible_focus(shell_main, "superseding ordinary route destination")
+        _wait_for_animation_frames(page, 5)
+        expect(page).to_have_url(re.compile(r"/articles$"))
+        expect(shell_main).to_be_focused()
+        _require(
+            len(delayed_requests) == 1 and "/session?" in delayed_requests[0],
+            f"ordinary supersession probe did not delay the Shell route: {delayed_requests}",
         )
     finally:
         page.unroute(delayed_session_pattern, delay_session)
@@ -11174,15 +12976,25 @@ def _wait_for_test_id_near_viewport_top(page, test_id: str, *, max_top: int = 20
 
 
 def _require_visible_focus(locator, label: str) -> None:
+    from playwright.sync_api import expect
+
+    expect(locator).to_be_in_viewport(timeout=5_000)
     focus_state = locator.evaluate(
         """
         node => {
           const style = getComputedStyle(node);
+          const box = node.getBoundingClientRect();
           return {
             active: node === document.activeElement,
             boxShadow: style.boxShadow,
+            bottom: box.bottom,
+            left: box.left,
             outlineStyle: style.outlineStyle,
             outlineWidth: style.outlineWidth,
+            right: box.right,
+            top: box.top,
+            viewportHeight: window.innerHeight,
+            viewportWidth: window.innerWidth,
           };
         }
         """
@@ -11197,6 +13009,13 @@ def _require_visible_focus(locator, label: str) -> None:
             or focus_state["boxShadow"] != "none"
         ),
         f"{label} lacks a visible focus indicator: {focus_state}",
+    )
+    _require(
+        focus_state["bottom"] > 0
+        and focus_state["right"] > 0
+        and focus_state["top"] < focus_state["viewportHeight"]
+        and focus_state["left"] < focus_state["viewportWidth"],
+        f"{label} is focused outside the viewport: {focus_state}",
     )
 
 

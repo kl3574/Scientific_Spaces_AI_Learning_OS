@@ -6,6 +6,7 @@ import {
   ComponentPropsWithoutRef,
   FormEvent,
   ReactNode,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -68,6 +69,20 @@ import {
 } from "@/lib/graphWorkspace";
 import { createLearningToolHref } from "@/lib/learningWorkflow";
 import {
+  SHELL_FOCUS_OPERATION_EVENT,
+  SHELL_HISTORY_NAVIGATION_EVENT,
+  SHELL_ROUTE_COMMIT_EVENT,
+  consumeShellHistoryNavigation,
+  createShellRouteIdentity,
+  getShellFocusOperationVersion,
+  getShellRouteCommitAction,
+  getShellRouteCommitFocusOperationVersion,
+  hasPendingShellHistoryNavigation,
+  isShellDestinationFocusAction,
+  recordShellDestinationFocusIntent,
+  shouldTransferDeferredReaderFragmentFocus,
+} from "@/lib/navigation";
+import {
   ReaderMutationKind,
   ReaderMutationOperation,
   ReaderNoteDeleteIntent,
@@ -110,7 +125,121 @@ type NoteFocusRequest = Readonly<{
 }>;
 
 const ARTICLE_LOAD_TIMEOUT_MS = 10_000;
-let pendingOrdinaryArticleFocusId: string | null = null;
+const DEFERRED_FRAGMENT_FOCUS_TIMEOUT_MS = 20_000;
+const READER_MANAGED_HEADING_STATE_KEY = "__scientificSpacesReaderManagedHeadingV1";
+type ReaderFragmentTargetId = "article-start" | "article-outline" | "reading-tools";
+type ReaderFragmentHistoryIntent = Readonly<{
+  articleId: string;
+  expectedHash: string;
+  routeQuery: string;
+  targetId: string;
+  targetKind: "fixed" | "hashless" | "heading" | "structured-reference";
+}>;
+type ReaderRouteFocusIntent =
+  | "none"
+  | "guided"
+  | "history"
+  | "history-guided"
+  | "retry"
+  | "route";
+
+function getReaderFragmentTargetId(hash: string): ReaderFragmentTargetId | null {
+  const targetId = decodeHash(hash);
+  return targetId === "article-start"
+    || targetId === "article-outline"
+    || targetId === "reading-tools"
+    ? targetId
+    : null;
+}
+
+function normalizeReaderRouteQuery(search: string): string {
+  const parameters = new URLSearchParams(search.startsWith("?") ? search.slice(1) : search);
+  parameters.sort();
+  return parameters.toString();
+}
+
+function parseReaderReferencePage(search: string): number {
+  const page = Number.parseInt(new URLSearchParams(search).get("reference_page") ?? "", 10);
+  return Number.isSafeInteger(page) && page > 0 ? Math.min(page, 100_000) : 1;
+}
+
+function getCurrentReaderArticleId(): string | null {
+  const match = /^\/articles\/([^/]+)\/?$/.exec(window.location.pathname);
+  if (!match) {
+    return null;
+  }
+  try {
+    return decodeURIComponent(match[1]);
+  } catch {
+    return null;
+  }
+}
+
+function getReaderFragmentHistoryIntent(
+  includeHashless = false,
+  includeUnmanagedHeading = includeHashless,
+): ReaderFragmentHistoryIntent | null {
+  const articleId = getCurrentReaderArticleId();
+  const expectedHash = window.location.hash;
+  const decodedTargetId = decodeHash(expectedHash);
+  const fixedTargetId = getReaderFragmentTargetId(expectedHash);
+  const structuredReferenceTargetId = decodedTargetId?.startsWith("structured-reference-")
+    ? decodedTargetId
+    : null;
+  const managedHeadingState = window.history.state?.[READER_MANAGED_HEADING_STATE_KEY];
+  const managedHeadingTargetId = managedHeadingState
+    && typeof managedHeadingState === "object"
+    && managedHeadingState.articleId === articleId
+    && managedHeadingState.targetId === decodedTargetId
+    ? decodedTargetId
+    : null;
+  const headingTargetId = decodedTargetId
+    && decodedTargetId.length <= 256
+    && (includeUnmanagedHeading || managedHeadingTargetId === decodedTargetId)
+    ? decodedTargetId
+    : null;
+  const hashlessTargetId = includeHashless && expectedHash === "" ? "article-start" : null;
+  const targetId = fixedTargetId
+    ?? structuredReferenceTargetId
+    ?? hashlessTargetId
+    ?? headingTargetId;
+  if (!articleId || !targetId) {
+    return null;
+  }
+  return {
+    articleId,
+    expectedHash,
+    routeQuery: normalizeReaderRouteQuery(window.location.search),
+    targetId,
+    targetKind: fixedTargetId
+      ? "fixed"
+      : structuredReferenceTargetId
+        ? "structured-reference"
+        : hashlessTargetId
+          ? "hashless"
+          : "heading",
+  };
+}
+
+function hasOpenReaderModal(): boolean {
+  return document.querySelector('[role="dialog"][aria-modal="true"]') !== null;
+}
+
+function shouldUseGuidedReaderRouteFocus(hash: string): boolean {
+  const decodedTargetId = decodeHash(hash);
+  return hash === ""
+    || (
+      getReaderFragmentTargetId(hash) === null
+      && !decodedTargetId?.startsWith("structured-reference-")
+    );
+}
+
+function hasGraphDetailFocusTarget(returnTo: string): boolean {
+  if (!returnTo.startsWith("/graph?")) {
+    return false;
+  }
+  return Boolean(new URLSearchParams(returnTo.slice(returnTo.indexOf("?") + 1)).get("node_id")?.trim());
+}
 
 function focusVisibleElement(target: HTMLElement | null) {
   if (!target?.isConnected) {
@@ -130,6 +259,9 @@ export function ArticleDetailView({
   const router = useRouter();
   const searchParams = useSearchParams();
   const routeQuery = searchParams.toString();
+  const [readerRouteFocusIntent, setReaderRouteFocusIntent] =
+    useState<ReaderRouteFocusIntent>("none");
+  const [shellRouteCommitVersion, setShellRouteCommitVersion] = useState(0);
   const [article, setArticle] = useState<ArticleDetail | null>(null);
   const [learningState, setLearningState] = useState<LearningState | null>(null);
   const [isBookmarked, setIsBookmarked] = useState(false);
@@ -182,6 +314,12 @@ export function ArticleDetailView({
   const articleHeadingRef = useRef<HTMLHeadingElement | null>(null);
   const articleRetryRef = useRef<HTMLButtonElement | null>(null);
   const completionRegionRef = useRef<HTMLElement | null>(null);
+  const fragmentFocusFrameRef = useRef(0);
+  const fragmentHistoryIntentRef = useRef<ReaderFragmentHistoryIntent | null>(null);
+  const deferredFragmentFocusCleanupRef = useRef<(() => void) | null>(null);
+  const fragmentVisibilityCleanupRef = useRef<(() => void) | null>(null);
+  const readerInteractionVersionRef = useRef(0);
+  const readerFocusClaimInteractionVersionRef = useRef<number | null>(null);
   const explicitSectionRef = useRef<ArticleOutlineItem | null>(null);
   const noteDeleteCancelRef = useRef<HTMLButtonElement | null>(null);
   const noteDeleteConfirmationRef = useRef<HTMLDivElement | null>(null);
@@ -197,6 +335,8 @@ export function ArticleDetailView({
         : listReturnTo.startsWith("/graph")
           ? "Return to graph"
       : "Back to articles";
+  const isGuidedReaderRoute = listReturnTo === "/session" || listReturnTo.startsWith("/graph");
+  const ownsRouteFocus = readerRouteFocusIntent !== "none";
   const bookmarkControlsReady = bookmarkLoadState === "loaded";
   const noteControlsReady = noteLoadState === "loaded";
   const activeNoteDeleteIntent = noteDeleteIntent?.articleId === articleId
@@ -211,19 +351,174 @@ export function ArticleDetailView({
     || activeNoteDeleteIntent !== null
     || activeNoteDeleteReconciliation !== null;
 
+  const claimReaderRouteFocus = useCallback((intent: ReaderRouteFocusIntent) => {
+    readerFocusClaimInteractionVersionRef.current = intent === "none"
+      ? null
+      : readerInteractionVersionRef.current;
+    setReaderRouteFocusIntent(intent);
+  }, []);
+
+  useEffect(() => {
+    const recordReaderInteraction = () => {
+      readerInteractionVersionRef.current += 1;
+    };
+    window.addEventListener("keydown", recordReaderInteraction, true);
+    window.addEventListener("pointerdown", recordReaderInteraction, true);
+    window.addEventListener("touchstart", recordReaderInteraction, { capture: true, passive: true });
+    window.addEventListener("wheel", recordReaderInteraction, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("keydown", recordReaderInteraction, true);
+      window.removeEventListener("pointerdown", recordReaderInteraction, true);
+      window.removeEventListener("touchstart", recordReaderInteraction, true);
+      window.removeEventListener("wheel", recordReaderInteraction, true);
+    };
+  }, []);
+
   useLayoutEffect(() => {
-    if (pendingOrdinaryArticleFocusId !== articleId || article?.id !== articleId) {
+    const recordShellRouteCommit = () => {
+      setShellRouteCommitVersion((current) => current + 1);
+    };
+    window.addEventListener(SHELL_ROUTE_COMMIT_EVENT, recordShellRouteCommit);
+    return () => window.removeEventListener(SHELL_ROUTE_COMMIT_EVENT, recordShellRouteCommit);
+  }, []);
+
+  useEffect(() => {
+    const restoreGuidedHeadingFocus = () => {
+      const pendingHistoryIntent = fragmentHistoryIntentRef.current;
+      if (
+        !isGuidedReaderRoute
+        || !articleIdRef.current
+        || (
+          pendingHistoryIntent?.articleId === articleIdRef.current
+          && pendingHistoryIntent.expectedHash === window.location.hash
+        )
+        || getReaderFragmentHistoryIntent(false) !== null
+        || !shouldUseGuidedReaderRouteFocus(window.location.hash)
+      ) {
+        return;
+      }
+      fragmentHistoryIntentRef.current = null;
+      claimReaderRouteFocus("history-guided");
+    };
+    window.addEventListener("hashchange", restoreGuidedHeadingFocus);
+    return () => window.removeEventListener("hashchange", restoreGuidedHeadingFocus);
+  }, [claimReaderRouteFocus, isGuidedReaderRoute]);
+
+  useEffect(() => {
+    const normalizedRouteQuery = normalizeReaderRouteQuery(routeQuery);
+    const hasPendingHistoryNavigation = hasPendingShellHistoryNavigation(
+      window.location.pathname,
+      window.location.search,
+      window.location.hash,
+    );
+    let historyIntent = fragmentHistoryIntentRef.current;
+    if (
+      (!historyIntent
+        || historyIntent.articleId !== articleId
+        || historyIntent.routeQuery !== normalizedRouteQuery
+        || historyIntent.expectedHash !== window.location.hash)
+      && hasPendingHistoryNavigation
+    ) {
+      historyIntent = getReaderFragmentHistoryIntent(!isGuidedReaderRoute);
+      fragmentHistoryIntentRef.current = historyIntent;
+    }
+    if (
+      historyIntent?.articleId === articleId
+      && historyIntent.routeQuery === normalizedRouteQuery
+      && historyIntent.expectedHash === window.location.hash
+    ) {
+      claimReaderRouteFocus("history");
       return;
     }
-    pendingOrdinaryArticleFocusId = null;
-    if (document.activeElement === document.getElementById("main-content")) {
-      focusVisibleElement(articleHeadingRef.current);
+    fragmentHistoryIntentRef.current = null;
+    if (
+      isGuidedReaderRoute
+      && hasPendingHistoryNavigation
+      && shouldUseGuidedReaderRouteFocus(window.location.hash)
+    ) {
+      claimReaderRouteFocus("history-guided");
+      return;
     }
-  }, [article?.id, articleId]);
+
+    const routeIdentity = createShellRouteIdentity(
+      window.location.pathname,
+      window.location.search,
+    );
+    const routeCommitAction = getShellRouteCommitAction(routeIdentity);
+    const routeFocusOperationIsCurrent = getShellRouteCommitFocusOperationVersion(routeIdentity)
+      === getShellFocusOperationVersion();
+    const readerOwnsCommittedDestination = routeCommitAction === "route"
+      || routeCommitAction === "invalidate";
+    if (
+      routeFocusOperationIsCurrent
+      && routeCommitAction === "route"
+      && !isGuidedReaderRoute
+      && window.location.hash === ""
+      && !hasOpenReaderModal()
+    ) {
+      document.getElementById("main-content")?.focus({ preventScroll: true });
+    }
+    claimReaderRouteFocus(
+      !routeFocusOperationIsCurrent
+        ? "none"
+        : isGuidedReaderRoute
+          && (
+            isShellDestinationFocusAction(routeCommitAction)
+            || routeCommitAction === "invalidate"
+          )
+        ? "guided"
+        : readerOwnsCommittedDestination
+          ? "route"
+          : "none",
+    );
+  }, [
+    articleId,
+    claimReaderRouteFocus,
+    isGuidedReaderRoute,
+    routeQuery,
+    shellRouteCommitVersion,
+  ]);
+
+  useEffect(() => {
+    function cancelReaderOwnedFocus() {
+      fragmentHistoryIntentRef.current = null;
+      if (fragmentFocusFrameRef.current) {
+        window.cancelAnimationFrame(fragmentFocusFrameRef.current);
+        fragmentFocusFrameRef.current = 0;
+      }
+      deferredFragmentFocusCleanupRef.current?.();
+      fragmentVisibilityCleanupRef.current?.();
+      claimReaderRouteFocus("none");
+    }
+
+    window.addEventListener(SHELL_FOCUS_OPERATION_EVENT, cancelReaderOwnedFocus);
+    return () => {
+      window.removeEventListener(SHELL_FOCUS_OPERATION_EVENT, cancelReaderOwnedFocus);
+      fragmentHistoryIntentRef.current = null;
+      if (fragmentFocusFrameRef.current) {
+        window.cancelAnimationFrame(fragmentFocusFrameRef.current);
+        fragmentFocusFrameRef.current = 0;
+      }
+      deferredFragmentFocusCleanupRef.current?.();
+      fragmentVisibilityCleanupRef.current?.();
+    };
+  }, [claimReaderRouteFocus]);
 
   useLayoutEffect(() => {
     articleIdRef.current = articleId;
   }, [articleId]);
+
+  useLayoutEffect(() => {
+    if (
+      !article
+      || article.id === articleId
+      || isGuidedReaderRoute
+      || hasOpenReaderModal()
+    ) {
+      return;
+    }
+    document.getElementById("main-content")?.focus({ preventScroll: true });
+  }, [article, articleId, isGuidedReaderRoute]);
 
   useLayoutEffect(() => {
     const intent = activeNoteDeleteIntent;
@@ -299,6 +594,9 @@ export function ArticleDetailView({
 
   function prepareGraphReturnFocus(event: ReactMouseEvent<HTMLAnchorElement>) {
     if (isSameTabNavigation(event) && listReturnTo.startsWith("/graph")) {
+      if (hasGraphDetailFocusTarget(listReturnTo)) {
+        recordShellDestinationFocusIntent(listReturnTo, window.location.href);
+      }
       rememberGraphArticleReturnFocus(
         getGraphSessionStorage(window),
         listReturnTo,
@@ -307,16 +605,422 @@ export function ArticleDetailView({
     }
   }
 
-  function prepareOrdinaryArticleFocus(
+  const scheduleReaderFragmentFocus = useCallback((
+    targetId: string,
+    options: Readonly<{
+      expectedHash?: string;
+      frameCount?: number;
+      interactionVersion?: number;
+      onSettled?: () => void;
+      preserveNewerFocus?: boolean;
+      requireArticleHeading?: boolean;
+    }> = {},
+  ) => {
+    const expectedArticleId = articleIdRef.current;
+    const expectedGeneration = articleGenerationRef.current;
+    const expectedRouteQuery = normalizeReaderRouteQuery(window.location.search);
+    const expectedHash = options.expectedHash ?? `#${targetId}`;
+    const expectedInteractionVersion = options.interactionVersion
+      ?? readerFocusClaimInteractionVersionRef.current;
+    const initialActiveElement = document.activeElement;
+    let remainingFrames = Math.max(options.frameCount ?? 1, 1);
+    deferredFragmentFocusCleanupRef.current?.();
+    fragmentVisibilityCleanupRef.current?.();
+    if (fragmentFocusFrameRef.current) {
+      window.cancelAnimationFrame(fragmentFocusFrameRef.current);
+      fragmentFocusFrameRef.current = 0;
+    }
+    const scheduleFrame = () => {
+      fragmentFocusFrameRef.current = window.requestAnimationFrame(() => {
+        fragmentFocusFrameRef.current = 0;
+        remainingFrames -= 1;
+        if (remainingFrames > 0) {
+          scheduleFrame();
+          return;
+        }
+        const target = document.getElementById(targetId);
+        try {
+          const currentArticleId = getCurrentReaderArticleId();
+          if (
+            articleIdRef.current !== expectedArticleId
+            || articleGenerationRef.current !== expectedGeneration
+            || currentArticleId !== expectedArticleId
+            || normalizeReaderRouteQuery(window.location.search) !== expectedRouteQuery
+            || window.location.hash !== expectedHash
+            || (
+              expectedInteractionVersion !== null
+              && readerInteractionVersionRef.current !== expectedInteractionVersion
+            )
+            || !target?.isConnected
+            || (
+              options.requireArticleHeading
+              && (
+                !(target instanceof HTMLHeadingElement)
+                || !articleRootRef.current?.contains(target)
+              )
+            )
+            || hasOpenReaderModal()
+          ) {
+            return;
+          }
+          if (options.preserveNewerFocus) {
+            const activeElement = document.activeElement;
+            const main = document.getElementById("main-content");
+            const focusCanTransfer = shouldTransferDeferredReaderFragmentFocus(
+              !activeElement || activeElement === document.body,
+              Boolean(activeElement?.isConnected),
+              activeElement === main,
+              activeElement === target,
+              activeElement === initialActiveElement,
+            )
+              || activeElement === articleHeadingRef.current
+              || (
+                expectedHash === ""
+                && activeElement instanceof HTMLElement
+                && getReaderFragmentTargetId(`#${activeElement.id}`) !== null
+              );
+            if (!focusCanTransfer) {
+              return;
+            }
+          }
+          target.scrollIntoView({ behavior: "auto", block: "start" });
+          target.focus({ preventScroll: true });
+          const visibilityDeadline = window.performance.now() + 5_000;
+          let visibilityActive = true;
+          const stopVisibility = () => {
+            if (!visibilityActive) {
+              return;
+            }
+            visibilityActive = false;
+            if (fragmentFocusFrameRef.current) {
+              window.cancelAnimationFrame(fragmentFocusFrameRef.current);
+              fragmentFocusFrameRef.current = 0;
+            }
+            window.removeEventListener("keydown", stopVisibility, true);
+            window.removeEventListener("pointerdown", stopVisibility, true);
+            window.removeEventListener("touchstart", stopVisibility, true);
+            window.removeEventListener("wheel", stopVisibility, true);
+            if (fragmentVisibilityCleanupRef.current === stopVisibility) {
+              fragmentVisibilityCleanupRef.current = null;
+            }
+          };
+          fragmentVisibilityCleanupRef.current = stopVisibility;
+          window.addEventListener("keydown", stopVisibility, true);
+          window.addEventListener("pointerdown", stopVisibility, true);
+          window.addEventListener("touchstart", stopVisibility, { capture: true, passive: true });
+          window.addEventListener("wheel", stopVisibility, { capture: true, passive: true });
+          const keepFocusedTargetVisible = () => {
+            fragmentFocusFrameRef.current = window.requestAnimationFrame(() => {
+              fragmentFocusFrameRef.current = 0;
+              if (
+                !visibilityActive
+                || document.activeElement !== target
+                || articleIdRef.current !== expectedArticleId
+                || articleGenerationRef.current !== expectedGeneration
+                || window.location.hash !== expectedHash
+                || hasOpenReaderModal()
+              ) {
+                stopVisibility();
+                return;
+              }
+              const bounds = target.getBoundingClientRect();
+              const intersectsViewport = bounds.bottom > 0
+                && bounds.right > 0
+                && bounds.top < window.innerHeight
+                && bounds.left < window.innerWidth;
+              if (!intersectsViewport) {
+                target.scrollIntoView({ behavior: "auto", block: "start" });
+              }
+              if (window.performance.now() >= visibilityDeadline) {
+                stopVisibility();
+                return;
+              }
+              keepFocusedTargetVisible();
+            });
+          };
+          keepFocusedTargetVisible();
+        } finally {
+          options.onSettled?.();
+        }
+      });
+    };
+    scheduleFrame();
+  }, []);
+
+  const scheduleDeferredReaderFragmentFocus = useCallback((
+    targetId: string,
+    options: Readonly<{
+      expectedHash?: string;
+      fallbackToMain?: boolean;
+      onSettled?: () => void;
+      preserveNewerFocus?: boolean;
+    }> = {},
+  ) => {
+    const expectedArticleId = articleIdRef.current;
+    const expectedGeneration = articleGenerationRef.current;
+    const expectedRouteQuery = normalizeReaderRouteQuery(window.location.search);
+    const expectedHash = options.expectedHash ?? `#${targetId}`;
+    const expectedReferencePage = parseReaderReferencePage(expectedRouteQuery);
+    const expectedInteractionVersion = readerFocusClaimInteractionVersionRef.current;
+    const main = document.getElementById("main-content");
+    const initialActiveElement = document.activeElement;
+    let active = true;
+    let frame = 0;
+    let timeout = 0;
+    const observer = new MutationObserver(() => tryFocusTarget());
+
+    deferredFragmentFocusCleanupRef.current?.();
+    fragmentVisibilityCleanupRef.current?.();
+    if (fragmentFocusFrameRef.current) {
+      window.cancelAnimationFrame(fragmentFocusFrameRef.current);
+      fragmentFocusFrameRef.current = 0;
+    }
+
+    const cleanup = () => {
+      if (!active) {
+        return;
+      }
+      active = false;
+      observer.disconnect();
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timeout);
+      window.removeEventListener("keydown", cancel, true);
+      window.removeEventListener("pointerdown", cancel, true);
+      window.removeEventListener("touchstart", cancel, true);
+      window.removeEventListener("wheel", cancel, true);
+      if (deferredFragmentFocusCleanupRef.current === cleanup) {
+        deferredFragmentFocusCleanupRef.current = null;
+      }
+    };
+    const settle = (useMainFallback = false) => {
+      if (
+        useMainFallback
+        && options.fallbackToMain
+        && main?.isConnected
+        && articleIdRef.current === expectedArticleId
+        && articleGenerationRef.current === expectedGeneration
+        && getCurrentReaderArticleId() === expectedArticleId
+        && normalizeReaderRouteQuery(window.location.search) === expectedRouteQuery
+        && window.location.hash === expectedHash
+        && (
+          expectedInteractionVersion === null
+          || readerInteractionVersionRef.current === expectedInteractionVersion
+        )
+        && !hasOpenReaderModal()
+      ) {
+        const activeElement = document.activeElement;
+        const focusCanTransfer = shouldTransferDeferredReaderFragmentFocus(
+          !activeElement || activeElement === document.body,
+          Boolean(activeElement?.isConnected),
+          activeElement === main,
+          false,
+          activeElement === initialActiveElement,
+        );
+        if (focusCanTransfer) {
+          main.focus({ preventScroll: true });
+        }
+      }
+      cleanup();
+      options.onSettled?.();
+    };
+    const cancel = () => settle(false);
+    function tryFocusTarget() {
+      if (!active) {
+        return;
+      }
+      if (
+        articleIdRef.current !== expectedArticleId
+        || articleGenerationRef.current !== expectedGeneration
+        || getCurrentReaderArticleId() !== expectedArticleId
+        || normalizeReaderRouteQuery(window.location.search) !== expectedRouteQuery
+        || window.location.hash !== expectedHash
+        || (
+          expectedInteractionVersion !== null
+          && readerInteractionVersionRef.current !== expectedInteractionVersion
+        )
+        || hasOpenReaderModal()
+      ) {
+        cancel();
+        return;
+      }
+      const referencePanel = targetId.startsWith("structured-reference-")
+        ? main?.querySelector<HTMLElement>("[data-structured-references-state]") ?? null
+        : null;
+      if (
+        referencePanel
+        && (
+          referencePanel.dataset.structuredReferencesArticleId !== expectedArticleId
+          || referencePanel.dataset.structuredReferencesPage !== String(expectedReferencePage)
+        )
+      ) {
+        return;
+      }
+      const target = document.getElementById(targetId);
+      if (!(target instanceof HTMLElement)) {
+        if (referencePanel) {
+          const referenceState = referencePanel.dataset.structuredReferencesState;
+          if (referenceState === "ready" || referenceState === "empty" || referenceState === "error") {
+            settle(true);
+          }
+        }
+        return;
+      }
+      if (options.preserveNewerFocus) {
+        const activeElement = document.activeElement;
+        const focusCanTransfer = shouldTransferDeferredReaderFragmentFocus(
+          !activeElement || activeElement === document.body,
+          Boolean(activeElement?.isConnected),
+          activeElement === main,
+          activeElement === target,
+          activeElement === initialActiveElement,
+        );
+        if (!focusCanTransfer) {
+          cancel();
+          return;
+        }
+      }
+      target.scrollIntoView({ behavior: "auto", block: "nearest", inline: "nearest" });
+      target.focus({ preventScroll: true });
+      cancel();
+    }
+
+    deferredFragmentFocusCleanupRef.current = cleanup;
+    window.addEventListener("keydown", cancel, true);
+    window.addEventListener("pointerdown", cancel, true);
+    window.addEventListener("touchstart", cancel, { capture: true, passive: true });
+    window.addEventListener("wheel", cancel, { capture: true, passive: true });
+    if (main) {
+      observer.observe(main, { childList: true, subtree: true });
+    }
+    frame = window.requestAnimationFrame(tryFocusTarget);
+    timeout = window.setTimeout(() => settle(true), DEFERRED_FRAGMENT_FOCUS_TIMEOUT_MS);
+  }, []);
+
+  function handleReaderFragmentNavigate(
     event: ReactMouseEvent<HTMLAnchorElement>,
-    targetArticleId: string,
+    targetId: ReaderFragmentTargetId,
   ) {
-    if (!isSameTabNavigation(event) || targetArticleId === articleId) {
+    if (!isSameTabNavigation(event)) {
       return;
     }
-    pendingOrdinaryArticleFocusId = targetArticleId;
-    focusVisibleElement(document.getElementById("main-content"));
+    fragmentHistoryIntentRef.current = null;
+    deferredFragmentFocusCleanupRef.current?.();
+    fragmentVisibilityCleanupRef.current?.();
+    claimReaderRouteFocus("none");
+    scheduleReaderFragmentFocus(targetId, {
+      interactionVersion: readerInteractionVersionRef.current,
+    });
   }
+
+  useEffect(() => {
+    function restoreReaderFragmentFocus(afterRouteCommit: boolean) {
+      const intent = fragmentHistoryIntentRef.current;
+      if (
+        !intent
+        || article?.id !== articleId
+        || intent.articleId !== articleId
+        || intent.routeQuery !== normalizeReaderRouteQuery(routeQuery)
+        || intent.expectedHash !== window.location.hash
+      ) {
+        return;
+      }
+      if (hasOpenReaderModal()) {
+        if (fragmentHistoryIntentRef.current === intent) {
+          fragmentHistoryIntentRef.current = null;
+        }
+        setReaderRouteFocusIntent((current) => {
+          if (current !== "history") {
+            return current;
+          }
+          readerFocusClaimInteractionVersionRef.current = null;
+          return "none";
+        });
+        return;
+      }
+      const focusOptions = {
+        expectedHash: intent.expectedHash,
+        onSettled: () => {
+          if (fragmentHistoryIntentRef.current === intent) {
+            fragmentHistoryIntentRef.current = null;
+          }
+          setReaderRouteFocusIntent((current) => {
+            if (current !== "history") {
+              return current;
+            }
+            readerFocusClaimInteractionVersionRef.current = null;
+            return "none";
+          });
+        },
+        preserveNewerFocus: afterRouteCommit,
+      };
+      if (intent.targetId.startsWith("structured-reference-")) {
+        scheduleDeferredReaderFragmentFocus(intent.targetId, {
+          ...focusOptions,
+          fallbackToMain: true,
+        });
+      } else {
+        scheduleReaderFragmentFocus(intent.targetId, {
+          ...focusOptions,
+          frameCount: afterRouteCommit ? 4 : 1,
+          requireArticleHeading: intent.targetKind === "heading",
+        });
+      }
+    }
+
+    function captureReaderFragmentFocus(afterRouteCommit: boolean) {
+      if (
+        getCurrentReaderArticleId() !== articleId
+        || normalizeReaderRouteQuery(window.location.search)
+          !== normalizeReaderRouteQuery(routeQuery)
+      ) {
+        return;
+      }
+      const historyNavigation = consumeShellHistoryNavigation(
+        window.location.pathname,
+        window.location.search,
+        window.location.hash,
+      );
+      if (!historyNavigation) {
+        return;
+      }
+      const destination = getReaderFragmentHistoryIntent(
+        !isGuidedReaderRoute,
+        !isGuidedReaderRoute || !afterRouteCommit,
+      );
+      fragmentHistoryIntentRef.current = destination;
+      if (destination) {
+        claimReaderRouteFocus("history");
+      } else {
+        claimReaderRouteFocus(
+          isGuidedReaderRoute && shouldUseGuidedReaderRouteFocus(window.location.hash)
+            ? "history-guided"
+            : "none",
+        );
+      }
+      restoreReaderFragmentFocus(afterRouteCommit);
+    }
+
+    const handleShellHistoryNavigation = () => captureReaderFragmentFocus(false);
+    window.addEventListener(SHELL_HISTORY_NAVIGATION_EVENT, handleShellHistoryNavigation);
+    captureReaderFragmentFocus(true);
+    restoreReaderFragmentFocus(true);
+
+    return () => {
+      window.removeEventListener(SHELL_HISTORY_NAVIGATION_EVENT, handleShellHistoryNavigation);
+      if (fragmentFocusFrameRef.current) {
+        window.cancelAnimationFrame(fragmentFocusFrameRef.current);
+      }
+      fragmentVisibilityCleanupRef.current?.();
+    };
+  }, [
+    article?.id,
+    articleId,
+    claimReaderRouteFocus,
+    isGuidedReaderRoute,
+    routeQuery,
+    scheduleDeferredReaderFragmentFocus,
+    scheduleReaderFragmentFocus,
+  ]);
 
   useEffect(() => {
     const generation = articleGenerationRef.current + 1;
@@ -435,15 +1139,55 @@ export function ArticleDetailView({
   }, []);
 
   useEffect(() => {
-    if (!error) {
+    if (!error || !ownsRouteFocus) {
       return;
     }
+    const ownedFocusIntent = readerRouteFocusIntent;
+    const expectedArticleId = articleIdRef.current;
+    const expectedGeneration = articleGenerationRef.current;
+    const expectedRouteIdentity = createShellRouteIdentity(
+      window.location.pathname,
+      window.location.search,
+    );
+    const expectedInteractionVersion = readerFocusClaimInteractionVersionRef.current;
+    const clearOwnedFocusIntent = () => {
+      setReaderRouteFocusIntent((current) => {
+        if (current !== ownedFocusIntent) {
+          return current;
+        }
+        readerFocusClaimInteractionVersionRef.current = null;
+        return "none";
+      });
+    };
     const frame = window.requestAnimationFrame(() => {
-      articleRetryRef.current?.scrollIntoView({ behavior: "auto", block: "nearest" });
-      articleRetryRef.current?.focus({ preventScroll: true });
+      if (
+        articleIdRef.current !== expectedArticleId
+        || articleGenerationRef.current !== expectedGeneration
+        || createShellRouteIdentity(window.location.pathname, window.location.search)
+          !== expectedRouteIdentity
+        || expectedInteractionVersion === null
+        || readerInteractionVersionRef.current !== expectedInteractionVersion
+        || hasOpenReaderModal()
+      ) {
+        clearOwnedFocusIntent();
+        return;
+      }
+      const activeElement = document.activeElement;
+      const main = document.getElementById("main-content");
+      const retry = articleRetryRef.current;
+      const focusCanTransfer = !activeElement
+        || activeElement === document.body
+        || !activeElement.isConnected
+        || activeElement === main
+        || activeElement === retry;
+      if (focusCanTransfer) {
+        retry?.scrollIntoView({ behavior: "auto", block: "nearest" });
+        retry?.focus({ preventScroll: true });
+      }
+      clearOwnedFocusIntent();
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [error]);
+  }, [error, ownsRouteFocus, readerRouteFocusIntent]);
 
   useEffect(() => {
     if (listReturnTo !== "/session") {
@@ -481,32 +1225,169 @@ export function ArticleDetailView({
   }, [articleId, listReturnTo]);
 
   useEffect(() => {
-    if (
-      (listReturnTo !== "/session" && !listReturnTo.startsWith("/graph"))
-      || !article?.id
-    ) {
+    if (!article?.id) {
       return;
     }
     if (listReturnTo.startsWith("/graph")) {
+      if (hasGraphDetailFocusTarget(listReturnTo)) {
+        recordShellDestinationFocusIntent(listReturnTo, window.location.href);
+      }
       rememberGraphArticleReturnFocus(
         getGraphSessionStorage(window),
         listReturnTo,
         article.id,
       );
     }
-    let firstFrame = 0;
-    let secondFrame = 0;
-    firstFrame = window.requestAnimationFrame(() => {
-      secondFrame = window.requestAnimationFrame(() => {
-        articleHeadingRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
-        articleHeadingRef.current?.focus({ preventScroll: true });
+    if (
+      readerRouteFocusIntent === "none"
+      || readerRouteFocusIntent === "history"
+      || (readerRouteFocusIntent === "guided" && !isGuidedReaderRoute)
+    ) {
+      return;
+    }
+    const ownedFocusIntent = readerRouteFocusIntent;
+    const expectedInteractionVersion = readerFocusClaimInteractionVersionRef.current;
+    const clearOwnedFocusIntent = () => {
+      setReaderRouteFocusIntent((current) => {
+        if (current !== ownedFocusIntent) {
+          return current;
+        }
+        readerFocusClaimInteractionVersionRef.current = null;
+        return "none";
       });
-    });
-    return () => {
-      window.cancelAnimationFrame(firstFrame);
-      window.cancelAnimationFrame(secondFrame);
     };
-  }, [article?.id, listReturnTo]);
+    if (hasOpenReaderModal()) {
+      clearOwnedFocusIntent();
+      return;
+    }
+    const fragmentTargetId = getReaderFragmentTargetId(window.location.hash);
+    if (fragmentTargetId) {
+      scheduleReaderFragmentFocus(fragmentTargetId, {
+        frameCount: 3,
+        onSettled: clearOwnedFocusIntent,
+        preserveNewerFocus: true,
+      });
+      return;
+    }
+    const delegatedHashTargetId = decodeHash(window.location.hash);
+    if (delegatedHashTargetId?.startsWith("structured-reference-")) {
+      scheduleDeferredReaderFragmentFocus(delegatedHashTargetId, {
+        fallbackToMain: true,
+        onSettled: clearOwnedFocusIntent,
+        preserveNewerFocus: true,
+      });
+      return deferredFragmentFocusCleanupRef.current ?? undefined;
+    }
+    if (delegatedHashTargetId && readerRouteFocusIntent === "route") {
+      scheduleReaderFragmentFocus(delegatedHashTargetId, {
+        expectedHash: window.location.hash,
+        frameCount: 3,
+        onSettled: clearOwnedFocusIntent,
+        preserveNewerFocus: true,
+        requireArticleHeading: true,
+      });
+      return;
+    }
+    const expectedHash = window.location.hash;
+    const expectedHashTargetId = decodeHash(expectedHash);
+    const waitsForNativeHashFocus = readerRouteFocusIntent === "history-guided"
+      && expectedHashTargetId !== null;
+    let focusFrame = 0;
+    let remainingFrames = waitsForNativeHashFocus ? 16 : 2;
+    let settled = false;
+    const cleanup = () => {
+      window.cancelAnimationFrame(focusFrame);
+      document.removeEventListener("focusin", handleNativeHashFocus, true);
+    };
+    const settleRouteFocus = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      try {
+        const activeElement = document.activeElement;
+        const main = document.getElementById("main-content");
+        const savedRoutePosition = readerRouteFocusIntent === "route"
+          && expectedHash === ""
+          ? loadReaderProgress(article.id)
+          : null;
+        const savedRouteTarget = savedRoutePosition?.section_id
+          ? document.getElementById(savedRoutePosition.section_id)
+          : null;
+        const routeFocusTarget = savedRouteTarget instanceof HTMLElement
+          && /^H[1-6]$/.test(savedRouteTarget.tagName)
+          && articleRootRef.current?.contains(savedRouteTarget)
+          ? savedRouteTarget
+          : articleHeadingRef.current;
+        if (
+          articleIdRef.current === article.id
+          && window.location.hash === expectedHash
+          && expectedInteractionVersion !== null
+          && readerInteractionVersionRef.current === expectedInteractionVersion
+          && !hasOpenReaderModal()
+          && (
+            !activeElement
+            || activeElement === document.body
+            || !activeElement.isConnected
+            || activeElement === main
+            || activeElement === routeFocusTarget
+            || (
+              readerRouteFocusIntent === "history-guided"
+              && activeElement instanceof HTMLElement
+              && (
+                getReaderFragmentTargetId(`#${activeElement.id}`) !== null
+                || expectedHashTargetId === activeElement.id
+              )
+            )
+          )
+        ) {
+          routeFocusTarget?.scrollIntoView({ behavior: "auto", block: "start" });
+          routeFocusTarget?.focus({ preventScroll: true });
+        }
+      } finally {
+        cleanup();
+        clearOwnedFocusIntent();
+      }
+    };
+    const scheduleRouteFocus = () => {
+      focusFrame = window.requestAnimationFrame(() => {
+        remainingFrames -= 1;
+        if (remainingFrames > 0) {
+          scheduleRouteFocus();
+          return;
+        }
+        settleRouteFocus();
+      });
+    };
+    function handleNativeHashFocus(event: FocusEvent) {
+      if (
+        !waitsForNativeHashFocus
+        || !(event.target instanceof HTMLElement)
+        || event.target.id !== expectedHashTargetId
+        || !articleRootRef.current?.contains(event.target)
+      ) {
+        return;
+      }
+      window.cancelAnimationFrame(focusFrame);
+      remainingFrames = 1;
+      scheduleRouteFocus();
+    }
+    if (waitsForNativeHashFocus) {
+      document.addEventListener("focusin", handleNativeHashFocus, true);
+    }
+    scheduleRouteFocus();
+    return () => {
+      settled = true;
+      cleanup();
+    };
+  }, [
+    article?.id,
+    isGuidedReaderRoute,
+    listReturnTo,
+    readerRouteFocusIntent,
+    scheduleDeferredReaderFragmentFocus,
+    scheduleReaderFragmentFocus,
+  ]);
 
   async function loadLearningContext(nextArticleId: string, generation: number) {
     if (
@@ -1488,16 +2369,35 @@ export function ArticleDetailView({
     const restorePosition = () => {
       const saved = loadReaderProgress(currentArticleId);
       const hashSection = decodeHash(window.location.hash);
+      const fragmentTargetId = getReaderFragmentTargetId(window.location.hash);
       const graphOrigin = listReturnTo.startsWith("/graph");
+      const delegatedHashTarget = hashSection?.startsWith("structured-reference-") ?? false;
+      const readerHeadingOwnsViewport = document.activeElement === articleHeadingRef.current
+        && (
+          window.location.hash === ""
+          || (
+            isGuidedReaderRoute
+            && shouldUseGuidedReaderRouteFocus(window.location.hash)
+          )
+        );
       const targetSection = graphOrigin
+        || fragmentTargetId
+        || delegatedHashTarget
+        || readerHeadingOwnsViewport
         ? null
         : hashSection && outline.some((item) => item.id === hashSection)
           ? hashSection
           : saved?.section_id;
-      const target = targetSection ? document.getElementById(targetSection) : null;
+      const target = fragmentTargetId
+        ? document.getElementById(fragmentTargetId)
+        : targetSection
+          ? document.getElementById(targetSection)
+          : null;
       if (target) {
         target.scrollIntoView({ behavior: "auto", block: "start" });
-        setActiveSectionId(targetSection ?? null);
+        if (targetSection) {
+          setActiveSectionId(targetSection);
+        }
       }
       if (saved) {
         pendingState = saved;
@@ -1506,6 +2406,10 @@ export function ArticleDetailView({
         }
       }
       restored = true;
+      if (!graphOrigin && readerHeadingOwnsViewport && saved) {
+        positionTrackingArmed = true;
+        return;
+      }
       if (graphOrigin) {
         trackingArmFrame = window.requestAnimationFrame(() => {
           trackingArmFollowupFrame = window.requestAnimationFrame(() => {
@@ -1552,7 +2456,7 @@ export function ArticleDetailView({
       }
       persist();
     };
-  }, [article?.id, listReturnTo, outline]);
+  }, [article?.id, isGuidedReaderRoute, listReturnTo, outline]);
 
   function handleOutlineNavigate(sectionId: string) {
     const target = document.getElementById(sectionId);
@@ -1560,7 +2464,24 @@ export function ArticleDetailView({
     if (!target || !article || !section) {
       return;
     }
-    window.history.replaceState(null, "", `#${encodeURIComponent(sectionId)}`);
+    const currentHistoryState = window.history.state;
+    const nextHistoryState = currentHistoryState
+      && typeof currentHistoryState === "object"
+      && !Array.isArray(currentHistoryState)
+      ? {
+          ...currentHistoryState,
+          [READER_MANAGED_HEADING_STATE_KEY]: {
+            articleId: article.id,
+            targetId: sectionId,
+          },
+        }
+      : {
+          [READER_MANAGED_HEADING_STATE_KEY]: {
+            articleId: article.id,
+            targetId: sectionId,
+          },
+        };
+    window.history.replaceState(nextHistoryState, "", `#${encodeURIComponent(sectionId)}`);
     explicitSectionRef.current = section;
     target.scrollIntoView({ behavior: "auto", block: "start" });
     target.focus({ preventScroll: true });
@@ -1706,7 +2627,11 @@ export function ArticleDetailView({
 
   if (error) {
     return (
-      <section className="grid gap-4">
+      <section
+        className="grid gap-4"
+        data-shell-focus-owner={ownsRouteFocus ? "pending" : undefined}
+        data-shell-route-ready="article-detail"
+      >
         {focusedCompletionPanel}
         <WorkspaceState
           action={
@@ -1715,7 +2640,11 @@ export function ArticleDetailView({
                 className="rounded-md border border-red-400 bg-red-900 px-3 py-2 text-sm font-semibold text-white hover:bg-red-950 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-red-900"
                 ref={articleRetryRef}
                 type="button"
-                onClick={() => setArticleRevision((current) => current + 1)}
+                onClick={() => {
+                  setError(null);
+                  claimReaderRouteFocus("retry");
+                  setArticleRevision((current) => current + 1);
+                }}
               >
                 Retry article
               </button>
@@ -1738,7 +2667,12 @@ export function ArticleDetailView({
 
   if (!article) {
     return (
-      <section aria-busy="true" className="grid gap-4">
+      <section
+        aria-busy="true"
+        className="grid gap-4"
+        data-shell-focus-owner={ownsRouteFocus ? "pending" : undefined}
+        data-shell-route-ready="article-detail"
+      >
         {focusedCompletionPanel}
         <WorkspaceState
           action={
@@ -1765,14 +2699,19 @@ export function ArticleDetailView({
   };
 
   return (
-    <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start">
+    <section
+      className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_300px] lg:items-start"
+      data-shell-route-ready="article-detail"
+    >
       <div className="min-w-0 space-y-4">
         <article
           ref={articleRootRef}
           id="article-start"
-          className="reader-workspace min-w-0 rounded border border-slate-200 bg-white p-5"
+          className="reader-workspace min-w-0 scroll-mt-24 rounded border border-slate-200 bg-white p-5 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-700"
           data-reader-size={readerPreferences.textSize}
           data-reader-width={readerPreferences.width}
+          data-shell-focus-owner={ownsRouteFocus ? "pending" : undefined}
+          tabIndex={-1}
         >
         <Link
           className="text-sm text-slate-600 hover:text-slate-950"
@@ -1804,12 +2743,14 @@ export function ArticleDetailView({
           <a
             className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 lg:hidden"
             href="#article-outline"
+            onClick={(event) => handleReaderFragmentNavigate(event, "article-outline")}
           >
             Outline
           </a>
           <a
             className="rounded border border-amber-300 bg-amber-50 px-3 py-1.5 text-sm font-semibold text-amber-900 hover:bg-amber-100 lg:hidden"
             href="#reading-tools"
+            onClick={(event) => handleReaderFragmentNavigate(event, "reading-tools")}
           >
             Reading tools
           </a>
@@ -1833,12 +2774,16 @@ export function ArticleDetailView({
       <aside
         id="reading-tools"
         aria-label="Reading tools"
-        className="min-w-0 scroll-mt-24 space-y-4 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1"
+        className="min-w-0 scroll-mt-24 space-y-4 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-700 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1"
         tabIndex={-1}
       >
         <div className="flex items-center justify-between gap-3 border-b border-slate-300 pb-2">
           <h2 className="text-base font-semibold">Reading tools</h2>
-          <a className="text-xs font-medium text-emerald-800 hover:text-emerald-950 lg:hidden" href="#article-start">
+          <a
+            className="text-xs font-medium text-emerald-800 hover:text-emerald-950 lg:hidden"
+            href="#article-start"
+            onClick={(event) => handleReaderFragmentNavigate(event, "article-start")}
+          >
             Back to article
           </a>
         </div>
@@ -1859,7 +2804,11 @@ export function ArticleDetailView({
             </Link>
           </div>
         </section>
-        <section id="article-outline" className="scroll-mt-24 rounded border border-slate-200 bg-white p-4">
+        <section
+          id="article-outline"
+          className="scroll-mt-24 rounded border border-slate-200 bg-white p-4 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-700"
+          tabIndex={-1}
+        >
           <ArticleOutline activeSectionId={activeSectionId} items={outline} onNavigate={handleOutlineNavigate} />
         </section>
 
@@ -2195,7 +3144,6 @@ export function ArticleDetailView({
                   key={`${item.id}-${item.last_read_at}`}
                   className="rounded border border-slate-100 px-3 py-2 text-sm hover:bg-slate-50"
                   href={`/articles/${item.id}`}
-                  onClick={(event) => prepareOrdinaryArticleFocus(event, item.id)}
                 >
                   <span className="block font-medium">{item.title}</span>
                   <span className="mt-1 block text-xs text-slate-500">
@@ -2415,13 +3363,13 @@ function createMarkdownComponents(outline: ArticleOutlineItem[]): Components {
   return {
     ...baseMarkdownComponents,
     h2: ({ node, ...props }) => (
-      <h2 {...props} id={headingIdForNode(node, headingIdsByLine)} className="scroll-mt-24" tabIndex={-1} />
+      <h2 {...props} id={headingIdForNode(node, headingIdsByLine)} className="scroll-mt-24 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-700" tabIndex={-1} />
     ),
     h3: ({ node, ...props }) => (
-      <h3 {...props} id={headingIdForNode(node, headingIdsByLine)} className="scroll-mt-24" tabIndex={-1} />
+      <h3 {...props} id={headingIdForNode(node, headingIdsByLine)} className="scroll-mt-24 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-700" tabIndex={-1} />
     ),
     h4: ({ node, ...props }) => (
-      <h4 {...props} id={headingIdForNode(node, headingIdsByLine)} className="scroll-mt-24" tabIndex={-1} />
+      <h4 {...props} id={headingIdForNode(node, headingIdsByLine)} className="scroll-mt-24 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-700" tabIndex={-1} />
     ),
   };
 }
