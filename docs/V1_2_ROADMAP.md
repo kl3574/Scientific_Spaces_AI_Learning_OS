@@ -1012,7 +1012,13 @@ async guards. Local evidence is PASS: 139 focused Frontend tests, the 11-route
 production build, 600 Backend tests with 4 skips, three Product E2E runs with
 225/225 checks each, restart persistence, two independent final reviews, and
 all offline repository-safety gates passed. External requests and unexpected
-console/page errors were zero. Exact-SHA implementation CI remains required.
+console/page errors were zero. Initial implementation commit
+`d864cc1755b050a1dfeb247beaaa8a9d20a2eab3` passed all remote jobs except
+Product E2E; two attempts exposed separate intentional-404 classification and
+Dashboard-readiness races in the harness. A bounded fail-closed test repair now
+passes endpoint negatives, 10 404 probes, 20 Shell stress runs, three complete
+Product E2E runs, and two final reviews locally. Exact-SHA repair CI remains
+required.
 
 ## Release Criteria
 
@@ -1046,8 +1052,8 @@ console/page errors were zero. Exact-SHA implementation CI remains required.
 
 ## Next Recommended Task
 
-Commit and push the locally verified P3-036 implementation, then require
-exact-SHA implementation and docs-only closure CI.
+Commit and push the locally verified P3-036 CI-test repair, then require
+exact-SHA repair and docs-only closure CI.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain

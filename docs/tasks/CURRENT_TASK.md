@@ -350,7 +350,17 @@ is staged.
   gates: PASS
 - local dependency audit: deferred to exact-SHA CI because registry network
   access is outside P3-036 authorization
-- implementation exact-SHA main CI: PENDING
+- initial implementation commit:
+  `d864cc1755b050a1dfeb247beaaa8a9d20a2eab3`
+- initial exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34019342064`
+- initial required jobs except Product E2E: PASS; Product E2E attempt 1 exposed
+  global intentional-404 count coupling; unchanged-SHA attempt 2 exposed an
+  existing Dashboard readiness race; uploaded artifacts: 0
+- bounded repair: exact page-scoped 404 ownership and semantic Dashboard
+  stabilization; endpoint negative matrix, 10/10 404 probes, 20/20 Shell stress,
+  final 3 x 225 Product E2E checks, and 2/2 final reviews PASS
+- repair exact-SHA main CI: PENDING
 
 ## P3-032 Local Evidence
 

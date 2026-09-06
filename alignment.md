@@ -84,6 +84,9 @@ No v1.2 candidate is assigned.
 
 ## Current Gate
 
-All local behavior, regression, build, Backend, three-run Product E2E, review,
-and offline repository-safety gates pass. Create the authorized implementation
-commit, push it without force, and require exact-SHA main CI before closure.
+Initial implementation commit `d864cc1755b050a1dfeb247beaaa8a9d20a2eab3`
+passed every CI job except Product E2E, whose two attempts exposed independent
+404-classification and Dashboard-readiness races in the harness. The bounded
+fail-closed repair passes predicate, 10-run 404, 20-run Shell, three-run Product
+E2E, and two-reviewer gates locally. Commit and non-force push the repair, then
+require exact-SHA main CI before closure.

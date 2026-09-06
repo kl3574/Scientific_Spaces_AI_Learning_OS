@@ -215,6 +215,16 @@ temporary SBOM, artifact, and protected-path gates pass. The network-dependent
 dependency gate is deferred to exact-SHA CI. P3-036 remains open until the
 implementation and docs-only closure commits each pass exact-SHA main CI.
 
+Initial implementation commit `d864cc1755b050a1dfeb247beaaa8a9d20a2eab3`
+passed every remote job except Product E2E. Its first attempt exposed a global
+intentional-404 count race; an unchanged-SHA rerun exposed Dashboard-readiness
+coupling in the existing same-route brand assertion. The bounded E2E repair now
+correlates every accepted 404 console event and response to an exact loopback
+endpoint, removes the global 404 allowance, and waits for semantic Dashboard
+completion before capturing scroll. Predicate negatives, 10 Article/route 404
+probes, 20 Shell stress runs, three complete 225-check Product E2E runs, and two
+final independent reviews pass. Exact-SHA repair CI remains pending.
+
 ## Stop Conditions
 
 Stop rather than widen scope if an unknown worktree change appears or correct

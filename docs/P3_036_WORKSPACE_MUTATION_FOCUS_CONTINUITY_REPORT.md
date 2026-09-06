@@ -5,7 +5,7 @@
 - Local implementation: **PASS**
 - Independent final review: **PASS**, 2/2 reviewers, 0 Critical / 0 Important /
   0 Minor
-- Exact-SHA implementation main CI: **PENDING**
+- Exact-SHA implementation main CI: **BLOCKED ON INITIAL COMMIT; REPAIR CI PENDING**
 - Task closure: **PENDING**
 - Candidate version: not assigned
 
@@ -99,8 +99,10 @@ targets remained available, and no page-level horizontal overflow was found.
 ## 7. Independent Review Evidence
 
 Two independent final reviewers inspected the complete allowlisted diff after
-the final race repairs. Each reported 0 Critical, 0 Important, and 0 Minor
-findings. No reviewer edited repository files.
+the final race repairs. A follow-up reviewer found two fail-closed URL ownership
+edge cases during the CI-test repair; both were fixed and both reviewers then
+reported 0 Critical, 0 Important, and 0 Minor findings. No reviewer edited
+repository files.
 
 ## 8. Security And Repository Safety
 
@@ -119,8 +121,43 @@ access, which P3-036 does not authorize. The existing exact-SHA CI dependency
 job remains the required evidence for that gate. Temporary browser and SBOM
 evidence stayed outside the repository and is removed before commit.
 
-## 9. Final Disposition Before CI
+## 9. Initial Exact-SHA CI And Bounded Repair
 
-Local result: **PASS**. P3-036 remains open until the implementation commit
+Implementation commit `d864cc1755b050a1dfeb247beaaa8a9d20a2eab3`
+triggered exact-SHA main CI run
+[`34019342064`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34019342064).
+Backend, Frontend, dependency, workflow/suppression, secret, and SBOM jobs
+passed; normal-main Docker and release evidence skipped as designed; uploaded
+artifacts were zero.
+
+The Product E2E job exposed two independent test-evidence races:
+
+- attempt 1 completed the product flow but treated a repeated intentional
+  Article 404 as unexpected because the harness used a global count allowance;
+- unchanged-SHA attempt 2 reached the existing ordinary Shell test before a
+  Dashboard layout had reached its observable terminal state, so its immediate
+  scroll snapshot differed after same-route brand activation.
+
+The bounded repair keeps every product assertion strict. Intentional 404s are
+now consumed only when the shared and page-scoped console sequences match and
+every console location and response URL has the exact HTTP loopback host, port,
+path, and empty credentials/params/query/fragment. The global 404 allowance is
+removed. The Shell test waits for Dashboard `aria-busy=false` and animation
+frames before establishing scroll, while preserving exact history, URL, focus,
+and scroll assertions.
+
+Repair evidence:
+
+- endpoint predicate: 2 valid forms accepted; 9 malformed or unrelated forms
+  rejected; unowned shared errors rejected
+- intentional 404 browser probe: 10/10 PASS
+- ordinary Shell route-focus stress: 20/20 PASS
+- final Product E2E: 3/3 runs, 225/225 checks each, restart persistence PASS,
+  and zero external requests, console errors, or page errors
+- final independent reviews: 2/2 PASS, 0 Critical / 0 Important / 0 Minor
+
+## 10. Final Disposition Before Repair CI
+
+Local result: **PASS**. P3-036 remains open until the cumulative repair commit
 passes exact-SHA main CI. A separate docs-only closure commit and its own
 exact-SHA CI are then required. No v1.2 candidate, tag, or Release is assigned.

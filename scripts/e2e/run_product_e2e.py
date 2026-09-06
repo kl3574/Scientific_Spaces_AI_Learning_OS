@@ -3514,29 +3514,69 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["graph_route_boundary_back"] = True
     page.close()
 
-    page = _new_observed_page(context, console_errors, page_errors, label="article-not-found")
-
+    article_not_found_console_events: list[dict[str, str]] = []
+    page = _new_observed_page(
+        context,
+        console_errors,
+        page_errors,
+        label="article-not-found",
+        scoped_console_errors=article_not_found_console_events,
+    )
+    article_not_found_console_start = len(console_errors)
+    article_not_found_responses: list[str] = []
+    page.on(
+        "response",
+        lambda response: article_not_found_responses.append(response.url)
+        if response.status == 404
+        else None,
+    )
     page.goto(f"{FRONTEND_URL}/articles/not-a-real-article", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     expect(page.get_by_text("Article not found", exact=True)).to_be_visible(timeout=30_000)
+    _consume_expected_404_console_errors(
+        console_errors,
+        start=article_not_found_console_start,
+        scoped_events=article_not_found_console_events,
+        response_urls=article_not_found_responses,
+        port=8000,
+        path="/articles/not-a-real-article",
+        label="intentional Article 404",
+    )
     _require(not page_errors, f"Article not-found route emitted page errors: {page_errors}")
     checks["article_not_found_state"] = True
     page.close()
 
-    page = _new_observed_page(context, console_errors, page_errors, label="route-not-found")
+    route_not_found_console_events: list[dict[str, str]] = []
+    page = _new_observed_page(
+        context,
+        console_errors,
+        page_errors,
+        label="route-not-found",
+        scoped_console_errors=route_not_found_console_events,
+    )
     not_found_console_start = len(console_errors)
+    route_not_found_responses: list[str] = []
+    page.on(
+        "response",
+        lambda response: route_not_found_responses.append(response.url)
+        if response.status == 404
+        else None,
+    )
     page.goto(f"{FRONTEND_URL}/not-a-product-route", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     expect(
         page.get_by_test_id("route-not-found-state").get_by_text("Page not found", exact=True)
     ).to_be_visible(timeout=30_000)
     expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "unknown")
-    expected_not_found_console = console_errors[not_found_console_start:]
-    _require(
-        all("status of 404" in message for message in expected_not_found_console),
-        f"unexpected console output during intentional route 404: {expected_not_found_console}",
+    _consume_expected_404_console_errors(
+        console_errors,
+        start=not_found_console_start,
+        scoped_events=route_not_found_console_events,
+        response_urls=route_not_found_responses,
+        port=3000,
+        path="/not-a-product-route",
+        label="intentional route 404",
     )
-    del console_errors[not_found_console_start:]
     _require(not page_errors, f"route not-found state emitted page errors: {page_errors}")
     checks["route_not_found_state"] = True
     page.close()
@@ -11954,14 +11994,77 @@ def _new_observed_page(
     page_errors: list[str],
     *,
     label: str,
+    scoped_console_errors: list[dict[str, str]] | None = None,
 ):
     page = context.new_page()
-    page.on(
-        "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
-    )
+
+    def capture_console(message) -> None:
+        if message.type != "error":
+            return
+        console_errors.append(message.text)
+        if scoped_console_errors is not None:
+            scoped_console_errors.append(
+                {
+                    "text": message.text,
+                    "url": str(message.location.get("url") or ""),
+                }
+            )
+
+    page.on("console", capture_console)
     page.on("pageerror", lambda error: _capture_page_error(page_errors, label, page, error))
     return page
+
+
+def _consume_expected_404_console_errors(
+    console_errors: list[str],
+    *,
+    start: int,
+    scoped_events: list[dict[str, str]],
+    response_urls: list[str],
+    port: int,
+    path: str,
+    label: str,
+) -> None:
+    shared_events = console_errors[start:]
+    scoped_text = [event["text"] for event in scoped_events]
+    _require(
+        shared_events == scoped_text,
+        f"{label} did not exclusively own its console window: "
+        f"shared={shared_events}, scoped={scoped_events}",
+    )
+    _require(
+        scoped_events
+        and all(
+            "status of 404" in event["text"]
+            and _matches_loopback_endpoint(event["url"], port=port, path=path)
+            for event in scoped_events
+        ),
+        f"unexpected console output during {label}: {scoped_events}",
+    )
+    _require(
+        response_urls
+        and all(
+            _matches_loopback_endpoint(url, port=port, path=path)
+            for url in response_urls
+        ),
+        f"unexpected response during {label}: {response_urls}",
+    )
+    del console_errors[start:]
+
+
+def _matches_loopback_endpoint(url: str, *, port: int, path: str) -> bool:
+    parsed = urlparse(url)
+    return (
+        parsed.scheme == "http"
+        and parsed.hostname in {"127.0.0.1", "localhost"}
+        and parsed.username is None
+        and parsed.password is None
+        and parsed.port == port
+        and parsed.path == path
+        and not parsed.params
+        and not parsed.query
+        and not parsed.fragment
+    )
 
 
 def _capture_page_error(page_errors: list[str], label: str, page, error: Exception) -> None:
@@ -12125,18 +12228,24 @@ def _verify_ordinary_shell_route_focus(
 
         page.get_by_test_id("primary-nav-dashboard").click()
         expect(page).to_have_url(re.compile(r"/$"), timeout=30_000)
-        brand = page.get_by_role("link", name="Scientific Spaces AI Learning OS home", exact=True)
-        brand_scroll = int(
-            page.evaluate(
-                """
-                () => {
-                  const maximum = document.documentElement.scrollHeight - innerHeight;
-                  scrollTo(0, Math.min(180, maximum));
-                  return scrollY;
-                }
-                """
-            )
+        expect(
+            page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
+        ).to_be_visible(timeout=30_000)
+        expect(page.get_by_test_id("dashboard-command-center")).to_have_attribute(
+            "aria-busy", "false", timeout=30_000
         )
+        _wait_for_animation_frames(page, 2)
+        brand = page.get_by_role("link", name="Scientific Spaces AI Learning OS home", exact=True)
+        page.evaluate(
+            """
+            () => {
+              const maximum = document.documentElement.scrollHeight - innerHeight;
+              scrollTo(0, Math.min(180, maximum));
+            }
+            """
+        )
+        _wait_for_animation_frames(page, 2)
+        brand_scroll = int(page.evaluate("scrollY"))
         _require(brand_scroll > 0, "same-route brand probe did not establish scroll state")
         brand_history = int(page.evaluate("history.length"))
         brand_url = page.url
@@ -13686,7 +13795,7 @@ def _restore_tutor_article_search_delays(page) -> None:
 
 
 def _unexpected_console_errors(messages: list[str]) -> list[str]:
-    expected_statuses = {"404": 1, "503": 13}
+    expected_statuses = {"503": 13}
     unexpected: list[str] = []
     for message in messages:
         matched = False

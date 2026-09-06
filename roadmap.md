@@ -17,9 +17,9 @@ Status:
 P3-036 LOCAL PASS / IMPLEMENTATION CI PENDING
 
 Next gate:
-Commit and push the locally verified bounded cross-workspace mutation focus
-repair, then require exact-SHA implementation CI and a separately verified
-docs-only closure commit. No v1.2 candidate is assigned.
+Commit and push the locally verified fail-closed Product E2E repair exposed by
+initial implementation CI, then require exact-SHA repair CI and a separately
+verified docs-only closure commit. No v1.2 candidate is assigned.
 
 ## Historical Notes
 
