@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 from contextlib import contextmanager
 import json
 import os
@@ -15,7 +16,7 @@ import time
 import traceback
 from typing import Iterator
 from urllib.error import URLError
-from urllib.parse import parse_qs, unquote, urlencode, urlparse
+from urllib.parse import parse_qs, parse_qsl, unquote, unquote_plus, urlencode, urlparse
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,6 +39,9 @@ from app.storage.article_store import StoredArticle
 
 API_URL = "http://127.0.0.1:8000"
 FRONTEND_URL = "http://127.0.0.1:3000"
+# NEXT_PUBLIC_API_BASE_URL is compiled into the checked production build.
+BROWSER_API_URL = "http://localhost:8000"
+ACTIVE_FRONTEND_MODE = "start"
 CRB_ARTICLE_ID = "crb-formula"
 CRB_TITLE = "CRB公式与估计下界"
 ATTENTION_ARTICLE_ID = "attention-basics"
@@ -48,13 +52,1054 @@ ATTENTION_CONCEPT_ID = "concept:attention"
 ATTENTION_CONCEPT_RETURN = "/graph?node_id=concept%3Aattention"
 ATTENTION_CONCEPT_QUERY_RETURN = f"{ATTENTION_CONCEPT_RETURN}&q=Attention"
 EXPECTED_ARTICLE_COUNT = 3
+CONTROLLED_HTTP_EXPECTATION_HEADER = "x-scientific-spaces-e2e-expectation"
+ALLOWED_HTTP_ORIGINS = frozenset(
+    {
+        ("http", "127.0.0.1", 3000),
+        ("http", "127.0.0.1", 8000),
+        ("http", "localhost", 8000),
+    }
+)
+ALLOWED_WEBSOCKET_ORIGINS = frozenset({("ws", "127.0.0.1", 3000)})
 
 
 class E2EFailure(AssertionError):
     """Raised when an end-to-end product assertion fails."""
 
 
+class LocalOnlyBrowser:
+    """Create every E2E context with service workers disabled."""
+
+    def __init__(self, browser) -> None:
+        self._browser = browser
+
+    @property
+    def version(self) -> str:
+        return self._browser.version
+
+    def new_context(self, **options):
+        _require(
+            "service_workers" not in options,
+            "E2E context attempted to override the service-worker policy",
+        )
+        return LocalOnlyContext(
+            self._browser.new_context(service_workers="block", **options)
+        )
+
+    def close(self) -> None:
+        self._browser.close()
+
+
+class LocalOnlyContext:
+    """Proxy context closure through the request-evidence ledger."""
+
+    def __init__(self, context) -> None:
+        self._context = context
+
+    def __getattr__(self, name: str):
+        return getattr(self._context, name)
+
+    def close(self, *args, **kwargs) -> None:
+        for page in list(self._context.pages):
+            ledger = getattr(page, "_scientific_spaces_console_error_log", None)
+            if isinstance(ledger, ConsoleErrorLog) and not page.is_closed():
+                ledger.mark_page_close_intent(page)
+        self._context.close(*args, **kwargs)
+
+
+class NetworkGuardLog(list[str]):
+    """Keep external-network and context-page provenance in one iteration ledger."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.page_trackers: list[dict[str, object]] = []
+
+
+class ConsoleErrorLog(list[str]):
+    """Keep console text and provenance aligned through legacy slice checks."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.evidence: list[dict[str, object]] = []
+        self.cdp_console_evidence: list[dict[str, object]] = []
+        self.response_evidence: list[dict[str, object]] = []
+        self.expectations: list[dict[str, object]] = []
+        self.no_content_expectations: list[dict[str, object]] = []
+        self.route_transition_expectations: list[dict[str, object]] = []
+        self.binding_failures: list[dict[str, object]] = []
+        self.request_evidence: dict[str, dict[str, object]] = {}
+        self._observed_pages: dict[str, str] = {}
+        self._page_navigation_generations: dict[str, int] = {}
+        self._page_navigation_events: dict[str, list[dict[str, object]]] = {}
+        self._page_close_intent_sequences: dict[str, int] = {}
+        self._closed_page_ids: set[str] = set()
+        self._observed_contexts: set[str] = set()
+        self._cdp_sessions: dict[str, object] = {}
+        self._next_cdp_session_number = 1
+        self._cdp_requests: dict[str, dict[str, object]] = {}
+        self._expected_request_ids: dict[str, str] = {}
+        self._expected_network_request_ids: dict[str, str] = {}
+        self._expected_no_content_request_ids: dict[str, str] = {}
+        self._event_sequence = 0
+
+    def _next_event_sequence(self) -> int:
+        self._event_sequence += 1
+        return self._event_sequence
+
+    def mark_page_close_intent(self, page) -> None:
+        page_id = _page_identity(page)
+        if page_id not in self._page_close_intent_sequences:
+            self._page_close_intent_sequences[page_id] = (
+                self._next_event_sequence()
+            )
+
+    def capture(self, message, *, label: str, page) -> None:
+        if message.type != "error":
+            return
+        producer_page = message.page
+        page_id = _page_identity(producer_page) if producer_page is not None else ""
+        effective_label = self._observed_pages.get(page_id, label)
+        super().append(message.text)
+        self.evidence.append(
+            _console_error_evidence(message, label=effective_label, page=page)
+        )
+
+    def observe_http_errors(self, page, *, label: str) -> None:
+        page_id = _page_identity(page)
+        previous_label = self._observed_pages.get(page_id)
+        _require(
+            previous_label in (None, label),
+            f"HTTP error observer label changed for one page: {previous_label} -> {label}",
+        )
+        if previous_label is not None:
+            return
+        self._observed_pages[page_id] = label
+        self._page_navigation_generations.setdefault(page_id, 0)
+        self._page_navigation_events.setdefault(page_id, [])
+        setattr(page, "_scientific_spaces_console_error_log", self)
+        original_close = page.close
+
+        def close_with_evidence(*args, **kwargs):
+            if not page.is_closed():
+                self.mark_page_close_intent(page)
+            return original_close(*args, **kwargs)
+
+        page.close = close_with_evidence
+        for evidence in self.request_evidence.values():
+            if evidence["page_id"] == page_id and not evidence["label"]:
+                evidence["label"] = label
+        for evidence in self.response_evidence:
+            if evidence["page_id"] == page_id and not evidence["label"]:
+                evidence["label"] = label
+        for evidence in self._cdp_requests.values():
+            if evidence["page_id"] == page_id and not evidence["label"]:
+                evidence["label"] = label
+
+        def capture_navigation(frame) -> None:
+            if frame is page.main_frame:
+                self._page_navigation_generations[page_id] += 1
+                self._page_navigation_events[page_id].append(
+                    {
+                        "sequence": self._next_event_sequence(),
+                        "generation": self._page_navigation_generations[page_id],
+                        "url": frame.url,
+                        "monotonic": time.monotonic(),
+                    }
+                )
+
+        page.on("framenavigated", capture_navigation)
+
+        context = page.context
+        context_id = str(
+            getattr(getattr(context, "_impl_obj", context), "_guid", id(context))
+        )
+        if context_id not in self._observed_contexts:
+            self._observed_contexts.add(context_id)
+            context.on("request", self._capture_request_start)
+            context.on("response", self._capture_response)
+            context.on("requestfinished", self._mark_request_finished)
+            context.on("requestfailed", self._mark_request_failed)
+
+        session_id = f"cdp-session-{self._next_cdp_session_number}"
+        self._next_cdp_session_number += 1
+        session = context.new_cdp_session(page)
+        session.on(
+            "Network.requestWillBeSent",
+            lambda event: self._capture_cdp_request(
+                event,
+                label=label,
+                page=page,
+                session_id=session_id,
+            ),
+        )
+        session.on(
+            "Network.responseReceived",
+            lambda event: self._capture_cdp_response(event, session_id=session_id),
+        )
+        session.on(
+            "Log.entryAdded",
+            lambda event: self._capture_cdp_log(
+                event,
+                label=label,
+                page=page,
+                session_id=session_id,
+            ),
+        )
+        session.send("Network.enable")
+        session.send("Log.enable")
+        self._cdp_sessions[session_id] = session
+
+        def detach_session() -> None:
+            self._closed_page_ids.add(page_id)
+            tracked_session = self._cdp_sessions.get(session_id)
+            if tracked_session is not session:
+                return
+            self._cdp_sessions.pop(session_id)
+            try:
+                tracked_session.detach()
+            except Exception:
+                pass
+
+        page.on("close", detach_session)
+
+    def declare_http_errors(
+        self,
+        *,
+        label: str,
+        page_url: str,
+        source_url: str,
+        status: int,
+        method: str,
+        resource_type: str,
+        navigation_request: bool,
+        count: int = 1,
+    ) -> tuple[str, ...]:
+        _require(count >= 1, f"controlled HTTP error count must be positive: {count}")
+        expectation_ids: list[str] = []
+        for _ in range(count):
+            expectation_id = f"controlled-http-{len(self.expectations) + 1}"
+            expectation_ids.append(expectation_id)
+            self.expectations.append(
+                {
+                    "expectation_id": expectation_id,
+                    "label": label,
+                    "page_url": page_url,
+                    "source_url": source_url,
+                    "status": status,
+                    "method": method,
+                    "resource_type": resource_type,
+                    "navigation_request": navigation_request,
+                    "response_header_required": True,
+                    "page_id": None,
+                    "request_id": None,
+                    "network_request_id": None,
+                }
+            )
+        return tuple(expectation_ids)
+
+    def bind_http_error_request(
+        self,
+        expectation_ids: tuple[str, ...],
+        *,
+        request,
+        page,
+    ) -> dict[str, object]:
+        request_id = _request_identity(request)
+        _require(
+            request_id not in self._expected_request_ids,
+            f"controlled HTTP request was registered twice: {request_id}",
+        )
+        _require(
+            request.service_worker is None,
+            "controlled HTTP request originated from a service worker",
+        )
+        actual = self._request_actual(request)
+        if not actual["page_id"] and actual["navigation_request"] is True:
+            actual["label"] = self._observed_pages.get(_page_identity(page), "")
+            actual["page_id"] = _page_identity(page)
+            actual["page_url"] = request.url
+            actual["frame_url_at_request"] = request.url
+            actual["main_frame"] = True
+            self.request_evidence[request_id] = actual
+        candidates = [
+            item
+            for item in self.expectations
+            if item["expectation_id"] in expectation_ids
+            and item["request_id"] is None
+            and {
+                "page_url": item["page_url"],
+                "source_url": item["source_url"],
+                "method": item["method"],
+                "resource_type": item["resource_type"],
+                "navigation_request": item["navigation_request"],
+            }
+            == {
+                "page_url": actual["page_url"],
+                "source_url": actual["source_url"],
+                "method": actual["method"],
+                "resource_type": actual["resource_type"],
+                "navigation_request": actual["navigation_request"],
+            }
+        ]
+        _require(
+            candidates,
+            f"controlled HTTP route intercepted an undeclared request: {actual}",
+        )
+        _require(
+            actual["page_id"] == _page_identity(page)
+            and actual["main_frame"] is True,
+            f"controlled HTTP request did not originate from the main frame: {actual}",
+        )
+        expectation = candidates[0]
+        self._bind_playwright_request(expectation, request_id=request_id, actual=actual)
+        return expectation
+
+    def declare_no_content_response(
+        self,
+        *,
+        page,
+        source_url: str,
+        method: str,
+    ) -> str:
+        page_id = _page_identity(page)
+        label = self._observed_pages.get(page_id, "")
+        _require(label, "204 response expectation requires an observed page")
+        expectation_id = f"controlled-204-{len(self.no_content_expectations) + 1}"
+        self.no_content_expectations.append(
+            {
+                "expectation_id": expectation_id,
+                "label": label,
+                "page_id": page_id,
+                "page_url": page.url,
+                "source_url": source_url,
+                "method": method,
+                "declaration_sequence": self._next_event_sequence(),
+                "request_id": None,
+                "response_status": None,
+                "response_url": None,
+                "finished": False,
+                "failure": None,
+            }
+        )
+        return expectation_id
+
+    def declare_route_transition(
+        self,
+        *,
+        page,
+        destination_url: str,
+        request_page_url: str | None = None,
+        allow_speculative_cancellations: bool = False,
+        cancelled_route_urls: tuple[str, ...] = (),
+        cancelled_read_urls: tuple[str, ...] = (),
+    ) -> str:
+        page_id = _page_identity(page)
+        label = self._observed_pages.get(page_id, "")
+        effective_request_page_url = request_page_url or page.url
+        cancelled_route_keys = tuple(
+            _route_document_key(url) for url in cancelled_route_urls
+        )
+        cancelled_read_keys = tuple(
+            _network_url_key(url) for url in cancelled_read_urls
+        )
+        endpoint_route_keys = {
+            _route_document_key(effective_request_page_url),
+            _route_document_key(destination_url),
+        }
+        _require(label, "route transition expectation requires an observed page")
+        _require(
+            _is_allowed_frontend_url(destination_url),
+            f"route transition destination is not the exact Frontend origin: {destination_url}",
+        )
+        _require(
+            _is_allowed_frontend_url(effective_request_page_url),
+            "route transition request page is not the exact Frontend origin: "
+            f"{effective_request_page_url}",
+        )
+        _require(
+            len(cancelled_route_keys) == len(set(cancelled_route_keys))
+            and all(_is_allowed_frontend_url(url) for url in cancelled_route_urls),
+            "route transition declared invalid cancelled route URLs: "
+            f"{cancelled_route_urls}",
+        )
+        _require(
+            not set(cancelled_route_keys) & endpoint_route_keys,
+            "cancelled route identities overlap the transition endpoints: "
+            f"{cancelled_route_urls}",
+        )
+        _require(
+            len(cancelled_read_keys) == len(set(cancelled_read_keys))
+            and all(
+                _is_allowed_http_url(url) and urlparse(url).port == 8000
+                for url in cancelled_read_urls
+            ),
+            f"route transition declared invalid cancelled read URLs: {cancelled_read_urls}",
+        )
+        expectation_id = (
+            f"controlled-route-{len(self.route_transition_expectations) + 1}"
+        )
+        self.route_transition_expectations.append(
+            {
+                "expectation_id": expectation_id,
+                "label": label,
+                "page_id": page_id,
+                "request_page_url": effective_request_page_url,
+                "destination_url": destination_url,
+                "allow_speculative_cancellations": allow_speculative_cancellations,
+                "cancelled_route_urls": cancelled_route_urls,
+                "cancelled_read_urls": cancelled_read_urls,
+                "declaration_sequence": self._next_event_sequence(),
+                "declaration_navigation_generation": (
+                    self._page_navigation_generations.get(page_id, 0)
+                ),
+                "completion_sequence": None,
+                "completion_url": None,
+                "completion_navigation_generation": None,
+                "bound_request_ids": None,
+            }
+        )
+        return expectation_id
+
+    def complete_route_transition(self, *, page, expectation_id: str) -> None:
+        candidates = [
+            item
+            for item in self.route_transition_expectations
+            if item["expectation_id"] == expectation_id
+        ]
+        _require(
+            len(candidates) == 1,
+            f"route transition expectation is missing or ambiguous: {expectation_id}",
+        )
+        expectation = candidates[0]
+        _require(
+            expectation["completion_sequence"] is None,
+            f"route transition expectation completed twice: {expectation_id}",
+        )
+        _require(
+            expectation["page_id"] == _page_identity(page),
+            f"route transition expectation changed page identity: {expectation_id}",
+        )
+        _require(
+            _route_url_key(page.url)
+            == _route_url_key(str(expectation["destination_url"])),
+            "route transition completed at the wrong URL: "
+            f"expected={expectation['destination_url']} actual={page.url}",
+        )
+        declaration_sequence = int(expectation["declaration_sequence"])
+        declared_route_keys = {
+            _route_document_key(
+                str(expectation.get("request_page_url") or "")
+            ),
+            _route_document_key(str(expectation.get("destination_url") or "")),
+            *(
+                _route_document_key(str(url))
+                for url in expectation.get("cancelled_route_urls") or ()
+            ),
+        }
+        pending_route_request_ids = [
+            request_id
+            for request_id, evidence in self.request_evidence.items()
+            if evidence.get("page_id") == expectation["page_id"]
+            and evidence.get("label") == expectation["label"]
+            and isinstance(evidence.get("start_sequence"), int)
+            and declaration_sequence < int(evidence["start_sequence"])
+            and evidence.get("terminal_sequence") is None
+            and evidence.get("method") == "GET"
+            and evidence.get("resource_type") in {"fetch", "xhr"}
+            and evidence.get("navigation_request") is False
+            and evidence.get("main_frame") is True
+            and not evidence.get("service_worker_url")
+            and evidence.get("rsc_request") is True
+            and evidence.get("next_router_prefetch") is not True
+            and evidence.get("purpose") != "prefetch"
+            and str(evidence.get("sec_purpose") or "").split(";", 1)[0]
+            != "prefetch"
+            and _route_document_key(str(evidence.get("source_url") or ""))
+            in declared_route_keys
+        ]
+        _require(
+            not pending_route_request_ids,
+            "route transition cannot complete with pending exact RSC requests: "
+            f"{pending_route_request_ids}",
+        )
+        completion_sequence = self._next_event_sequence()
+        already_bound = {
+            str(request_id)
+            for item in self.route_transition_expectations
+            if item is not expectation
+            for request_id in item.get("bound_request_ids") or ()
+        }
+        bound_request_ids = tuple(
+            request_id
+            for request_id, evidence in self.request_evidence.items()
+            if request_id not in already_bound
+            and _route_transition_request_kind(self, expectation, evidence) is not None
+            and isinstance(evidence.get("terminal_sequence"), int)
+            and int(evidence["terminal_sequence"]) < completion_sequence
+        )
+        expectation["completion_sequence"] = completion_sequence
+        expectation["completion_url"] = page.url
+        expectation["completion_navigation_generation"] = (
+            self._page_navigation_generations.get(_page_identity(page), 0)
+        )
+        expectation["bound_request_ids"] = bound_request_ids
+
+    def _capture_request_start(self, request) -> None:
+        request_id = _request_identity(request)
+        if request_id in self.request_evidence:
+            return
+        self.request_evidence[request_id] = self._request_actual(request)
+
+    def _request_actual(self, request) -> dict[str, object]:
+        request_id = _request_identity(request)
+        existing = self.request_evidence.get(request_id)
+        if existing is not None:
+            return existing
+        service_worker = request.service_worker
+        navigation_request = request.is_navigation_request()
+        frame = None
+        if service_worker is None:
+            try:
+                frame = request.frame
+            except Exception:
+                _require(
+                    navigation_request,
+                    "non-navigation request had no owning frame",
+                )
+        producer_page = frame.page if frame is not None else None
+        page_url = (
+            request.url
+            if navigation_request
+            else frame.url if frame is not None else ""
+        )
+        page_id = _page_identity(producer_page) if producer_page is not None else ""
+        request_headers = request.headers
+        rsc_request = _header_value(request_headers, "rsc") == "1"
+        next_router_prefetch = (
+            _header_value(request_headers, "next-router-prefetch") == "1"
+        )
+        purpose = _header_value(request_headers, "purpose").casefold()
+        sec_purpose = _header_value(request_headers, "sec-purpose").casefold()
+        start_sequence = self._next_event_sequence()
+        explicit_prefetch = (
+            next_router_prefetch
+            or purpose == "prefetch"
+            or sec_purpose.split(";", 1)[0] == "prefetch"
+        )
+        return {
+            "label": self._observed_pages.get(page_id, ""),
+            "page_id": page_id,
+            "page_url": page_url,
+            "frame_url_at_request": frame.url if frame is not None else "",
+            "source_url": request.url,
+            "method": request.method,
+            "resource_type": request.resource_type,
+            "navigation_request": navigation_request,
+            "main_frame": (
+                frame is producer_page.main_frame
+                if frame is not None and producer_page is not None
+                else False
+            ),
+            "service_worker_url": service_worker.url if service_worker is not None else "",
+            "rsc_request": rsc_request,
+            "next_router_prefetch": next_router_prefetch,
+            "purpose": purpose,
+            "sec_purpose": sec_purpose,
+            "route_intent_sequence": (
+                start_sequence if rsc_request and not explicit_prefetch else None
+            ),
+            "start_sequence": start_sequence,
+            "start_monotonic": time.monotonic(),
+            "response_sequence": None,
+            "response_monotonic": None,
+            "terminal_sequence": None,
+            "terminal_monotonic": None,
+            "navigation_generation": self._page_navigation_generations.get(page_id, 0),
+            "terminal_page_url": None,
+            "terminal_navigation_generation": None,
+            "response_status": None,
+            "response_url": None,
+            "finished": False,
+            "failure": None,
+        }
+
+    def _capture_cdp_request(
+        self,
+        event,
+        *,
+        label: str,
+        page,
+        session_id: str,
+    ) -> None:
+        raw_request_id = str(event.get("requestId") or "")
+        if not raw_request_id:
+            return
+        network_request_id = f"{session_id}:{raw_request_id}"
+        request = event.get("request") or {}
+        resource_type = str(event.get("type") or "").lower()
+        navigation_request = resource_type == "document"
+        page_id = _page_identity(page)
+        actual = {
+            "label": self._observed_pages.get(page_id, label),
+            "page_id": page_id,
+            "page_url": (
+                str(request.get("url") or "")
+                if navigation_request
+                else str(event.get("documentURL") or "")
+            ),
+            "source_url": str(request.get("url") or ""),
+            "method": str(request.get("method") or ""),
+            "resource_type": resource_type,
+            "navigation_request": navigation_request,
+            "session_id": session_id,
+        }
+        candidates = [
+            item
+            for item in self.expectations
+            if self._cdp_request_matches_expectation(item, actual=actual)
+        ]
+        if not candidates:
+            return
+        self._cdp_requests[network_request_id] = {
+            **actual,
+            "network_request_id": network_request_id,
+            "claimed": False,
+        }
+
+    @staticmethod
+    def _cdp_request_matches_expectation(
+        expectation: dict[str, object],
+        *,
+        actual: dict[str, object],
+    ) -> bool:
+        return (
+            expectation["label"] == actual["label"]
+            and expectation["page_id"] in (None, actual["page_id"])
+            and expectation["page_url"] == actual["page_url"]
+            and expectation["source_url"] == actual["source_url"]
+            and expectation["method"] == actual["method"]
+            and expectation["resource_type"] == actual["resource_type"]
+            and expectation["navigation_request"] == actual["navigation_request"]
+        )
+
+    def _capture_cdp_response(self, event, *, session_id: str) -> None:
+        raw_request_id = str(event.get("requestId") or "")
+        network_request_id = f"{session_id}:{raw_request_id}"
+        response = event.get("response") or {}
+        try:
+            status = int(response.get("status"))
+        except (TypeError, ValueError):
+            return
+        cdp_request = self._cdp_requests.get(network_request_id)
+        if cdp_request is None or cdp_request["claimed"] is True:
+            return
+        bridge_id = _header_value(
+            response.get("headers") or {}, CONTROLLED_HTTP_EXPECTATION_HEADER
+        )
+        candidates = self._cdp_expectation_candidates(
+            cdp_request,
+            status=status,
+            bridge_id=bridge_id,
+        )
+        if not candidates:
+            if bridge_id:
+                self.binding_failures.append(
+                    {
+                        "kind": "unmatched_cdp_response_bridge",
+                        "bridge_id": bridge_id,
+                        "status": status,
+                        "request": dict(cdp_request),
+                    }
+                )
+            return
+        if len(candidates) != 1:
+            self.binding_failures.append(
+                {
+                    "kind": "ambiguous_cdp_response_binding",
+                    "bridge_id": bridge_id,
+                    "status": status,
+                    "candidate_ids": [item["expectation_id"] for item in candidates],
+                    "request": dict(cdp_request),
+                }
+            )
+            return
+        self._bind_network_request(candidates[0], cdp_request)
+
+    def _cdp_expectation_candidates(
+        self,
+        cdp_request: dict[str, object],
+        *,
+        status: int,
+        bridge_id: str,
+    ) -> list[dict[str, object]]:
+        return [
+            item
+            for item in self.expectations
+            if item["network_request_id"] is None
+            and item["status"] == status
+            and item["expectation_id"] == bridge_id
+            and item["label"] == cdp_request["label"]
+            and item["page_id"] in (None, cdp_request["page_id"])
+            and item["page_url"] == cdp_request["page_url"]
+            and item["source_url"] == cdp_request["source_url"]
+            and item["method"] == cdp_request["method"]
+            and item["resource_type"] == cdp_request["resource_type"]
+            and item["navigation_request"] == cdp_request["navigation_request"]
+        ]
+
+    def _bind_network_request(
+        self,
+        expectation: dict[str, object],
+        cdp_request: dict[str, object],
+    ) -> None:
+        expectation_id = str(expectation["expectation_id"])
+        network_request_id = str(cdp_request["network_request_id"])
+        _require(
+            network_request_id
+            and network_request_id not in self._expected_network_request_ids,
+            "controlled CDP request identity was missing or reused: "
+            f"{network_request_id}",
+        )
+        _require(
+            cdp_request["claimed"] is False
+            and expectation["network_request_id"] is None,
+            f"controlled CDP request was bound twice: {network_request_id}",
+        )
+        _require(
+            expectation["page_id"] in (None, cdp_request["page_id"]),
+            "controlled CDP request changed page identity: "
+            f"{expectation['expectation_id']}",
+        )
+        cdp_request["claimed"] = True
+        expectation["page_id"] = cdp_request["page_id"]
+        expectation["network_request_id"] = network_request_id
+        self._expected_network_request_ids[network_request_id] = expectation_id
+        for evidence in self.cdp_console_evidence:
+            if (
+                evidence.get("network_request_id") == network_request_id
+                and evidence.get("expectation_id") is None
+            ):
+                evidence["expectation_id"] = expectation_id
+                evidence["label"] = expectation["label"]
+                evidence["page_id"] = expectation["page_id"]
+                evidence["page_url"] = expectation["page_url"]
+        for evidence in self.response_evidence:
+            if (
+                evidence.get("expectation_id") == expectation_id
+                and evidence.get("network_request_id") is None
+            ):
+                evidence["network_request_id"] = network_request_id
+
+    def _capture_cdp_log(
+        self,
+        event,
+        *,
+        label: str,
+        page,
+        session_id: str,
+    ) -> None:
+        entry = event.get("entry") or {}
+        if entry.get("source") != "network" or entry.get("level") != "error":
+            return
+        raw_request_id = str(entry.get("networkRequestId") or "")
+        network_request_id = f"{session_id}:{raw_request_id}"
+        expectation_id = self._expected_network_request_ids.get(network_request_id)
+        expectation = self._expectation(expectation_id)
+        cdp_request = self._cdp_requests.get(network_request_id)
+        page_id = _page_identity(page)
+        text_value = str(entry.get("text") or "")
+        self.cdp_console_evidence.append(
+            {
+                "expectation_id": expectation_id,
+                "network_request_id": network_request_id,
+                "label": (
+                    expectation["label"]
+                    if expectation is not None
+                    else cdp_request["label"] if cdp_request is not None else label
+                ),
+                "listener_page_id": page_id,
+                "listener_page_url": page.url,
+                "page_id": (
+                    expectation["page_id"]
+                    if expectation is not None
+                    else cdp_request["page_id"] if cdp_request is not None else page_id
+                ),
+                "page_url": (
+                    expectation["page_url"]
+                    if expectation is not None
+                    else cdp_request["page_url"] if cdp_request is not None else page.url
+                ),
+                "same_page": (
+                    expectation["page_id"] == page_id
+                    if expectation is not None
+                    else cdp_request["page_id"] == page_id
+                    if cdp_request is not None
+                    else True
+                ),
+                "worker_url": str(entry.get("workerId") or ""),
+                "text": text_value,
+                "url": str(entry.get("url") or ""),
+            }
+        )
+
+    def _capture_response(self, response) -> None:
+        request = response.request
+        request_id = _request_identity(request)
+        actual = self.request_evidence.get(request_id) or self._request_actual(request)
+        self.request_evidence.setdefault(request_id, actual)
+        actual["response_status"] = response.status
+        actual["response_url"] = response.url
+        actual["response_sequence"] = self._next_event_sequence()
+        actual["response_monotonic"] = time.monotonic()
+        if response.status == 204:
+            self._bind_no_content_response(
+                request_id=request_id,
+                actual=actual,
+                response_url=response.url,
+            )
+        if response.status < 400:
+            return
+        if not actual["page_id"] and request.service_worker is None:
+            frame = response.frame
+            producer_page = frame.page
+            actual["label"] = self._observed_pages.get(
+                _page_identity(producer_page), ""
+            )
+            actual["page_id"] = _page_identity(producer_page)
+            actual["frame_url_at_request"] = frame.url
+            actual["main_frame"] = frame is producer_page.main_frame
+        if any(item["request_id"] == request_id for item in self.response_evidence):
+            return
+        bridge_id = _header_value(response.headers, CONTROLLED_HTTP_EXPECTATION_HEADER)
+        expectation_id = self._expected_request_ids.get(request_id)
+        expectation = self._expectation(expectation_id)
+        if bridge_id:
+            bridged_expectation = self._expectation(bridge_id)
+            if bridged_expectation is None or expectation not in (None, bridged_expectation):
+                self.binding_failures.append(
+                    {
+                        "kind": "invalid_playwright_response_bridge",
+                        "bridge_id": bridge_id,
+                        "mapped_expectation_id": expectation_id,
+                        "request_id": request_id,
+                    }
+                )
+            elif expectation is None and self._playwright_expectation_matches(
+                bridged_expectation, actual=actual, status=response.status
+            ):
+                self._bind_playwright_request(
+                    bridged_expectation, request_id=request_id, actual=actual
+                )
+                expectation = bridged_expectation
+                expectation_id = bridge_id
+            elif expectation is None:
+                self.binding_failures.append(
+                    {
+                        "kind": "mismatched_playwright_response_bridge",
+                        "bridge_id": bridge_id,
+                        "request_id": request_id,
+                        "request": dict(actual),
+                    }
+                )
+        elif expectation is not None:
+            self.binding_failures.append(
+                {
+                    "kind": "missing_playwright_response_bridge",
+                    "expectation_id": expectation_id,
+                    "request_id": request_id,
+                }
+            )
+        self.response_evidence.append(
+            {
+                "label": actual["label"],
+                "listener_page_id": actual["page_id"],
+                "listener_page_url": actual["page_url"],
+                "page_url": actual["page_url"],
+                "frame_url_at_request": actual["frame_url_at_request"],
+                "same_page": bool(actual["page_id"]),
+                "main_frame": actual["main_frame"],
+                "service_worker_url": actual["service_worker_url"],
+                "from_service_worker": response.from_service_worker,
+                "status": response.status,
+                "source_url": response.url,
+                "method": request.method,
+                "resource_type": request.resource_type,
+                "navigation_request": request.is_navigation_request(),
+                "request_id": request_id,
+                "network_request_id": (
+                    expectation["network_request_id"] if expectation is not None else None
+                ),
+                "expectation_id": expectation_id,
+                "bridge_expectation_id": bridge_id or None,
+                "page_id": actual["page_id"],
+                "finished": bool(actual["finished"]),
+                "failure": actual["failure"],
+            }
+        )
+
+    def _bind_no_content_response(
+        self,
+        *,
+        request_id: str,
+        actual: dict[str, object],
+        response_url: str,
+    ) -> None:
+        candidates = [
+            item
+            for item in self.no_content_expectations
+            if item["request_id"] is None
+            and isinstance(item.get("declaration_sequence"), int)
+            and isinstance(actual.get("start_sequence"), int)
+            and int(item["declaration_sequence"]) < int(actual["start_sequence"])
+            and item["label"] == actual["label"]
+            and item["page_id"] == actual["page_id"]
+            and item["page_url"] == actual["page_url"]
+            and item["source_url"] == actual["source_url"]
+            and item["method"] == actual["method"]
+            and actual["main_frame"] is True
+            and not actual["service_worker_url"]
+        ]
+        if not candidates:
+            return
+        if len(candidates) != 1:
+            self.binding_failures.append(
+                {
+                    "kind": "ambiguous_no_content_response_binding",
+                    "candidate_ids": [item["expectation_id"] for item in candidates],
+                    "request_id": request_id,
+                    "request": dict(actual),
+                }
+            )
+            return
+        expectation = candidates[0]
+        expectation_id = str(expectation["expectation_id"])
+        if request_id in self._expected_no_content_request_ids:
+            self.binding_failures.append(
+                {
+                    "kind": "duplicate_no_content_response_binding",
+                    "expectation_id": expectation_id,
+                    "request_id": request_id,
+                }
+            )
+            return
+        expectation["request_id"] = request_id
+        expectation["response_status"] = 204
+        expectation["response_url"] = response_url
+        self._expected_no_content_request_ids[request_id] = expectation_id
+
+    def _expectation(self, expectation_id: object) -> dict[str, object] | None:
+        return next(
+            (
+                item
+                for item in self.expectations
+                if item["expectation_id"] == expectation_id
+            ),
+            None,
+        )
+
+    def _playwright_expectation_matches(
+        self,
+        expectation: dict[str, object],
+        *,
+        actual: dict[str, object],
+        status: int,
+    ) -> bool:
+        return (
+            expectation["status"] == status
+            and expectation["label"] == actual["label"]
+            and expectation["page_id"] in (None, actual["page_id"])
+            and expectation["page_url"] == actual["page_url"]
+            and expectation["source_url"] == actual["source_url"]
+            and expectation["method"] == actual["method"]
+            and expectation["resource_type"] == actual["resource_type"]
+            and expectation["navigation_request"] == actual["navigation_request"]
+            and actual["main_frame"] is True
+            and not actual["service_worker_url"]
+        )
+
+    def _bind_playwright_request(
+        self,
+        expectation: dict[str, object],
+        *,
+        request_id: str,
+        actual: dict[str, object],
+    ) -> None:
+        expectation_id = str(expectation["expectation_id"])
+        _require(
+            request_id not in self._expected_request_ids,
+            f"controlled HTTP request was registered twice: {request_id}",
+        )
+        _require(
+            expectation["request_id"] is None,
+            f"controlled HTTP expectation was bound twice: {expectation_id}",
+        )
+        expectation["request_id"] = request_id
+        expectation["page_id"] = actual["page_id"]
+        self._expected_request_ids[request_id] = expectation_id
+
+    def _mark_request_finished(self, request) -> None:
+        request_id = _request_identity(request)
+        request_evidence = self.request_evidence.get(request_id)
+        if request_evidence is not None:
+            request_evidence["finished"] = True
+            self._record_request_terminal_page(request, request_evidence)
+        no_content_expectation = self._no_content_expectation_for_request(request_id)
+        if no_content_expectation is not None:
+            no_content_expectation["finished"] = True
+        for evidence in self.response_evidence:
+            if evidence["request_id"] == request_id:
+                evidence["finished"] = True
+
+    def _mark_request_failed(self, request) -> None:
+        request_id = _request_identity(request)
+        failure = request.failure or "request failed"
+        request_evidence = self.request_evidence.get(request_id)
+        if request_evidence is not None:
+            request_evidence["failure"] = failure
+            self._record_request_terminal_page(request, request_evidence)
+        no_content_expectation = self._no_content_expectation_for_request(request_id)
+        if no_content_expectation is not None:
+            no_content_expectation["failure"] = failure
+        for evidence in self.response_evidence:
+            if evidence["request_id"] == request_id:
+                evidence["failure"] = failure
+
+    def _record_request_terminal_page(
+        self,
+        request,
+        evidence: dict[str, object],
+    ) -> None:
+        if request.service_worker is not None:
+            return
+        try:
+            page = request.frame.page
+        except Exception:
+            return
+        page_id = _page_identity(page)
+        if page_id != evidence.get("page_id"):
+            return
+        evidence["terminal_page_url"] = page.url
+        evidence["terminal_navigation_generation"] = (
+            self._page_navigation_generations.get(page_id, 0)
+        )
+        evidence["terminal_sequence"] = self._next_event_sequence()
+        evidence["terminal_monotonic"] = time.monotonic()
+
+    def _no_content_expectation_for_request(
+        self, request_id: str
+    ) -> dict[str, object] | None:
+        expectation_id = self._expected_no_content_request_ids.get(request_id)
+        return next(
+            (
+                item
+                for item in self.no_content_expectations
+                if item["expectation_id"] == expectation_id
+            ),
+            None,
+        )
+
 def main() -> int:
+    global ACTIVE_FRONTEND_MODE, BROWSER_API_URL
     parser = argparse.ArgumentParser(description="Run the local-only Scientific Spaces product E2E suite.")
     parser.add_argument("--repeat", type=int, default=1, help="Number of complete desktop/mobile passes.")
     parser.add_argument(
@@ -67,8 +1112,16 @@ def main() -> int:
     args = parser.parse_args()
     if args.repeat < 1:
         parser.error("--repeat must be at least 1")
-    if args.frontend_mode == "start" and not (FRONTEND_ROOT / ".next").is_dir():
-        parser.error("frontend/.next is absent; run npm run build before --frontend-mode start")
+    if args.frontend_mode == "start" and not (
+        FRONTEND_ROOT / ".next" / "BUILD_ID"
+    ).is_file():
+        parser.error(
+            "frontend/.next/BUILD_ID is absent; run npm run build before "
+            "--frontend-mode start"
+        )
+    if args.frontend_mode == "dev":
+        BROWSER_API_URL = API_URL
+    ACTIVE_FRONTEND_MODE = args.frontend_mode
 
     result: dict[str, object]
     with tempfile.TemporaryDirectory(prefix="scientific-spaces-p3-011-e2e-") as temporary:
@@ -301,9 +1354,10 @@ def run_browser_suite(
 ) -> dict[str, object]:
     from playwright.sync_api import sync_playwright
 
+    _verify_http_error_evidence_contract()
     runs: list[dict[str, object]] = []
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(headless=True)
+        browser = LocalOnlyBrowser(playwright.chromium.launch(headless=True))
         browser_version = browser.version
         for iteration in range(1, repeat + 1):
             _reset_mutable_runtime(runtime)
@@ -325,6 +1379,33 @@ def run_browser_suite(
         "external_network_request_count": sum(
             int(run["external_network_request_count"]) for run in runs
         ),
+        "framework_prefetch_cancellation_count": sum(
+            int(run["framework_prefetch_cancellation_count"]) for run in runs
+        ),
+        "route_transition_cancellation_count": sum(
+            int(run["route_transition_cancellation_count"]) for run in runs
+        ),
+        "declared_cancelled_route_request_count": sum(
+            int(run["declared_cancelled_route_request_count"]) for run in runs
+        ),
+        "declared_route_read_cancellation_count": sum(
+            int(run["declared_route_read_cancellation_count"]) for run in runs
+        ),
+        "route_transition_expectation_count": sum(
+            int(run["route_transition_expectation_count"]) for run in runs
+        ),
+        "bound_route_transition_request_count": sum(
+            int(run["bound_route_transition_request_count"]) for run in runs
+        ),
+        "superseded_successful_read_count": sum(
+            int(run["superseded_successful_read_count"]) for run in runs
+        ),
+        "next_static_chunk_cancellation_count": sum(
+            int(run["next_static_chunk_cancellation_count"]) for run in runs
+        ),
+        "successful_no_content_response_count": sum(
+            int(run["successful_no_content_response_count"]) for run in runs
+        ),
         "runs": runs,
     }
 
@@ -333,16 +1414,18 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     from playwright.sync_api import expect
 
     checks: dict[str, bool] = {}
-    blocked_external: list[str] = []
-    console_errors: list[str] = []
+    blocked_external = NetworkGuardLog()
+    console_errors = ConsoleErrorLog()
     page_errors: list[str] = []
     context = browser.new_context(viewport={"width": 1440, "height": 1000}, locale="zh-CN")
     _install_network_guard(context, blocked_external)
     page = context.new_page()
+    _mark_expected_context_page(context, page)
     page.on(
         "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        lambda message: console_errors.capture(message, label="primary", page=page),
     )
+    console_errors.observe_http_errors(page, label="primary")
     page.on("pageerror", lambda error: _capture_page_error(page_errors, "primary", page, error))
     page.add_init_script(
         """
@@ -376,6 +1459,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"initial Shell hydration moved focus without user input: {hydration_focus_events}",
     )
     checks["shell_initial_hydration_focus_stable"] = True
+    _verify_worker_network_surfaces_blocked(page)
+    checks["worker_network_surfaces_blocked"] = True
     expect(
         page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
     ).to_be_visible(timeout=30_000)
@@ -440,10 +1525,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["dashboard_session_same_tab_sync"] = True
 
     sync_page = context.new_page()
+    _mark_expected_context_page(context, sync_page)
     sync_page.on(
         "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        lambda message: console_errors.capture(
+            message, label="dashboard-cross-tab", page=sync_page
+        ),
     )
+    console_errors.observe_http_errors(sync_page, label="dashboard-cross-tab")
     sync_page.on(
         "pageerror",
         lambda error: _capture_page_error(page_errors, "dashboard-cross-tab", sync_page, error),
@@ -463,6 +1552,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_test_id("dashboard-study-session")).to_have_attribute(
         "data-state", "empty"
     )
+    _wait_for_page_requests_to_settle(sync_page, console_errors)
     sync_page.close()
     checks["dashboard_session_cross_tab_sync"] = True
     expect(page.get_by_role("heading", name="Next Actions", exact=True)).to_be_visible()
@@ -498,13 +1588,13 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         page_errors=page_errors,
     )
     checks["reader_fragment_route_focus_ownership"] = True
-    _verify_overlapping_shell_route_cancellation(
+    _verify_overlapping_shell_route_supersession(
         browser,
         blocked_external=blocked_external,
         console_errors=console_errors,
         page_errors=page_errors,
     )
-    checks["shell_overlapping_route_cancellation"] = True
+    checks["shell_overlapping_route_supersession"] = True
     _verify_shell_reader_focus_ownership(
         browser,
         blocked_external=blocked_external,
@@ -868,22 +1958,27 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     def attach_modified_page_observers(candidate) -> None:
         candidate.on(
             "console",
-            lambda message: console_errors.append(message.text) if message.type == "error" else None,
+            lambda message: console_errors.capture(
+                message, label="modified-search", page=candidate
+            ),
         )
         candidate.on(
             "pageerror",
             lambda error: _capture_page_error(page_errors, "modified-search", candidate, error),
         )
+        console_errors.observe_http_errors(candidate, label="modified-search")
 
     context.on("page", attach_modified_page_observers)
     with context.expect_page(timeout=10_000) as modified_page_info:
         modified_session.click(modifiers=["Control"])
     modified_page = modified_page_info.value
+    _mark_expected_popup(blocked_external, context, modified_page)
     context.remove_listener("page", attach_modified_page_observers)
     modified_page.wait_for_load_state("domcontentloaded")
     _wait_for_application_shell(modified_page)
     expect(modified_page.get_by_role("heading", name="Focused Study Session", exact=True)).to_be_visible()
     _require(modified_page.url.endswith("/session"), f"modified Search opened wrong URL: {modified_page.url}")
+    _wait_for_page_requests_to_settle(modified_page, console_errors)
     modified_page.close()
     page.bring_to_front()
     expect(modified_search).to_be_visible()
@@ -1044,21 +2139,35 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         has_text=re.compile(r"^Saved")
     )
     expect(saved_workspace_result).to_be_visible()
+    quick_saved_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/library",
+    )
     saved_workspace_result.click()
     expect(page.get_by_role("heading", name="Saved Learning Library", exact=True)).to_be_visible()
     expect(page.get_by_test_id("saved-library-empty")).to_be_visible(timeout=30_000)
     expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "library")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, quick_saved_transition)
     page.get_by_role("link", name="Dashboard", exact=True).click()
     expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
     search_trigger = page.get_by_test_id("global-search-trigger-desktop")
     search_trigger.focus()
     checks["saved_library_empty_and_quick_navigation"] = True
 
+    primary_reference_failure = _declare_expected_http_errors(
+        console_errors,
+        label="primary",
+        page_url=f"{FRONTEND_URL}/",
+        source_url=f"{BROWSER_API_URL}/v1.2/references?page=1&page_size=5&q=Attention",
+    )
     page.route(
         re.compile(r".*/v1\.2/references(?:\?.*)?$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=primary_reference_failure,
             body='{"detail":"intentional P3-019 partial Reference failure"}',
         ),
         times=1,
@@ -1078,6 +2187,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(article_search_result).to_be_visible(timeout=30_000)
     expect(graph_search_result).to_be_visible(timeout=30_000)
     expect(search_dialog.get_by_text("Some sources are unavailable", exact=True)).to_be_visible()
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=primary_reference_failure,
+    )
     _require(
         "q%3DAttention%26sort%3Drelevance" in (article_search_result.get_attribute("href") or ""),
         "global Article result does not preserve its relevance-search return path",
@@ -1096,9 +2210,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     search_trigger.click()
     article_route_search = page.get_by_test_id("global-search-dialog")
+    article_route_transition = _declare_expected_route_transition(
+        page,
+        destination_url=(
+            f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}"
+            "?from=%2Farticles%3Fq%3DCRB%26sort%3Drelevance"
+        ),
+    )
     article_route_search.get_by_label("Search library").fill("CRB")
     article_route_result = article_route_search.get_by_test_id("global-search-result-article").first
     expect(article_route_result).to_be_visible(timeout=30_000)
+    article_route_graph_result = article_route_search.get_by_role(
+        "link", name=re.compile(r"^crb\s+Concept\s+·\s+Knowledge Graph$", re.I)
+    )
+    expect(article_route_graph_result).to_be_visible(timeout=30_000)
     page.route(
         re.compile(r".*/learning/sessions$"),
         lambda route: route.fulfill(
@@ -1122,6 +2247,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
     _require_visible_focus(page.get_by_test_id("shell-main-content"), "Search Article destination")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, article_route_transition)
     page.go_back()
     expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
     search_trigger = page.get_by_test_id("global-search-trigger-desktop")
@@ -1150,7 +2277,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         """
     )
     search_input.fill("CRB")
-    page.wait_for_timeout(350)
+    stale_search_graph_result = search_dialog.get_by_role(
+        "link", name=re.compile(r"^crb\s+Concept\s+·\s+Knowledge Graph$", re.I)
+    )
+    expect(stale_search_graph_result).to_be_visible(timeout=30_000)
     search_input.fill("Attention")
     current_article_result = search_dialog.get_by_test_id("global-search-result-article").first
     expect(current_article_result).to_contain_text("Attention机制入门", timeout=30_000)
@@ -1163,11 +2293,29 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(search_dialog.get_by_test_id("global-search-result-reference").first).to_be_visible(
         timeout=30_000
     )
+    graph_search_url = (
+        f"{FRONTEND_URL}/graph?node_id=concept%3Aattention&q=Attention"
+    )
+    graph_search_route_anchor = console_errors._event_sequence
+    graph_search_transition = _declare_expected_route_transition(
+        page,
+        destination_url=graph_search_url,
+    )
     search_input.fill("Attention")
     graph_search_result = search_dialog.get_by_role(
         "link", name=re.compile(r"^attention\s+Concept\s+·\s+Knowledge Graph$", re.I)
     )
     expect(graph_search_result).to_be_visible(timeout=30_000)
+    graph_search_href = str(graph_search_result.get_attribute("href") or "")
+    _require(
+        graph_search_href.startswith("/graph?"),
+        f"global search Graph result exposed an invalid route: {graph_search_href}",
+    )
+    _require(
+        f"{FRONTEND_URL}{graph_search_href}" == graph_search_url,
+        "global search Graph result diverged from its declared route: "
+        f"href={graph_search_href} expected={graph_search_url}",
+    )
     graph_search_result.click()
     expect(search_dialog).to_have_count(0)
     expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
@@ -1178,10 +2326,26 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
     _require_visible_focus(page.get_by_test_id("shell-main-content"), "Search Graph destination")
     _require("node_id=concept%3Aattention" in page.url, f"Graph deep link was not preserved: {page.url}")
+    _wait_for_exact_route_request_to_finish(
+        page,
+        console_errors,
+        source_url=graph_search_url,
+        after_sequence=graph_search_route_anchor,
+        expect_prefetch=False,
+        require_observed_request=True,
+        allow_response_backed_route_abort=True,
+    )
+    _complete_expected_route_transition(page, graph_search_transition)
     checks["global_search_reference_and_graph_deep_link"] = True
 
     page.get_by_test_id("global-search-trigger-desktop").click()
     same_route_search = page.get_by_test_id("global-search-dialog")
+    same_route_graph_url = f"{FRONTEND_URL}/graph?node_id=concept%3Acrb&q=CRB"
+    same_route_graph_route_anchor = console_errors._event_sequence
+    same_route_graph_transition = _declare_expected_route_transition(
+        page,
+        destination_url=same_route_graph_url,
+    )
     same_route_search.get_by_label("Search library").fill("CRB")
     same_route_graph_result = same_route_search.get_by_role(
         "link", name=re.compile(r"^crb\s+Concept\s+·\s+Knowledge Graph$", re.I)
@@ -1201,11 +2365,29 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"same-route Graph navigation diverged from its URL: {page.url}",
     )
     checks["global_search_same_route_graph_navigation"] = True
+    _wait_for_exact_route_request_to_finish(
+        page,
+        console_errors,
+        source_url=same_route_graph_url,
+        after_sequence=same_route_graph_route_anchor,
+        expect_prefetch=False,
+        require_observed_request=True,
+        allow_response_backed_route_abort=True,
+    )
+    _complete_expected_route_transition(page, same_route_graph_transition)
 
     same_route_selected.press("Control+k")
     shortcut_search = page.get_by_test_id("global-search-dialog")
     shortcut_input = shortcut_search.get_by_label("Search library")
     expect(shortcut_input).to_be_focused()
+    shortcut_graph_url = (
+        f"{FRONTEND_URL}/graph?node_id=concept%3Aattention&q=Attention"
+    )
+    shortcut_graph_route_anchor = console_errors._event_sequence
+    shortcut_graph_transition = _declare_expected_route_transition(
+        page,
+        destination_url=shortcut_graph_url,
+    )
     shortcut_input.fill("Attention")
     shortcut_graph_result = shortcut_search.get_by_role(
         "link", name=re.compile(r"^attention\s+Concept\s+·\s+Knowledge Graph$", re.I)
@@ -1248,12 +2430,28 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "shell-main-content" not in shortcut_focus_events,
         f"Shell stole shortcut-origin Graph focus: {shortcut_focus_events}",
     )
+    _wait_for_exact_route_request_to_finish(
+        page,
+        console_errors,
+        source_url=shortcut_graph_url,
+        after_sequence=shortcut_graph_route_anchor,
+        expect_prefetch=False,
+        require_observed_request=True,
+        allow_response_backed_route_abort=True,
+    )
+    _complete_expected_route_transition(page, shortcut_graph_transition)
+    shortcut_graph_back_transition = _declare_expected_route_transition(
+        page,
+        destination_url=same_route_graph_url,
+    )
     page.go_back()
     same_route_selected = page.get_by_test_id("graph-selected-region")
     expect(same_route_selected.get_by_role("heading", name=re.compile(r"^crb$", re.I))).to_be_visible(
         timeout=30_000
     )
     expect(same_route_selected).to_be_focused(timeout=30_000)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, shortcut_graph_back_transition)
     checks["shell_shortcut_destination_focus_ownership"] = True
 
     page.evaluate(
@@ -1372,13 +2570,25 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     checks["shell_pathname_history_modal_focus"] = True
 
+    primary_dashboard_transition = _declare_expected_route_transition(
+        page,
+        destination_url=FRONTEND_URL,
+    )
     page.get_by_role("link", name="Dashboard", exact=True).click()
     expect(page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)).to_be_visible()
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, primary_dashboard_transition)
 
+    primary_articles_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/articles",
+    )
     page.get_by_role("link", name="Articles", exact=True).click()
     expect(page.get_by_role("heading", name="Article List", exact=True)).to_be_visible()
     expect(page.locator('nav[aria-label="Primary"] [aria-current="page"]')).to_have_text("Articles")
     expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "articles")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, primary_articles_transition)
     page.get_by_placeholder("Search title or keyword").fill("CRB")
     page.get_by_role("button", name="Search", exact=True).click()
     article_link = page.get_by_role("link", name=CRB_TITLE, exact=True)
@@ -1791,6 +3001,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         attention_state_response.ok,
         f"failed to prepare an in-progress Library fixture: {attention_state_response.status}",
     )
+    saved_library_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/library",
+    )
     page.get_by_role("link", name="Saved", exact=True).click()
     expect(page.get_by_role("heading", name="Saved Learning Library", exact=True)).to_be_visible()
     expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "library")
@@ -1800,6 +3014,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_test_id("saved-library-section-continue")).to_contain_text(ATTENTION_TITLE)
     expect(page.get_by_test_id("saved-library-section-bookmarked")).to_contain_text(CRB_TITLE)
     expect(page.get_by_test_id("saved-library-section-recent")).to_contain_text(CRB_TITLE)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, saved_library_transition)
 
     attention_library_item = page.get_by_test_id("saved-library-section-continue").locator(
         '[data-testid="saved-library-item"]'
@@ -2041,6 +3257,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     open_next = completion_region.get_by_role("button", name="Open next unfinished Article", exact=True)
     open_next.focus()
     expect(open_next).to_be_focused()
+    open_next_transition = _declare_expected_route_transition(
+        page,
+        destination_url=(
+            f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}?from=%2Fsession"
+        ),
+    )
     open_next.press("Enter")
     attention_heading = page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
     expect(attention_heading).to_be_visible(timeout=30_000)
@@ -2052,6 +3274,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             "link", name=f"Previous in session: {CRB_TITLE}", exact=True
         )
     ).to_be_visible()
+    _complete_expected_route_transition(page, open_next_transition)
     persisted_guided_session = page.evaluate(
         "JSON.parse(localStorage.getItem('scientific-spaces-study-session-v1'))"
     )
@@ -2170,9 +3393,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(resumed_end_session).to_be_disabled()
     checks["continue_reading_resume"] = True
 
+    primary_graph_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/graph",
+    )
     page.get_by_role("link", name="Graph", exact=True).click()
     expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
     expect(page.get_by_text(re.compile(r"^Showing \d+-\d+ of \d+$"))).to_be_visible(timeout=30_000)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, primary_graph_transition)
 
     graph_pagination_pattern = re.compile(r".*/v1\.1/graph/nodes\?.*")
 
@@ -2306,6 +3535,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     _focus_via_tab(page, concept_article_link)
     concept_article_href = str(concept_article_link.get_attribute("href") or "")
+    concept_article_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{concept_article_href}",
+    )
     concept_article_link.press("Enter")
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -2316,9 +3549,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(concept_reader_heading).to_have_text(ATTENTION_TITLE, timeout=30_000)
     expect(concept_reader_heading).to_be_focused()
     _require_visible_focus(concept_reader_heading, "Concept Study Set Reader heading")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, concept_article_transition)
     reader_concept_return = page.get_by_role("link", name="Back to concept", exact=True).first
     expect(reader_concept_return).to_have_attribute("href", ATTENTION_CONCEPT_QUERY_RETURN)
     _focus_via_tab(page, reader_concept_return)
+    reader_concept_return_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{ATTENTION_CONCEPT_QUERY_RETURN}",
+    )
     reader_concept_return.press("Enter")
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -2336,6 +3575,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         returned_concept_article_link,
         "returned Concept Study Set Article action",
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, reader_concept_return_transition)
 
     concept_ask_payloads: list[dict[str, object]] = []
 
@@ -2376,6 +3617,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "link", name="Explain concept", exact=True
     )
     _focus_via_tab(page, concept_explain_link)
+    concept_explain_href = str(concept_explain_link.get_attribute("href") or "")
+    concept_explain_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{concept_explain_href}",
+    )
     concept_explain_link.press("Enter")
     expect(page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
     expect(page.get_by_test_id("concept-learning-context")).to_contain_text("attention")
@@ -2386,6 +3632,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "Explain attention using intuition, mathematics, and cited local evidence."
     )
     expect(page.get_by_test_id("tutor-selected-article")).to_contain_text(ATTENTION_TITLE)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, concept_explain_transition)
     concept_return = page.get_by_role("link", name="Return to concept", exact=True)
     expect(concept_return).to_have_attribute("href", ATTENTION_CONCEPT_RETURN)
     _require(not concept_ask_payloads, "Concept Explain auto-submitted before user action")
@@ -2418,8 +3666,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"Concept Explain payload is incorrect: {concept_ask_payloads}",
     )
     _focus_via_tab(page, concept_return)
+    concept_explain_return_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}",
+    )
     concept_return.press("Enter")
     expect(page.get_by_test_id("concept-study-set")).to_be_visible(timeout=30_000)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, concept_explain_return_transition)
 
     concept_quiz_payloads: list[dict[str, object]] = []
 
@@ -2461,6 +3715,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "link", name="Open concept quiz", exact=True
     )
     _focus_via_tab(page, concept_quiz_link)
+    concept_quiz_href = str(concept_quiz_link.get_attribute("href") or "")
+    concept_quiz_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{concept_quiz_href}",
+    )
     concept_quiz_link.press("Enter")
     expect(page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
     expect(page.get_by_role("button", name="Quiz", exact=True)).to_have_attribute(
@@ -2468,6 +3727,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     expect(page.get_by_label("Prompt")).to_have_value("attention")
     expect(page.get_by_test_id("tutor-selected-article")).to_contain_text(ATTENTION_TITLE)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, concept_quiz_transition)
     concept_return = page.get_by_role("link", name="Return to concept", exact=True)
     expect(concept_return).to_have_attribute("href", ATTENTION_CONCEPT_RETURN)
     _require(not concept_quiz_payloads, "Concept Quiz auto-submitted before user action")
@@ -2488,8 +3749,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"Concept Quiz payload is incorrect: {concept_quiz_payloads}",
     )
     _focus_via_tab(page, concept_return)
+    concept_quiz_return_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}",
+    )
     concept_return.press("Enter")
     expect(page.get_by_test_id("concept-study-set")).to_be_visible(timeout=30_000)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, concept_quiz_return_transition)
 
     page.evaluate(
         """
@@ -2580,6 +3847,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     provenance_article_link = provenance_article_links.first
     provenance_article_href = str(provenance_article_link.get_attribute("href") or "")
     _focus_via_tab(page, provenance_article_link)
+    provenance_article_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{provenance_article_href}",
+    )
     provenance_article_link.press("Enter")
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -2591,6 +3862,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(provenance_reader_heading).to_be_visible(timeout=30_000)
     expect(provenance_reader_heading).to_be_focused()
     _require_visible_focus(provenance_reader_heading, "provenance-origin Reader heading")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, provenance_article_transition)
     provenance_return = page.get_by_role("link", name="Back to concept", exact=True).first
     expect(provenance_return).to_have_attribute("href", concept_graph_return)
     provenance_session = page.get_by_role("button", name="End session", exact=True)
@@ -2598,6 +3871,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     provenance_session.click()
     expect(provenance_session).to_be_disabled()
     _focus_via_tab(page, provenance_return)
+    provenance_return_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{concept_graph_return}",
+    )
     provenance_return.press("Enter")
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -2610,6 +3887,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(returned_provenance_link).to_be_focused(timeout=30_000)
     _require_visible_focus(returned_provenance_link, "returned provenance Article action")
     checks["graph_provenance_article_return_context"] = True
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, provenance_return_transition)
 
     page.evaluate(
         """
@@ -2651,12 +3930,28 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["shell_svg_opener_focus_restoration"] = True
     graph_article_node = page.get_by_role("button", name=re.compile(r"^Article: ")).first
     expect(graph_article_node).to_be_visible()
+    _wait_for_page_requests_to_settle(page, console_errors)
+    attention_graph_read_urls = (
+        f"{BROWSER_API_URL}/graph/nodes/concept%3Aattention",
+        (
+            f"{BROWSER_API_URL}/v1.1/graph/subgraph?node_id=concept%3Aattention"
+            "&depth=1&node_limit=25&edge_limit=50"
+        ),
+    )
+    graph_article_selection = _declare_expected_route_transition(
+        page,
+        destination_url=(
+            f"{FRONTEND_URL}/graph?node_id=article%3A{ATTENTION_ARTICLE_ID}"
+        ),
+    )
     graph_article_node.press("Enter")
     page.wait_for_function("() => new URL(location.href).searchParams.get('node_id')?.startsWith('article:')")
     _require_visible_focus(concept_context_region, "desktop Context region after map selection")
     expect(page.get_by_role("button", name=re.compile(r"^Selected Article: ")).first).to_be_visible(
         timeout=30_000
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, graph_article_selection)
     expect(
         page.get_by_role("group", name="Graph workspace view").get_by_role(
             "button", name="Knowledge context", exact=True
@@ -2689,6 +3984,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     graph_history_before_article = page.evaluate("history.length")
     graph_article_link.focus()
     expect(graph_article_link).to_be_focused()
+    graph_reader_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{graph_article_href}",
+    )
     graph_article_link.press("Enter")
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -2707,10 +4006,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("status").filter(has_text="Loading article")).to_have_count(0)
     graph_reader_return = page.get_by_role("link", name="Return to graph", exact=True)
     expect(graph_reader_return).to_have_attribute("href", graph_article_return)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, graph_reader_transition)
     graph_reader_session = page.get_by_role("button", name="End session", exact=True)
     expect(graph_reader_session).to_be_enabled(timeout=30_000)
     graph_reader_session.click()
     expect(graph_reader_session).to_be_disabled()
+    graph_reader_back_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{graph_browser_origin}",
+        cancelled_read_urls=attention_graph_read_urls,
+    )
     page.go_back()
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -2726,6 +4032,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         page.evaluate("history.length") == graph_history_before_article + 1,
         "browser Back changed Graph-Reader history length",
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, graph_reader_back_transition)
+    graph_reader_forward_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{graph_article_href}",
+    )
     page.go_forward()
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -2735,10 +4047,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     forward_reader_heading = page.locator("article#article-start > h1")
     expect(forward_reader_heading).to_be_focused(timeout=30_000)
     _require_visible_focus(forward_reader_heading, "browser-Forward Reader heading")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, graph_reader_forward_transition)
     forward_reader_session = page.get_by_role("button", name="End session", exact=True)
     expect(forward_reader_session).to_be_enabled(timeout=30_000)
     forward_reader_session.click()
     expect(forward_reader_session).to_be_disabled()
+    repeated_graph_back_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{graph_browser_origin}",
+        cancelled_read_urls=attention_graph_read_urls,
+    )
     page.go_back()
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -2750,6 +4069,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     expect(repeated_back_article_link).to_be_focused(timeout=30_000)
     _require_visible_focus(repeated_back_article_link, "repeated browser-Back Graph Article action")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, repeated_graph_back_transition)
+    repeated_graph_forward_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{graph_article_href}",
+    )
     page.go_forward()
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -2759,13 +4084,22 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     repeated_forward_heading = page.locator("article#article-start > h1")
     expect(repeated_forward_heading).to_be_focused(timeout=30_000)
     _require_visible_focus(repeated_forward_heading, "repeated browser-Forward Reader heading")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, repeated_graph_forward_transition)
     repeated_forward_session = page.get_by_role("button", name="End session", exact=True)
     expect(repeated_forward_session).to_be_enabled(timeout=30_000)
     repeated_forward_session.click()
     expect(repeated_forward_session).to_be_disabled()
+    graph_reader_reload_transition = _declare_expected_route_transition(
+        page,
+        destination_url=page.url,
+        allow_speculative_cancellations=True,
+    )
     page.reload(wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     expect(page.locator("article#article-start > h1")).to_be_visible(timeout=30_000)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, graph_reader_reload_transition)
     graph_reader_return = page.get_by_role("link", name="Return to graph", exact=True)
     expect(graph_reader_return).to_have_attribute("href", graph_article_return)
     graph_reader_session = page.get_by_role("button", name="End session", exact=True)
@@ -2776,6 +4110,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     graph_reader_return.focus()
     expect(graph_reader_return).to_be_focused()
     _start_zotero_focus_trace(page)
+    graph_reader_return_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{graph_article_return}",
+    )
     graph_reader_return.press("Enter")
     page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -2805,6 +4143,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["graph_reader_exact_round_trip"] = True
     checks["graph_reader_keyboard_focus"] = True
     checks["graph_reader_reload_return"] = True
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, graph_reader_return_transition)
     page.get_by_role("group", name="Graph workspace view").get_by_role(
         "button", name="Knowledge context", exact=True
     ).click()
@@ -2813,6 +4153,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     list_selection_url = page.url
     related_context_node = page.get_by_test_id("graph-context-list").locator("button").first
     expect(related_context_node).to_be_visible(timeout=30_000)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    graph_related_selection = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/graph?node_id=concept%3Aattention",
+    )
     _install_mutation_response_gate(page, "/v1.1/graph/subgraph", "GET")
     page.evaluate(
         """
@@ -2847,13 +4192,22 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(context_map_focus_owner).to_be_focused()
     _require_visible_focus(context_map_focus_owner, "newer Graph context focus owner")
     _restore_mutation_response_gate(page)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, graph_related_selection)
     page.get_by_test_id("graph-view-map").click()
     expect(page.get_by_test_id("graph-visualization")).to_be_visible()
+    page.wait_for_load_state("networkidle")
     checks["knowledge_graph"] = True
     checks["visual_knowledge_explorer"] = True
 
+    graph_tutor_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/tutor",
+    )
     page.get_by_role("link", name="Tutor", exact=True).click()
     expect(page.get_by_role("heading", name="AI Research Tutor", exact=True)).to_be_visible()
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, graph_tutor_transition)
     _install_tutor_article_search_delays(page)
     _set_tutor_article_search_delays(page, {"CRB": 700})
     tutor_article_search = page.get_by_label("Search articles")
@@ -3028,11 +4382,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.get_by_label("Graph concept key").fill("concept:crb")
     stale_failure_console_start = len(console_errors)
     _install_fetch_response_gate(page, "/tutor/ask")
+    stale_tutor_failure = _declare_expected_http_errors(
+        console_errors,
+        label="graph-reload",
+        page_url=f"{FRONTEND_URL}/tutor",
+        source_url=f"{BROWSER_API_URL}/tutor/ask",
+        method="POST",
+    )
     page.route(
         re.compile(r".*/tutor/ask$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=stale_tutor_failure,
             body='{"detail":"intentional stale Tutor failure"}',
         ),
         times=1,
@@ -3046,12 +4409,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "stale Tutor failure published after prompt and Graph context changed",
     )
     expect(page.get_by_test_id("guided-tutor-workspace")).to_have_attribute("aria-busy", "false")
+    _wait_for_declared_http_errors(
+        page, console_errors, expectation_ids=stale_tutor_failure
+    )
     stale_failure_console = console_errors[stale_failure_console_start:]
     _require(
         len(stale_failure_console) == 1 and "status of 503" in stale_failure_console[0],
         f"unexpected stale Tutor failure console output: {stale_failure_console}",
     )
-    del console_errors[stale_failure_console_start:]
     _restore_fetch_response_gate(page)
     page.get_by_label("Graph concept key").fill("")
 
@@ -3103,11 +4468,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     tutor_follow_up_console_start = len(console_errors)
     _install_fetch_response_gate(page, "/tutor/sessions", method="POST")
+    tutor_follow_up_failure = _declare_expected_http_errors(
+        console_errors,
+        label="graph-reload",
+        page_url=f"{FRONTEND_URL}/tutor",
+        source_url=f"{BROWSER_API_URL}/tutor/sessions",
+        method="POST",
+    )
     page.route(
         re.compile(r".*/tutor/sessions$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=tutor_follow_up_failure,
             body='{"detail":"intentional delayed Tutor activity failure"}',
         ),
         times=1,
@@ -3136,13 +4510,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             "The answer is ready, but recent activity could not be updated.", exact=True
         )
     ).to_be_visible(timeout=30_000)
+    _wait_for_declared_http_errors(
+        page, console_errors, expectation_ids=tutor_follow_up_failure
+    )
     tutor_follow_up_console = console_errors[tutor_follow_up_console_start:]
     _require(
         len(tutor_follow_up_console) == 1
         and "status of 503" in tutor_follow_up_console[0],
         f"unexpected delayed Tutor activity failure console output: {tutor_follow_up_console}",
     )
-    del console_errors[tutor_follow_up_console_start:]
     _restore_fetch_response_gate(page)
     checks["tutor_explain"] = True
     checks["guided_tutor_article_markdown_and_follow_up"] = True
@@ -3156,11 +4532,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.get_by_label("Question").fill("Activity completion that will become stale")
     stale_activity_console_start = len(console_errors)
     _install_fetch_response_gate(page, "/tutor/sessions", method="POST")
+    stale_activity_failure = _declare_expected_http_errors(
+        console_errors,
+        label="graph-reload",
+        page_url=f"{FRONTEND_URL}/tutor",
+        source_url=f"{BROWSER_API_URL}/tutor/sessions",
+        method="POST",
+    )
     page.route(
         re.compile(r".*/tutor/sessions$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=stale_activity_failure,
             body='{"detail":"intentional stale Tutor activity failure"}',
         ),
         times=1,
@@ -3176,13 +4561,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         == 0,
         "superseded Tutor activity failure published after an ordinary prompt edit",
     )
+    _wait_for_declared_http_errors(
+        page, console_errors, expectation_ids=stale_activity_failure
+    )
     stale_activity_console = console_errors[stale_activity_console_start:]
     _require(
         len(stale_activity_console) == 1
         and "status of 503" in stale_activity_console[0],
         f"unexpected stale Tutor activity console output: {stale_activity_console}",
     )
-    del console_errors[stale_activity_console_start:]
     _restore_fetch_response_gate(page)
     checks["tutor_superseded_activity_completion_is_silent"] = True
 
@@ -3231,11 +4618,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     page.get_by_role("button", name="Research", exact=True).click()
     page.get_by_label("Question").fill("基于本地资料给出 CRB 研究方向")
+    tutor_session_failure = _declare_expected_http_errors(
+        console_errors,
+        label="graph-reload",
+        page_url=f"{FRONTEND_URL}/tutor",
+        source_url=f"{BROWSER_API_URL}/tutor/sessions",
+        method="POST",
+    )
     page.route(
         re.compile(r".*/tutor/sessions$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=tutor_session_failure,
             body='{"detail":"intentional P3-017 session write failure"}',
         ),
         times=1,
@@ -3247,6 +4643,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_role("heading", name="Research 模式范围", exact=True)).to_be_visible()
     expect(page.get_by_text("The answer is ready, but recent activity could not be updated.", exact=True)).to_be_visible(timeout=30_000)
     expect(page.get_by_role("heading", name=re.compile(r"^(Answer|Refusal)$"))).to_be_visible()
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=tutor_session_failure,
+    )
     checks["tutor_research"] = True
     checks["tutor_session_failure_isolation"] = True
 
@@ -3255,11 +4656,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     checks["tutor_context_change_clears_previous_activity_failure"] = True
     page.get_by_label("Question").fill("Trigger one controlled Tutor failure")
     tutor_error_console_start = len(console_errors)
+    tutor_request_failure = _declare_expected_http_errors(
+        console_errors,
+        label="graph-reload",
+        page_url=f"{FRONTEND_URL}/tutor",
+        source_url=f"{BROWSER_API_URL}/tutor/ask",
+        method="POST",
+    )
     page.route(
         re.compile(r".*/tutor/ask$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=tutor_request_failure,
             body='{"detail":"intentional Tutor request failure"}',
         ),
         times=1,
@@ -3279,12 +4689,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     page.get_by_role("button", name="Retry request", exact=True).press("Enter")
     expect(page.get_by_test_id("tutor-result")).to_be_focused(timeout=30_000)
+    _wait_for_declared_http_errors(
+        page, console_errors, expectation_ids=tutor_request_failure
+    )
     tutor_error_console = console_errors[tutor_error_console_start:]
     _require(
         len(tutor_error_console) == 1 and "status of 503" in tutor_error_console[0],
         f"unexpected controlled Tutor failure console output: {tutor_error_console}",
     )
-    del console_errors[tutor_error_console_start:]
     checks["tutor_accessible_error_and_retry_focus"] = True
 
     _require(not page_errors, f"primary workflow emitted page errors: {page_errors}")
@@ -3296,19 +4708,46 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     activity_order_page.goto(FRONTEND_URL, wait_until="domcontentloaded")
     _wait_for_application_shell(activity_order_page)
     _install_fetch_response_gate(activity_order_page, "/tutor/sessions", method="GET")
+    activity_route_anchor = console_errors._event_sequence
+    activity_route_transition = _declare_expected_route_transition(
+        activity_order_page,
+        destination_url=f"{FRONTEND_URL}/tutor",
+    )
     activity_order_page.get_by_role("link", name="Tutor", exact=True).click()
     expect(
         activity_order_page.get_by_role(
             "heading", name="AI Research Tutor", exact=True
         )
     ).to_be_visible(timeout=30_000)
+    _wait_for_exact_route_request_to_finish(
+        activity_order_page,
+        console_errors,
+        source_url=f"{FRONTEND_URL}/tutor",
+        after_sequence=activity_route_anchor,
+        expect_prefetch=False,
+        require_observed_request=True,
+        allow_response_backed_route_abort=True,
+    )
+    _complete_expected_route_transition(
+        activity_order_page,
+        activity_route_transition,
+    )
     _wait_for_fetch_response_gate_pending(activity_order_page)
     activity_order_console_start = len(console_errors)
+    activity_order_failure = _declare_expected_http_errors(
+        console_errors,
+        label="tutor-activity-read-order",
+        page_url=f"{FRONTEND_URL}/tutor",
+        source_url=f"{BROWSER_API_URL}/tutor/sessions",
+        method="POST",
+    )
     activity_order_page.route(
         re.compile(r".*/tutor/sessions$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=activity_order_page,
+            expectation_ids=activity_order_failure,
             body='{"detail":"intentional activity ordering failure"}',
         ),
         times=1,
@@ -3328,13 +4767,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             "The answer is ready, but recent activity could not be updated.", exact=True
         )
     ).to_be_visible()
+    _wait_for_declared_http_errors(
+        activity_order_page,
+        console_errors,
+        expectation_ids=activity_order_failure,
+    )
     activity_order_console = console_errors[activity_order_console_start:]
     _require(
         len(activity_order_console) == 1
         and "status of 503" in activity_order_console[0],
         f"unexpected Tutor activity ordering console output: {activity_order_console}",
     )
-    del console_errors[activity_order_console_start:]
     _restore_fetch_response_gate(activity_order_page)
     activity_retry = activity_order_page.get_by_role("button", name="Retry activity", exact=True)
     activity_retry.focus()
@@ -3351,11 +4794,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     activity_focus_page = _new_observed_page(
         context, console_errors, page_errors, label="tutor-activity-retry-focus-owner"
     )
+    activity_focus_failure = _declare_expected_http_errors(
+        console_errors,
+        label="tutor-activity-retry-focus-owner",
+        page_url=f"{FRONTEND_URL}/tutor",
+        source_url=f"{BROWSER_API_URL}/tutor/sessions",
+        method="GET",
+    )
     activity_focus_page.route(
         re.compile(r".*/tutor/sessions$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=activity_focus_page,
+            expectation_ids=activity_focus_failure,
             body='{"detail":"intentional P3-036 activity focus failure"}',
         ),
         times=1,
@@ -3380,6 +4832,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "newer Tutor activity focus owner",
     )
     _restore_fetch_response_gate(activity_focus_page)
+    _wait_for_declared_http_errors(
+        activity_focus_page,
+        console_errors,
+        expectation_ids=activity_focus_failure,
+    )
     activity_focus_page.close()
     activity_focus_console = console_errors[activity_focus_console_start:]
     _require(
@@ -3387,7 +4844,6 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         and "status of 503" in activity_focus_console[0],
         f"unexpected Tutor activity focus console output: {activity_focus_console}",
     )
-    del console_errors[activity_focus_console_start:]
     checks["tutor_activity_retry_newer_focus_owner"] = True
 
     route_context_page = _new_observed_page(
@@ -3430,6 +4886,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(route_context_page.get_by_test_id("guided-tutor-workspace")).to_have_attribute(
         "aria-busy", "true"
     )
+    tutor_context_removal_transition = _declare_expected_route_transition(
+        route_context_page,
+        destination_url=f"{FRONTEND_URL}/tutor",
+    )
     route_context_page.get_by_role("link", name="Tutor", exact=True).click()
     expect(route_context_page).to_have_url(f"{FRONTEND_URL}/tutor")
     expect(route_context_page.get_by_test_id("tutor-selected-article")).to_have_count(0)
@@ -3449,6 +4909,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"same-route context removal wrote stale Tutor activity: {same_route_activity_posts}",
     )
     _restore_fetch_response_gate(route_context_page)
+    _wait_for_page_requests_to_settle(route_context_page, console_errors)
+    _complete_expected_route_transition(
+        route_context_page,
+        tutor_context_removal_transition,
+    )
     checks["tutor_route_context_removal"] = True
     route_context_page.close()
 
@@ -3484,6 +4949,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     unmount_page.get_by_label("Question").fill("Navigate away before this completes")
     unmount_page.get_by_role("button", name="Ask tutor", exact=True).click()
+    pending_navigation_transition = _declare_expected_route_transition(
+        unmount_page,
+        destination_url=f"{FRONTEND_URL}/articles",
+    )
     unmount_page.get_by_role("link", name="Articles", exact=True).click()
     expect(
         unmount_page.get_by_role("heading", name="Article List", exact=True)
@@ -3495,13 +4964,28 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     checks["tutor_pending_navigation_has_no_activity"] = True
     _restore_fetch_response_gate(unmount_page)
+    _wait_for_page_requests_to_settle(unmount_page, console_errors)
+    _complete_expected_route_transition(
+        unmount_page,
+        pending_navigation_transition,
+    )
     unmount_page.close()
 
     page = _new_observed_page(context, console_errors, page_errors, label="graph-route-boundary")
     page.goto(FRONTEND_URL, wait_until="domcontentloaded")
     _wait_for_application_shell(page)
+    graph_boundary_open_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/graph",
+    )
     page.get_by_role("link", name="Graph", exact=True).click()
     expect(page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, graph_boundary_open_transition)
+    graph_boundary_back_transition = _declare_expected_route_transition(
+        page,
+        destination_url=FRONTEND_URL,
+    )
     page.go_back()
     expect(
         page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
@@ -3510,57 +4994,72 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         page.url.rstrip("/") == FRONTEND_URL,
         f"Graph popstate handler replaced a non-Graph destination: {page.url}",
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, graph_boundary_back_transition)
     _require(not page_errors, f"Graph route-boundary Back emitted page errors: {page_errors}")
     checks["graph_route_boundary_back"] = True
     page.close()
 
-    article_not_found_console_events: list[dict[str, str]] = []
     page = _new_observed_page(
         context,
         console_errors,
         page_errors,
         label="article-not-found",
-        scoped_console_errors=article_not_found_console_events,
     )
-    article_not_found_console_start = len(console_errors)
-    article_not_found_responses: list[str] = []
-    page.on(
-        "response",
-        lambda response: article_not_found_responses.append(response.url)
-        if response.status == 404
-        else None,
+    article_not_found_expectations = console_errors.declare_http_errors(
+        label="article-not-found",
+        page_url=f"{FRONTEND_URL}/articles/not-a-real-article",
+        source_url=f"{BROWSER_API_URL}/articles/not-a-real-article",
+        status=404,
+        method="GET",
+        resource_type="fetch",
+        navigation_request=False,
+    )
+    page.route(
+        lambda url: url == f"{BROWSER_API_URL}/articles/not-a-real-article",
+        lambda route: _forward_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=article_not_found_expectations,
+        ),
+        times=1,
     )
     page.goto(f"{FRONTEND_URL}/articles/not-a-real-article", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     expect(page.get_by_text("Article not found", exact=True)).to_be_visible(timeout=30_000)
-    _consume_expected_404_console_errors(
-        console_errors,
-        start=article_not_found_console_start,
-        scoped_events=article_not_found_console_events,
-        response_urls=article_not_found_responses,
-        port=8000,
-        path="/articles/not-a-real-article",
-        label="intentional Article 404",
-    )
     _require(not page_errors, f"Article not-found route emitted page errors: {page_errors}")
     checks["article_not_found_state"] = True
-    page.close()
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=article_not_found_expectations,
+    )
 
-    route_not_found_console_events: list[dict[str, str]] = []
     page = _new_observed_page(
         context,
         console_errors,
         page_errors,
         label="route-not-found",
-        scoped_console_errors=route_not_found_console_events,
     )
-    not_found_console_start = len(console_errors)
-    route_not_found_responses: list[str] = []
-    page.on(
-        "response",
-        lambda response: route_not_found_responses.append(response.url)
-        if response.status == 404
-        else None,
+    route_not_found_expectations = console_errors.declare_http_errors(
+        label="route-not-found",
+        page_url=f"{FRONTEND_URL}/not-a-product-route",
+        source_url=f"{FRONTEND_URL}/not-a-product-route",
+        status=404,
+        method="GET",
+        resource_type="document",
+        navigation_request=True,
+    )
+    page.route(
+        lambda url: url == f"{FRONTEND_URL}/not-a-product-route",
+        lambda route: _forward_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=route_not_found_expectations,
+        ),
+        times=1,
     )
     page.goto(f"{FRONTEND_URL}/not-a-product-route", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
@@ -3568,25 +5067,28 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         page.get_by_test_id("route-not-found-state").get_by_text("Page not found", exact=True)
     ).to_be_visible(timeout=30_000)
     expect(page.get_by_test_id("application-shell")).to_have_attribute("data-workspace", "unknown")
-    _consume_expected_404_console_errors(
-        console_errors,
-        start=not_found_console_start,
-        scoped_events=route_not_found_console_events,
-        response_urls=route_not_found_responses,
-        port=3000,
-        path="/not-a-product-route",
-        label="intentional route 404",
-    )
     _require(not page_errors, f"route not-found state emitted page errors: {page_errors}")
     checks["route_not_found_state"] = True
-    page.close()
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=route_not_found_expectations,
+    )
 
     page = _new_observed_page(context, console_errors, page_errors, label="article-controlled-error")
+    article_list_failure = _declare_expected_http_errors(
+        console_errors,
+        label="article-controlled-error",
+        page_url=f"{FRONTEND_URL}/articles",
+        source_url=f"{BROWSER_API_URL}/v1.1/articles?page=1&page_size=20&sort=date_desc",
+    )
     page.route(
         re.compile(r".*/v1\.1/articles(?:\?.*)?$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=article_list_failure,
             body='{"detail":"intentional P3-011 E2E failure"}',
         ),
         times=1,
@@ -3594,6 +5096,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.goto(f"{FRONTEND_URL}/articles", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     expect(page.get_by_text("Failed to load articles: 503", exact=True)).to_be_visible(timeout=30_000)
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=article_list_failure,
+    )
     _require(not page_errors, f"Article error state emitted page errors: {page_errors}")
     checks["controlled_backend_error_state"] = True
     page.close()
@@ -3612,11 +5119,19 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         );
         """
     )
+    graph_detail_failure = _declare_expected_http_errors(
+        console_errors,
+        label="graph-controlled-error",
+        page_url=f"{FRONTEND_URL}{ATTENTION_CONCEPT_RETURN}",
+        source_url=f"{BROWSER_API_URL}/graph/nodes/concept%3Aattention",
+    )
     page.route(
         re.compile(r".*/graph/nodes/concept%3Aattention$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=graph_detail_failure,
             body='{"detail":"intentional P3-024 Graph detail failure"}',
         ),
         times=1,
@@ -3635,23 +5150,33 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         timeout=30_000
     )
     expect(page.get_by_test_id("graph-selection-status")).to_contain_text("Details ready.")
+    _wait_for_declared_http_errors(
+        page, console_errors, expectation_ids=graph_detail_failure
+    )
     expected_graph_console = console_errors[graph_error_console_start:]
     _require(
         expected_graph_console
         and all("status of 503" in message for message in expected_graph_console),
         f"unexpected Graph failure console output: {expected_graph_console}",
     )
-    del console_errors[graph_error_console_start:]
     _require(not page_errors, f"Graph detail recovery emitted page errors: {page_errors}")
     checks["graph_detail_error_focus_and_retry"] = True
     page.close()
 
     page = _new_observed_page(context, console_errors, page_errors, label="dashboard-partial")
+    dashboard_stats_failure = _declare_expected_http_errors(
+        console_errors,
+        label="dashboard-partial",
+        page_url=f"{FRONTEND_URL}/",
+        source_url=f"{BROWSER_API_URL}/learning/stats",
+    )
     page.route(
         re.compile(r".*/learning/stats$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=dashboard_stats_failure,
             body='{"detail":"intentional P3-016 partial dashboard failure"}',
         ),
         times=1,
@@ -3665,8 +5190,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.get_by_role("button", name="Retry", exact=True).click()
     expect(page.get_by_test_id("dashboard-remote-state")).to_have_count(0, timeout=30_000)
     expect(page.get_by_role("heading", name="Learning Activity", exact=True)).to_be_visible()
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=dashboard_stats_failure,
+    )
     _require(not page_errors, f"Dashboard partial state emitted page errors: {page_errors}")
     checks["dashboard_partial_failure"] = True
+    _wait_for_page_requests_to_settle(page, console_errors)
     page.close()
 
     page = _new_observed_page(
@@ -3676,11 +5207,19 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         label="dashboard-completion-status-unavailable",
     )
     dashboard_completion_console_start = len(console_errors)
+    dashboard_state_failure = _declare_expected_http_errors(
+        console_errors,
+        label="dashboard-completion-status-unavailable",
+        page_url=f"{FRONTEND_URL}/",
+        source_url=f"{BROWSER_API_URL}/learning/state",
+    )
     page.route(
         re.compile(r".*/learning/state$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=dashboard_state_failure,
             body='{"detail":"intentional P3-025 completion-state list failure"}',
         ),
         times=1,
@@ -3698,6 +5237,9 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.get_by_role("button", name="Retry", exact=True).click()
     expect(page.get_by_test_id("dashboard-remote-state")).to_have_count(0, timeout=30_000)
     expect(page.get_by_text("No article in progress.", exact=True)).to_be_visible()
+    _wait_for_declared_http_errors(
+        page, console_errors, expectation_ids=dashboard_state_failure
+    )
     expected_dashboard_completion_console = console_errors[
         dashboard_completion_console_start:
     ]
@@ -3707,7 +5249,6 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "unexpected Dashboard completion-state fallback console output: "
         f"{expected_dashboard_completion_console}",
     )
-    del console_errors[dashboard_completion_console_start:]
     _require(
         not page_errors,
         f"Dashboard completion-state fallback emitted page errors: {page_errors}",
@@ -3716,11 +5257,19 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     page.close()
 
     page = _new_observed_page(context, console_errors, page_errors, label="library-partial")
+    library_bookmark_failure = _declare_expected_http_errors(
+        console_errors,
+        label="library-partial",
+        page_url=f"{FRONTEND_URL}/library",
+        source_url=f"{BROWSER_API_URL}/learning/bookmarks",
+    )
     page.route(
         re.compile(r".*/learning/bookmarks$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=page,
+            expectation_ids=library_bookmark_failure,
             body='{"detail":"intentional P3-020 partial Bookmark failure"}',
         ),
         times=1,
@@ -3737,8 +5286,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "button", name="Retry", exact=True
     ).click()
     expect(page.get_by_test_id("saved-library-remote-state")).to_have_count(0, timeout=30_000)
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=library_bookmark_failure,
+    )
     _require(not page_errors, f"Saved Library partial state emitted page errors: {page_errors}")
     checks["saved_library_partial_failure"] = True
+    _wait_for_page_requests_to_settle(page, console_errors)
     page.close()
     context.close()
 
@@ -4178,12 +5733,19 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             and urlparse(response.url).path == f"/learning/sessions/{stale_session_id}/end"
         )
 
+    stale_reader_return_transition = _declare_expected_route_transition(
+        stale_session_page,
+        destination_url=f"{FRONTEND_URL}/articles",
+    )
     with stale_session_page.expect_response(is_stale_session_end, timeout=30_000) as stale_end_info:
         stale_session_page.get_by_role("link", name="Back to articles", exact=True).first.click()
     stale_end_response = stale_end_info.value
     _require(stale_end_response.ok, "stale Reader session reconciliation failed")
     stale_session_page.wait_for_function(
         "() => location.pathname === '/articles'", timeout=30_000
+    )
+    _complete_expected_route_transition(
+        stale_session_page, stale_reader_return_transition
     )
     persisted_sessions = _api_json(stale_session_context, "GET", "/learning/sessions")
     reconciled_session = next(
@@ -4547,21 +6109,43 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     unavailable_context = browser.new_context(viewport={"width": 1440, "height": 1000}, locale="zh-CN")
     _install_network_guard(unavailable_context, blocked_external)
+    unavailable_expectations = {
+        endpoint: _declare_expected_http_errors(
+            console_errors,
+            label="session-storage-unavailable",
+            page_url=f"{FRONTEND_URL}/library",
+            source_url=f"{BROWSER_API_URL}/learning/{endpoint}",
+        )
+        for endpoint in ("state", "bookmarks", "stats")
+    }
+
+    def unavailable_handler(endpoint: str):
+        def fulfill(route) -> None:
+            _fulfill_expected_http_error(
+                route,
+                console_errors=console_errors,
+                page=unavailable_page,
+                expectation_ids=unavailable_expectations[endpoint],
+                body='{"detail":"intentional P3-020 unavailable state"}',
+            )
+
+        return fulfill
+
     for endpoint in ("state", "bookmarks", "stats"):
         unavailable_context.route(
             re.compile(rf".*/learning/{endpoint}$"),
-            lambda route: route.fulfill(
-                status=503,
-                content_type="application/json",
-                body='{"detail":"intentional P3-020 unavailable state"}',
-            ),
+            unavailable_handler(endpoint),
             times=1,
         )
     unavailable_page = unavailable_context.new_page()
+    _mark_expected_context_page(unavailable_context, unavailable_page)
     unavailable_page.on(
         "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        lambda message: console_errors.capture(
+            message, label="session-storage-unavailable", page=unavailable_page
+        ),
     )
+    console_errors.observe_http_errors(unavailable_page, label="session-storage-unavailable")
     unavailable_page.on(
         "pageerror",
         lambda error: _capture_page_error(
@@ -4583,6 +6167,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(saved_summary).to_be_focused(timeout=30_000)
     _require_visible_focus(saved_summary, "Saved Library retry result")
     expect(unavailable_page.get_by_test_id("saved-library-unavailable")).to_have_count(0)
+    _wait_for_declared_http_errors(
+        unavailable_page,
+        console_errors,
+        expectation_ids=tuple(
+            expectation_id
+            for endpoint_ids in unavailable_expectations.values()
+            for expectation_id in endpoint_ids
+        ),
+    )
     checks["saved_library_unavailable_state"] = True
     unavailable_context.close()
 
@@ -4636,6 +6229,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(recovered_dashboard_session).to_have_attribute("data-state", "recovered")
     expect(recovered_dashboard_session).to_contain_text(CRB_TITLE)
     expect(recovered_dashboard_session).not_to_contain_text("raw-title-id")
+    _wait_for_page_requests_to_settle(recovered_session_page, console_errors)
     recovered_session_page.close()
     recovered_session_page = _new_observed_page(
         recovered_session_context,
@@ -4675,6 +6269,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     checks["study_session_stale_record_recovery"] = True
     checks["concept_study_set_storage_recovery"] = True
+    _wait_for_page_requests_to_settle(recovered_session_page, console_errors)
     recovered_session_context.close()
 
     read_failure_context = browser.new_context(
@@ -4712,6 +6307,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "data-state", "unavailable"
     )
     expect(read_failure_page.get_by_role("heading", name="Learning Overview", exact=True)).to_be_visible()
+    _wait_for_page_requests_to_settle(read_failure_page, console_errors)
     read_failure_page.close()
     read_failure_page = _new_observed_page(
         read_failure_context,
@@ -4765,6 +6361,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     read_failure_page.goto(f"{FRONTEND_URL}/session", wait_until="domcontentloaded")
     _wait_for_application_shell(read_failure_page)
     expect(read_failure_page.get_by_test_id("study-session-unavailable")).to_be_visible()
+    _wait_for_page_requests_to_settle(read_failure_page, console_errors)
     read_failure_page.close()
     read_failure_page = _new_observed_page(
         read_failure_context,
@@ -4962,6 +6559,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     checks["study_session_storage_write_failure"] = True
     checks["concept_study_set_storage_write_failure"] = True
+    _wait_for_page_requests_to_settle(write_failure_page, console_errors)
     write_failure_context.close()
 
     timer_context = browser.new_context(
@@ -5003,6 +6601,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "source": "reader",
     }
     timer_end_attempts = {"count": 0}
+    timer_end_failure = _declare_expected_http_errors(
+        console_errors,
+        label="focused-session-timer-reconciliation",
+        page_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+        source_url=(
+            f"{BROWSER_API_URL}/learning/sessions/p3-025-retry-timer/end"
+        ),
+        method="PUT",
+    )
 
     def fulfill_timer_collection(route) -> None:
         payload = timer_record if route.request.method == "POST" else {
@@ -5014,9 +6621,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     def fulfill_timer_end(route) -> None:
         timer_end_attempts["count"] += 1
         if timer_end_attempts["count"] == 1:
-            route.fulfill(
-                status=503,
-                content_type="application/json",
+            _fulfill_expected_http_error(
+                route,
+                console_errors=console_errors,
+                page=timer_page,
+                expectation_ids=timer_end_failure,
                 body='{"detail":"intentional uncertain timer end"}',
             )
             return
@@ -5082,13 +6691,24 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         timer_end_attempts["count"] == 2,
         f"confirmed-open timer retry did not perform exactly one end request: {timer_end_attempts}",
     )
+    timer_advance_transition = _declare_expected_route_transition(
+        timer_page,
+        destination_url=(
+            f"{FRONTEND_URL}/articles/{RESEARCH_ARTICLE_ID}?from=%2Fsession"
+        ),
+    )
     timer_completion.get_by_role(
         "button", name="Open next unfinished Article", exact=True
     ).click()
     research_heading = timer_page.get_by_role("heading", name=RESEARCH_TITLE, exact=True)
     expect(research_heading).to_be_visible(timeout=30_000)
     expect(research_heading).to_be_focused(timeout=30_000)
+    _wait_for_page_requests_to_settle(timer_page, console_errors)
+    _complete_expected_route_transition(timer_page, timer_advance_transition)
     checks["focused_session_timer_reconciliation"] = True
+    _wait_for_declared_http_errors(
+        timer_page, console_errors, expectation_ids=timer_end_failure
+    )
     timer_context.close()
     expected_timer_console = console_errors[timer_console_start:]
     _require(
@@ -5096,7 +6716,6 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         and "status of 503" in expected_timer_console[0],
         f"unexpected timer-reconciliation console output: {expected_timer_console}",
     )
-    del console_errors[timer_console_start:]
 
     manual_timer_context = browser.new_context(
         viewport={"width": 1440, "height": 900}, locale="zh-CN"
@@ -5138,6 +6757,21 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     }
     manual_timer_gets = {"count": 0}
     manual_timer_ends = {"count": 0}
+    manual_timer_read_failure = _declare_expected_http_errors(
+        console_errors,
+        label="manual-timer-uncertainty",
+        page_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+        source_url=f"{BROWSER_API_URL}/learning/sessions",
+    )
+    manual_timer_end_failure = _declare_expected_http_errors(
+        console_errors,
+        label="manual-timer-uncertainty",
+        page_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+        source_url=(
+            f"{BROWSER_API_URL}/learning/sessions/p3-025-manual-uncertain-timer/end"
+        ),
+        method="PUT",
+    )
 
     def fulfill_manual_timer_collection(route) -> None:
         if route.request.method == "POST":
@@ -5149,9 +6783,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             return
         manual_timer_gets["count"] += 1
         if manual_timer_gets["count"] == 2:
-            route.fulfill(
-                status=503,
-                content_type="application/json",
+            _fulfill_expected_http_error(
+                route,
+                console_errors=console_errors,
+                page=manual_timer_page,
+                expectation_ids=manual_timer_read_failure,
                 body='{"detail":"intentional manual timer readback failure"}',
             )
             return
@@ -5164,9 +6800,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     def fulfill_manual_timer_end(route) -> None:
         manual_timer_ends["count"] += 1
         if manual_timer_ends["count"] == 1:
-            route.fulfill(
-                status=503,
-                content_type="application/json",
+            _fulfill_expected_http_error(
+                route,
+                console_errors=console_errors,
+                page=manual_timer_page,
+                expectation_ids=manual_timer_end_failure,
                 body='{"detail":"intentional manual timer uncertainty"}',
             )
             return
@@ -5231,6 +6869,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"explicit timer retry did not issue exactly one new end request: {manual_timer_ends}",
     )
     checks["focused_session_manual_timer_uncertainty"] = True
+    _wait_for_declared_http_errors(
+        manual_timer_page,
+        console_errors,
+        expectation_ids=manual_timer_read_failure + manual_timer_end_failure,
+    )
     manual_timer_context.close()
     expected_manual_timer_console = console_errors[manual_timer_console_start:]
     _require(
@@ -5238,7 +6881,6 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         and all("status of 503" in message for message in expected_manual_timer_console),
         f"unexpected manual timer uncertainty console output: {expected_manual_timer_console}",
     )
-    del console_errors[manual_timer_console_start:]
 
     uncertain_context = browser.new_context(
         viewport={"width": 1440, "height": 900}, locale="zh-CN"
@@ -5271,6 +6913,13 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     _install_network_guard(uncertain_context, blocked_external)
     uncertain_state = {"completed": False, "put_count": 0}
+    uncertain_completion_failure = _declare_expected_http_errors(
+        console_errors,
+        label="focused-session-completion-reconciliation",
+        page_url=f"{FRONTEND_URL}/articles/{RESEARCH_ARTICLE_ID}?from=%2Fsession",
+        source_url=f"{BROWSER_API_URL}/learning/state/{RESEARCH_ARTICLE_ID}",
+        method="PUT",
+    )
 
     def uncertain_learning_state_payload() -> dict[str, object]:
         completed = bool(uncertain_state["completed"])
@@ -5287,9 +6936,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         if route.request.method == "PUT":
             uncertain_state["completed"] = True
             uncertain_state["put_count"] += 1
-            route.fulfill(
-                status=503,
-                content_type="application/json",
+            _fulfill_expected_http_error(
+                route,
+                console_errors=console_errors,
+                page=uncertain_page,
+                expectation_ids=uncertain_completion_failure,
                 body='{"detail":"intentional lost completion response"}',
             )
             return
@@ -5425,6 +7076,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     _require_visible_focus(uncertain_heading, "Reader advance error newer focus owner")
     _restore_mutation_response_gate(uncertain_page)
     checks["focused_session_uncertain_completion_reconciliation"] = True
+    _wait_for_declared_http_errors(
+        uncertain_page,
+        console_errors,
+        expectation_ids=uncertain_completion_failure,
+    )
     uncertain_context.close()
     expected_uncertain_console = console_errors[uncertain_console_start:]
     _require(
@@ -5432,7 +7088,6 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         and "status of 503" in expected_uncertain_console[0],
         f"unexpected completion-reconciliation console output: {expected_uncertain_console}",
     )
-    del console_errors[uncertain_console_start:]
 
     race_context = browser.new_context(
         viewport={"width": 1440, "height": 900}, locale="zh-CN"
@@ -5589,6 +7244,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         race_state["put_count"] == 1,
         f"completion did not persist exactly once after the pending-navigation guard: {race_state}",
     )
+    race_next_href = str(race_next.get_attribute("href") or "")
+    _require(
+        race_next_href.startswith(f"/articles/{ATTENTION_ARTICLE_ID}"),
+        f"focused-session next route is invalid: {race_next_href}",
+    )
+    race_next_transition = _declare_expected_route_transition(
+        race_page,
+        destination_url=f"{FRONTEND_URL}{race_next_href}",
+    )
     race_next.click()
     expect(
         race_page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
@@ -5604,9 +7268,21 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(race_page.get_by_test_id("study-session-reader-navigation")).to_contain_text(
         "Review-only view"
     )
-    race_page.get_by_test_id("study-session-reader-navigation").get_by_role(
+    _wait_for_page_requests_to_settle(race_page, console_errors)
+    _complete_expected_route_transition(race_page, race_next_transition)
+    race_previous = race_page.get_by_test_id("study-session-reader-navigation").get_by_role(
         "link", name=f"Previous in session: {CRB_TITLE}", exact=True
-    ).click()
+    )
+    race_previous_href = str(race_previous.get_attribute("href") or "")
+    _require(
+        race_previous_href.startswith(f"/articles/{CRB_ARTICLE_ID}"),
+        f"focused-session previous route is invalid: {race_previous_href}",
+    )
+    race_previous_transition = _declare_expected_route_transition(
+        race_page,
+        destination_url=f"{FRONTEND_URL}{race_previous_href}",
+    )
+    race_previous.click()
     expect(race_page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(
         timeout=30_000
     )
@@ -5615,6 +7291,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "button", name="Mark Article complete", exact=True
     )
     expect(stale_mark).to_be_enabled(timeout=30_000)
+    _wait_for_page_requests_to_settle(race_page, console_errors)
+    _complete_expected_route_transition(race_page, race_previous_transition)
     race_page.evaluate(
         """
         const state = JSON.parse(localStorage.getItem('scientific-spaces-study-session-v1'));
@@ -5829,11 +7507,19 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         """
     )
     _install_network_guard(completion_retry_context, blocked_external)
+    completion_list_failure = _declare_expected_http_errors(
+        console_errors,
+        label="focused-session-completion-list-retry",
+        page_url=f"{FRONTEND_URL}/session",
+        source_url=f"{BROWSER_API_URL}/learning/state",
+    )
     completion_retry_context.route(
         re.compile(r".*/learning/state$"),
-        lambda route: route.fulfill(
-            status=503,
-            content_type="application/json",
+        lambda route: _fulfill_expected_http_error(
+            route,
+            console_errors=console_errors,
+            page=completion_retry_page,
+            expectation_ids=completion_list_failure,
             body='{"detail":"intentional completion-list failure"}',
         ),
         times=1,
@@ -5868,6 +7554,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(session_completion_status).to_be_focused()
     _require_visible_focus(session_completion_status, "Focused Session retry result")
     checks["focused_session_completion_status_retry"] = True
+    _wait_for_declared_http_errors(
+        completion_retry_page,
+        console_errors,
+        expectation_ids=completion_list_failure,
+    )
     completion_retry_context.close()
     expected_completion_retry_console = console_errors[completion_retry_console_start:]
     _require(
@@ -5875,7 +7566,6 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         and "status of 503" in expected_completion_retry_console[0],
         f"unexpected completion-list retry console output: {expected_completion_retry_console}",
     )
-    del console_errors[completion_retry_console_start:]
 
     full_session_context = browser.new_context(
         viewport={"width": 1440, "height": 900}, locale="zh-CN"
@@ -5904,10 +7594,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     _install_network_guard(full_session_context, blocked_external)
     full_session_page = full_session_context.new_page()
+    _mark_expected_context_page(full_session_context, full_session_page)
     full_session_page.on(
         "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        lambda message: console_errors.capture(
+            message, label="session-full-capacity", page=full_session_page
+        ),
     )
+    console_errors.observe_http_errors(full_session_page, label="session-full-capacity")
     full_session_page.on(
         "pageerror",
         lambda error: _capture_page_error(
@@ -5949,10 +7643,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     _install_network_guard(zoom_context, blocked_external)
     zoom_page = zoom_context.new_page()
+    _mark_expected_context_page(zoom_context, zoom_page)
     zoom_page.on(
         "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        lambda message: console_errors.capture(message, label="graph-zoom", page=zoom_page),
     )
+    console_errors.observe_http_errors(zoom_page, label="graph-zoom")
     zoom_page.on(
         "pageerror", lambda error: _capture_page_error(page_errors, "graph-zoom", zoom_page, error)
     )
@@ -6042,10 +7738,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         """
     )
     narrow_page = narrow_context.new_page()
+    _mark_expected_context_page(narrow_context, narrow_page)
     narrow_page.on(
         "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        lambda message: console_errors.capture(message, label="graph-320", page=narrow_page),
     )
+    console_errors.observe_http_errors(narrow_page, label="graph-320")
     narrow_page.on(
         "pageerror",
         lambda error: _capture_page_error(page_errors, "graph-320", narrow_page, error),
@@ -6590,11 +8288,20 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         )
         _focus_via_tab(completion_viewport_page, viewport_explain_mode)
         viewport_explain_mode.press("Enter")
+        viewport_tutor_failure = _declare_expected_http_errors(
+            console_errors,
+            label=f"focused-completion-{viewport_label}",
+            page_url=f"{FRONTEND_URL}/tutor?{tutor_workflow_query}",
+            source_url=f"{BROWSER_API_URL}/tutor/ask",
+            method="POST",
+        )
         completion_viewport_page.route(
             re.compile(r".*/tutor/ask$"),
-            lambda route: route.fulfill(
-                status=503,
-                content_type="application/json",
+            lambda route: _fulfill_expected_http_error(
+                route,
+                console_errors=console_errors,
+                page=completion_viewport_page,
+                expectation_ids=viewport_tutor_failure,
                 body='{"detail":"intentional responsive Tutor failure"}',
             ),
             times=1,
@@ -6622,6 +8329,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             _document_width(completion_viewport_page) <= viewport_width,
             f"{viewport_label} Tutor error caused horizontal overflow",
         )
+        _wait_for_declared_http_errors(
+            completion_viewport_page,
+            console_errors,
+            expectation_ids=viewport_tutor_failure,
+        )
         viewport_error_console = console_errors[viewport_error_console_start:]
         _require(
             len(viewport_error_console) == 1
@@ -6629,7 +8341,6 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             f"unexpected {viewport_label} Tutor error console output: "
             f"{viewport_error_console}",
         )
-        del console_errors[viewport_error_console_start:]
 
         viewport_quiz_mode = completion_viewport_page.get_by_role(
             "button", name="Quiz", exact=True
@@ -6732,6 +8443,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             "link", name="Open article", exact=True
         ).first
         expect(viewport_article_link).to_be_visible(timeout=30_000)
+        viewport_article_href = str(viewport_article_link.get_attribute("href") or "")
+        _require(
+            viewport_article_href.startswith(f"/articles/{CRB_ARTICLE_ID}"),
+            f"{viewport_label} Graph Article action lost its Reader route: "
+            f"{viewport_article_href}",
+        )
         selected_region.scroll_into_view_if_needed()
         viewport_article_link.scroll_into_view_if_needed()
         selected_box = selected_region.bounding_box()
@@ -6749,6 +8466,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             f"{viewport_label} Graph Article action",
         )
         _focus_via_tab(graph_reader_page, viewport_article_link, max_steps=40)
+        viewport_article_transition = _declare_expected_route_transition(
+            graph_reader_page,
+            destination_url=f"{FRONTEND_URL}{viewport_article_href}",
+        )
         viewport_article_link.press("Enter")
         graph_reader_page.wait_for_function(
             "articleId => location.pathname === `/articles/${articleId}`",
@@ -6760,6 +8481,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         expect(viewport_reader_heading).to_be_focused()
         _require_visible_focus(
             viewport_reader_heading, f"{viewport_label} Graph-origin Reader heading"
+        )
+        _wait_for_page_requests_to_settle(graph_reader_page, console_errors)
+        _complete_expected_route_transition(
+            graph_reader_page, viewport_article_transition
         )
         if viewport_label == "desktop":
             graph_reader_page.evaluate("window.dispatchEvent(new Event('resize'))")
@@ -6806,6 +8531,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         expect(viewport_end_session).to_be_enabled(timeout=30_000)
         viewport_end_session.click()
         expect(viewport_end_session).to_be_disabled()
+        viewport_graph_return_transition = _declare_expected_route_transition(
+            graph_reader_page,
+            destination_url=f"{FRONTEND_URL}{graph_round_trip_path}",
+        )
         viewport_return.press("Enter")
         graph_reader_page.wait_for_function(
             "expected => location.pathname + location.search === expected",
@@ -6818,6 +8547,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         expect(returned_viewport_link).to_be_focused(timeout=30_000)
         _require_visible_focus(
             returned_viewport_link, f"{viewport_label} restored Graph Article action"
+        )
+        _wait_for_page_requests_to_settle(graph_reader_page, console_errors)
+        _complete_expected_route_transition(
+            graph_reader_page, viewport_graph_return_transition
         )
         if viewport_label == "desktop":
             _require(
@@ -6912,6 +8645,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     storage_denied_end_session.click()
     expect(storage_denied_end_session).to_be_disabled()
     _focus_via_tab(storage_denied_page, storage_denied_return)
+    storage_denied_return_transition = _declare_expected_route_transition(
+        storage_denied_page,
+        destination_url=f"{FRONTEND_URL}{graph_round_trip_path}",
+    )
     storage_denied_return.press("Enter")
     storage_denied_page.wait_for_function(
         "expected => location.pathname + location.search === expected",
@@ -6923,6 +8660,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     expect(storage_denied_selected_region).to_be_visible(timeout=30_000)
     expect(storage_denied_selected_region).to_be_focused(timeout=30_000)
+    _wait_for_page_requests_to_settle(storage_denied_page, console_errors)
+    _complete_expected_route_transition(
+        storage_denied_page, storage_denied_return_transition
+    )
     _require_visible_focus(
         storage_denied_selected_region,
         "storage-denied returned Graph selected region",
@@ -6997,10 +8738,12 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     _install_network_guard(mobile_context, blocked_external)
     mobile_page = mobile_context.new_page()
+    _mark_expected_context_page(mobile_context, mobile_page)
     mobile_page.on(
         "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        lambda message: console_errors.capture(message, label="mobile", page=mobile_page),
     )
+    console_errors.observe_http_errors(mobile_page, label="mobile")
     mobile_page.on(
         "pageerror", lambda error: _capture_page_error(page_errors, "mobile", mobile_page, error)
     )
@@ -7102,6 +8845,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     mobile_menu_button.click()
     mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
     expect(mobile_navigation).to_be_visible()
+    mobile_library_transition = _declare_expected_route_transition(
+        mobile_page,
+        destination_url=f"{FRONTEND_URL}/library",
+    )
     mobile_navigation.get_by_role("link", name="Saved", exact=True).click()
     expect(mobile_navigation).to_have_count(0)
     expect(mobile_page.get_by_role("heading", name="Saved Learning Library", exact=True)).to_be_visible()
@@ -7111,6 +8858,8 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     mobile_shell_main = mobile_page.get_by_test_id("shell-main-content")
     expect(mobile_shell_main).to_be_focused(timeout=30_000)
     _require_visible_focus(mobile_shell_main, "mobile Drawer destination")
+    _wait_for_page_requests_to_settle(mobile_page, console_errors)
+    _complete_expected_route_transition(mobile_page, mobile_library_transition)
     mobile_same_url_history = mobile_page.evaluate("history.length")
     mobile_same_url_location = mobile_page.url
     mobile_page.get_by_role("button", name="Open navigation", exact=True).click()
@@ -7168,6 +8917,10 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     mobile_page.get_by_role("button", name="Open navigation", exact=True).click()
     mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
     expect(mobile_navigation).to_be_visible()
+    mobile_articles_transition = _declare_expected_route_transition(
+        mobile_page,
+        destination_url=f"{FRONTEND_URL}/articles",
+    )
     mobile_navigation.get_by_role("link", name="Articles", exact=True).click()
     expect(mobile_navigation).to_have_count(0)
     expect(mobile_page.get_by_role("heading", name="Article List", exact=True)).to_be_visible()
@@ -7176,11 +8929,19 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     expect(mobile_page.get_by_text("Showing 1-3 of 3", exact=True)).to_be_visible(timeout=30_000)
     expect(mobile_page.get_by_test_id("article-pagination")).to_have_count(0)
+    _wait_for_page_requests_to_settle(mobile_page, console_errors)
+    _complete_expected_route_transition(mobile_page, mobile_articles_transition)
     checks["mobile_navigation_route_selection"] = True
     list_width = _document_width(mobile_page)
+    mobile_reader_transition = _declare_expected_route_transition(
+        mobile_page,
+        destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
+    )
     mobile_page.get_by_role("link", name=CRB_TITLE, exact=True).click()
     expect(mobile_page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     expect(mobile_page.locator(".reader-markdown .katex").first).to_be_visible()
+    _wait_for_page_requests_to_settle(mobile_page, console_errors)
+    _complete_expected_route_transition(mobile_page, mobile_reader_transition)
     reading_tools_link = mobile_page.get_by_role("link", name="Reading tools", exact=True)
     outline_link = mobile_page.get_by_role("link", name="Outline", exact=True)
     expect(reading_tools_link).to_be_visible()
@@ -7246,9 +9007,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     mobile_page.get_by_role("button", name="Open navigation", exact=True).click()
     mobile_navigation = mobile_page.get_by_test_id("mobile-navigation")
     expect(mobile_navigation).to_be_visible()
+    mobile_graph_transition = _declare_expected_route_transition(
+        mobile_page,
+        destination_url=f"{FRONTEND_URL}/graph",
+    )
     mobile_navigation.get_by_role("link", name="Graph", exact=True).click()
     expect(mobile_navigation).to_have_count(0)
     expect(mobile_page.get_by_role("heading", name="Knowledge Graph", exact=True)).to_be_visible()
+    _wait_for_page_requests_to_settle(mobile_page, console_errors)
+    _complete_expected_route_transition(mobile_page, mobile_graph_transition)
     mobile_page.get_by_placeholder("Title, concept, or formula").fill("Attention")
     mobile_page.locator('select[name="node_type"]').select_option("concept")
     mobile_page.get_by_role("button", name="Apply", exact=True).click()
@@ -7366,8 +9133,24 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     checks["reader_learning_mutation_integrity"] = True
 
+    framework_prefetch_cancellations = _framework_prefetch_cancellations(console_errors)
+    route_transition_cancellations = _route_transition_cancellations(console_errors)
+    declared_cancelled_route_requests = _declared_cancelled_route_requests(
+        console_errors
+    )
+    declared_route_read_cancellations = _declared_route_read_cancellations(
+        console_errors
+    )
+    superseded_successful_reads = _superseded_successful_reads(console_errors)
+    next_static_chunk_cancellations = _next_static_chunk_cancellations(console_errors)
+    successful_no_content_responses = _successful_no_content_responses(console_errors)
     unexpected_console_errors = _unexpected_console_errors(console_errors)
+    unexpected_context_pages = _unexpected_context_pages(blocked_external)
     _require(not blocked_external, f"unexpected external requests: {blocked_external}")
+    _require(
+        not unexpected_context_pages,
+        f"unexpected browser context pages: {unexpected_context_pages}",
+    )
     _require(not unexpected_console_errors, f"unexpected console errors: {unexpected_console_errors}")
     _require(not page_errors, f"uncaught page errors: {page_errors}")
     checks["local_only_network_and_console"] = True
@@ -7386,6 +9169,24 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
             "graph": mobile_graph_width,
         },
         "external_network_request_count": len(blocked_external),
+        "framework_prefetch_cancellation_count": len(framework_prefetch_cancellations),
+        "route_transition_cancellation_count": len(route_transition_cancellations),
+        "declared_cancelled_route_request_count": len(
+            declared_cancelled_route_requests
+        ),
+        "declared_route_read_cancellation_count": len(
+            declared_route_read_cancellations
+        ),
+        "route_transition_expectation_count": len(
+            console_errors.route_transition_expectations
+        ),
+        "bound_route_transition_request_count": sum(
+            len(expectation.get("bound_request_ids") or ())
+            for expectation in console_errors.route_transition_expectations
+        ),
+        "superseded_successful_read_count": len(superseded_successful_reads),
+        "next_static_chunk_cancellation_count": len(next_static_chunk_cancellations),
+        "successful_no_content_response_count": len(successful_no_content_responses),
         "console_error_count": len(unexpected_console_errors),
         "page_error_count": len(page_errors),
     }
@@ -7403,6 +9204,17 @@ def _verify_structured_reference_review_round_trip(
     checks: dict[str, bool] = {}
     context = browser.new_context(viewport={"width": 1440, "height": 900}, locale="zh-CN")
     _install_network_guard(context, blocked_external)
+    context.add_init_script(
+        """
+        window.IntersectionObserver = class {
+          constructor() {}
+          observe() {}
+          unobserve() {}
+          disconnect() {}
+          takeRecords() { return []; }
+        };
+        """
+    )
     page = _new_observed_page(
         context,
         console_errors,
@@ -7421,14 +9233,45 @@ def _verify_structured_reference_review_round_trip(
 
     page.on("request", track_reference_api_request)
 
-    page.goto(
-        f"{FRONTEND_URL}/zotero?page=1&candidate=all&unknown=discard&q=%20attention%20",
-        wait_until="domcontentloaded",
+    def selected_reference_url(selected_reference_id: str) -> str:
+        parsed = urlparse(page.url)
+        query = [
+            (key, value)
+            for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+            if key not in {"reference_id", "candidate"}
+        ]
+        query.append(("reference_id", selected_reference_id))
+        return parsed._replace(query=urlencode(query), fragment="").geturl()
+
+    def candidate_filter_url(candidate: str | None) -> str:
+        parsed = urlparse(page.url)
+        query = [
+            (key, value)
+            for key, value in parse_qsl(parsed.query, keep_blank_values=True)
+            if key != "candidate"
+        ]
+        if candidate is not None:
+            query.append(("candidate", candidate))
+        return parsed._replace(query=urlencode(query), fragment="").geturl()
+
+    inbound_reference_url = (
+        f"{FRONTEND_URL}/zotero?page=1&candidate=all&unknown=discard&q=%20attention%20"
     )
+    canonical_reference_url = f"{FRONTEND_URL}/zotero?q=attention"
+    inbound_canonicalization = _declare_expected_route_transition(
+        page,
+        destination_url=canonical_reference_url,
+        request_page_url=inbound_reference_url,
+        allow_speculative_cancellations=True,
+    )
+    page.goto(inbound_reference_url, wait_until="domcontentloaded")
     _wait_for_application_shell(page)
-    expect(page).to_have_url(f"{FRONTEND_URL}/zotero?q=attention", timeout=30_000)
+    expect(page).to_have_url(canonical_reference_url, timeout=30_000)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, inbound_canonicalization)
     checks["reference_inbound_url_canonicalization"] = True
 
+    initial_review_prefetch_anchor = console_errors._event_sequence
     page.goto(
         f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Farticles%3Fq%3DCRB",
         wait_until="domcontentloaded",
@@ -7445,6 +9288,18 @@ def _verify_structured_reference_review_round_trip(
     _require(bool(reference_id), "Article review action is missing its exact reference identity")
     source_row_id = source_row.get_attribute("id")
     _require(bool(source_row_id), "Article structured reference row is missing its focus target id")
+    review_destination_href = str(review_link.get_attribute("href") or "")
+    _require(
+        review_destination_href.startswith("/zotero?"),
+        f"Article review action has an invalid destination: {review_destination_href}",
+    )
+    review_link.hover()
+    _wait_for_exact_route_request_to_finish(
+        page,
+        console_errors,
+        source_url=f"{FRONTEND_URL}{review_destination_href}",
+        after_sequence=initial_review_prefetch_anchor,
+    )
     provenance_requests = {"count": 0}
     provenance_pattern = re.compile(
         rf".*/v1\.2/references/{re.escape(str(reference_id))}(?:\?.*)?$"
@@ -7452,7 +9307,13 @@ def _verify_structured_reference_review_round_trip(
 
     def provide_bounded_provenance(route) -> None:
         time.sleep(0.5)
-        response = route.fetch()
+        response = route.fetch(max_redirects=0)
+        _require(
+            response.url == route.request.url and 200 <= response.status < 300,
+            "bounded provenance source redirected or failed: "
+            f"expected_url={route.request.url} actual_url={response.url} "
+            f"status={response.status}",
+        )
         payload = response.json()
         base_evidence = dict(payload["evidence"][0])
         payload["record"]["source_count"] = 25
@@ -7495,6 +9356,10 @@ def _verify_structured_reference_review_round_trip(
     review_link.focus()
     expect(review_link).to_be_focused()
     _start_zotero_focus_trace(page)
+    initial_review_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{review_destination_href}",
+    )
     review_link.press("Enter")
 
     page.wait_for_function(
@@ -7515,6 +9380,9 @@ def _verify_structured_reference_review_round_trip(
     )
     expect(selected_detail).to_contain_text(CRB_TITLE)
     expect(selected_detail).to_contain_text("References")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, initial_review_transition)
+    selected_reference_deep_link_url = page.url
     _require(
         any("provenance_limit=20" in request for request in reference_api_requests),
         f"selected reference did not request the frozen maximum provenance bound: {reference_api_requests}",
@@ -7532,15 +9400,33 @@ def _verify_structured_reference_review_round_trip(
         "return_to=" in page.url and "%23structured-reference-" in page.url,
         f"reference deep link lost its bounded Article return: {page.url}",
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    reference_detail_reload = _declare_expected_route_transition(
+        page,
+        destination_url=page.url,
+        allow_speculative_cancellations=True,
+    )
     page.reload(wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     selected_detail = page.get_by_test_id("selected-reference-detail")
     expect(selected_detail).to_have_attribute("data-reference-id", str(reference_id), timeout=30_000)
     _require(provenance_requests["count"] == 2, "reload did not restore bounded provenance detail")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, reference_detail_reload)
     page.unroute(provenance_pattern, provide_bounded_provenance)
     checks["reference_exact_deep_link_and_detail_focus"] = True
     checks["reference_reload_and_bounded_provenance"] = True
 
+    initial_source_return_href = str(
+        page.get_by_role(
+            "link", name="Back to source reference", exact=True
+        ).get_attribute("href")
+        or ""
+    )
+    initial_source_return_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{initial_source_return_href}",
+    )
     page.get_by_role("link", name="Back to source reference", exact=True).click()
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     returned_row = page.locator(f'[data-reference-id="{reference_id}"]')
@@ -7548,15 +9434,23 @@ def _verify_structured_reference_review_round_trip(
     expect(returned_row).to_be_focused(timeout=30_000)
     _require_visible_focus(returned_row, "returned structured reference row")
     _require("reference_page=" not in page.url, f"page-one return persisted redundant state: {page.url}")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, initial_source_return_transition)
     reference_reader_session = page.get_by_role("button", name="End session", exact=True)
     expect(reference_reader_session).to_be_enabled(timeout=30_000)
     reference_reader_session.click()
     expect(reference_reader_session).to_be_disabled()
     checks["reference_owned_article_return_focus"] = True
 
+    selected_reference_back_transition = _declare_expected_route_transition(
+        page,
+        destination_url=selected_reference_deep_link_url,
+    )
     page.go_back()
     expect(selected_detail).to_have_attribute("data-reference-id", str(reference_id), timeout=30_000)
     selected_url = page.url
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, selected_reference_back_transition)
 
     selected_reference_payload = _api_json(
         context,
@@ -7568,13 +9462,17 @@ def _verify_structured_reference_review_round_trip(
         rf".*/v1\.2/articles/{re.escape(ATTENTION_ARTICLE_ID)}/references(?:\?.*)?$"
     )
     alternate_article_requests = {"count": 0}
+    alternate_review_page_url = {"value": ""}
+    alternate_failure_expectations: tuple[str, ...] = ()
 
     def provide_alternate_article_reference(route) -> None:
         alternate_article_requests["count"] += 1
         if alternate_article_requests["count"] == 2:
-            route.fulfill(
-                status=503,
-                content_type="application/json",
+            _fulfill_expected_http_error(
+                route,
+                console_errors=console_errors,
+                page=page,
+                expectation_ids=alternate_failure_expectations,
                 body=json.dumps({"detail": "intentional Article return verification failure"}),
             )
             return
@@ -7612,10 +9510,29 @@ def _verify_structured_reference_review_round_trip(
     ).first
     alternate_row = alternate_review_link.locator("xpath=ancestor::li[1]")
     expect(alternate_row).to_have_attribute("data-reference-id", str(reference_id))
+    alternate_review_href = alternate_review_link.get_attribute("href") or ""
+    _require(
+        alternate_review_href.startswith("/zotero?"),
+        f"alternate review link is not an internal Zotero URL: {alternate_review_href}",
+    )
+    alternate_review_page_url["value"] = f"{FRONTEND_URL}{alternate_review_href}"
+    alternate_failure_expectations = _declare_expected_http_errors(
+        console_errors,
+        label="P3-033 reference review",
+        page_url=alternate_review_page_url["value"],
+        source_url=(
+            f"{BROWSER_API_URL}/v1.2/articles/{ATTENTION_ARTICLE_ID}"
+            "/references?page=1&page_size=20"
+        ),
+    )
     alternate_session = page.get_by_role("button", name="End session", exact=True)
     expect(alternate_session).to_be_enabled(timeout=30_000)
     alternate_session.click()
     expect(alternate_session).to_be_disabled()
+    alternate_review_transition = _declare_expected_route_transition(
+        page,
+        destination_url=alternate_review_page_url["value"],
+    )
     alternate_review_link.click()
     page.wait_for_function(
         "expected => new URL(location.href).searchParams.get('reference_id') === expected",
@@ -7630,6 +9547,13 @@ def _verify_structured_reference_review_round_trip(
         "Return verification failed: intentional Article return verification failure",
         timeout=30_000,
     )
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=alternate_failure_expectations,
+    )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, alternate_review_transition)
     page.evaluate(
         """
         articleId => {
@@ -7666,6 +9590,11 @@ def _verify_structured_reference_review_round_trip(
     expect(alternate_return).to_have_attribute(
         "href", re.compile(rf"^/articles/{re.escape(ATTENTION_ARTICLE_ID)}\?")
     )
+    alternate_return_href = str(alternate_return.get_attribute("href") or "")
+    alternate_return_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}{alternate_return_href}",
+    )
     alternate_return.click()
     expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
         timeout=30_000
@@ -7676,6 +9605,8 @@ def _verify_structured_reference_review_round_trip(
         alternate_returned_row,
         "alternate source Article reference return",
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, alternate_return_transition)
     alternate_return_session = page.get_by_role("button", name="End session", exact=True)
     expect(alternate_return_session).to_be_enabled(timeout=30_000)
     alternate_return_session.click()
@@ -7729,6 +9660,7 @@ def _verify_structured_reference_review_round_trip(
         f"/articles/{CRB_ARTICLE_ID}?from=%2Farticles%3Fq%3DCRB&reference_page=2"
         f"#structured-reference-{reference_id}"
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
     page.goto(
         f"{FRONTEND_URL}/zotero?{urlencode({'reference_id': reference_id, 'return_to': page_two_return})}",
         wait_until="domcontentloaded",
@@ -8192,15 +10124,17 @@ def _verify_structured_reference_review_round_trip(
         )
 
     page.route(out_of_range_pattern, provide_out_of_range_page)
-    page.goto(
-        f"{FRONTEND_URL}/zotero?q=p3-033-out-of-range&page=100000",
-        wait_until="domcontentloaded",
+    out_of_range_url = f"{FRONTEND_URL}/zotero?q=p3-033-out-of-range&page=100000"
+    corrected_range_url = f"{FRONTEND_URL}/zotero?q=p3-033-out-of-range&page=3"
+    out_of_range_canonicalization = _declare_expected_route_transition(
+        page,
+        destination_url=corrected_range_url,
+        request_page_url=out_of_range_url,
     )
+    page.goto(out_of_range_url, wait_until="domcontentloaded")
     _wait_for_application_shell(page)
-    expect(page).to_have_url(
-        f"{FRONTEND_URL}/zotero?q=p3-033-out-of-range&page=3",
-        timeout=30_000,
-    )
+    expect(page).to_have_url(corrected_range_url, timeout=30_000)
+    _complete_expected_route_transition(page, out_of_range_canonicalization)
     expect(page.get_by_text("LAST AVAILABLE PAGE", exact=True)).to_be_visible(timeout=30_000)
     expect(page.get_by_text("No references match these filters.", exact=True)).to_have_count(0)
     _require(
@@ -8256,14 +10190,19 @@ def _verify_structured_reference_review_round_trip(
     expect(review_workspace.get_by_text("PAGINATION PAGE 1", exact=True)).to_be_visible(
         timeout=30_000
     )
-    result_pages.get_by_role("button", name="Next", exact=True).click()
-    expect(page).to_have_url(
-        f"{FRONTEND_URL}/zotero?q=p3-033-pagination&page=2", timeout=30_000
+    pagination_page_two_url = f"{FRONTEND_URL}/zotero?q=p3-033-pagination&page=2"
+    pagination_next_transition = _declare_expected_route_transition(
+        page,
+        destination_url=pagination_page_two_url,
     )
+    result_pages.get_by_role("button", name="Next", exact=True).click()
+    expect(page).to_have_url(pagination_page_two_url, timeout=30_000)
     expect(review_workspace.get_by_text("PAGINATION PAGE 2", exact=True)).to_be_visible(
         timeout=30_000
     )
     expect(results_heading).to_be_focused(timeout=30_000)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, pagination_next_transition)
     page.reload(wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     review_workspace = page.get_by_test_id("reference-review-workspace")
@@ -8274,24 +10213,41 @@ def _verify_structured_reference_review_round_trip(
     expect(review_workspace.get_by_text("PAGINATION PAGE 2", exact=True)).to_be_visible(
         timeout=30_000
     )
+    pagination_page_one_url = f"{FRONTEND_URL}/zotero?q=p3-033-pagination"
+    pagination_previous_transition = _declare_expected_route_transition(
+        page,
+        destination_url=pagination_page_one_url,
+    )
     result_pages.get_by_role("button", name="Previous", exact=True).click()
-    expect(page).to_have_url(f"{FRONTEND_URL}/zotero?q=p3-033-pagination", timeout=30_000)
+    expect(page).to_have_url(pagination_page_one_url, timeout=30_000)
     expect(review_workspace.get_by_text("PAGINATION PAGE 1", exact=True)).to_be_visible(
         timeout=30_000
     )
     expect(results_heading).to_be_focused(timeout=30_000)
-    page.go_back()
-    expect(page).to_have_url(
-        f"{FRONTEND_URL}/zotero?q=p3-033-pagination&page=2", timeout=30_000
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, pagination_previous_transition)
+    pagination_back_transition = _declare_expected_route_transition(
+        page,
+        destination_url=pagination_page_two_url,
     )
+    page.go_back()
+    expect(page).to_have_url(pagination_page_two_url, timeout=30_000)
     expect(review_workspace.get_by_text("PAGINATION PAGE 2", exact=True)).to_be_visible(
         timeout=30_000
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, pagination_back_transition)
+    pagination_forward_transition = _declare_expected_route_transition(
+        page,
+        destination_url=pagination_page_one_url,
+    )
     page.go_forward()
-    expect(page).to_have_url(f"{FRONTEND_URL}/zotero?q=p3-033-pagination", timeout=30_000)
+    expect(page).to_have_url(pagination_page_one_url, timeout=30_000)
     expect(review_workspace.get_by_text("PAGINATION PAGE 1", exact=True)).to_be_visible(
         timeout=30_000
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, pagination_forward_transition)
     page.unroute(pagination_pattern, provide_reference_pagination)
     checks["reference_pagination_reload_history"] = True
 
@@ -8303,6 +10259,11 @@ def _verify_structured_reference_review_round_trip(
     )
     review_workspace.get_by_label("Search references", exact=True).fill("10.1000")
     review_workspace.locator("#reference-type").select_option("doi")
+    filtered_url = f"{FRONTEND_URL}/zotero?q=10.1000&reference_type=doi"
+    filtered_transition = _declare_expected_route_transition(
+        page,
+        destination_url=filtered_url,
+    )
     review_workspace.get_by_role(
         "button", name="Search structured references", exact=True
     ).click()
@@ -8310,25 +10271,59 @@ def _verify_structured_reference_review_round_trip(
     expect(results_heading).to_be_focused(timeout=30_000)
     expect(page).to_have_url(re.compile(r"/zotero\?q=10\.1000&reference_type=doi"), timeout=30_000)
     expect(page.get_by_test_id("selected-reference-detail")).to_have_count(0)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, filtered_transition)
     filtered_url = page.url
+    filtered_back_transition = _declare_expected_route_transition(
+        page,
+        destination_url=selected_url,
+    )
     page.go_back()
     expect(page).to_have_url(selected_url, timeout=30_000)
     expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
         "data-reference-id", str(reference_id), timeout=30_000
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, filtered_back_transition)
+    filtered_forward_transition = _declare_expected_route_transition(
+        page,
+        destination_url=filtered_url,
+    )
     page.go_forward()
     expect(page).to_have_url(filtered_url, timeout=30_000)
     expect(page.get_by_role("heading", name="Reference results", exact=True)).to_be_visible()
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, filtered_forward_transition)
     checks["reference_filter_url_history_restore"] = True
 
     result_buttons = page.get_by_test_id("reference-result-list").locator("button")
     expect(result_buttons.first).to_be_visible(timeout=30_000)
+    selected_filter_reference_id = str(
+        result_buttons.first.get_attribute("data-reference-id") or ""
+    )
+    _require(
+        bool(selected_filter_reference_id),
+        "filtered reference result is missing its reference identity",
+    )
+    selected_filter_url = (
+        f"{filtered_url}&{urlencode({'reference_id': selected_filter_reference_id})}"
+    )
+    selected_filter_transition = _declare_expected_route_transition(
+        page,
+        destination_url=selected_filter_url,
+    )
     result_buttons.first.click()
     selected_detail = page.get_by_test_id("selected-reference-detail")
     expect(selected_detail).to_be_focused(timeout=30_000)
+    _complete_expected_route_transition(page, selected_filter_transition)
     requests_before_candidate_filter = len(reference_api_requests)
     review_workspace.get_by_label("Search references", exact=True).fill(
         "unsaved candidate navigation draft"
+    )
+    unmatched_url = f"{page.url}&candidate=unmatched"
+    unmatched_transition = _declare_expected_route_transition(
+        page,
+        destination_url=unmatched_url,
     )
     page.get_by_role("button", name="Unmatched", exact=True).click()
     unmatched_filter = page.get_by_role("button", name="Unmatched", exact=True)
@@ -8347,6 +10342,7 @@ def _verify_structured_reference_review_round_trip(
     )
     checks["reference_candidate_filter_focus_and_url"] = True
     checks["reference_candidate_filter_is_local"] = True
+    _complete_expected_route_transition(page, unmatched_transition)
     unmatched_url = page.url
     page.reload(wait_until="domcontentloaded")
     _wait_for_application_shell(page)
@@ -8354,28 +10350,51 @@ def _verify_structured_reference_review_round_trip(
     expect(review_workspace.get_by_role("button", name="Unmatched", exact=True)).to_have_attribute(
         "aria-pressed", "true", timeout=30_000
     )
+    candidate_filter_back_transition = _declare_expected_route_transition(
+        page,
+        destination_url=selected_filter_url,
+        request_page_url=selected_filter_url,
+    )
     page.go_back()
     expect(review_workspace.get_by_role("button", name="All", exact=True)).to_have_attribute(
         "aria-pressed", "true", timeout=30_000
+    )
+    _complete_expected_route_transition(page, candidate_filter_back_transition)
+    candidate_filter_forward_transition = _declare_expected_route_transition(
+        page,
+        destination_url=unmatched_url,
+        request_page_url=unmatched_url,
     )
     page.go_forward()
     expect(page).to_have_url(unmatched_url, timeout=30_000)
     expect(review_workspace.get_by_role("button", name="Unmatched", exact=True)).to_have_attribute(
         "aria-pressed", "true", timeout=30_000
     )
+    _complete_expected_route_transition(page, candidate_filter_forward_transition)
     checks["reference_candidate_filter_reload_history"] = True
 
     failure_pattern = re.compile(r".*/v1\.2/references\?.*")
     failed_attempts = {"count": 0}
+    reference_list_failures = _declare_expected_http_errors(
+        console_errors,
+        label="P3-033 reference review",
+        page_url=f"{FRONTEND_URL}/zotero?q=p3-033-failure",
+        source_url=(
+            f"{BROWSER_API_URL}/v1.2/references?page=1&page_size=20&q=p3-033-failure"
+        ),
+        count=2,
+    )
 
     def fail_reference_results_once(route) -> None:
         parsed = urlparse(route.request.url)
         query = parse_qs(parsed.query).get("q", [""])[0]
         if query == "p3-033-failure" and failed_attempts["count"] < 2:
             failed_attempts["count"] += 1
-            route.fulfill(
-                status=503,
-                content_type="application/json",
+            _fulfill_expected_http_error(
+                route,
+                console_errors=console_errors,
+                page=page,
+                expectation_ids=reference_list_failures,
                 body=json.dumps(
                     {
                         "detail": (
@@ -8391,12 +10410,19 @@ def _verify_structured_reference_review_round_trip(
     page.route(failure_pattern, fail_reference_results_once)
     review_workspace.get_by_label("Search references", exact=True).fill("p3-033-failure")
     review_workspace.locator("#reference-type").select_option("")
+    failure_results_url = f"{FRONTEND_URL}/zotero?q=p3-033-failure"
+    failure_results_transition = _declare_expected_route_transition(
+        page,
+        destination_url=failure_results_url,
+    )
     review_workspace.get_by_role(
         "button", name="Search structured references", exact=True
     ).click()
     expect(review_workspace.get_by_role("alert")).to_contain_text(
         "intentional P3-033 reference result failure 1", timeout=30_000
     )
+    expect(page).to_have_url(failure_results_url, timeout=30_000)
+    _complete_expected_route_transition(page, failure_results_transition)
     page.evaluate(
         """
         () => {
@@ -8422,6 +10448,11 @@ def _verify_structured_reference_review_round_trip(
     expect(review_workspace.get_by_role("alert")).to_contain_text(
         "intentional P3-033 reference result failure 2", timeout=30_000
     )
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=reference_list_failures,
+    )
     page.evaluate(
         """
         () => {
@@ -8439,10 +10470,18 @@ def _verify_structured_reference_review_round_trip(
     _require(failed_attempts["count"] == 2, "reference failure/retry probe did not intercept twice")
     page.unroute(failure_pattern, fail_reference_results_once)
     checks["reference_result_failure_retry_truth"] = True
+    _wait_for_page_requests_to_settle(page, console_errors)
 
+    reference_reset_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/zotero",
+        allow_speculative_cancellations=True,
+    )
     page.goto(f"{FRONTEND_URL}/zotero", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
     review_workspace = page.get_by_test_id("reference-review-workspace")
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, reference_reset_transition)
     page.evaluate(
         """
         async apiBase => {
@@ -8474,6 +10513,11 @@ def _verify_structured_reference_review_round_trip(
         "http://localhost:8000",
     )
     review_workspace.get_by_label("Search references", exact=True).fill("p3-033-slow-list")
+    slow_list_url = f"{FRONTEND_URL}/zotero?q=p3-033-slow-list"
+    slow_list_transition = _declare_expected_route_transition(
+        page,
+        destination_url=slow_list_url,
+    )
     review_workspace.get_by_role(
         "button", name="Search structured references", exact=True
     ).click()
@@ -8481,16 +10525,25 @@ def _verify_structured_reference_review_round_trip(
         "() => window.__p3033ListRequests?.includes('p3-033-slow-list')",
         timeout=30_000,
     )
+    expect(page).to_have_url(slow_list_url, timeout=30_000)
+    _complete_expected_route_transition(page, slow_list_transition)
     expect(review_workspace.get_by_role(
         "button", name="Search structured references", exact=True
     )).to_be_enabled(
         timeout=30_000
     )
     review_workspace.get_by_label("Search references", exact=True).fill("p3-033-fast-list")
+    fast_list_url = f"{FRONTEND_URL}/zotero?q=p3-033-fast-list"
+    fast_list_transition = _declare_expected_route_transition(
+        page,
+        destination_url=fast_list_url,
+    )
     review_workspace.get_by_role(
         "button", name="Search structured references", exact=True
     ).click()
     expect(review_workspace.get_by_text("CURRENT LIST B", exact=True)).to_be_visible(timeout=30_000)
+    expect(page).to_have_url(fast_list_url, timeout=30_000)
+    _complete_expected_route_transition(page, fast_list_transition)
     page.wait_for_timeout(1_000)
     expect(review_workspace.get_by_text("STALE LIST A", exact=True)).to_have_count(0)
     _require(
@@ -8509,6 +10562,7 @@ def _verify_structured_reference_review_round_trip(
         """
     )
     checks["reference_list_request_ownership"] = True
+    _wait_for_page_requests_to_settle(page, console_errors)
 
     page.goto(f"{FRONTEND_URL}/zotero", wait_until="domcontentloaded")
     _wait_for_application_shell(page)
@@ -8599,14 +10653,24 @@ def _verify_structured_reference_review_round_trip(
         )
 
     page.route(zero_candidate_pattern, provide_zero_candidates)
+    zero_candidate_url = (
+        f"{FRONTEND_URL}/zotero?{urlencode({'reference_id': race_a})}"
+    )
+    zero_candidate_transition = _declare_expected_route_transition(
+        page,
+        destination_url=zero_candidate_url,
+        allow_speculative_cancellations=True,
+    )
     page.goto(
-        f"{FRONTEND_URL}/zotero?{urlencode({'reference_id': race_a})}",
+        zero_candidate_url,
         wait_until="domcontentloaded",
     )
     _wait_for_application_shell(page)
     expect(page.get_by_text(
         "No Zotero match candidates were recorded for this reference.", exact=True
     )).to_be_visible(timeout=30_000)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, zero_candidate_transition)
     page.unroute(zero_candidate_pattern, provide_zero_candidates)
     checks["reference_zero_candidate_state"] = True
 
@@ -8623,6 +10687,12 @@ def _verify_structured_reference_review_round_trip(
 
     wrong_detail_attempts = {"identity": False, "retry_failure": False}
     detail_pattern = re.compile(r".*/v1\.2/references/[^/?]+(?:\?.*)?$")
+    detail_retry_failure = _declare_expected_http_errors(
+        console_errors,
+        label="P3-033 reference review",
+        page_url=f"{FRONTEND_URL}/zotero?{urlencode({'reference_id': race_a})}",
+        source_url=f"{BROWSER_API_URL}/v1.2/references/{race_a}?provenance_limit=20",
+    )
 
     def return_wrong_detail_identity_once(route) -> None:
         selected_id = unquote(urlparse(route.request.url).path.rsplit("/", 1)[-1])
@@ -8632,16 +10702,24 @@ def _verify_structured_reference_review_round_trip(
         if wrong_detail_attempts["identity"]:
             if not wrong_detail_attempts["retry_failure"]:
                 wrong_detail_attempts["retry_failure"] = True
-                route.fulfill(
-                    status=503,
-                    content_type="application/json",
+                _fulfill_expected_http_error(
+                    route,
+                    console_errors=console_errors,
+                    page=page,
+                    expectation_ids=detail_retry_failure,
                     body=json.dumps({"detail": "intentional detail retry failure"}),
                 )
                 return
             route.continue_()
             return
         wrong_detail_attempts["identity"] = True
-        response = route.fetch()
+        response = route.fetch(max_redirects=0)
+        _require(
+            response.url == route.request.url and 200 <= response.status < 300,
+            "reference detail source redirected or failed: "
+            f"expected_url={route.request.url} actual_url={response.url} "
+            f"status={response.status}",
+        )
         payload = response.json()
         payload["record"]["reference_id"] = "unexpected-detail-identity"
         route.fulfill(
@@ -8651,10 +10729,15 @@ def _verify_structured_reference_review_round_trip(
         )
 
     page.route(detail_pattern, return_wrong_detail_identity_once)
+    wrong_detail_selection = _declare_expected_route_transition(
+        page,
+        destination_url=selected_reference_url(race_a),
+    )
     race_buttons.nth(0).click()
     expect(review_workspace.get_by_role("alert")).to_contain_text(
         "unexpected identity", timeout=30_000
     )
+    _complete_expected_route_transition(page, wrong_detail_selection)
     page.evaluate(
         """
         referenceId => {
@@ -8680,6 +10763,11 @@ def _verify_structured_reference_review_round_trip(
     )
     expect(review_workspace.get_by_role("alert")).to_contain_text(
         "intentional detail retry failure", timeout=30_000
+    )
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=detail_retry_failure,
     )
     page.evaluate(
         """
@@ -8709,6 +10797,14 @@ def _verify_structured_reference_review_round_trip(
     candidate_identity_pattern = re.compile(
         r".*/v1\.2/references/[^/?]+/zotero-candidates(?:\?.*)?$"
     )
+    candidate_retry_failure = _declare_expected_http_errors(
+        console_errors,
+        label="P3-033 reference review",
+        page_url=f"{FRONTEND_URL}/zotero?{urlencode({'reference_id': race_b})}",
+        source_url=(
+            f"{BROWSER_API_URL}/v1.2/references/{race_b}/zotero-candidates?limit=20"
+        ),
+    )
 
     def return_wrong_candidate_identity_once(route) -> None:
         selected_id = unquote(urlparse(route.request.url).path.split("/")[-2])
@@ -8718,16 +10814,24 @@ def _verify_structured_reference_review_round_trip(
         if wrong_candidate_attempts["identity"]:
             if not wrong_candidate_attempts["retry_failure"]:
                 wrong_candidate_attempts["retry_failure"] = True
-                route.fulfill(
-                    status=503,
-                    content_type="application/json",
+                _fulfill_expected_http_error(
+                    route,
+                    console_errors=console_errors,
+                    page=page,
+                    expectation_ids=candidate_retry_failure,
                     body=json.dumps({"detail": "intentional candidate retry failure"}),
                 )
                 return
             route.continue_()
             return
         wrong_candidate_attempts["identity"] = True
-        response = route.fetch()
+        response = route.fetch(max_redirects=0)
+        _require(
+            response.url == route.request.url and 200 <= response.status < 300,
+            "reference candidate source redirected or failed: "
+            f"expected_url={route.request.url} actual_url={response.url} "
+            f"status={response.status}",
+        )
         payload = response.json()
         payload["reference_id"] = "unexpected-candidate-identity"
         route.fulfill(
@@ -8737,6 +10841,10 @@ def _verify_structured_reference_review_round_trip(
         )
 
     page.route(candidate_identity_pattern, return_wrong_candidate_identity_once)
+    wrong_candidate_selection = _declare_expected_route_transition(
+        page,
+        destination_url=selected_reference_url(race_b),
+    )
     race_buttons.nth(1).click()
     expect(selected_a).to_have_count(0, timeout=1_000)
     expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
@@ -8745,6 +10853,7 @@ def _verify_structured_reference_review_round_trip(
     expect(review_workspace.get_by_role("alert")).to_contain_text(
         "unexpected reference identity", timeout=30_000
     )
+    _complete_expected_route_transition(page, wrong_candidate_selection)
     page.evaluate(
         """
         referenceId => {
@@ -8771,6 +10880,11 @@ def _verify_structured_reference_review_round_trip(
     expect(review_workspace.get_by_role("alert")).to_contain_text(
         "intentional candidate retry failure", timeout=30_000
     )
+    _wait_for_declared_http_errors(
+        page,
+        console_errors,
+        expectation_ids=candidate_retry_failure,
+    )
     page.evaluate(
         """
         () => {
@@ -8785,7 +10899,16 @@ def _verify_structured_reference_review_round_trip(
     expect(all_filter).to_be_focused(timeout=30_000)
     _require_focus_in_viewport(all_filter, "candidate identity retry destination")
     expect(review_workspace.get_by_test_id("candidate-result-list")).to_be_visible(timeout=30_000)
+    expect(page.get_by_text("Loading Zotero candidates...", exact=True)).to_have_count(
+        0, timeout=30_000
+    )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    expect(all_filter).to_be_focused(timeout=30_000)
     matched_filter = review_workspace.get_by_role("button", name="Matched", exact=True)
+    matched_candidate_transition = _declare_expected_route_transition(
+        page,
+        destination_url=candidate_filter_url("matched"),
+    )
     matched_filter.click()
     expect(
         review_workspace.get_by_text(
@@ -8793,6 +10916,8 @@ def _verify_structured_reference_review_round_trip(
         )
     ).to_be_visible(timeout=30_000)
     expect(matched_filter).to_be_focused(timeout=30_000)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, matched_candidate_transition)
     _require(
         all(wrong_candidate_attempts.values()),
         f"candidate identity/retry probes did not both run: {wrong_candidate_attempts}",
@@ -8856,6 +10981,12 @@ def _verify_structured_reference_review_round_trip(
         """,
         {"raceA": race_a, "raceB": race_b},
     )
+    delayed_race_a_route_anchor = console_errors._event_sequence
+    delayed_race_a_url = selected_reference_url(race_a)
+    delayed_race_a_transition = _declare_expected_route_transition(
+        page,
+        destination_url=delayed_race_a_url,
+    )
     race_buttons.nth(0).click()
     page.wait_for_function(
         "expected => new URL(location.href).searchParams.get('reference_id') === expected",
@@ -8872,12 +11003,38 @@ def _verify_structured_reference_review_round_trip(
         arg=race_a,
         timeout=30_000,
     )
+    _wait_for_exact_route_request_to_finish(
+        page,
+        console_errors,
+        source_url=delayed_race_a_url,
+        after_sequence=delayed_race_a_route_anchor,
+        expect_prefetch=False,
+        require_observed_request=True,
+        allow_response_backed_route_abort=True,
+    )
+    _complete_expected_route_transition(page, delayed_race_a_transition)
     second_race_button = review_workspace.get_by_test_id("reference-result-list").locator("button").nth(1)
+    current_race_b_route_anchor = console_errors._event_sequence
+    current_race_b_url = selected_reference_url(race_b)
+    current_race_b_transition = _declare_expected_route_transition(
+        page,
+        destination_url=current_race_b_url,
+    )
     second_race_button.click()
     expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
         "data-reference-id", race_b, timeout=30_000
     )
     expect(page.get_by_text("CURRENT CANDIDATE B", exact=True)).to_be_visible(timeout=30_000)
+    _wait_for_exact_route_request_to_finish(
+        page,
+        console_errors,
+        source_url=current_race_b_url,
+        after_sequence=current_race_b_route_anchor,
+        expect_prefetch=False,
+        require_observed_request=True,
+        allow_response_backed_route_abort=True,
+    )
+    _complete_expected_route_transition(page, current_race_b_transition)
     page.wait_for_timeout(1_000)
     expect(page.get_by_test_id("selected-reference-detail")).to_have_attribute(
         "data-reference-id", race_b
@@ -8895,6 +11052,7 @@ def _verify_structured_reference_review_round_trip(
 
     page.evaluate("window.__p3033LongResponsiveContent = true")
     responsive_filters = ("Matched", "Needs review", "Unmatched", "Matched")
+    responsive_candidate_values = ("matched", "ambiguous", "unmatched", "matched")
     for index, viewport in enumerate((
         {"width": 1440, "height": 900},
         {"width": 390, "height": 844},
@@ -8904,6 +11062,12 @@ def _verify_structured_reference_review_round_trip(
         page.set_viewport_size(viewport)
         target_index = index % 2
         target_id = (race_a, race_b)[target_index]
+        responsive_selection_route_anchor = console_errors._event_sequence
+        responsive_selection_url = selected_reference_url(target_id)
+        responsive_selection_transition = _declare_expected_route_transition(
+            page,
+            destination_url=responsive_selection_url,
+        )
         review_workspace.get_by_test_id("reference-result-list").locator("button").nth(target_index).click()
         responsive_detail = page.get_by_test_id("selected-reference-detail")
         expect(responsive_detail).to_have_attribute("data-reference-id", target_id, timeout=30_000)
@@ -8915,6 +11079,16 @@ def _verify_structured_reference_review_round_trip(
         expect(responsive_candidates).to_contain_text(
             "LONG_CANDIDATE_FIELD_", timeout=30_000
         )
+        _wait_for_exact_route_request_to_finish(
+            page,
+            console_errors,
+            source_url=responsive_selection_url,
+            after_sequence=responsive_selection_route_anchor,
+            expect_prefetch=False,
+            require_observed_request=True,
+            allow_response_backed_route_abort=True,
+        )
+        _complete_expected_route_transition(page, responsive_selection_transition)
         _require_visible_focus(responsive_detail, f"{viewport['width']}x{viewport['height']} reference detail")
         _require_focus_in_viewport(responsive_detail, f"{viewport['width']}x{viewport['height']} reference detail")
         width_with_candidates = _document_width(page)
@@ -8926,8 +11100,26 @@ def _verify_structured_reference_review_round_trip(
         filter_button = review_workspace.get_by_role(
             "button", name=responsive_filters[index], exact=True
         )
+        responsive_filter_route_anchor = console_errors._event_sequence
+        responsive_filter_url = candidate_filter_url(
+            responsive_candidate_values[index]
+        )
+        responsive_filter_transition = _declare_expected_route_transition(
+            page,
+            destination_url=responsive_filter_url,
+        )
         filter_button.click()
         expect(filter_button).to_be_focused(timeout=30_000)
+        _wait_for_exact_route_request_to_finish(
+            page,
+            console_errors,
+            source_url=responsive_filter_url,
+            after_sequence=responsive_filter_route_anchor,
+            expect_prefetch=False,
+            require_observed_request=True,
+            allow_response_backed_route_abort=True,
+        )
+        _complete_expected_route_transition(page, responsive_filter_transition)
         _require_focus_in_viewport(
             filter_button,
             f"{viewport['width']}x{viewport['height']} candidate filter",
@@ -9079,6 +11271,10 @@ def _verify_zotero_links_panel_integrity(
         recent_section = page.locator("section").filter(
             has=page.get_by_role("heading", name="Recent Reading", exact=True)
         )
+        crb_reader_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
+        )
         recent_section.get_by_role(
             "link", name=re.compile(rf"^{re.escape(CRB_TITLE)}")
         ).click()
@@ -9086,6 +11282,8 @@ def _verify_zotero_links_panel_integrity(
             CRB_TITLE,
             timeout=30_000,
         )
+        _wait_for_page_requests_to_settle(page, console_errors)
+        _complete_expected_route_transition(page, crb_reader_transition)
 
     cross_context = new_context(
         settings={
@@ -9125,6 +11323,10 @@ def _verify_zotero_links_panel_integrity(
         "link", name=re.compile(rf"^{re.escape(CRB_TITLE)}")
     )
     expect(crb_history_link).to_be_visible(timeout=30_000)
+    cross_article_transition = _declare_expected_route_transition(
+        cross_page,
+        destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
+    )
     crb_history_link.click()
     expect(cross_page.locator("article#article-start > h1")).to_have_text(
         CRB_TITLE,
@@ -9134,6 +11336,8 @@ def _verify_zotero_links_panel_integrity(
     expect(crb_panel.get_by_role("heading", name=kay_title, exact=True)).to_be_visible(
         timeout=30_000
     )
+    _wait_for_page_requests_to_settle(cross_page, console_errors)
+    _complete_expected_route_transition(cross_page, cross_article_transition)
     cross_page.wait_for_timeout(900)
     expect(
         crb_panel.get_by_role("heading", name="Attention Is All You Need", exact=True)
@@ -9725,6 +11929,13 @@ def _verify_zotero_links_panel_integrity(
         page, "GET", f"/zotero/links/{ATTENTION_ARTICLE_ID}"
     )
     page.evaluate("window.__p3032.deleteDelayMs = 300")
+    _declare_expected_no_content_response(
+        page,
+        source_url=(
+            f"{BROWSER_API_URL}/zotero/links/{ATTENTION_ARTICLE_ID}/ABCD1234"
+        ),
+        method="DELETE",
+    )
     confirm.focus()
     _start_zotero_focus_trace(page)
     confirm.press("Enter")
@@ -9778,6 +11989,13 @@ def _verify_zotero_links_panel_integrity(
           window.__p3032.failNextLinksGet = true;
         }
         """
+    )
+    _declare_expected_no_content_response(
+        page,
+        source_url=(
+            f"{BROWSER_API_URL}/zotero/links/{ATTENTION_ARTICLE_ID}/EFGH5678"
+        ),
+        method="DELETE",
     )
     kay_unlink.click()
     panel.get_by_role("button", name=f"Unlink {kay_title} permanently", exact=True).click()
@@ -10399,10 +12617,12 @@ def _zotero_panel_controller_script(settings: dict[str, object]) -> str:
         if (delay) await wait(delay);
         if (isLinkPost && state.dropNextLinkPost) {
           state.dropNextLinkPost = false;
+          await response.clone().arrayBuffer();
           throw new TypeError("intentional P3-032 post-persistence Link response loss");
         }
         if (isDelete && state.dropNextDelete) {
           state.dropNextDelete = false;
+          await response.clone().arrayBuffer();
           throw new TypeError("intentional P3-032 post-persistence Unlink response loss");
         }
         return response;
@@ -11165,6 +13385,13 @@ def _verify_reader_learning_mutation_integrity(
     )
     baseline_note.get_by_role("button", name="Delete", exact=True).click()
     expect(baseline_note.get_by_test_id("note-delete-confirmation")).to_be_visible()
+    _wait_for_page_requests_to_settle(page, console_errors)
+    initial_attention_transition = _declare_expected_route_transition(
+        page,
+        destination_url=(
+            f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}?from=%2Fsession"
+        ),
+    )
     page.get_by_role("link", name=f"Next in session: {ATTENTION_TITLE}", exact=True).click()
     attention_heading = page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
     expect(attention_heading).to_be_visible(timeout=30_000)
@@ -11174,18 +13401,38 @@ def _verify_reader_learning_mutation_integrity(
         not transition_delete_requests,
         f"Article switch issued an unconfirmed DELETE: {transition_delete_requests}",
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, initial_attention_transition)
 
+    initial_crb_back_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+    )
     page.go_back(wait_until="domcontentloaded")
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     expect(page.get_by_test_id("notes-controls")).to_have_attribute(
         "aria-busy", "false", timeout=30_000
     )
     expect(page.get_by_test_id("note-delete-confirmation")).to_have_count(0)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, initial_crb_back_transition)
+    initial_attention_forward_transition = _declare_expected_route_transition(
+        page,
+        destination_url=(
+            f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}?from=%2Fsession"
+        ),
+    )
     page.go_forward(wait_until="domcontentloaded")
     expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
         timeout=30_000
     )
     expect(page.get_by_test_id("note-delete-confirmation")).to_have_count(0)
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, initial_attention_forward_transition)
+    second_crb_back_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+    )
     page.go_back(wait_until="domcontentloaded")
     expect(page.get_by_role("heading", name=CRB_TITLE, exact=True)).to_be_visible(timeout=30_000)
     expect(page.get_by_test_id("notes-controls")).to_have_attribute(
@@ -11194,6 +13441,8 @@ def _verify_reader_learning_mutation_integrity(
     baseline_note = page.get_by_test_id("learning-note").filter(
         has_text=baseline_note_content
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _complete_expected_route_transition(page, second_crb_back_transition)
     baseline_note.get_by_role("button", name="Delete", exact=True).click()
     expect(baseline_note.get_by_test_id("note-delete-confirmation")).to_be_visible()
     page.reload(wait_until="domcontentloaded")
@@ -11304,6 +13553,12 @@ def _verify_reader_learning_mutation_integrity(
     page.get_by_label("New learning note", exact=True).fill(stale_text)
     page.get_by_role("button", name="Add note", exact=True).click()
     page.wait_for_function("() => window.__p3029MutationGate?.pendingCount === 1", timeout=30_000)
+    stale_note_attention_transition = _declare_expected_route_transition(
+        page,
+        destination_url=(
+            f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}?from=%2Fsession"
+        ),
+    )
     page.get_by_role("link", name=f"Next in session: {ATTENTION_TITLE}", exact=True).click()
     attention_heading = page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
     expect(attention_heading).to_be_visible(timeout=30_000)
@@ -11314,6 +13569,7 @@ def _verify_reader_learning_mutation_integrity(
     expect(page.get_by_label("New learning note", exact=True)).to_have_value("")
     expect(page.get_by_test_id("note-mutation-status")).to_have_text("")
     expect(page.get_by_test_id("note-mutation-error")).to_have_text("")
+    _complete_expected_route_transition(page, stale_note_attention_transition)
     _release_mutation_response_gate(page)
     page.wait_for_timeout(250)
     expect(attention_heading).to_be_focused()
@@ -11350,6 +13606,10 @@ def _verify_reader_learning_mutation_integrity(
         "() => window.__p3029MutationGate?.pendingCount === 1",
         timeout=30_000,
     )
+    stale_bookmark_crb_transition = _declare_expected_route_transition(
+        page,
+        destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}?from=%2Fsession",
+    )
     page.get_by_role("link", name=f"Previous in session: {CRB_TITLE}", exact=True).click()
     crb_heading = page.get_by_role("heading", name=CRB_TITLE, exact=True)
     expect(crb_heading).to_be_visible(timeout=30_000)
@@ -11361,6 +13621,7 @@ def _verify_reader_learning_mutation_integrity(
     expect(page.get_by_text("This article is not bookmarked.", exact=True)).to_be_visible()
     expect(page.get_by_test_id("bookmark-mutation-status")).to_have_text("")
     expect(page.get_by_test_id("bookmark-mutation-error")).to_have_text("")
+    _complete_expected_route_transition(page, stale_bookmark_crb_transition)
     _release_mutation_response_gate(page)
     page.wait_for_timeout(250)
     expect(crb_heading).to_be_focused()
@@ -11384,6 +13645,12 @@ def _verify_reader_learning_mutation_integrity(
         )
         _require(restore_crb_response.status == 200, "stale bookmark destination restore failed")
     _restore_mutation_response_gate(page)
+    final_attention_transition = _declare_expected_route_transition(
+        page,
+        destination_url=(
+            f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}?from=%2Fsession"
+        ),
+    )
     page.get_by_role("link", name=f"Next in session: {ATTENTION_TITLE}", exact=True).click()
     attention_heading = page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)
     expect(attention_heading).to_be_visible(timeout=30_000)
@@ -11391,6 +13658,7 @@ def _verify_reader_learning_mutation_integrity(
     expect(page.get_by_test_id("bookmark-controls")).to_have_attribute(
         "aria-busy", "false", timeout=30_000
     )
+    _complete_expected_route_transition(page, final_attention_transition)
 
     baseline_bookmarks = _api_json(context, "GET", "/learning/bookmarks")
     baseline_bookmark_count = int(baseline_bookmarks["total"])
@@ -11560,7 +13828,11 @@ def _verify_reader_note_delete_confirmation_viewports(
         expect(note).to_have_count(1)
         delete_trigger = note.get_by_role("button", name="Delete", exact=True)
         delete_trigger.scroll_into_view_if_needed()
-        _install_mutation_response_gate(page, "/learning/notes/", "DELETE")
+        _install_mutation_response_gate(
+            page,
+            f"/learning/notes/{viewport_note_id}",
+            "DELETE",
+        )
         delete_trigger.focus()
         delete_trigger.press(" ")
         confirmation = note.get_by_test_id("note-delete-confirmation")
@@ -11751,6 +14023,12 @@ def _assert_note_delete_focus_continuity(
 
 
 def _install_mutation_response_gate(page, endpoint: str, method: str) -> None:
+    if method == "DELETE":
+        _declare_expected_no_content_response(
+            page,
+            source_url=f"{BROWSER_API_URL}{endpoint}",
+            method=method,
+        )
     page.evaluate(
         """
         ({ endpoint, method }) => {
@@ -11869,6 +14147,12 @@ def _install_one_shot_mutation_response_loss(
     method: str,
     message: str,
 ) -> None:
+    if method == "DELETE":
+        _declare_expected_no_content_response(
+            page,
+            source_url=f"{BROWSER_API_URL}{endpoint}",
+            method=method,
+        )
     page.evaluate(
         """
         ({ endpoint, method, message }) => {
@@ -11888,7 +14172,8 @@ def _install_one_shot_mutation_response_loss(
               window.__p3029FailureGate.callCount += 1;
               if (!rejected) {
                 rejected = true;
-                await originalFetch(...args);
+                const response = await originalFetch(...args);
+                await response.clone().arrayBuffer();
                 throw new Error(message);
               }
             }
@@ -11915,17 +14200,161 @@ def _restore_one_shot_mutation_failure(page) -> None:
 
 
 def _install_network_guard(context, blocked_external: list[str]) -> None:
-    allowed_hosts = {"127.0.0.1", "localhost", "::1"}
+    _require(
+        not context.pages,
+        "network guard must be installed before any context page is created",
+    )
+    context.add_init_script(
+        """
+        (() => {
+          class BlockedWorker {
+            constructor() {
+              throw new Error("Worker network surfaces are disabled in Product E2E");
+            }
+          }
+          Object.defineProperties(globalThis, {
+            Worker: {
+              configurable: false,
+              enumerable: true,
+              value: BlockedWorker,
+              writable: false,
+            },
+            SharedWorker: {
+              configurable: false,
+              enumerable: true,
+              value: BlockedWorker,
+              writable: false,
+            },
+            __scientificSpacesWorkerNetworkBlocked: {
+              configurable: false,
+              value: true,
+              writable: false,
+            },
+          });
+        })();
+        """
+    )
+    if isinstance(blocked_external, NetworkGuardLog):
+        tracker: dict[str, object] = {
+            "context": context,
+            "pages": [],
+            "expected_page_ids": set(),
+        }
+        blocked_external.page_trackers.append(tracker)
+        setattr(context, "_scientific_spaces_page_tracker", tracker)
+
+        def track_page(page) -> None:
+            opener = page.opener()
+            pages = tracker["pages"]
+            assert isinstance(pages, list)
+            pages.append(
+                {
+                    "page_id": _page_identity(page),
+                    "opener_id": _page_identity(opener) if opener is not None else None,
+                    "page": page,
+                }
+            )
+
+        context.on("page", track_page)
+
+    def record_blocked(value: str) -> None:
+        blocked_external.append(value)
+
+    def audit_request_origin(request) -> None:
+        parsed = urlparse(request.url)
+        if parsed.scheme in {"http", "https"} and not _is_allowed_http_url(
+            request.url
+        ):
+            record_blocked(request.url)
+
+    context.on("request", audit_request_origin)
 
     def route_request(route) -> None:
         parsed = urlparse(route.request.url)
-        if parsed.scheme in {"about", "blob", "data"} or parsed.hostname in allowed_hosts:
+        if parsed.scheme in {"about", "blob", "data"} or _is_allowed_http_url(
+            route.request.url
+        ):
             route.continue_()
             return
-        blocked_external.append(route.request.url)
+        record_blocked(route.request.url)
         route.abort("blockedbyclient")
 
+    def route_web_socket(web_socket) -> None:
+        if _is_allowed_websocket_url(web_socket.url):
+            web_socket.connect_to_server()
+            return
+        record_blocked(f"websocket:{web_socket.url}")
+        web_socket.close(code=1008, reason="external network blocked by Product E2E")
+
     context.route("**/*", route_request)
+    context.route_web_socket("**/*", route_web_socket)
+
+
+def _mark_expected_popup(
+    blocked_external: list[str],
+    context,
+    page,
+) -> None:
+    _require(
+        isinstance(blocked_external, NetworkGuardLog),
+        "popup expectation requires the structured network guard",
+    )
+    assert isinstance(blocked_external, NetworkGuardLog)
+    tracker = next(
+        (
+            item
+            for item in blocked_external.page_trackers
+            if item["context"] is context
+        ),
+        None,
+    )
+    _require(tracker is not None, "popup context was not registered")
+    assert tracker is not None
+    page_id = _page_identity(page)
+    pages = tracker["pages"]
+    expected_page_ids = tracker["expected_page_ids"]
+    assert isinstance(pages, list) and isinstance(expected_page_ids, set)
+    _require(
+        any(item["page_id"] == page_id for item in pages),
+        f"expected page was not observed by the context guard: {page_id}",
+    )
+    expected_page_ids.add(page_id)
+
+
+def _mark_expected_context_page(context, page) -> None:
+    tracker = getattr(context, "_scientific_spaces_page_tracker", None)
+    _require(tracker is not None, "page context was not registered")
+    page_id = _page_identity(page)
+    pages = tracker["pages"]
+    expected_page_ids = tracker["expected_page_ids"]
+    assert isinstance(pages, list) and isinstance(expected_page_ids, set)
+    _require(
+        any(item["page_id"] == page_id for item in pages),
+        f"expected page was not observed by the context guard: {page_id}",
+    )
+    expected_page_ids.add(page_id)
+
+
+def _unexpected_context_pages(blocked_external: list[str]) -> list[dict[str, object]]:
+    if not isinstance(blocked_external, NetworkGuardLog):
+        return []
+    unexpected: list[dict[str, object]] = []
+    for tracker in blocked_external.page_trackers:
+        pages = tracker["pages"]
+        expected_page_ids = tracker["expected_page_ids"]
+        assert isinstance(pages, list) and isinstance(expected_page_ids, set)
+        for item in pages:
+            if item["page_id"] in expected_page_ids:
+                continue
+            page = item["page"]
+            unexpected.append(
+                {
+                    "page_id": item["page_id"],
+                    "opener_id": item["opener_id"],
+                    "url": page.url if not page.is_closed() else "<closed>",
+                }
+            )
+    return unexpected
 
 
 def verify_backend_restart_persistence(
@@ -11994,76 +14423,1397 @@ def _new_observed_page(
     page_errors: list[str],
     *,
     label: str,
-    scoped_console_errors: list[dict[str, str]] | None = None,
 ):
     page = context.new_page()
+    _mark_expected_context_page(context, page)
 
     def capture_console(message) -> None:
         if message.type != "error":
             return
-        console_errors.append(message.text)
-        if scoped_console_errors is not None:
-            scoped_console_errors.append(
-                {
-                    "text": message.text,
-                    "url": str(message.location.get("url") or ""),
-                }
-            )
+        _capture_console_error(console_errors, message, label=label, page=page)
 
     page.on("console", capture_console)
+    if isinstance(console_errors, ConsoleErrorLog):
+        console_errors.observe_http_errors(page, label=label)
     page.on("pageerror", lambda error: _capture_page_error(page_errors, label, page, error))
     return page
 
 
-def _consume_expected_404_console_errors(
+def _console_error_evidence(message, *, label: str, page) -> dict[str, object]:
+    producer_page = message.page
+    worker = message.worker
+    listener_page_id = _page_identity(page)
+    producer_page_id = (
+        _page_identity(producer_page) if producer_page is not None else ""
+    )
+    return {
+        "expectation_id": None,
+        "network_request_id": None,
+        "label": label,
+        "listener_page_id": listener_page_id,
+        "listener_page_url": page.url,
+        "page_id": producer_page_id,
+        "page_url": producer_page.url if producer_page is not None else "",
+        "same_page": producer_page_id == listener_page_id,
+        "worker_url": worker.url if worker is not None else "",
+        "text": message.text,
+        "url": str(message.location.get("url") or ""),
+    }
+
+
+def _capture_console_error(
     console_errors: list[str],
+    message,
     *,
-    start: int,
-    scoped_events: list[dict[str, str]],
-    response_urls: list[str],
-    port: int,
-    path: str,
     label: str,
+    page,
 ) -> None:
-    shared_events = console_errors[start:]
-    scoped_text = [event["text"] for event in scoped_events]
-    _require(
-        shared_events == scoped_text,
-        f"{label} did not exclusively own its console window: "
-        f"shared={shared_events}, scoped={scoped_events}",
-    )
-    _require(
-        scoped_events
-        and all(
-            "status of 404" in event["text"]
-            and _matches_loopback_endpoint(event["url"], port=port, path=path)
-            for event in scoped_events
-        ),
-        f"unexpected console output during {label}: {scoped_events}",
-    )
-    _require(
-        response_urls
-        and all(
-            _matches_loopback_endpoint(url, port=port, path=path)
-            for url in response_urls
-        ),
-        f"unexpected response during {label}: {response_urls}",
-    )
-    del console_errors[start:]
+    if message.type != "error":
+        return
+    if isinstance(console_errors, ConsoleErrorLog):
+        console_errors.capture(message, label=label, page=page)
+        return
+    console_errors.append(message.text)
 
 
-def _matches_loopback_endpoint(url: str, *, port: int, path: str) -> bool:
+def _fulfill_expected_http_error(
+    route,
+    *,
+    console_errors: ConsoleErrorLog,
+    page,
+    expectation_ids: tuple[str, ...],
+    body: str,
+) -> None:
+    request = route.request
+    expectation = console_errors.bind_http_error_request(
+        expectation_ids,
+        request=request,
+        page=page,
+    )
+    route.fulfill(
+        status=int(expectation["status"]),
+        headers={
+            "content-type": "application/json",
+            CONTROLLED_HTTP_EXPECTATION_HEADER: str(expectation["expectation_id"]),
+        },
+        body=body,
+    )
+
+
+def _forward_expected_http_error(
+    route,
+    *,
+    console_errors: ConsoleErrorLog,
+    page,
+    expectation_ids: tuple[str, ...],
+) -> None:
+    expectation = console_errors.bind_http_error_request(
+        expectation_ids,
+        request=route.request,
+        page=page,
+    )
+    response = route.fetch(max_redirects=0)
+    _require(
+        response.url == route.request.url
+        and response.status == expectation["status"],
+        "forwarded controlled HTTP request returned an unexpected status: "
+        f"expected_url={route.request.url} actual_url={response.url} "
+        f"expected_status={expectation['status']} actual_status={response.status}",
+    )
+    headers = dict(response.headers)
+    headers[CONTROLLED_HTTP_EXPECTATION_HEADER] = str(
+        expectation["expectation_id"]
+    )
+    route.fulfill(response=response, headers=headers)
+
+
+def _declare_expected_http_errors(
+    console_errors: ConsoleErrorLog,
+    *,
+    label: str,
+    page_url: str,
+    source_url: str,
+    method: str = "GET",
+    count: int = 1,
+) -> tuple[str, ...]:
+    return console_errors.declare_http_errors(
+        label=label,
+        page_url=page_url,
+        source_url=source_url,
+        status=503,
+        method=method,
+        resource_type="fetch",
+        navigation_request=False,
+        count=count,
+    )
+
+
+def _declare_expected_no_content_response(
+    page,
+    *,
+    source_url: str,
+    method: str,
+) -> str:
+    console_errors = getattr(page, "_scientific_spaces_console_error_log", None)
+    _require(
+        isinstance(console_errors, ConsoleErrorLog),
+        "204 response expectation requires the structured console ledger",
+    )
+    assert isinstance(console_errors, ConsoleErrorLog)
+    return console_errors.declare_no_content_response(
+        page=page,
+        source_url=source_url,
+        method=method,
+    )
+
+
+def _declare_expected_route_transition(
+    page,
+    *,
+    destination_url: str,
+    request_page_url: str | None = None,
+    allow_speculative_cancellations: bool = False,
+    cancelled_route_urls: tuple[str, ...] = (),
+    cancelled_read_urls: tuple[str, ...] = (),
+) -> str:
+    console_errors = getattr(page, "_scientific_spaces_console_error_log", None)
+    _require(
+        isinstance(console_errors, ConsoleErrorLog),
+        "route transition expectation requires the structured console ledger",
+    )
+    assert isinstance(console_errors, ConsoleErrorLog)
+    return console_errors.declare_route_transition(
+        page=page,
+        destination_url=destination_url,
+        request_page_url=request_page_url,
+        allow_speculative_cancellations=allow_speculative_cancellations,
+        cancelled_route_urls=cancelled_route_urls,
+        cancelled_read_urls=cancelled_read_urls,
+    )
+
+
+def _complete_expected_route_transition(page, expectation_id: str) -> None:
+    console_errors = getattr(page, "_scientific_spaces_console_error_log", None)
+    _require(
+        isinstance(console_errors, ConsoleErrorLog),
+        "route transition completion requires the structured console ledger",
+    )
+    assert isinstance(console_errors, ConsoleErrorLog)
+    console_errors.complete_route_transition(
+        page=page,
+        expectation_id=expectation_id,
+    )
+
+
+def _wait_for_page_requests_to_settle(
+    page,
+    console_errors: ConsoleErrorLog,
+    *,
+    timeout_ms: int = 10_000,
+    quiet_ms: int = 750,
+) -> None:
+    """Require a stable quiet window before an intentional page transition."""
+    page_id = _page_identity(page)
+    deadline = time.monotonic() + timeout_ms / 1_000
+    quiet_since: float | None = None
+    while True:
+        pending = [
+            {
+                "source_url": evidence.get("source_url"),
+                "method": evidence.get("method"),
+                "resource_type": evidence.get("resource_type"),
+                "response_status": evidence.get("response_status"),
+            }
+            for evidence in console_errors.request_evidence.values()
+            if evidence.get("page_id") == page_id
+            and _is_product_browser_request(evidence)
+            and evidence.get("finished") is not True
+            and evidence.get("failure") is None
+        ]
+        now = time.monotonic()
+        if pending:
+            quiet_since = None
+        elif quiet_since is None:
+            quiet_since = now
+        elif now - quiet_since >= quiet_ms / 1_000:
+            return
+        if now >= deadline:
+            raise E2EFailure(
+                "page requests did not settle before an intentional transition: "
+                f"page={page.url} pending={pending}"
+            )
+        page.wait_for_timeout(50)
+
+
+def _wait_for_exact_route_request_to_finish(
+    page,
+    console_errors: ConsoleErrorLog,
+    *,
+    source_url: str,
+    after_sequence: int,
+    timeout_ms: int = 3_000,
+    discovery_ms: int = 500,
+    expect_prefetch: bool = True,
+    require_observed_request: bool = False,
+    allow_response_backed_route_abort: bool = False,
+) -> dict[str, object] | None:
+    _require(
+        not allow_response_backed_route_abort or require_observed_request,
+        "response-backed route abort handling requires an observed route request",
+    )
+    page_id = _page_identity(page)
+    route_key = _route_document_key(source_url)
+    started_at = time.monotonic()
+    deadline = started_at + timeout_ms / 1_000
+    discovery_deadline = started_at + discovery_ms / 1_000
+    while True:
+        candidates = [
+            evidence
+            for evidence in console_errors.request_evidence.values()
+            if evidence.get("page_id") == page_id
+            and isinstance(evidence.get("start_sequence"), int)
+            and int(evidence["start_sequence"]) > after_sequence
+            and evidence.get("rsc_request") is True
+            and evidence.get("method") == "GET"
+            and evidence.get("resource_type") in {"fetch", "xhr"}
+            and evidence.get("navigation_request") is False
+            and evidence.get("main_frame") is True
+            and not evidence.get("service_worker_url")
+            and (
+                evidence.get("next_router_prefetch") is True
+                or evidence.get("purpose") == "prefetch"
+                or str(evidence.get("sec_purpose") or "").split(";", 1)[0]
+                == "prefetch"
+            )
+            is expect_prefetch
+            and _route_document_key(str(evidence.get("source_url") or ""))
+            == route_key
+        ]
+        _require(
+            len(candidates) <= 1,
+            "exact route request produced ambiguous matching lifecycles: "
+            f"source={source_url} candidates={candidates}",
+        )
+        if candidates:
+            evidence = candidates[0]
+            if evidence.get("finished") is True:
+                status = evidence.get("response_status")
+                _require(
+                    evidence.get("failure") is None
+                    and isinstance(status, int)
+                    and 200 <= status < 400
+                    and evidence.get("response_url")
+                    == evidence.get("source_url"),
+                    "exact route request did not finish successfully: "
+                    f"{evidence}",
+                )
+                return evidence
+            if evidence.get("failure") is not None:
+                status = evidence.get("response_status")
+                navigation_generation = evidence.get("navigation_generation")
+                current_navigation_generation = (
+                    console_errors._page_navigation_generations.get(page_id, 0)
+                )
+                response_backed_route_abort_candidate = (
+                    allow_response_backed_route_abort
+                    and evidence.get("failure") == "net::ERR_ABORTED"
+                    and isinstance(status, int)
+                    and 200 <= status < 400
+                    and evidence.get("response_url")
+                    == evidence.get("source_url")
+                    and isinstance(navigation_generation, int)
+                )
+                if (
+                    response_backed_route_abort_candidate
+                    and _route_document_key(page.url) == route_key
+                    and current_navigation_generation > navigation_generation
+                ):
+                    return evidence
+                if not response_backed_route_abort_candidate:
+                    raise E2EFailure(
+                        "exact route request failed before its lifecycle was proven: "
+                        f"{evidence}"
+                    )
+        now = time.monotonic()
+        if not candidates and now >= discovery_deadline:
+            if require_observed_request:
+                raise E2EFailure(
+                    "required exact route request did not start: "
+                    f"source={source_url} expect_prefetch={expect_prefetch}"
+                )
+            return None
+        if now >= deadline:
+            raise E2EFailure(
+                "exact route request did not reach a terminal state: "
+                f"source={source_url} candidates={candidates}"
+            )
+        page.wait_for_timeout(25)
+
+
+def _wait_for_declared_http_errors(
+    page,
+    console_errors: ConsoleErrorLog,
+    *,
+    expectation_ids: tuple[str, ...],
+    timeout_ms: int = 5_000,
+) -> None:
+    _require(
+        len(expectation_ids) == len(set(expectation_ids)),
+        f"controlled HTTP declaration IDs are not unique: {expectation_ids}",
+    )
+    selected = [
+        item
+        for item in console_errors.expectations
+        if item["expectation_id"] in expectation_ids
+    ]
+    _require(
+        {item["expectation_id"] for item in selected} == set(expectation_ids),
+        f"controlled HTTP declarations are missing: {expectation_ids}",
+    )
+    unbound_requests = [
+        item["expectation_id"]
+        for item in selected
+        if item["request_id"] is None
+    ]
+    _require(
+        not unbound_requests,
+        "controlled HTTP declarations were not bound to Playwright requests: "
+        f"{unbound_requests}",
+    )
+    deadline = time.monotonic() + timeout_ms / 1_000
+    while any(item["network_request_id"] is None for item in selected):
+        if time.monotonic() >= deadline:
+            break
+        page.wait_for_timeout(10)
+    unbound_network_requests = [
+        item["expectation_id"]
+        for item in selected
+        if item["network_request_id"] is None
+    ]
+    _require(
+        not unbound_network_requests,
+        "controlled HTTP declarations were not bound to CDP requests: "
+        f"{unbound_network_requests}",
+    )
+    expected_responses = Counter(_expected_response_key(item) for item in selected)
+    expected_console = Counter(_expected_console_key(item) for item in selected)
+    _require(expected_responses, f"no controlled HTTP errors were declared: {expectation_ids}")
+    completed_responses: Counter[tuple[object, ...]] = Counter()
+    observed_console: Counter[tuple[object, ...]] = Counter()
+    while True:
+        completed_responses = Counter(
+            _expected_response_key(
+                {
+                    "expectation_id": item["expectation_id"],
+                    "request_id": item["request_id"],
+                    "network_request_id": item["network_request_id"],
+                    "label": item["label"],
+                    "page_id": item["page_id"],
+                    "page_url": item["page_url"],
+                    "source_url": item["source_url"],
+                    "status": item["status"],
+                    "method": item["method"],
+                    "resource_type": item["resource_type"],
+                    "navigation_request": item["navigation_request"],
+                }
+            )
+            for item in console_errors.response_evidence
+            if item["expectation_id"] in expectation_ids
+            and item["finished"] is True
+            and item["failure"] is None
+        )
+        selected_bases = {_console_base_key(item) for item in selected}
+        active_same_base_expectations = [
+            item
+            for item in console_errors.expectations
+            if item["request_id"] is not None
+            and _console_base_key(item) in selected_bases
+        ]
+        observed_console, _console_failures = _reconcile_http_console_evidence(
+            console_errors,
+            active_same_base_expectations,
+            include_unrelated=False,
+        )
+        if not (expected_responses - completed_responses) and not (
+            expected_console - observed_console
+        ):
+            return
+        if time.monotonic() >= deadline:
+            break
+        page.wait_for_timeout(10)
+    _require(
+        False,
+        "controlled HTTP evidence did not settle: "
+        f"missing_responses={list((expected_responses - completed_responses).elements())}, "
+        f"missing_console={list((expected_console - observed_console).elements())}, "
+        "response_evidence="
+        f"{[item for item in console_errors.response_evidence if item['expectation_id'] in expectation_ids]}, "
+        "console_evidence="
+        f"{[item for item in console_errors.evidence if item.get('label') in {selected_item['label'] for selected_item in selected}]}, "
+        "cdp_console_evidence="
+        f"{[item for item in console_errors.cdp_console_evidence if item.get('label') in {selected_item['label'] for selected_item in selected}]}",
+    )
+
+
+def _request_identity(request) -> str:
+    implementation = getattr(request, "_impl_obj", request)
+    return str(getattr(implementation, "_guid", id(implementation)))
+
+
+def _page_identity(page) -> str:
+    implementation = getattr(page, "_impl_obj", page)
+    return str(getattr(implementation, "_guid", id(implementation)))
+
+
+def _header_value(headers: object, name: str) -> str:
+    if not isinstance(headers, dict):
+        return ""
+    expected_name = name.casefold()
+    for key, value in headers.items():
+        if str(key).casefold() == expected_name:
+            return str(value)
+    return ""
+
+
+def _is_product_browser_request(evidence: dict[str, object]) -> bool:
+    return _is_allowed_http_url(str(evidence.get("source_url") or ""))
+
+
+def _is_allowed_http_url(url: str) -> bool:
     parsed = urlparse(url)
+    try:
+        origin = (parsed.scheme, parsed.hostname, parsed.port)
+    except ValueError:
+        return False
     return (
-        parsed.scheme == "http"
-        and parsed.hostname in {"127.0.0.1", "localhost"}
-        and parsed.username is None
+        parsed.username is None
         and parsed.password is None
-        and parsed.port == port
-        and parsed.path == path
-        and not parsed.params
-        and not parsed.query
-        and not parsed.fragment
+        and origin in ALLOWED_HTTP_ORIGINS
+    )
+
+
+def _is_allowed_websocket_url(url: str) -> bool:
+    parsed = urlparse(url)
+    try:
+        origin = (parsed.scheme, parsed.hostname, parsed.port)
+    except ValueError:
+        return False
+    return (
+        parsed.username is None
+        and parsed.password is None
+        and origin in ALLOWED_WEBSOCKET_ORIGINS
+    )
+
+
+def _is_allowed_frontend_url(url: str) -> bool:
+    parsed = urlparse(url)
+    try:
+        return (
+            parsed.username is None
+            and parsed.password is None
+            and (parsed.scheme, parsed.hostname, parsed.port)
+            == ("http", "127.0.0.1", 3000)
+        )
+    except ValueError:
+        return False
+
+
+def _network_url_key(
+    url: str,
+) -> tuple[str, str, int | None, str, str, str, str]:
+    parsed = urlparse(url)
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    return (
+        parsed.scheme,
+        parsed.hostname or "",
+        port,
+        parsed.path or "/",
+        parsed.params,
+        parsed.query,
+        parsed.fragment,
+    )
+
+
+def _route_query_parts(query: str) -> tuple[str, ...]:
+    return tuple(
+        part
+        for part in query.split("&")
+        if part and unquote_plus(part.partition("=")[0]) != "_rsc"
+    )
+
+
+def _route_url_key(
+    url: str,
+) -> tuple[str, str, int | None, str, str, tuple[str, ...], str]:
+    parsed = urlparse(url)
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    return (
+        parsed.scheme,
+        parsed.hostname or "",
+        port,
+        parsed.path or "/",
+        parsed.params,
+        _route_query_parts(parsed.query),
+        parsed.fragment,
+    )
+
+
+def _route_document_key(
+    url: str,
+) -> tuple[str, str, int | None, str, str, tuple[str, ...]]:
+    return _route_url_key(url)[:-1]
+
+
+def _static_chunk_matches_declared_route(
+    source_url: str,
+    expectation: dict[str, object],
+) -> bool:
+    source_path = unquote(urlparse(source_url).path)
+    if not source_path.startswith("/_next/static/chunks/"):
+        return False
+    declared_routes = {
+        str(expectation.get("request_page_url") or ""),
+        str(expectation.get("destination_url") or ""),
+        *(
+            str(url)
+            for url in expectation.get("cancelled_route_urls") or ()
+        ),
+    }
+    return any(
+        source_path in _next_route_exclusive_static_chunk_paths(route_url)
+        for route_url in declared_routes
+    )
+
+
+def _route_transition_request_kind(
+    messages: ConsoleErrorLog,
+    expectation: dict[str, object],
+    evidence: dict[str, object],
+) -> str | None:
+    declaration_sequence = expectation.get("declaration_sequence")
+    start_sequence = evidence.get("start_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    allowed_page_keys = {
+        _route_document_key(str(expectation.get("request_page_url") or "")),
+        _route_document_key(str(expectation.get("destination_url") or "")),
+    }
+    if not (
+        expectation.get("page_id") == evidence.get("page_id")
+        and expectation.get("label") == evidence.get("label")
+        and _is_allowed_frontend_url(str(evidence.get("page_url") or ""))
+        and isinstance(declaration_sequence, int)
+        and isinstance(start_sequence, int)
+        and isinstance(terminal_sequence, int)
+        and declaration_sequence < start_sequence < terminal_sequence
+        and evidence.get("method") == "GET"
+        and evidence.get("resource_type") in {"fetch", "xhr", "script"}
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+        and evidence.get("finished") is not True
+        and evidence.get("failure") == "net::ERR_ABORTED"
+    ):
+        return None
+    source_url = str(evidence.get("source_url") or "")
+    if not _is_allowed_http_url(source_url):
+        return None
+    evidence_page_key = _route_document_key(
+        str(evidence.get("page_url") or "")
+    )
+    page_id = str(evidence.get("page_id") or "")
+    navigation_generation = evidence.get("navigation_generation")
+    matching_navigation_events = [
+        event
+        for event in messages._page_navigation_events.get(page_id, ())
+        if isinstance(navigation_generation, int)
+        and event.get("generation") == navigation_generation
+        and isinstance(event.get("sequence"), int)
+        and declaration_sequence < int(event["sequence"]) < start_sequence
+        and _route_document_key(str(event.get("url") or ""))
+        in allowed_page_keys
+    ]
+    # Playwright can briefly report a stale frame URL around a client route.
+    # Accept that observation only when the ledger contains one earlier,
+    # same-generation navigation event for an exact transition endpoint.
+    if evidence_page_key not in allowed_page_keys and len(matching_navigation_events) != 1:
+        return None
+    parsed_source = urlparse(source_url)
+    if parsed_source.port == 8000:
+        if evidence.get("resource_type") not in {"fetch", "xhr"}:
+            return None
+        declared_read_keys = {
+            _network_url_key(str(url))
+            for url in expectation.get("cancelled_read_urls") or ()
+        }
+        return (
+            "explicit_read"
+            if _network_url_key(source_url) in declared_read_keys
+            else None
+        )
+    if parsed_source.port != 3000:
+        return None
+    if evidence.get("rsc_request") is True:
+        if evidence.get("resource_type") not in {"fetch", "xhr"}:
+            return None
+        source_route_key = _route_document_key(source_url)
+        explicit_prefetch = (
+            evidence.get("next_router_prefetch") is True
+            or evidence.get("purpose") == "prefetch"
+            or str(evidence.get("sec_purpose") or "").split(";", 1)[0]
+            == "prefetch"
+        )
+        if explicit_prefetch:
+            return (
+                "speculative"
+                if expectation.get("allow_speculative_cancellations") is True
+                else None
+            )
+        declared_cancelled_route_keys = {
+            _route_document_key(str(url))
+            for url in expectation.get("cancelled_route_urls") or ()
+        }
+        if source_route_key in declared_cancelled_route_keys:
+            return "cancelled_route"
+        declared_route_keys = {
+            _route_document_key(str(expectation.get("request_page_url") or "")),
+            _route_document_key(str(expectation.get("destination_url") or "")),
+        }
+        if source_route_key not in declared_route_keys:
+            return None
+        return "route"
+    if (
+        evidence.get("resource_type") == "script"
+        and expectation.get("allow_speculative_cancellations") is True
+        and _static_chunk_matches_declared_route(source_url, expectation)
+    ):
+        return "speculative"
+    return None
+
+
+def _completed_route_transition_for_request(
+    messages: ConsoleErrorLog,
+    evidence: dict[str, object],
+    *,
+    speculative: bool = False,
+    explicit_read: bool = False,
+    cancelled_route: bool = False,
+) -> dict[str, object] | None:
+    start_sequence = evidence.get("start_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    if not (
+        isinstance(start_sequence, int)
+        and isinstance(terminal_sequence, int)
+        and start_sequence < terminal_sequence
+    ):
+        return None
+    request_ids = [
+        request_id
+        for request_id, candidate in messages.request_evidence.items()
+        if candidate is evidence
+    ]
+    if len(request_ids) != 1:
+        return None
+    request_id = request_ids[0]
+    _require(
+        sum((speculative, explicit_read, cancelled_route)) <= 1,
+        "route request classification selected conflicting request kinds",
+    )
+    if explicit_read:
+        expected_kind = "explicit_read"
+    elif cancelled_route:
+        expected_kind = "cancelled_route"
+    elif speculative:
+        expected_kind = "speculative"
+    else:
+        expected_kind = "route"
+    candidates = []
+    for expectation in messages.route_transition_expectations:
+        declaration_sequence = expectation.get("declaration_sequence")
+        completion_sequence = expectation.get("completion_sequence")
+        if not (
+            isinstance(declaration_sequence, int)
+            and declaration_sequence < start_sequence
+            and isinstance(completion_sequence, int)
+            and terminal_sequence < completion_sequence
+            and _route_url_key(str(expectation.get("completion_url") or ""))
+            == _route_url_key(str(expectation.get("destination_url") or ""))
+            and request_id in (expectation.get("bound_request_ids") or ())
+            and _route_transition_request_kind(messages, expectation, evidence)
+            == expected_kind
+        ):
+            continue
+        candidates.append(expectation)
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: int(item["declaration_sequence"]), reverse=True)
+    selected = candidates[0]
+    later_declarations = [
+        item
+        for item in messages.route_transition_expectations
+        if item.get("page_id") == evidence.get("page_id")
+        and isinstance(item.get("declaration_sequence"), int)
+        and int(selected["declaration_sequence"])
+        < int(item["declaration_sequence"])
+        < start_sequence
+    ]
+    return None if later_declarations else selected
+
+
+def _has_intentional_page_close_lifecycle(
+    messages: ConsoleErrorLog,
+    evidence: dict[str, object],
+) -> bool:
+    page_id = evidence.get("page_id")
+    start_sequence = evidence.get("start_sequence")
+    response_sequence = evidence.get("response_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    close_intent_sequence = messages._page_close_intent_sequences.get(
+        str(page_id)
+    )
+    if not (
+        isinstance(page_id, str)
+        and bool(page_id)
+        and page_id in messages._closed_page_ids
+        and isinstance(start_sequence, int)
+        and isinstance(close_intent_sequence, int)
+        and start_sequence < close_intent_sequence
+        and response_sequence is None
+    ):
+        return False
+    failure = evidence.get("failure")
+    if failure == "net::ERR_ABORTED":
+        return (
+            isinstance(terminal_sequence, int)
+            and close_intent_sequence < terminal_sequence
+        )
+    return (
+        failure is None
+        and evidence.get("finished") is not True
+        and terminal_sequence is None
+    )
+
+
+def _is_explicit_next_prefetch_abort(evidence: dict[str, object]) -> bool:
+    source_url = str(evidence.get("source_url") or "")
+    parsed = urlparse(source_url)
+    start_sequence = evidence.get("start_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    start_monotonic = evidence.get("start_monotonic")
+    terminal_monotonic = evidence.get("terminal_monotonic")
+    explicit_prefetch = (
+        evidence.get("rsc_request") is True
+        and (
+            evidence.get("next_router_prefetch") is True
+            or evidence.get("purpose") == "prefetch"
+            or str(evidence.get("sec_purpose") or "").split(";", 1)[0]
+            == "prefetch"
+        )
+    )
+    return bool(
+        explicit_prefetch
+        and _is_allowed_frontend_url(source_url)
+        and parsed.port == 3000
+        and "_rsc" in parse_qs(parsed.query, keep_blank_values=True)
+        and bool(evidence.get("label"))
+        and bool(evidence.get("page_id"))
+        and evidence.get("method") == "GET"
+        and evidence.get("resource_type") == "fetch"
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+        and evidence.get("response_status") is None
+        and evidence.get("finished") is not True
+        and evidence.get("failure") == "net::ERR_ABORTED"
+        and isinstance(start_sequence, int)
+        and isinstance(terminal_sequence, int)
+        and start_sequence < terminal_sequence
+        and isinstance(start_monotonic, float)
+        and isinstance(terminal_monotonic, float)
+        and 0 <= terminal_monotonic - start_monotonic <= 1.0
+    )
+
+
+def _is_framework_prefetch_cancellation(
+    messages: ConsoleErrorLog,
+    evidence: dict[str, object],
+) -> bool:
+    parsed = urlparse(str(evidence.get("source_url") or ""))
+    status = evidence.get("response_status")
+    failure = evidence.get("failure")
+    explicit_prefetch = (
+        evidence.get("rsc_request") is True
+        and (
+            evidence.get("next_router_prefetch") is True
+            or evidence.get("purpose") == "prefetch"
+            or str(evidence.get("sec_purpose") or "").split(";", 1)[0]
+            == "prefetch"
+        )
+    )
+    base_contract = (
+        bool(evidence.get("label"))
+        and _is_allowed_http_url(str(evidence.get("source_url") or ""))
+        and parsed.port == 3000
+        and "_rsc" in parse_qs(parsed.query, keep_blank_values=True)
+        and explicit_prefetch
+        and evidence.get("method") == "GET"
+        and evidence.get("resource_type") == "fetch"
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+    )
+    if not base_contract:
+        return False
+    if status is None:
+        return (
+            _is_explicit_next_prefetch_abort(evidence)
+        ) or (
+            failure is None
+            and _has_intentional_page_close_lifecycle(messages, evidence)
+        )
+    start_sequence = evidence.get("start_sequence")
+    response_sequence = evidence.get("response_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    start_monotonic = evidence.get("start_monotonic")
+    terminal_monotonic = evidence.get("terminal_monotonic")
+    return (
+        isinstance(status, int)
+        and 200 <= status < 400
+        and evidence.get("response_url") == evidence.get("source_url")
+        and failure == "net::ERR_ABORTED"
+        and evidence.get("finished") is not True
+        and isinstance(start_sequence, int)
+        and isinstance(response_sequence, int)
+        and isinstance(terminal_sequence, int)
+        and start_sequence < response_sequence < terminal_sequence
+        and isinstance(start_monotonic, float)
+        and isinstance(terminal_monotonic, float)
+        and 0 <= terminal_monotonic - start_monotonic <= 1.0
+    )
+
+
+def _framework_prefetch_cancellations(
+    messages: ConsoleErrorLog,
+) -> list[dict[str, object]]:
+    return [
+        evidence
+        for evidence in messages.request_evidence.values()
+        if _is_product_browser_request(evidence)
+        and _is_framework_prefetch_cancellation(messages, evidence)
+    ]
+
+
+def _is_route_transition_cancellation(
+    messages: ConsoleErrorLog,
+    evidence: dict[str, object],
+) -> bool:
+    source_url = str(evidence.get("source_url") or "")
+    declared_rsc_transition = (
+        evidence.get("rsc_request") is True
+        and evidence.get("next_router_prefetch") is not True
+        and _is_allowed_frontend_url(source_url)
+        and _completed_route_transition_for_request(messages, evidence) is not None
+    )
+    status = evidence.get("response_status")
+    start_sequence = evidence.get("start_sequence")
+    response_sequence = evidence.get("response_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    response_lifecycle_valid = status is None or (
+        isinstance(status, int)
+        and 200 <= status < 400
+        and evidence.get("response_url") == evidence.get("source_url")
+        and isinstance(start_sequence, int)
+        and isinstance(response_sequence, int)
+        and isinstance(terminal_sequence, int)
+        and start_sequence < response_sequence < terminal_sequence
+    )
+    return (
+        bool(evidence.get("label"))
+        and bool(evidence.get("page_id"))
+        and evidence.get("method") == "GET"
+        and evidence.get("resource_type") in {"fetch", "xhr"}
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+        and evidence.get("finished") is not True
+        and evidence.get("failure") == "net::ERR_ABORTED"
+        and response_lifecycle_valid
+        and declared_rsc_transition
+    )
+
+
+def _route_transition_cancellations(
+    messages: ConsoleErrorLog,
+) -> list[dict[str, object]]:
+    return [
+        evidence
+        for evidence in messages.request_evidence.values()
+        if _is_product_browser_request(evidence)
+        and _is_route_transition_cancellation(messages, evidence)
+    ]
+
+
+def _is_declared_cancelled_route_request(
+    messages: ConsoleErrorLog,
+    evidence: dict[str, object],
+) -> bool:
+    source_url = str(evidence.get("source_url") or "")
+    status = evidence.get("response_status")
+    start_sequence = evidence.get("start_sequence")
+    response_sequence = evidence.get("response_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    response_lifecycle_valid = status is None or (
+        isinstance(status, int)
+        and 200 <= status < 400
+        and evidence.get("response_url") == source_url
+        and isinstance(start_sequence, int)
+        and isinstance(response_sequence, int)
+        and isinstance(terminal_sequence, int)
+        and start_sequence < response_sequence < terminal_sequence
+    )
+    return bool(
+        bool(evidence.get("label"))
+        and bool(evidence.get("page_id"))
+        and evidence.get("rsc_request") is True
+        and _is_allowed_frontend_url(source_url)
+        and evidence.get("method") == "GET"
+        and evidence.get("resource_type") in {"fetch", "xhr"}
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+        and evidence.get("finished") is not True
+        and evidence.get("failure") == "net::ERR_ABORTED"
+        and response_lifecycle_valid
+        and _completed_route_transition_for_request(
+            messages,
+            evidence,
+            cancelled_route=True,
+        )
+        is not None
+    )
+
+
+def _declared_cancelled_route_requests(
+    messages: ConsoleErrorLog,
+) -> list[dict[str, object]]:
+    return [
+        evidence
+        for evidence in messages.request_evidence.values()
+        if _is_product_browser_request(evidence)
+        and _is_declared_cancelled_route_request(messages, evidence)
+    ]
+
+
+def _is_declared_route_read_cancellation(
+    messages: ConsoleErrorLog,
+    evidence: dict[str, object],
+) -> bool:
+    return (
+        bool(evidence.get("label"))
+        and bool(evidence.get("page_id"))
+        and evidence.get("method") == "GET"
+        and evidence.get("resource_type") in {"fetch", "xhr"}
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+        and evidence.get("response_status") is None
+        and evidence.get("finished") is not True
+        and evidence.get("failure") == "net::ERR_ABORTED"
+        and _completed_route_transition_for_request(
+            messages,
+            evidence,
+            explicit_read=True,
+        )
+        is not None
+    )
+
+
+def _declared_route_read_cancellations(
+    messages: ConsoleErrorLog,
+) -> list[dict[str, object]]:
+    return [
+        evidence
+        for evidence in messages.request_evidence.values()
+        if _is_product_browser_request(evidence)
+        and _is_declared_route_read_cancellation(messages, evidence)
+    ]
+
+
+def _is_reconcilable_aborted_read(evidence: dict[str, object]) -> bool:
+    start_sequence = evidence.get("start_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    return bool(
+        isinstance(start_sequence, int)
+        and isinstance(terminal_sequence, int)
+        and start_sequence < terminal_sequence
+        and bool(evidence.get("label"))
+        and bool(evidence.get("page_id"))
+        and evidence.get("method") == "GET"
+        and evidence.get("resource_type") in {"fetch", "xhr"}
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+        and evidence.get("response_status") is None
+        and evidence.get("finished") is not True
+        and evidence.get("failure") == "net::ERR_ABORTED"
+    )
+
+
+def _is_exact_successful_read_replacement(
+    evidence: dict[str, object],
+    candidate: dict[str, object],
+) -> bool:
+    start_sequence = evidence.get("start_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    candidate_start = candidate.get("start_sequence")
+    candidate_response = candidate.get("response_sequence")
+    candidate_terminal = candidate.get("terminal_sequence")
+    candidate_status = candidate.get("response_status")
+    return bool(
+        isinstance(start_sequence, int)
+        and isinstance(terminal_sequence, int)
+        and isinstance(candidate_start, int)
+        and start_sequence < candidate_start < terminal_sequence
+        and candidate.get("page_id") == evidence.get("page_id")
+        and candidate.get("page_url") == evidence.get("page_url")
+        and candidate.get("frame_url_at_request")
+        == evidence.get("frame_url_at_request")
+        and candidate.get("navigation_generation")
+        == evidence.get("navigation_generation")
+        and candidate.get("source_url") == evidence.get("source_url")
+        and candidate.get("method") == evidence.get("method")
+        and candidate.get("resource_type") == evidence.get("resource_type")
+        and candidate.get("navigation_request") is False
+        and candidate.get("main_frame") is True
+        and not candidate.get("service_worker_url")
+        and isinstance(candidate_status, int)
+        and 200 <= candidate_status < 400
+        and isinstance(candidate_response, int)
+        and isinstance(candidate_terminal, int)
+        and candidate_start < candidate_response < candidate_terminal
+        and candidate.get("response_url") == candidate.get("source_url")
+        and candidate.get("finished") is True
+        and candidate.get("failure") is None
+    )
+
+
+def _superseded_read_pairs(messages: ConsoleErrorLog) -> dict[str, str]:
+    aborted = sorted(
+        (
+            (request_id, evidence)
+            for request_id, evidence in messages.request_evidence.items()
+            if _is_reconcilable_aborted_read(evidence)
+        ),
+        key=lambda item: (
+            int(item[1]["start_sequence"]),
+            int(item[1]["terminal_sequence"]),
+            item[0],
+        ),
+    )
+    successful = sorted(
+        messages.request_evidence.items(),
+        key=lambda item: (
+            int(item[1].get("start_sequence") or -1),
+            item[0],
+        ),
+    )
+    used_replacements: set[str] = set()
+    pairs: dict[str, str] = {}
+    for request_id, evidence in aborted:
+        for candidate_id, candidate in successful:
+            if (
+                candidate_id not in used_replacements
+                and candidate_id != request_id
+                and _is_exact_successful_read_replacement(evidence, candidate)
+            ):
+                pairs[request_id] = candidate_id
+                used_replacements.add(candidate_id)
+                break
+    return pairs
+
+
+def _is_superseded_successful_read(
+    messages: ConsoleErrorLog,
+    request_id: str,
+    evidence: dict[str, object],
+) -> bool:
+    if not _is_reconcilable_aborted_read(evidence):
+        return False
+    return request_id in _superseded_read_pairs(messages)
+
+
+def _superseded_successful_reads(
+    messages: ConsoleErrorLog,
+) -> list[dict[str, object]]:
+    return [
+        evidence
+        for request_id, evidence in messages.request_evidence.items()
+        if _is_product_browser_request(evidence)
+        and _is_superseded_successful_read(messages, request_id, evidence)
+    ]
+
+
+def _route_pattern_matches_path(pattern: str, path: str) -> bool:
+    pattern_segments = [segment for segment in pattern.split("/") if segment]
+    path_segments = [segment for segment in path.split("/") if segment]
+    return len(pattern_segments) == len(path_segments) and all(
+        pattern_segment.startswith("[") and pattern_segment.endswith("]")
+        or pattern_segment == path_segment
+        for pattern_segment, path_segment in zip(
+            pattern_segments,
+            path_segments,
+            strict=True,
+        )
+    )
+
+
+def _trusted_next_build_manifests_available() -> bool:
+    if ACTIVE_FRONTEND_MODE != "start":
+        return False
+    build_id = FRONTEND_ROOT / ".next" / "BUILD_ID"
+    try:
+        build_identity = build_id.read_text(encoding="utf-8").strip()
+    except OSError:
+        return False
+    return bool(build_identity) and all(
+        path.is_file()
+        for path in (
+            FRONTEND_ROOT / ".next" / "app-path-routes-manifest.json",
+            FRONTEND_ROOT / ".next" / "app-build-manifest.json",
+        )
+    )
+
+
+def _next_route_static_chunk_paths(route_url: str) -> frozenset[str]:
+    if not _trusted_next_build_manifests_available():
+        return frozenset()
+    try:
+        app_routes = json.loads(
+            (FRONTEND_ROOT / ".next" / "app-path-routes-manifest.json").read_text()
+        )
+        app_build = json.loads(
+            (FRONTEND_ROOT / ".next" / "app-build-manifest.json").read_text()
+        )
+    except (OSError, json.JSONDecodeError):
+        return frozenset()
+    route_path = urlparse(route_url).path or "/"
+    matching_app_paths = [
+        app_path
+        for app_path, pattern in app_routes.items()
+        if isinstance(pattern, str)
+        and _route_pattern_matches_path(pattern, route_path)
+    ]
+    pages = app_build.get("pages") if isinstance(app_build, dict) else None
+    if not isinstance(pages, dict):
+        return frozenset()
+    return frozenset(
+        f"/_next/{asset}"
+        for app_path in matching_app_paths
+        for asset in pages.get(app_path, ())
+        if isinstance(asset, str) and asset.startswith("static/chunks/")
+    )
+
+
+def _next_route_exclusive_static_chunk_paths(route_url: str) -> frozenset[str]:
+    if not _trusted_next_build_manifests_available():
+        return frozenset()
+    try:
+        app_routes = json.loads(
+            (FRONTEND_ROOT / ".next" / "app-path-routes-manifest.json").read_text()
+        )
+        app_build = json.loads(
+            (FRONTEND_ROOT / ".next" / "app-build-manifest.json").read_text()
+        )
+    except (OSError, json.JSONDecodeError):
+        return frozenset()
+    route_path = urlparse(route_url).path or "/"
+    matching_app_paths = {
+        app_path
+        for app_path, pattern in app_routes.items()
+        if isinstance(pattern, str)
+        and _route_pattern_matches_path(pattern, route_path)
+    }
+    pages = app_build.get("pages") if isinstance(app_build, dict) else None
+    if not matching_app_paths or not isinstance(pages, dict):
+        return frozenset()
+
+    def chunks_for(app_paths: set[str]) -> set[str]:
+        return {
+            f"/_next/{asset}"
+            for app_path in app_paths
+            for asset in pages.get(app_path, ())
+            if isinstance(asset, str) and asset.startswith("static/chunks/")
+        }
+
+    target_chunks = chunks_for(matching_app_paths)
+    other_chunks = chunks_for(set(pages) - matching_app_paths)
+    return frozenset(target_chunks - other_chunks)
+
+
+def _static_chunk_prefetch_owner(
+    messages: ConsoleErrorLog,
+    evidence: dict[str, object],
+) -> dict[str, object] | None:
+    source_url = str(evidence.get("source_url") or "")
+    parsed = urlparse(source_url)
+    start_sequence = evidence.get("start_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    start_monotonic = evidence.get("start_monotonic")
+    terminal_monotonic = evidence.get("terminal_monotonic")
+    if not (
+        _is_allowed_frontend_url(source_url)
+        and parsed.path.startswith("/_next/static/chunks/")
+        and bool(evidence.get("label"))
+        and bool(evidence.get("page_id"))
+        and evidence.get("method") == "GET"
+        and evidence.get("resource_type") == "script"
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+        and evidence.get("response_status") is None
+        and evidence.get("finished") is not True
+        and evidence.get("failure") == "net::ERR_ABORTED"
+        and isinstance(start_sequence, int)
+        and isinstance(terminal_sequence, int)
+        and start_sequence < terminal_sequence
+        and isinstance(start_monotonic, float)
+        and isinstance(terminal_monotonic, float)
+    ):
+        return None
+    owners = [
+        candidate
+        for candidate in messages.request_evidence.values()
+        if _is_explicit_next_prefetch_abort(candidate)
+        and candidate.get("page_id") == evidence.get("page_id")
+        and candidate.get("label") == evidence.get("label")
+        and candidate.get("page_url") == evidence.get("page_url")
+        and candidate.get("frame_url_at_request")
+        == evidence.get("frame_url_at_request")
+        and candidate.get("navigation_generation")
+        == evidence.get("navigation_generation")
+        and parsed.path
+        in _next_route_exclusive_static_chunk_paths(
+            str(candidate.get("source_url") or "")
+        )
+        and isinstance(candidate.get("start_sequence"), int)
+        and isinstance(candidate.get("terminal_sequence"), int)
+        and int(candidate["start_sequence"])
+        < start_sequence
+        < terminal_sequence
+        < int(candidate["terminal_sequence"])
+        and isinstance(candidate.get("start_monotonic"), float)
+        and isinstance(candidate.get("terminal_monotonic"), float)
+        and float(candidate["start_monotonic"])
+        <= start_monotonic
+        <= terminal_monotonic
+        <= float(candidate["terminal_monotonic"])
+    ]
+    return owners[0] if len(owners) == 1 else None
+
+
+def _is_next_static_chunk_cancellation(
+    messages: ConsoleErrorLog,
+    evidence: dict[str, object],
+) -> bool:
+    parsed = urlparse(str(evidence.get("source_url") or ""))
+    return (
+        bool(evidence.get("label"))
+        and bool(evidence.get("page_id"))
+        and _is_allowed_http_url(str(evidence.get("source_url") or ""))
+        and parsed.port == 3000
+        and parsed.path.startswith("/_next/static/chunks/")
+        and evidence.get("method") == "GET"
+        and evidence.get("resource_type") == "script"
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+        and evidence.get("response_status") is None
+        and evidence.get("finished") is not True
+        and evidence.get("failure") == "net::ERR_ABORTED"
+        and (
+            _has_intentional_page_close_lifecycle(messages, evidence)
+            or _completed_route_transition_for_request(
+                messages,
+                evidence,
+                speculative=True,
+            )
+            is not None
+            or _static_chunk_prefetch_owner(messages, evidence) is not None
+        )
+    )
+
+
+def _next_static_chunk_cancellations(
+    messages: ConsoleErrorLog,
+) -> list[dict[str, object]]:
+    return [
+        evidence
+        for evidence in messages.request_evidence.values()
+        if _is_product_browser_request(evidence)
+        and _is_next_static_chunk_cancellation(messages, evidence)
+    ]
+
+
+def _is_declared_successful_no_content_response(
+    messages: ConsoleErrorLog,
+    request_id: str,
+    evidence: dict[str, object],
+) -> bool:
+    expectation = messages._no_content_expectation_for_request(request_id)
+    return bool(
+        expectation is not None
+        and expectation["request_id"] == request_id
+        and isinstance(expectation.get("declaration_sequence"), int)
+        and isinstance(evidence.get("start_sequence"), int)
+        and int(expectation["declaration_sequence"])
+        < int(evidence["start_sequence"])
+        and expectation["label"] == evidence.get("label")
+        and expectation["page_id"] == evidence.get("page_id")
+        and expectation["page_url"] == evidence.get("page_url")
+        and expectation["source_url"] == evidence.get("source_url")
+        and expectation["method"] == evidence.get("method")
+        and expectation["response_status"] == evidence.get("response_status") == 204
+        and expectation["response_url"]
+        == evidence.get("response_url")
+        == evidence.get("source_url")
+        and expectation["finished"] == evidence.get("finished")
+        and expectation["failure"] == evidence.get("failure")
+        and evidence.get("resource_type") in {"fetch", "xhr"}
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+        and (
+            evidence.get("finished") is True and evidence.get("failure") is None
+            or evidence.get("finished") is False
+            and evidence.get("failure") == "net::ERR_ABORTED"
+        )
+    )
+
+
+def _successful_no_content_responses(
+    messages: ConsoleErrorLog,
+) -> list[dict[str, object]]:
+    return [
+        evidence
+        for request_id, evidence in messages.request_evidence.items()
+        if _is_product_browser_request(evidence)
+        and _is_declared_successful_no_content_response(
+            messages, request_id, evidence
+        )
+    ]
+
+
+def _expected_http_console_text(status: int) -> str:
+    reasons = {404: "Not Found", 503: "Service Unavailable"}
+    _require(status in reasons, f"no exact console text registered for HTTP {status}")
+    return (
+        "Failed to load resource: the server responded with a status of "
+        f"{status} ({reasons[status]})"
     )
 
 
@@ -12118,6 +15868,34 @@ def _wait_for_application_shell(page) -> None:
     )
 
 
+def _verify_worker_network_surfaces_blocked(page) -> None:
+    result = page.evaluate(
+        """
+        () => {
+          const blocked = {};
+          for (const name of ["Worker", "SharedWorker"]) {
+            try {
+              new globalThis[name]("data:text/javascript,");
+              blocked[name] = false;
+            } catch (error) {
+              blocked[name] = String(error).includes(
+                "Worker network surfaces are disabled in Product E2E"
+              );
+            }
+          }
+          return {
+            marker: globalThis.__scientificSpacesWorkerNetworkBlocked === true,
+            ...blocked,
+          };
+        }
+        """
+    )
+    _require(
+        result == {"marker": True, "Worker": True, "SharedWorker": True},
+        f"worker network surfaces were not blocked: {result}",
+    )
+
+
 def _verify_ordinary_shell_route_focus(
     browser,
     *,
@@ -12130,10 +15908,15 @@ def _verify_ordinary_shell_route_focus(
     context = browser.new_context(viewport={"width": 1440, "height": 640}, locale="zh-CN")
     _install_network_guard(context, blocked_external)
     page = context.new_page()
+    _mark_expected_context_page(context, page)
     page.on(
         "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        lambda message: _capture_console_error(
+            console_errors, message, label="shell-ordinary-route", page=page
+        ),
     )
+    if isinstance(console_errors, ConsoleErrorLog):
+        console_errors.observe_http_errors(page, label="shell-ordinary-route")
     page.on(
         "pageerror",
         lambda error: _capture_page_error(page_errors, "shell-ordinary-route", page, error),
@@ -12156,11 +15939,17 @@ def _verify_ordinary_shell_route_focus(
             ("tutor", "/", "/tutor", "AI Research Tutor"),
             ("dashboard", "/articles", "/", "Scientific Spaces AI Learning OS"),
         ):
+            if isinstance(console_errors, ConsoleErrorLog):
+                _wait_for_page_requests_to_settle(page, console_errors)
             page.goto(f"{FRONTEND_URL}{source_pathname}", wait_until="domcontentloaded")
             _wait_for_application_shell(page)
             previous_history_length = int(page.evaluate("history.length"))
             navigation = page.get_by_test_id(f"primary-nav-{navigation_id}")
             navigation.focus()
+            ordinary_route_transition = _declare_expected_route_transition(
+                page,
+                destination_url=f"{FRONTEND_URL}{pathname}",
+            )
             navigation.press("Enter")
             page.wait_for_function("path => location.pathname === path", arg=pathname)
             expect(page.get_by_role("heading", name=heading, exact=True)).to_be_visible(
@@ -12169,6 +15958,7 @@ def _verify_ordinary_shell_route_focus(
             shell_main = page.get_by_test_id("shell-main-content")
             expect(shell_main).to_be_focused(timeout=30_000)
             _require_visible_focus(shell_main, f"desktop {navigation_id} route destination")
+            _complete_expected_route_transition(page, ordinary_route_transition)
             _require(
                 int(page.evaluate("history.length")) == previous_history_length + 1,
                 f"desktop {navigation_id} route did not add exactly one history entry",
@@ -12202,35 +15992,55 @@ def _verify_ordinary_shell_route_focus(
         )
 
         content_history = int(page.evaluate("history.length"))
+        content_route_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles",
+        )
         page.get_by_role("link", name="View all", exact=True).press("Enter")
         expect(page).to_have_url(re.compile(r"/articles$"), timeout=30_000)
         shell_main = page.get_by_test_id("shell-main-content")
         expect(shell_main).to_be_focused(timeout=30_000)
+        _complete_expected_route_transition(page, content_route_transition)
         _require(
             int(page.evaluate("history.length")) == content_history + 1,
             "ordinary content navigation did not add exactly one history entry",
         )
         content_history_after_navigation = int(page.evaluate("history.length"))
+        content_back_transition = _declare_expected_route_transition(
+            page,
+            destination_url=FRONTEND_URL,
+        )
         page.go_back()
         expect(page).to_have_url(re.compile(r"/$"), timeout=30_000)
         expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+        _complete_expected_route_transition(page, content_back_transition)
         _require(
             int(page.evaluate("history.length")) == content_history_after_navigation,
             "ordinary browser Back changed history length",
         )
+        content_forward_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles",
+        )
         page.go_forward()
         expect(page).to_have_url(re.compile(r"/articles$"), timeout=30_000)
         expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+        _complete_expected_route_transition(page, content_forward_transition)
         _require(
             int(page.evaluate("history.length")) == content_history_after_navigation,
             "ordinary browser Forward changed history length",
         )
 
+        dashboard_return_transition = _declare_expected_route_transition(
+            page,
+            destination_url=FRONTEND_URL,
+        )
         page.get_by_test_id("primary-nav-dashboard").click()
         expect(page).to_have_url(re.compile(r"/$"), timeout=30_000)
         expect(
             page.get_by_role("heading", name="Scientific Spaces AI Learning OS", exact=True)
         ).to_be_visible(timeout=30_000)
+        _complete_expected_route_transition(page, dashboard_return_transition)
         expect(page.get_by_test_id("dashboard-command-center")).to_have_attribute(
             "aria-busy", "false", timeout=30_000
         )
@@ -12264,9 +16074,12 @@ def _verify_ordinary_shell_route_focus(
         def observe_modified_page(opened) -> None:
             opened.on(
                 "console",
-                lambda message: console_errors.append(message.text)
-                if message.type == "error"
-                else None,
+                lambda message: _capture_console_error(
+                    console_errors,
+                    message,
+                    label="shell-ordinary-modified-navigation",
+                    page=opened,
+                ),
             )
             opened.on(
                 "pageerror",
@@ -12277,17 +16090,26 @@ def _verify_ordinary_shell_route_focus(
                     error,
                 ),
             )
+            if isinstance(console_errors, ConsoleErrorLog):
+                console_errors.observe_http_errors(
+                    opened, label="shell-ordinary-modified-navigation"
+                )
 
         context.on("page", observe_modified_page)
         try:
             with context.expect_page(timeout=10_000) as opened_page:
                 modified.click(modifiers=["Control"])
             new_page = opened_page.value
+            _mark_expected_popup(blocked_external, context, new_page)
         finally:
             context.remove_listener("page", observe_modified_page)
         new_page.wait_for_load_state("domcontentloaded")
         _wait_for_application_shell(new_page)
-        _require(new_page.url.endswith("/tutor"), f"modified rail opened wrong URL: {new_page.url}")
+        _require(
+            new_page.url.endswith("/tutor"),
+            f"modified rail opened wrong URL: {new_page.url}",
+        )
+        _wait_for_page_requests_to_settle(new_page, console_errors)
         new_page.close()
         page.bring_to_front()
         _require(page.url == current_url, "modified rail activation changed the source page")
@@ -12454,9 +16276,15 @@ def _verify_reader_fragment_focus_ownership(
 
         search_dialog.get_by_role("button", name="Close", exact=True).click()
         expect(search_dialog).to_have_count(0)
+        back_to_articles_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles",
+        )
         page.get_by_role("link", name="Back to articles", exact=True).click()
         expect(page).to_have_url(re.compile(r"/articles$"), timeout=30_000)
         expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
+        _wait_for_page_requests_to_settle(page, console_errors)
+        _complete_expected_route_transition(page, back_to_articles_transition)
         persistent_fragment_history_origin = page.get_by_test_id(
             "global-search-trigger-mobile"
         )
@@ -12955,6 +16783,10 @@ def _verify_reader_fragment_focus_ownership(
         continue_history_length = int(page.evaluate("history.length"))
         page.evaluate("window.__p3034DelayNextArticle = true")
         _start_zotero_focus_trace(page)
+        continue_reader_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}{continue_href}",
+        )
         continue_crb.press("Enter")
         page.wait_for_function(
             """
@@ -12978,6 +16810,7 @@ def _verify_reader_fragment_focus_ownership(
             (f"heading:{saved_section_label}",),
             ("testid:shell-main-content",),
         )
+        _complete_expected_route_transition(page, continue_reader_transition)
         _require(
             int(page.evaluate("history.length")) == continue_history_length + 1,
             "ordinary Reader heading hash navigation did not add exactly one history entry",
@@ -13003,6 +16836,10 @@ def _verify_reader_fragment_focus_ownership(
         ordinary_reader_history_length = int(page.evaluate("history.length"))
         page.evaluate("window.__p3034DelayNextArticle = true")
         _start_zotero_focus_trace(page)
+        first_recent_reader_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
+        )
         recent_crb.press("Enter")
         expect(page).to_have_url(
             re.compile(rf"/articles/{re.escape(CRB_ARTICLE_ID)}$"),
@@ -13023,15 +16860,25 @@ def _verify_reader_fragment_focus_ownership(
             "interaction-canceled ordinary delayed Article navigation",
             ("testid:shell-main-content",),
         )
+        _complete_expected_route_transition(page, first_recent_reader_transition)
 
+        first_recent_back_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        )
         page.go_back()
         expect(page).to_have_url(
             re.compile(rf"/articles/{re.escape(ATTENTION_ARTICLE_ID)}$"),
             timeout=30_000,
         )
         expect(page.locator("article#article-start")).to_be_focused(timeout=30_000)
+        _complete_expected_route_transition(page, first_recent_back_transition)
         page.evaluate("window.__p3034DelayNextArticle = true")
         _start_zotero_focus_trace(page)
+        restored_recent_reader_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
+        )
         recent_crb.press("Enter")
         expect(page).to_have_url(
             re.compile(rf"/articles/{re.escape(CRB_ARTICLE_ID)}$"),
@@ -13046,6 +16893,7 @@ def _verify_reader_fragment_focus_ownership(
             "ordinary delayed Article-to-Article navigation",
             ("testid:shell-main-content", f"heading:{saved_section_label}"),
         )
+        _complete_expected_route_transition(page, restored_recent_reader_transition)
         page.wait_for_timeout(500)
         restored_position = page.evaluate(
             """
@@ -13071,6 +16919,10 @@ def _verify_reader_fragment_focus_ownership(
             int(page.evaluate("history.length")) == ordinary_reader_history_length + 1,
             "ordinary Article-to-Article navigation did not add exactly one history entry",
         )
+        ordinary_reader_back_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        )
         page.go_back()
         expect(page).to_have_url(
             re.compile(rf"/articles/{re.escape(ATTENTION_ARTICLE_ID)}$"),
@@ -13079,9 +16931,14 @@ def _verify_reader_fragment_focus_ownership(
         attention_target = page.locator("article#article-start")
         expect(attention_target).to_be_focused(timeout=30_000)
         _require_visible_focus(attention_target, "ordinary Reader Back target")
+        _complete_expected_route_transition(page, ordinary_reader_back_transition)
         _require(
             int(page.evaluate("history.length")) == ordinary_reader_history_length + 1,
             "ordinary Article-to-Article Back changed history length",
+        )
+        ordinary_reader_forward_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
         )
         page.go_forward()
         expect(page).to_have_url(
@@ -13091,6 +16948,7 @@ def _verify_reader_fragment_focus_ownership(
         crb_target = page.locator("article#article-start")
         expect(crb_target).to_be_focused(timeout=30_000)
         _require_visible_focus(crb_target, "ordinary Reader Forward target")
+        _complete_expected_route_transition(page, ordinary_reader_forward_transition)
 
         graph_query_return = "/graph?q=CRB"
         graph_query_reader = (
@@ -13107,6 +16965,10 @@ def _verify_reader_fragment_focus_ownership(
         query_graph_return.focus()
         expect(query_graph_return).to_be_focused()
         _start_zotero_focus_trace(page)
+        query_graph_return_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}{graph_query_return}",
+        )
         query_graph_return.press("Enter")
         page.wait_for_function(
             "expected => location.pathname + location.search === expected",
@@ -13121,6 +16983,8 @@ def _verify_reader_fragment_focus_ownership(
             "Graph query-only return",
             ("testid:shell-main-content",),
         )
+        _wait_for_page_requests_to_settle(page, console_errors)
+        _complete_expected_route_transition(page, query_graph_return_transition)
 
         page.goto(
             f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
@@ -13130,39 +16994,43 @@ def _verify_reader_fragment_focus_ownership(
         expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
             timeout=30_000
         )
-        page.evaluate(
-            f"""
-            () => {{
-              const originalFetch = window.fetch.bind(window);
-              let pendingFailures = 2;
-              window.__p3034FailureArticleRequests = 0;
-              window.fetch = async (input, init) => {{
-                const rawUrl = typeof input === 'string' ? input : input.url;
-                const url = new URL(rawUrl, location.href);
-                if (
-                  pendingFailures > 0
-                  && ['127.0.0.1', 'localhost'].includes(url.hostname)
-                  && url.port === '8000'
-                  && url.pathname === '/articles/{CRB_ARTICLE_ID}'
-                ) {{
-                  pendingFailures -= 1;
-                  window.__p3034FailureArticleRequests += 1;
-                  await new Promise(resolve => setTimeout(resolve, 2000));
-                  return new Response(
-                    JSON.stringify({{ detail: 'intentional delayed Article failure' }}),
-                    {{ status: 503, headers: {{ 'Content-Type': 'application/json' }} }}
-                  );
-                }}
-                return originalFetch(input, init);
-              }};
-            }}
-            """
+        _require(
+            isinstance(console_errors, ConsoleErrorLog),
+            "Reader failure probe requires structured HTTP evidence",
         )
+        failure_article_expectations = _declare_expected_http_errors(
+            console_errors,
+            label="reader-fragment-route-owner",
+            page_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
+            source_url=f"{BROWSER_API_URL}/articles/{CRB_ARTICLE_ID}",
+            count=2,
+        )
+        failure_article_requests = {"count": 0}
+        failure_article_pattern = re.compile(
+            rf".*/articles/{re.escape(CRB_ARTICLE_ID)}$"
+        )
+
+        def fulfill_delayed_article_failure(route) -> None:
+            failure_article_requests["count"] += 1
+            _fulfill_expected_http_error(
+                route,
+                console_errors=console_errors,
+                page=page,
+                expectation_ids=failure_article_expectations,
+                body='{"detail":"intentional delayed Article failure"}',
+            )
+
+        page.route(failure_article_pattern, fulfill_delayed_article_failure, times=2)
+        _install_fetch_response_gate(page, f"/articles/{CRB_ARTICLE_ID}")
         failure_recent_section = page.locator("section").filter(
             has=page.get_by_role("heading", name="Recent Reading", exact=True)
         )
         failure_recent_link = failure_recent_section.get_by_role(
             "link", name=re.compile(rf"^{re.escape(CRB_TITLE)}")
+        )
+        first_failure_reader_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
         )
         failure_recent_link.press("Enter")
         expect(page).to_have_url(
@@ -13173,11 +17041,22 @@ def _verify_reader_fragment_focus_ownership(
         expect(failure_main).to_be_focused(timeout=2_000)
         expect(page.get_by_text("Loading article", exact=True)).to_be_visible(timeout=5_000)
         page.mouse.wheel(0, 1)
+        _release_fetch_response_gate(page)
         expect(page.get_by_text("Article unavailable", exact=True)).to_be_visible(
             timeout=30_000
         )
+        _complete_expected_route_transition(page, first_failure_reader_transition)
         expect(failure_main).to_be_focused()
         expect(page.get_by_role("button", name="Retry article", exact=True)).not_to_be_focused()
+        _wait_for_declared_http_errors(
+            page,
+            console_errors,
+            expectation_ids=failure_article_expectations[:1],
+        )
+        failure_reader_back_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles/{ATTENTION_ARTICLE_ID}",
+        )
         page.go_back()
         expect(page).to_have_url(
             re.compile(rf"/articles/{re.escape(ATTENTION_ARTICLE_ID)}$"),
@@ -13186,12 +17065,18 @@ def _verify_reader_fragment_focus_ownership(
         expect(page.get_by_role("heading", name=ATTENTION_TITLE, exact=True)).to_be_visible(
             timeout=30_000
         )
+        _complete_expected_route_transition(page, failure_reader_back_transition)
 
+        second_failure_reader_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}",
+        )
         failure_recent_link.press("Enter")
         expect(page).to_have_url(
             re.compile(rf"/articles/{re.escape(CRB_ARTICLE_ID)}$"),
             timeout=30_000,
         )
+        _wait_for_fetch_response_gate_pending(page)
         newer_shell_focus = page.get_by_test_id("global-search-trigger-mobile")
         newer_shell_focus.click()
         failure_search_dialog = page.get_by_test_id("global-search-dialog")
@@ -13199,15 +17084,24 @@ def _verify_reader_fragment_focus_ownership(
         failure_search_dialog.get_by_role("button", name="Close", exact=True).click()
         expect(failure_search_dialog).to_have_count(0)
         expect(newer_shell_focus).to_be_focused()
+        _release_fetch_response_gate(page)
         expect(page.get_by_text("Article unavailable", exact=True)).to_be_visible(
             timeout=30_000
         )
+        _complete_expected_route_transition(page, second_failure_reader_transition)
         expect(newer_shell_focus).to_be_focused()
         expect(page.get_by_role("button", name="Retry article", exact=True)).not_to_be_focused()
+        _wait_for_declared_http_errors(
+            page,
+            console_errors,
+            expectation_ids=failure_article_expectations,
+        )
         _require(
-            page.evaluate("window.__p3034FailureArticleRequests") == 2,
+            failure_article_requests["count"] == 2,
             "Article failure fixture did not intercept exactly two requests",
         )
+        _restore_fetch_response_gate(page)
+        page.unroute(failure_article_pattern, fulfill_delayed_article_failure)
     finally:
         context.close()
 
@@ -13235,10 +17129,15 @@ def _verify_shell_reader_focus_ownership(
         """
     )
     page = context.new_page()
+    _mark_expected_context_page(context, page)
     page.on(
         "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        lambda message: _capture_console_error(
+            console_errors, message, label="shell-reader-owner", page=page
+        ),
     )
+    if isinstance(console_errors, ConsoleErrorLog):
+        console_errors.observe_http_errors(page, label="shell-reader-owner")
     page.on(
         "pageerror",
         lambda error: _capture_page_error(page_errors, "shell-reader-owner", page, error),
@@ -13290,6 +17189,11 @@ def _verify_shell_reader_focus_ownership(
         )
         graph_article_link.evaluate(
             "element => element.setAttribute('data-p3030-reader-race-link', 'true')"
+        )
+        reader_route_anchor = console_errors._event_sequence
+        reader_route_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}{graph_article_href}",
         )
 
         page.get_by_test_id("global-search-trigger-desktop").click()
@@ -13373,6 +17277,16 @@ def _verify_shell_reader_focus_ownership(
             len(delayed_requests) == 1 and "/session?" in delayed_requests[0],
             f"Reader ownership probe did not delay the Shell route: {delayed_requests}",
         )
+        _wait_for_exact_route_request_to_finish(
+            page,
+            console_errors,
+            source_url=f"{FRONTEND_URL}{graph_article_href}",
+            after_sequence=reader_route_anchor,
+            expect_prefetch=False,
+            require_observed_request=True,
+            allow_response_backed_route_abort=True,
+        )
+        _complete_expected_route_transition(page, reader_route_transition)
 
         page.goto(FRONTEND_URL, wait_until="domcontentloaded")
         _wait_for_application_shell(page)
@@ -13380,6 +17294,10 @@ def _verify_shell_reader_focus_ownership(
         dashboard_articles = page.get_by_role("link", name="View all", exact=True)
         dashboard_articles.evaluate(
             "element => element.setAttribute('data-p3034-ordinary-race-link', 'true')"
+        )
+        ordinary_supersession_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/articles",
         )
         page.get_by_test_id("global-search-trigger-desktop").click()
         dialog = page.get_by_test_id("global-search-dialog")
@@ -13407,12 +17325,17 @@ def _verify_shell_reader_focus_ownership(
             len(delayed_requests) == 1 and "/session?" in delayed_requests[0],
             f"ordinary supersession probe did not delay the Shell route: {delayed_requests}",
         )
+        _wait_for_page_requests_to_settle(page, console_errors)
+        _complete_expected_route_transition(
+            page,
+            ordinary_supersession_transition,
+        )
     finally:
         page.unroute(delayed_session_pattern, delay_session)
         context.close()
 
 
-def _verify_overlapping_shell_route_cancellation(
+def _verify_overlapping_shell_route_supersession(
     browser,
     *,
     blocked_external: list[str],
@@ -13435,35 +17358,196 @@ def _verify_overlapping_shell_route_cancellation(
         """
     )
     page = context.new_page()
+    _mark_expected_context_page(context, page)
     page.on(
         "console",
-        lambda message: console_errors.append(message.text) if message.type == "error" else None,
+        lambda message: _capture_console_error(
+            console_errors, message, label="shell-overlap", page=page
+        ),
     )
+    if isinstance(console_errors, ConsoleErrorLog):
+        console_errors.observe_http_errors(page, label="shell-overlap")
     page.on(
         "pageerror",
         lambda error: _capture_page_error(page_errors, "shell-overlap", page, error),
     )
-    delayed_requests: list[str] = []
-    delayed_route_pattern = re.compile(r".*/(?:session|library)(?:\?.*)?$")
-
-    def delay_route(route) -> None:
-        if "_rsc=" in route.request.url:
-            delayed_requests.append(route.request.url)
-            time.sleep(2.5)
-        route.continue_()
-
-    page.route(delayed_route_pattern, delay_route)
     try:
         page.goto(FRONTEND_URL, wait_until="domcontentloaded")
         _wait_for_application_shell(page)
         page.evaluate("history.pushState(history.state, '', '/')")
+        page.evaluate(
+            """
+            () => {
+              if (typeof window.__p3036ShellSupersessionOriginalFetch === 'function') {
+                throw new Error('P3-036 Shell supersession gate is already installed');
+              }
+              const originalFetch = window.fetch.bind(window);
+              window.__p3036ShellSupersessionOriginalFetch = originalFetch;
+              window.__p3036ShellSupersessionGate = {
+                startedCount: 0,
+                pendingCount: 0,
+                networkCompletedCount: 0,
+                networkFailure: null,
+                requestUrl: null,
+                requestMethod: null,
+                requestNextRouterPrefetch: null,
+                requestPurpose: null,
+                requestSecPurpose: null,
+                responseReady: false,
+                responseStatus: null,
+                responseUrl: null,
+                responseRedirected: null,
+                responseContentType: null,
+                responseMediaType: null,
+                responseBodyLength: 0,
+                releasedCount: 0,
+                deliveryResolvedCount: 0,
+                downstreamBodyBytes: 0,
+                downstreamBodySettled: false,
+                downstreamBodyCancelled: false,
+                downstreamCancelReason: null,
+                release: null,
+              };
+              window.fetch = (...args) => {
+                const input = args[0];
+                const init = args[1] ?? {};
+                const target = String(input instanceof Request ? input.url : input);
+                const parsed = new URL(target, location.href);
+                if (
+                  parsed.origin !== location.origin
+                  || parsed.pathname !== '/session'
+                  || !parsed.searchParams.has('_rsc')
+                ) {
+                  return originalFetch(...args);
+                }
+                const requestMethod = String(
+                  init.method ?? (input instanceof Request ? input.method : 'GET')
+                ).toUpperCase();
+                const requestHeaders = new Headers(
+                  init.headers !== undefined
+                    ? init.headers
+                    : input instanceof Request
+                      ? input.headers
+                      : undefined
+                );
+                const nextRouterPrefetch = requestHeaders.get('next-router-prefetch') || '';
+                const purpose = (requestHeaders.get('purpose') || '').toLowerCase();
+                const secPurpose = (requestHeaders.get('sec-purpose') || '').toLowerCase();
+                const explicitPrefetch = nextRouterPrefetch === '1'
+                  || purpose === 'prefetch'
+                  || secPurpose.split(';', 1)[0] === 'prefetch';
+                if (
+                  requestMethod !== 'GET'
+                  || explicitPrefetch
+                ) {
+                  return originalFetch(...args);
+                }
+                const effectiveRequest = input instanceof Request
+                  ? new Request(input, init)
+                  : new Request(parsed.href, init);
+                const gate = window.__p3036ShellSupersessionGate;
+                gate.startedCount += 1;
+                gate.requestUrl = effectiveRequest.url;
+                gate.requestMethod = requestMethod;
+                gate.requestNextRouterPrefetch = nextRouterPrefetch;
+                gate.requestPurpose = purpose;
+                gate.requestSecPurpose = secPurpose;
+                const detachedSignal = new AbortController().signal;
+                const detachedFetch = originalFetch(
+                  new Request(effectiveRequest, { signal: detachedSignal })
+                );
+                gate.pendingCount += 1;
+                return new Promise((resolve, reject) => {
+                  detachedFetch.then(
+                    async response => {
+                      try {
+                        const responseUrl = new URL(response.url);
+                        const contentType = response.headers.get('content-type') || '';
+                        const mediaType = contentType.split(';', 1)[0].trim().toLowerCase();
+                        const responseBody = await response.clone().arrayBuffer();
+                        if (
+                          response.status !== 200
+                          || response.redirected
+                          || response.url !== effectiveRequest.url
+                          || responseUrl.origin !== location.origin
+                          || responseUrl.pathname !== '/session'
+                          || !responseUrl.searchParams.has('_rsc')
+                          || mediaType !== 'text/x-component'
+                          || responseBody.byteLength === 0
+                        ) {
+                          throw new Error(
+                            `invalid held Session response: status=${response.status} `
+                            + `url=${response.url} contentType=${contentType} `
+                            + `bodyLength=${responseBody.byteLength}`
+                          );
+                        }
+                        gate.networkCompletedCount += 1;
+                        gate.responseStatus = response.status;
+                        gate.responseUrl = response.url;
+                        gate.responseRedirected = response.redirected;
+                        gate.responseContentType = contentType;
+                        gate.responseMediaType = mediaType;
+                        gate.responseBodyLength = responseBody.byteLength;
+                        gate.responseReady = true;
+                        gate.release = () => {
+                          gate.release = null;
+                          gate.pendingCount -= 1;
+                          gate.releasedCount += 1;
+                          const body = new Uint8Array(responseBody);
+                          let emitted = false;
+                          const trackedBody = new ReadableStream({
+                            pull(controller) {
+                              if (!emitted) {
+                                emitted = true;
+                                gate.downstreamBodyBytes = body.byteLength;
+                                controller.enqueue(body);
+                                return;
+                              }
+                              controller.close();
+                              gate.downstreamBodySettled = true;
+                            },
+                            cancel(reason) {
+                              gate.downstreamBodyCancelled = true;
+                              gate.downstreamCancelReason = String(reason ?? 'cancelled');
+                              gate.downstreamBodySettled = true;
+                            },
+                          });
+                          const deliveredResponse = new Response(trackedBody, {
+                            status: response.status,
+                            statusText: response.statusText,
+                            headers: response.headers,
+                          });
+                          Object.defineProperties(deliveredResponse, {
+                            url: { configurable: true, value: response.url },
+                            redirected: { configurable: true, value: response.redirected },
+                            type: { configurable: true, value: response.type },
+                          });
+                          gate.deliveryResolvedCount += 1;
+                          resolve(deliveredResponse);
+                        };
+                      } catch (error) {
+                        gate.pendingCount -= 1;
+                        gate.networkFailure = String(error);
+                        reject(error);
+                      }
+                    },
+                    error => {
+                      gate.pendingCount -= 1;
+                      gate.networkFailure = String(error);
+                      reject(error);
+                    },
+                  );
+                });
+              };
+            }
+            """
+        )
         page.get_by_test_id("global-search-trigger-desktop").click()
         dialog = page.get_by_test_id("global-search-dialog")
         expect(dialog.get_by_label("Search library")).to_be_focused()
         page.evaluate(
             """
             () => {
-              window.__p3030OverlapActions = [];
               window.__p3030OverlapFocusBehindModal = [];
               window.__p3030OverlapFocusObserver = event => {
                 const activeDialog = document.querySelector('[data-testid="global-search-dialog"]');
@@ -13476,67 +17560,336 @@ def _verify_overlapping_shell_route_cancellation(
                 }
               };
               document.addEventListener('focusin', window.__p3030OverlapFocusObserver, true);
-              setTimeout(() => {
-                const trigger = document.querySelector(
-                  '[data-testid="global-search-trigger-desktop"]'
-                );
-                window.__p3030OverlapActions.push(trigger ? 'reopen' : 'missing-reopen');
-                trigger?.click();
-              }, 150);
-              setTimeout(() => {
-                const saved = document.querySelector(
-                  '[data-testid="global-search-dialog"] '
-                    + '[data-testid="global-search-result-workspace"][href="/library"]'
-                );
-                window.__p3030OverlapActions.push(saved ? 'saved' : 'missing-saved');
-                saved?.click();
-              }, 350);
-              setTimeout(() => {
-                window.__p3030OverlapActions.push('back');
-                history.back();
-              }, 650);
             }
             """
         )
         dialog.get_by_test_id("global-search-result-workspace").filter(
             has_text=re.compile(r"^Session")
         ).click()
-        expect(page).to_have_url(re.compile(r"/$"), timeout=30_000)
+        page.wait_for_function(
+            """
+            () => {
+              const gate = window.__p3036ShellSupersessionGate;
+              return gate?.pendingCount === 1 && gate.responseReady === true
+                && typeof gate.release === 'function';
+            }
+            """,
+            timeout=30_000,
+        )
+        expect(page).to_have_url(
+            re.compile(rf"^{re.escape(FRONTEND_URL)}/?$"),
+        )
+        page.get_by_test_id("global-search-trigger-desktop").click()
+        reopened_dialog = page.get_by_test_id("global-search-dialog")
+        expect(reopened_dialog.get_by_label("Search library")).to_be_focused()
+        library_route_anchor = console_errors._event_sequence
+        library_transition = _declare_expected_route_transition(
+            page,
+            destination_url=f"{FRONTEND_URL}/library",
+        )
+        reopened_dialog.get_by_test_id("global-search-result-workspace").filter(
+            has_text=re.compile(r"^Saved")
+        ).click()
+        expect(page).to_have_url(re.compile(r"/library$"), timeout=30_000)
+        library_main = page.get_by_test_id("shell-main-content")
+        expect(library_main).to_be_focused(timeout=30_000)
+        _wait_for_exact_route_request_to_finish(
+            page,
+            console_errors,
+            source_url=f"{FRONTEND_URL}/library",
+            after_sequence=library_route_anchor,
+            expect_prefetch=False,
+            require_observed_request=True,
+            allow_response_backed_route_abort=True,
+        )
+        _complete_expected_route_transition(page, library_transition)
+        root_transition = _declare_expected_route_transition(
+            page,
+            destination_url=FRONTEND_URL,
+        )
+        page.go_back()
+        expect(page).to_have_url(
+            re.compile(rf"^{re.escape(FRONTEND_URL)}/?$"),
+            timeout=30_000,
+        )
         expect(page.get_by_test_id("global-search-dialog")).to_have_count(0)
         main = page.get_by_test_id("shell-main-content")
         expect(main).to_be_focused(timeout=30_000)
         _wait_for_animation_frames(page, 5)
         expect(main).to_be_focused()
-        _require_visible_focus(main, "overlapping canceled Shell route")
-        overlap_evidence = page.evaluate(
+        _require_visible_focus(main, "overlapping superseded Shell route")
+        post_release_navigation_anchor = console_errors._event_sequence
+        release_state = page.evaluate(
             """
             () => {
-              document.removeEventListener('focusin', window.__p3030OverlapFocusObserver, true);
+              const gate = window.__p3036ShellSupersessionGate;
+              if (typeof gate?.release !== 'function') return null;
+              if (window.__p3036PostReleaseEvidence) {
+                throw new Error('P3-036 post-release evidence is already installed');
+              }
+              const describeFocus = target => ({
+                targetTestId: target instanceof Element
+                  ? target.getAttribute('data-testid') || ''
+                  : '',
+                targetId: target instanceof Element ? target.id || '' : '',
+                targetTag: target instanceof Element ? target.tagName : 'NON_ELEMENT',
+                connected: target instanceof Node ? target.isConnected : false,
+                url: location.href,
+              });
+              const postRelease = {
+                initialUrl: location.href,
+                initialFocus: describeFocus(document.activeElement),
+                focusTransitions: [],
+                focusLossTransitions: [],
+                bodyFocusSnapshots: [],
+                protectedFocusNodeRemoved: false,
+                historyTransitions: [],
+                originalPushState: history.pushState,
+                originalReplaceState: history.replaceState,
+                focusHandler: null,
+                blurHandler: null,
+                focusoutHandler: null,
+                popstateHandler: null,
+                hashchangeHandler: null,
+                mutationObserver: null,
+                protectedFocusNode: document.activeElement,
+              };
+              const recordHistory = kind => {
+                postRelease.historyTransitions.push({ kind, url: location.href });
+              };
+              postRelease.focusHandler = event => {
+                postRelease.focusTransitions.push(describeFocus(event.target));
+              };
+              const recordFocusLoss = (kind, event) => {
+                postRelease.focusLossTransitions.push({
+                  kind,
+                  from: describeFocus(event.target),
+                  active: describeFocus(document.activeElement),
+                });
+              };
+              postRelease.blurHandler = event => recordFocusLoss('blur', event);
+              postRelease.focusoutHandler = event => recordFocusLoss('focusout', event);
+              postRelease.popstateHandler = () => recordHistory('popstate');
+              postRelease.hashchangeHandler = () => recordHistory('hashchange');
+              postRelease.mutationObserver = new MutationObserver(records => {
+                for (const record of records) {
+                  for (const removedNode of record.removedNodes) {
+                    if (
+                      removedNode === postRelease.protectedFocusNode
+                      || (
+                        removedNode instanceof Element
+                        && removedNode.contains(postRelease.protectedFocusNode)
+                      )
+                    ) {
+                      postRelease.protectedFocusNodeRemoved = true;
+                    }
+                  }
+                }
+                if (document.activeElement === document.body) {
+                  postRelease.bodyFocusSnapshots.push({
+                    kind: 'mutation',
+                    url: location.href,
+                  });
+                }
+              });
+              history.pushState = function (...args) {
+                const result = Reflect.apply(postRelease.originalPushState, this, args);
+                recordHistory('pushState');
+                return result;
+              };
+              history.replaceState = function (...args) {
+                const result = Reflect.apply(postRelease.originalReplaceState, this, args);
+                recordHistory('replaceState');
+                return result;
+              };
+              document.addEventListener('focusin', postRelease.focusHandler, true);
+              document.addEventListener('blur', postRelease.blurHandler, true);
+              document.addEventListener('focusout', postRelease.focusoutHandler, true);
+              addEventListener('popstate', postRelease.popstateHandler);
+              addEventListener('hashchange', postRelease.hashchangeHandler);
+              postRelease.mutationObserver.observe(document, {
+                childList: true,
+                subtree: true,
+              });
+              window.__p3036PostReleaseEvidence = postRelease;
+              gate.release();
               return {
-                actions: window.__p3030OverlapActions,
-                focusBehindModal: window.__p3030OverlapFocusBehindModal,
+                startedCount: gate.startedCount,
+                pendingCount: gate.pendingCount,
+                networkCompletedCount: gate.networkCompletedCount,
+                networkFailure: gate.networkFailure,
+                requestUrl: gate.requestUrl,
+                requestMethod: gate.requestMethod,
+                requestNextRouterPrefetch: gate.requestNextRouterPrefetch,
+                requestPurpose: gate.requestPurpose,
+                requestSecPurpose: gate.requestSecPurpose,
+                responseReady: gate.responseReady,
+                responseStatus: gate.responseStatus,
+                responseUrl: gate.responseUrl,
+                responseRedirected: gate.responseRedirected,
+                responseContentType: gate.responseContentType,
+                responseMediaType: gate.responseMediaType,
+                responseBodyLength: gate.responseBodyLength,
+                releasedCount: gate.releasedCount,
+                deliveryResolvedCount: gate.deliveryResolvedCount,
               };
             }
             """
         )
+        _require(release_state is not None, "superseded Session response had no release gate")
+        page.wait_for_function(
+            """
+            () => window.__p3036ShellSupersessionGate?.downstreamBodySettled === true
+            """,
+            timeout=30_000,
+        )
+        _wait_for_page_requests_to_settle(page, console_errors)
+        _wait_for_animation_frames(page, 5)
+        expect(page).to_have_url(re.compile(rf"^{re.escape(FRONTEND_URL)}/?$"))
+        expect(main).to_be_focused()
+        _require_visible_focus(
+            main,
+            "overlapping superseded Shell route after stale response settlement",
+        )
+        overlap_evidence = page.evaluate(
+            """
+            () => {
+              document.removeEventListener('focusin', window.__p3030OverlapFocusObserver, true);
+              const gate = window.__p3036ShellSupersessionGate;
+              const postRelease = window.__p3036PostReleaseEvidence;
+              document.removeEventListener('focusin', postRelease.focusHandler, true);
+              document.removeEventListener('blur', postRelease.blurHandler, true);
+              document.removeEventListener('focusout', postRelease.focusoutHandler, true);
+              removeEventListener('popstate', postRelease.popstateHandler);
+              removeEventListener('hashchange', postRelease.hashchangeHandler);
+              postRelease.mutationObserver.disconnect();
+              history.pushState = postRelease.originalPushState;
+              history.replaceState = postRelease.originalReplaceState;
+              return {
+                focusBehindModal: window.__p3030OverlapFocusBehindModal,
+                postRelease: {
+                  initialUrl: postRelease.initialUrl,
+                  initialFocus: postRelease.initialFocus,
+                  focusTransitions: postRelease.focusTransitions,
+                  focusLossTransitions: postRelease.focusLossTransitions,
+                  bodyFocusSnapshots: postRelease.bodyFocusSnapshots,
+                  protectedFocusNodeRemoved: postRelease.protectedFocusNodeRemoved,
+                  historyTransitions: postRelease.historyTransitions,
+                },
+                gate: {
+                  startedCount: gate.startedCount,
+                  pendingCount: gate.pendingCount,
+                  networkCompletedCount: gate.networkCompletedCount,
+                  networkFailure: gate.networkFailure,
+                  requestUrl: gate.requestUrl,
+                  requestMethod: gate.requestMethod,
+                  requestNextRouterPrefetch: gate.requestNextRouterPrefetch,
+                  requestPurpose: gate.requestPurpose,
+                  requestSecPurpose: gate.requestSecPurpose,
+                  responseReady: gate.responseReady,
+                  responseStatus: gate.responseStatus,
+                  responseUrl: gate.responseUrl,
+                  responseRedirected: gate.responseRedirected,
+                  responseContentType: gate.responseContentType,
+                  responseMediaType: gate.responseMediaType,
+                  responseBodyLength: gate.responseBodyLength,
+                  releasedCount: gate.releasedCount,
+                  deliveryResolvedCount: gate.deliveryResolvedCount,
+                  downstreamBodyBytes: gate.downstreamBodyBytes,
+                  downstreamBodySettled: gate.downstreamBodySettled,
+                  downstreamBodyCancelled: gate.downstreamBodyCancelled,
+                  downstreamCancelReason: gate.downstreamCancelReason,
+                },
+              };
+            }
+            """
+        )
+        gate_evidence = overlap_evidence["gate"]
         _require(
-            overlap_evidence["actions"] == ["reopen", "saved", "back"],
-            f"overlapping Shell actions did not execute in order: "
-            f"{overlap_evidence['actions']}",
+            gate_evidence["startedCount"] == 1
+            and gate_evidence["pendingCount"] == 0
+            and gate_evidence["networkCompletedCount"] == 1
+            and gate_evidence["networkFailure"] is None
+            and gate_evidence["requestMethod"] == "GET"
+            and gate_evidence["requestNextRouterPrefetch"] == ""
+            and gate_evidence["requestPurpose"] != "prefetch"
+            and str(gate_evidence["requestSecPurpose"]).split(";", 1)[0]
+            != "prefetch"
+            and gate_evidence["responseReady"] is True
+            and gate_evidence["responseStatus"] == 200
+            and gate_evidence["responseRedirected"] is False
+            and gate_evidence["responseUrl"] == gate_evidence["requestUrl"]
+            and _route_document_key(str(gate_evidence["requestUrl"]))
+            == _route_document_key(f"{FRONTEND_URL}/session")
+            and gate_evidence["responseMediaType"] == "text/x-component"
+            and int(gate_evidence["responseBodyLength"]) > 0
+            and gate_evidence["releasedCount"] == 1
+            and gate_evidence["deliveryResolvedCount"] == 1
+            and gate_evidence["downstreamBodySettled"] is True
+            and (
+                gate_evidence["downstreamBodyCancelled"] is True
+                or int(gate_evidence["downstreamBodyBytes"])
+                == int(gate_evidence["responseBodyLength"])
+            ),
+            f"overlapping Shell supersession gate diverged: {gate_evidence}",
         )
         _require(
             overlap_evidence["focusBehindModal"] == [],
             "overlapping Shell route focused behind a reopened modal: "
             f"{overlap_evidence['focusBehindModal']}",
         )
+        root_url_key = _route_url_key(FRONTEND_URL)
+        post_release_evidence = overlap_evidence["postRelease"]
         _require(
-            len(delayed_requests) == 2
-            and any("/session?" in url for url in delayed_requests)
-            and any("/library?" in url for url in delayed_requests),
-            f"overlapping Shell route probe did not delay both RSC requests: {delayed_requests}",
+            _route_url_key(str(post_release_evidence["initialUrl"])) == root_url_key
+            and post_release_evidence["initialFocus"]["targetTestId"]
+            == "shell-main-content"
+            and post_release_evidence["initialFocus"]["connected"] is True
+            and post_release_evidence["focusLossTransitions"] == []
+            and post_release_evidence["bodyFocusSnapshots"] == []
+            and post_release_evidence["protectedFocusNodeRemoved"] is False
+            and all(
+                transition["targetTestId"] == "shell-main-content"
+                and transition["connected"] is True
+                and _route_url_key(str(transition["url"])) == root_url_key
+                for transition in post_release_evidence["focusTransitions"]
+            )
+            and all(
+                _route_url_key(str(transition["url"])) == root_url_key
+                for transition in post_release_evidence["historyTransitions"]
+            ),
+            "stale Session response caused a transient post-release focus or history takeover: "
+            f"{post_release_evidence}",
+        )
+        post_release_navigation_events = [
+            event
+            for event in console_errors._page_navigation_events.get(
+                _page_identity(page),
+                (),
+            )
+            if isinstance(event.get("sequence"), int)
+            and int(event["sequence"]) > post_release_navigation_anchor
+        ]
+        _require(
+            all(
+                _route_url_key(str(event.get("url") or "")) == root_url_key
+                for event in post_release_navigation_events
+            ),
+            "stale Session response caused a transient post-release navigation: "
+            f"{post_release_navigation_events}",
+        )
+        _complete_expected_route_transition(page, root_transition)
+        page.evaluate(
+            """
+            () => {
+              window.fetch = window.__p3036ShellSupersessionOriginalFetch;
+              delete window.__p3036ShellSupersessionOriginalFetch;
+              delete window.__p3036ShellSupersessionGate;
+              delete window.__p3036PostReleaseEvidence;
+            }
+            """
         )
     finally:
-        page.unroute(delayed_route_pattern, delay_route)
         context.close()
 
 
@@ -13794,19 +18147,2366 @@ def _restore_tutor_article_search_delays(page) -> None:
     )
 
 
-def _unexpected_console_errors(messages: list[str]) -> list[str]:
-    expected_statuses = {"503": 13}
-    unexpected: list[str] = []
-    for message in messages:
-        matched = False
-        for status, remaining in expected_statuses.items():
-            if remaining and f"status of {status}" in message:
-                expected_statuses[status] -= 1
-                matched = True
-                break
-        if not matched:
-            unexpected.append(message)
-    return unexpected
+def _expected_console_key(item: dict[str, object]) -> tuple[object, ...]:
+    return (
+        item["expectation_id"],
+        item["network_request_id"],
+        item["label"],
+        item["page_id"],
+        item["source_url"],
+        item["status"],
+    )
+
+
+def _console_base_key(item: dict[str, object]) -> tuple[object, ...]:
+    return (
+        item["label"],
+        item["page_id"],
+        item["source_url"],
+        item["status"],
+    )
+
+
+def _http_console_status(text: str) -> int | None:
+    for status in (404, 503):
+        if text == _expected_http_console_text(status):
+            return status
+    return None
+
+
+def _reconcile_http_console_evidence(
+    messages: ConsoleErrorLog,
+    expectations: list[dict[str, object]],
+    *,
+    include_unrelated: bool,
+) -> tuple[Counter[tuple[object, ...]], list[object]]:
+    failures: list[object] = []
+    expected_full = Counter(_expected_console_key(item) for item in expectations)
+    expected_base = Counter(_console_base_key(item) for item in expectations)
+    target_bases = set(expected_base)
+    playwright_base: Counter[tuple[object, ...]] = Counter()
+
+    for text, evidence in zip(messages, messages.evidence, strict=True):
+        status = _http_console_status(text)
+        if status is None:
+            if include_unrelated:
+                failures.append({"kind": "unexpected_console", "evidence": evidence})
+            continue
+        base = (
+            evidence["label"],
+            evidence["page_id"],
+            evidence["url"],
+            status,
+        )
+        if base not in target_bases:
+            if include_unrelated:
+                failures.append({"kind": "unexpected_console", "evidence": evidence})
+            continue
+        provenance_valid = (
+            evidence["text"] == text
+            and evidence["same_page"] is True
+            and evidence["listener_page_id"] == evidence["page_id"]
+            and not evidence["worker_url"]
+        )
+        if not provenance_valid:
+            failures.append({"kind": "invalid_console_provenance", "evidence": evidence})
+            continue
+        playwright_base[base] += 1
+
+    missing_playwright = expected_base - playwright_base
+    surplus_playwright = playwright_base - expected_base
+    if missing_playwright or surplus_playwright:
+        failures.append(
+            {
+                "kind": "playwright_console_cardinality",
+                "missing": list(missing_playwright.elements()),
+                "surplus": list(surplus_playwright.elements()),
+            }
+        )
+
+    cdp_by_base: dict[
+        tuple[object, ...], Counter[tuple[object, ...]]
+    ] = {base: Counter() for base in target_bases}
+    for evidence in messages.cdp_console_evidence:
+        text_value = str(evidence["text"])
+        status = _http_console_status(text_value)
+        if status is None:
+            if include_unrelated:
+                failures.append({"kind": "unexpected_cdp_console", "evidence": evidence})
+            continue
+        base = (
+            evidence["label"],
+            evidence["page_id"],
+            evidence["url"],
+            status,
+        )
+        if base not in target_bases:
+            if include_unrelated:
+                failures.append({"kind": "unexpected_cdp_console", "evidence": evidence})
+            continue
+        candidate = {
+            "expectation_id": evidence.get("expectation_id"),
+            "network_request_id": evidence.get("network_request_id"),
+            "label": evidence["label"],
+            "page_id": evidence["page_id"],
+            "source_url": evidence["url"],
+            "status": status,
+        }
+        full_key = _expected_console_key(candidate)
+        provenance_valid = (
+            evidence["same_page"] is True
+            and evidence["listener_page_id"] == evidence["page_id"]
+            and not evidence["worker_url"]
+        )
+        if not provenance_valid or full_key not in expected_full:
+            failures.append({"kind": "invalid_cdp_console", "evidence": evidence})
+        cdp_by_base[base][full_key] += 1
+
+    actual_full: Counter[tuple[object, ...]] = Counter()
+    for base in expected_base:
+        expected_for_base = Counter(
+            {
+                key: count
+                for key, count in expected_full.items()
+                if key[2:] == base
+            }
+        )
+        actual_for_base = cdp_by_base[base]
+        if not (expected_for_base - actual_for_base) and not (
+            actual_for_base - expected_for_base
+        ):
+            actual_full.update(actual_for_base)
+            continue
+        failures.append(
+            {
+                "kind": "cdp_console_cardinality",
+                "base": base,
+                "missing": list((expected_for_base - actual_for_base).elements()),
+                "surplus": list((actual_for_base - expected_for_base).elements()),
+            }
+        )
+        actual_full.update(actual_for_base)
+
+    return actual_full, failures
+
+
+def _expected_response_key(item: dict[str, object]) -> tuple[object, ...]:
+    return (
+        item["request_id"],
+        *_expected_console_key(item),
+        item["page_url"],
+        item["method"],
+        item["resource_type"],
+        item["navigation_request"],
+    )
+
+
+def _unexpected_console_errors(messages: list[str]) -> list[object]:
+    if not isinstance(messages, ConsoleErrorLog):
+        return list(messages)
+
+    failures: list[object] = list(messages.binding_failures)
+    if len(messages) != len(messages.evidence):
+        return [
+            {
+                "kind": "console_evidence_alignment",
+                "messages": len(messages),
+                "evidence": len(messages.evidence),
+            }
+        ]
+
+    expectation_ids = [item["expectation_id"] for item in messages.expectations]
+    request_ids = [item["request_id"] for item in messages.expectations]
+    network_request_ids = [
+        item["network_request_id"] for item in messages.expectations
+    ]
+    page_ids = [item["page_id"] for item in messages.expectations]
+    if (
+        len(expectation_ids) != len(set(expectation_ids))
+        or any(not isinstance(item, str) or not item for item in expectation_ids)
+        or any(not isinstance(item, str) or not item for item in request_ids)
+        or len(request_ids) != len(set(request_ids))
+        or any(not isinstance(item, str) or not item for item in network_request_ids)
+        or len(network_request_ids) != len(set(network_request_ids))
+        or any(not isinstance(item, str) or not item for item in page_ids)
+    ):
+        failures.append(
+            {
+                "kind": "invalid_http_error_declarations",
+                "expectation_ids": expectation_ids,
+                "request_ids": request_ids,
+                "network_request_ids": network_request_ids,
+                "page_ids": page_ids,
+            }
+        )
+
+    no_content_ids = [
+        item["expectation_id"] for item in messages.no_content_expectations
+    ]
+    no_content_request_ids = [
+        item["request_id"] for item in messages.no_content_expectations
+    ]
+    if (
+        len(no_content_ids) != len(set(no_content_ids))
+        or any(not isinstance(item, str) or not item for item in no_content_ids)
+        or any(
+            not isinstance(item, str) or not item
+            for item in no_content_request_ids
+        )
+        or len(no_content_request_ids) != len(set(no_content_request_ids))
+    ):
+        failures.append(
+            {
+                "kind": "invalid_no_content_declarations",
+                "expectation_ids": no_content_ids,
+                "request_ids": no_content_request_ids,
+            }
+        )
+    for expectation in messages.no_content_expectations:
+        request_id = expectation.get("request_id")
+        actual = (
+            messages.request_evidence.get(request_id)
+            if isinstance(request_id, str)
+            else None
+        )
+        if actual is None or not _is_declared_successful_no_content_response(
+            messages, request_id, actual
+        ):
+            failures.append(
+                {
+                    "kind": "invalid_no_content_response_lifecycle",
+                    "expectation": expectation,
+                    "request": actual,
+                }
+            )
+
+    route_expectation_ids = [
+        item["expectation_id"] for item in messages.route_transition_expectations
+    ]
+    route_bound_request_ids: list[str] = []
+    for expectation in messages.route_transition_expectations:
+        cancelled_route_urls = tuple(expectation.get("cancelled_route_urls") or ())
+        cancelled_read_urls = tuple(expectation.get("cancelled_read_urls") or ())
+        cancelled_route_keys = tuple(
+            _route_document_key(str(url)) for url in cancelled_route_urls
+        )
+        cancelled_read_keys = tuple(
+            _network_url_key(str(url)) for url in cancelled_read_urls
+        )
+        endpoint_route_keys = {
+            _route_document_key(
+                str(expectation.get("request_page_url") or "")
+            ),
+            _route_document_key(str(expectation.get("destination_url") or "")),
+        }
+        bound_request_ids = tuple(expectation.get("bound_request_ids") or ())
+        endpoint_route_binding_counts = {
+            route_key: sum(
+                1
+                for request_id in bound_request_ids
+                if request_id in messages.request_evidence
+                and _route_transition_request_kind(
+                    messages,
+                    expectation,
+                    messages.request_evidence[request_id],
+                )
+                == "route"
+                and _route_document_key(
+                    str(
+                        messages.request_evidence[request_id].get(
+                            "source_url"
+                        )
+                        or ""
+                    )
+                )
+                == route_key
+            )
+            for route_key in endpoint_route_keys
+        }
+        cancelled_route_binding_counts = {
+            route_key: sum(
+                1
+                for request_id in bound_request_ids
+                if request_id in messages.request_evidence
+                and _route_transition_request_kind(
+                    messages,
+                    expectation,
+                    messages.request_evidence[request_id],
+                )
+                == "cancelled_route"
+                and _route_document_key(
+                    str(
+                        messages.request_evidence[request_id].get(
+                            "source_url"
+                        )
+                        or ""
+                    )
+                )
+                == route_key
+            )
+            for route_key in cancelled_route_keys
+        }
+        cancelled_read_binding_counts = {
+            read_key: sum(
+                1
+                for request_id in bound_request_ids
+                if request_id in messages.request_evidence
+                and _route_transition_request_kind(
+                    messages,
+                    expectation,
+                    messages.request_evidence[request_id],
+                )
+                == "explicit_read"
+                and _network_url_key(
+                    str(
+                        messages.request_evidence[request_id].get(
+                            "source_url"
+                        )
+                        or ""
+                    )
+                )
+                == read_key
+            )
+            for read_key in cancelled_read_keys
+        }
+        route_bound_request_ids.extend(str(item) for item in bound_request_ids)
+        completion_sequence = expectation.get("completion_sequence")
+        declaration_navigation_generation = expectation.get(
+            "declaration_navigation_generation"
+        )
+        completion_navigation_generation = expectation.get(
+            "completion_navigation_generation"
+        )
+        route_identity_changed = (
+            _route_url_key(str(expectation.get("request_page_url") or ""))
+            != _route_url_key(str(expectation.get("destination_url") or ""))
+        )
+        observed_navigation = (
+            isinstance(declaration_navigation_generation, int)
+            and isinstance(completion_navigation_generation, int)
+            and completion_navigation_generation
+            > declaration_navigation_generation
+        )
+        observed_required_supersession = bool(cancelled_route_urls) and all(
+            count == 1
+            for count in cancelled_route_binding_counts.values()
+        )
+        observed_explicit_supersession = observed_required_supersession
+        valid_route_expectation = (
+            isinstance(expectation.get("expectation_id"), str)
+            and bool(expectation["expectation_id"])
+            and isinstance(expectation.get("page_id"), str)
+            and bool(expectation["page_id"])
+            and isinstance(expectation.get("label"), str)
+            and bool(expectation["label"])
+            and _is_allowed_frontend_url(
+                str(expectation.get("request_page_url") or "")
+            )
+            and _is_allowed_frontend_url(
+                str(expectation.get("destination_url") or "")
+            )
+            and isinstance(expectation.get("declaration_sequence"), int)
+            and isinstance(declaration_navigation_generation, int)
+            and isinstance(completion_sequence, int)
+            and isinstance(completion_navigation_generation, int)
+            and int(expectation["declaration_sequence"])
+            < int(completion_sequence)
+            and _route_url_key(str(expectation.get("completion_url") or ""))
+            == _route_url_key(str(expectation.get("destination_url") or ""))
+            and (
+                route_identity_changed
+                or observed_navigation
+                or observed_explicit_supersession
+            )
+            and len(cancelled_route_keys) == len(set(cancelled_route_keys))
+            and all(count <= 1 for count in endpoint_route_binding_counts.values())
+            and all(
+                _is_allowed_frontend_url(str(url))
+                for url in cancelled_route_urls
+            )
+            and not set(cancelled_route_keys) & endpoint_route_keys
+            and all(count == 1 for count in cancelled_route_binding_counts.values())
+            and len(cancelled_read_keys) == len(set(cancelled_read_keys))
+            and all(
+                _is_allowed_http_url(str(url)) and urlparse(str(url)).port == 8000
+                for url in cancelled_read_urls
+            )
+            and all(count == 1 for count in cancelled_read_binding_counts.values())
+            and len(bound_request_ids) == len(set(bound_request_ids))
+            and all(
+                isinstance(request_id, str)
+                and request_id in messages.request_evidence
+                and isinstance(
+                    messages.request_evidence[request_id].get("terminal_sequence"),
+                    int,
+                )
+                and int(
+                    messages.request_evidence[request_id]["terminal_sequence"]
+                )
+                < int(completion_sequence)
+                and _route_transition_request_kind(
+                    messages,
+                    expectation,
+                    messages.request_evidence[request_id],
+                )
+                is not None
+                for request_id in bound_request_ids
+            )
+        )
+        if not valid_route_expectation:
+            failures.append(
+                {
+                    "kind": "invalid_route_transition_expectation",
+                    "expectation": expectation,
+                }
+            )
+    if len(route_expectation_ids) != len(set(route_expectation_ids)):
+        failures.append(
+            {
+                "kind": "duplicate_route_transition_expectation",
+                "expectation_ids": route_expectation_ids,
+            }
+        )
+    if len(route_bound_request_ids) != len(set(route_bound_request_ids)):
+        failures.append(
+            {
+                "kind": "duplicate_route_transition_request_binding",
+                "request_ids": route_bound_request_ids,
+            }
+        )
+
+    for request_id, evidence in messages.request_evidence.items():
+        if not _is_product_browser_request(evidence):
+            continue
+        if (
+            evidence.get("response_status") == 204
+            and evidence.get("method") in {"POST", "PUT", "PATCH", "DELETE"}
+            and request_id not in messages._expected_no_content_request_ids
+        ):
+            failures.append(
+                {
+                    "kind": "undeclared_mutation_no_content_response",
+                    "request_id": request_id,
+                    "evidence": evidence,
+                }
+            )
+            continue
+        if (
+            _is_framework_prefetch_cancellation(messages, evidence)
+            or _is_route_transition_cancellation(messages, evidence)
+            or _is_declared_cancelled_route_request(messages, evidence)
+            or _is_declared_route_read_cancellation(messages, evidence)
+            or _is_superseded_successful_read(messages, request_id, evidence)
+            or _is_next_static_chunk_cancellation(messages, evidence)
+            or _is_declared_successful_no_content_response(
+                messages, request_id, evidence
+            )
+        ):
+            continue
+        if evidence["failure"] is not None:
+            start_sequence = evidence.get("start_sequence")
+            terminal_sequence = evidence.get("terminal_sequence")
+            nearby_navigation_events = [
+                event
+                for event in messages._page_navigation_events.get(
+                    str(evidence.get("page_id") or ""),
+                    (),
+                )
+                if isinstance(start_sequence, int)
+                and isinstance(terminal_sequence, int)
+                and isinstance(event.get("sequence"), int)
+                and start_sequence - 5
+                <= int(event["sequence"])
+                <= terminal_sequence + 5
+            ]
+            failures.append(
+                {
+                    "kind": (
+                        "failed_product_request_after_http_response"
+                        if evidence.get("response_status") is not None
+                        else "failed_product_request_without_http_response"
+                    ),
+                    "request_id": request_id,
+                    "evidence": evidence,
+                    "nearby_navigation_events": nearby_navigation_events,
+                }
+            )
+        elif evidence["finished"] is not True:
+            failures.append(
+                {
+                    "kind": "unsettled_product_request",
+                    "request_id": request_id,
+                    "evidence": evidence,
+                }
+            )
+
+    expected_console = Counter(_expected_console_key(item) for item in messages.expectations)
+    expected_response = Counter(_expected_response_key(item) for item in messages.expectations)
+    actual_console, console_failures = _reconcile_http_console_evidence(
+        messages,
+        messages.expectations,
+        include_unrelated=True,
+    )
+    failures.extend(console_failures)
+
+    expected_console_delta = expected_console - actual_console
+    actual_console_delta = actual_console - expected_console
+    if expected_console_delta or actual_console_delta:
+        failures.append(
+            {
+                "kind": "console_cardinality",
+                "missing": list(expected_console_delta.elements()),
+                "surplus": list(actual_console_delta.elements()),
+            }
+        )
+
+    actual_response: Counter[tuple[object, ...]] = Counter()
+    for evidence in messages.response_evidence:
+        if evidence["expectation_id"] is None:
+            failures.append({"kind": "unregistered_http_error_response", "evidence": evidence})
+            continue
+        candidate = {
+            "expectation_id": evidence["expectation_id"],
+            "request_id": evidence["request_id"],
+            "network_request_id": evidence["network_request_id"],
+            "label": evidence["label"],
+            "page_id": evidence["page_id"],
+            "page_url": evidence["page_url"],
+            "source_url": evidence["source_url"],
+            "status": evidence["status"],
+            "method": evidence["method"],
+            "resource_type": evidence["resource_type"],
+            "navigation_request": evidence["navigation_request"],
+        }
+        expectation = messages._expectation(evidence["expectation_id"])
+        bridge_valid = (
+            expectation is not None
+            and evidence["bridge_expectation_id"] == evidence["expectation_id"]
+        )
+        provenance_valid = (
+            evidence["same_page"] is True
+            and evidence["main_frame"] is True
+            and evidence["listener_page_id"] == evidence["page_id"]
+            and (
+                evidence["navigation_request"] is True
+                or evidence["frame_url_at_request"] == evidence["page_url"]
+            )
+            and not evidence["service_worker_url"]
+            and evidence["from_service_worker"] is False
+            and evidence["finished"] is True
+            and evidence["failure"] is None
+            and bridge_valid
+        )
+        if not provenance_valid:
+            failures.append({"kind": "invalid_response_lifecycle", "evidence": evidence})
+            continue
+        actual_response[_expected_response_key(candidate)] += 1
+
+    expected_response_delta = expected_response - actual_response
+    actual_response_delta = actual_response - expected_response
+    if expected_response_delta or actual_response_delta:
+        failures.append(
+            {
+                "kind": "response_cardinality",
+                "missing": list(expected_response_delta.elements()),
+                "surplus": list(actual_response_delta.elements()),
+            }
+        )
+    return failures
+
+
+def _verify_http_error_evidence_contract() -> None:
+    expectation = {
+        "expectation_id": "contract-http-1",
+        "request_id": "contract-request-1",
+        "network_request_id": "contract-network-request-1",
+        "label": "contract-probe",
+        "page_id": "contract-page-1",
+        "page_url": f"{FRONTEND_URL}/contract-probe",
+        "source_url": f"{BROWSER_API_URL}/contract-probe",
+        "status": 503,
+        "method": "GET",
+        "resource_type": "fetch",
+        "navigation_request": False,
+        "response_header_required": True,
+    }
+    console = {
+        "expectation_id": expectation["expectation_id"],
+        "network_request_id": expectation["network_request_id"],
+        "label": expectation["label"],
+        "listener_page_id": expectation["page_id"],
+        "listener_page_url": expectation["page_url"],
+        "page_id": expectation["page_id"],
+        "page_url": expectation["page_url"],
+        "same_page": True,
+        "worker_url": "",
+        "text": _expected_http_console_text(503),
+        "url": expectation["source_url"],
+    }
+    response = {
+        **expectation,
+        "listener_page_id": expectation["page_id"],
+        "listener_page_url": expectation["page_url"],
+        "frame_url_at_request": expectation["page_url"],
+        "same_page": True,
+        "main_frame": True,
+        "service_worker_url": "",
+        "from_service_worker": False,
+        "bridge_expectation_id": expectation["expectation_id"],
+        "finished": True,
+        "failure": None,
+    }
+
+    def build_log(
+        *,
+        console_override: dict[str, object] | None = None,
+        response_override: dict[str, object] | None = None,
+        expectation_override: dict[str, object] | None = None,
+        include_console: bool = True,
+        include_response: bool = True,
+        extra_message: str | None = None,
+        duplicate_response: bool = False,
+    ) -> ConsoleErrorLog:
+        log = ConsoleErrorLog()
+        effective_expectation = {**expectation, **(expectation_override or {})}
+        log.expectations.append(effective_expectation)
+        if include_console:
+            console_item = {**console, **(console_override or {})}
+            list.append(log, str(console_item["text"]))
+            log.evidence.append(console_item)
+            log.cdp_console_evidence.append(dict(console_item))
+        if extra_message is not None:
+            list.append(log, extra_message)
+            log.evidence.append(
+                {
+                    **console,
+                    "text": extra_message,
+                    "url": f"{BROWSER_API_URL}/foreign",
+                }
+            )
+        if include_response:
+            response_item = {
+                **response,
+                **effective_expectation,
+                **(response_override or {}),
+            }
+            log.response_evidence.append(response_item)
+            if duplicate_response:
+                log.response_evidence.append(dict(response_item))
+        return log
+
+    _require(
+        not _unexpected_console_errors(build_log()),
+        "valid controlled HTTP error evidence did not reconcile",
+    )
+    negative_cases = (
+        build_log(console_override={"label": "wrong-label"}),
+        build_log(console_override={"page_id": "wrong-page"}),
+        build_log(console_override={"url": f"{BROWSER_API_URL}/wrong"}),
+        build_log(console_override={"same_page": False}),
+        build_log(console_override={"worker_url": "worker.js"}),
+        build_log(response_override={"expectation_id": "wrong-expectation"}),
+        build_log(response_override={"request_id": "wrong-request"}),
+        build_log(response_override={"network_request_id": "wrong-network-request"}),
+        build_log(response_override={"label": "wrong-label"}),
+        build_log(response_override={"page_url": f"{FRONTEND_URL}/wrong"}),
+        build_log(response_override={"source_url": f"{BROWSER_API_URL}/wrong"}),
+        build_log(response_override={"status": 404}),
+        build_log(response_override={"method": "POST"}),
+        build_log(response_override={"resource_type": "xhr"}),
+        build_log(response_override={"navigation_request": True}),
+        build_log(response_override={"same_page": False}),
+        build_log(response_override={"main_frame": False}),
+        build_log(response_override={"listener_page_id": "wrong-page"}),
+        build_log(response_override={"frame_url_at_request": f"{FRONTEND_URL}/wrong"}),
+        build_log(response_override={"service_worker_url": "service-worker.js"}),
+        build_log(response_override={"from_service_worker": True}),
+        build_log(response_override={"bridge_expectation_id": "wrong-expectation"}),
+        build_log(response_override={"finished": False}),
+        build_log(response_override={"failure": "net::ERR_FAILED"}),
+        build_log(expectation_override={"request_id": None}),
+        build_log(expectation_override={"network_request_id": None}),
+        build_log(expectation_override={"expectation_id": ""}),
+        build_log(response_override={"expectation_id": None}),
+        build_log(duplicate_response=True),
+        build_log(include_console=False),
+        build_log(include_response=False),
+        build_log(extra_message=_expected_http_console_text(503)),
+    )
+    _require(
+        all(_unexpected_console_errors(case) for case in negative_cases),
+        "controlled HTTP error evidence accepted a negative contract case",
+    )
+
+    duplicate_log = ConsoleErrorLog()
+    for index in range(2):
+        duplicate_expectation = {
+            **expectation,
+            "expectation_id": f"contract-http-{index + 1}",
+            "request_id": f"contract-request-{index + 1}",
+            "network_request_id": f"contract-network-request-{index + 1}",
+        }
+        duplicate_log.expectations.append(duplicate_expectation)
+        list.append(duplicate_log, str(console["text"]))
+        duplicate_log.evidence.append(
+            {
+                **console,
+                "expectation_id": duplicate_expectation["expectation_id"],
+                "network_request_id": duplicate_expectation["network_request_id"],
+            }
+        )
+        duplicate_log.cdp_console_evidence.append(
+            {
+                **console,
+                "expectation_id": duplicate_expectation["expectation_id"],
+                "network_request_id": duplicate_expectation["network_request_id"],
+            }
+        )
+        duplicate_log.response_evidence.append(
+            {
+                **response,
+                **duplicate_expectation,
+                "bridge_expectation_id": duplicate_expectation["expectation_id"],
+            }
+        )
+    _require(
+        not _unexpected_console_errors(duplicate_log),
+        "two predeclared same-URL HTTP errors did not reconcile independently",
+    )
+    misbound_duplicate_log = ConsoleErrorLog()
+    misbound_duplicate_log.expectations.extend(
+        dict(item) for item in duplicate_log.expectations
+    )
+    misbound_duplicate_log.response_evidence.extend(
+        dict(item) for item in duplicate_log.response_evidence
+    )
+    for _ in range(2):
+        list.append(misbound_duplicate_log, str(console["text"]))
+        misbound_duplicate_log.evidence.append(dict(duplicate_log.evidence[0]))
+        misbound_duplicate_log.cdp_console_evidence.append(
+            dict(duplicate_log.cdp_console_evidence[0])
+        )
+    _require(
+        bool(_unexpected_console_errors(misbound_duplicate_log)),
+        "duplicate console evidence from one request satisfied another request",
+    )
+
+    class ContractFrame:
+        def __init__(self, page) -> None:
+            self.page = page
+            self.url = page.url
+
+    class ContractPage:
+        url = str(expectation["page_url"])
+
+        def __init__(self, page_id: str) -> None:
+            self._impl_obj = type("PageIdentity", (), {"_guid": page_id})()
+            self.main_frame = ContractFrame(self)
+
+    class ContractRequest:
+        service_worker = None
+        headers: dict[str, str] = {}
+        url = str(expectation["source_url"])
+        method = str(expectation["method"])
+        resource_type = str(expectation["resource_type"])
+
+        def __init__(self, page: ContractPage, request_id: str) -> None:
+            self.frame = page.main_frame
+            self._impl_obj = type("RequestIdentity", (), {"_guid": request_id})()
+
+        def is_navigation_request(self) -> bool:
+            return bool(expectation["navigation_request"])
+
+    class ContractResponse:
+        def __init__(self, *, url: str, status: int) -> None:
+            self.url = url
+            self.status = status
+            self.headers = {"content-type": "application/json"}
+
+    class ContractRoute:
+        def __init__(self, request, response: ContractResponse) -> None:
+            self.request = request
+            self.response = response
+            self.fetch_options: dict[str, object] | None = None
+            self.fulfill_options: dict[str, object] | None = None
+
+        def fetch(self, **options):
+            self.fetch_options = options
+            return self.response
+
+        def fulfill(self, **options) -> None:
+            self.fulfill_options = options
+
+    def build_forward_contract(response_url: str) -> tuple[ConsoleErrorLog, ContractRoute]:
+        log = ConsoleErrorLog()
+        page = ContractPage("forward-contract-page")
+        page_id = _page_identity(page)
+        log._observed_pages[page_id] = str(expectation["label"])
+        expectation_ids = log.declare_http_errors(
+            label=str(expectation["label"]),
+            page_url=str(expectation["page_url"]),
+            source_url=str(expectation["source_url"]),
+            status=int(expectation["status"]),
+            method=str(expectation["method"]),
+            resource_type=str(expectation["resource_type"]),
+            navigation_request=bool(expectation["navigation_request"]),
+        )
+        route = ContractRoute(
+            ContractRequest(page, "forward-contract-request"),
+            ContractResponse(
+                url=response_url,
+                status=int(expectation["status"]),
+            ),
+        )
+        _forward_expected_http_error(
+            route,
+            console_errors=log,
+            page=page,
+            expectation_ids=expectation_ids,
+        )
+        return log, route
+
+    forwarded_log, forwarded_route = build_forward_contract(
+        str(expectation["source_url"])
+    )
+    _require(
+        forwarded_route.fetch_options == {"max_redirects": 0}
+        and forwarded_route.fulfill_options is not None
+        and _header_value(
+            forwarded_route.fulfill_options["headers"],
+            CONTROLLED_HTTP_EXPECTATION_HEADER,
+        )
+        == forwarded_log.expectations[0]["expectation_id"],
+        "forwarded controlled HTTP error did not disable redirects or bridge identity",
+    )
+    redirected_route_rejected = False
+    try:
+        build_forward_contract("https://external.invalid/final")
+    except E2EFailure:
+        redirected_route_rejected = True
+    _require(
+        redirected_route_rejected,
+        "forwarded controlled HTTP error accepted a redirected response URL",
+    )
+
+    def capture_contract_cdp_request(
+        log: ConsoleErrorLog,
+        page: ContractPage,
+        network_request_id: str,
+        *,
+        session_id: str = "contract-session",
+    ) -> None:
+        log._capture_cdp_request(
+            {
+                "requestId": network_request_id,
+                "documentURL": expectation["page_url"],
+                "request": {
+                    "url": expectation["source_url"],
+                    "method": expectation["method"],
+                },
+                "type": "Fetch",
+            },
+            label=str(expectation["label"]),
+            page=page,
+            session_id=session_id,
+        )
+
+    def capture_contract_cdp_response(
+        log: ConsoleErrorLog,
+        network_request_id: str,
+        status: int,
+        *,
+        bridge_id: str = "",
+        session_id: str = "contract-session",
+    ) -> None:
+        log._capture_cdp_response(
+            {
+                "requestId": network_request_id,
+                "response": {
+                    "status": status,
+                    "headers": (
+                        {CONTROLLED_HTTP_EXPECTATION_HEADER: bridge_id}
+                        if bridge_id
+                        else {}
+                    ),
+                },
+            },
+            session_id=session_id,
+        )
+
+    delayed_binding_log = ConsoleErrorLog()
+    delayed_binding_page = ContractPage("delayed-page")
+    delayed_ids = delayed_binding_log.declare_http_errors(
+        label=str(expectation["label"]),
+        page_url=str(expectation["page_url"]),
+        source_url=str(expectation["source_url"]),
+        status=int(expectation["status"]),
+        method=str(expectation["method"]),
+        resource_type=str(expectation["resource_type"]),
+        navigation_request=bool(expectation["navigation_request"]),
+    )
+    delayed_item = delayed_binding_log.bind_http_error_request(
+        delayed_ids,
+        request=ContractRequest(delayed_binding_page, "delayed-request"),
+        page=delayed_binding_page,
+    )
+    _require(
+        delayed_item["network_request_id"] is None,
+        "route-first contract unexpectedly required an early CDP request",
+    )
+    capture_contract_cdp_request(
+        delayed_binding_log,
+        delayed_binding_page,
+        "delayed-network-request",
+    )
+    capture_contract_cdp_response(
+        delayed_binding_log,
+        "delayed-network-request",
+        int(expectation["status"]),
+        bridge_id=str(delayed_item["expectation_id"]),
+    )
+    _require(
+        delayed_item["network_request_id"]
+        == "contract-session:delayed-network-request",
+        "route-first contract did not bind the later CDP response",
+    )
+
+    prior_success_log = ConsoleErrorLog()
+    prior_success_page = ContractPage("prior-success-page")
+    prior_success_ids = prior_success_log.declare_http_errors(
+        label=str(expectation["label"]),
+        page_url=str(expectation["page_url"]),
+        source_url=str(expectation["source_url"]),
+        status=int(expectation["status"]),
+        method=str(expectation["method"]),
+        resource_type=str(expectation["resource_type"]),
+        navigation_request=bool(expectation["navigation_request"]),
+    )
+    capture_contract_cdp_request(
+        prior_success_log,
+        prior_success_page,
+        "prior-success-network-request",
+    )
+    capture_contract_cdp_response(
+        prior_success_log,
+        "prior-success-network-request",
+        200,
+    )
+    prior_success_item = prior_success_log.bind_http_error_request(
+        prior_success_ids,
+        request=ContractRequest(prior_success_page, "controlled-request"),
+        page=prior_success_page,
+    )
+    capture_contract_cdp_request(
+        prior_success_log,
+        prior_success_page,
+        "controlled-network-request",
+    )
+    capture_contract_cdp_response(
+        prior_success_log,
+        "controlled-network-request",
+        int(expectation["status"]),
+        bridge_id=str(prior_success_item["expectation_id"]),
+    )
+    _require(
+        prior_success_item["network_request_id"]
+        == "contract-session:controlled-network-request",
+        "a prior successful request captured the controlled failure binding",
+    )
+
+    reverse_completion_log = ConsoleErrorLog()
+    reverse_completion_page = ContractPage("reverse-page")
+    reverse_ids = reverse_completion_log.declare_http_errors(
+        label=str(expectation["label"]),
+        page_url=str(expectation["page_url"]),
+        source_url=str(expectation["source_url"]),
+        status=int(expectation["status"]),
+        method=str(expectation["method"]),
+        resource_type=str(expectation["resource_type"]),
+        navigation_request=bool(expectation["navigation_request"]),
+        count=2,
+    )
+    reverse_items = [
+        reverse_completion_log.bind_http_error_request(
+            reverse_ids,
+            request=ContractRequest(
+                reverse_completion_page, f"reverse-request-{index}"
+            ),
+            page=reverse_completion_page,
+        )
+        for index in (1, 2)
+    ]
+    for network_id in ("reverse-network-1", "reverse-network-2"):
+        capture_contract_cdp_request(
+            reverse_completion_log,
+            reverse_completion_page,
+            network_id,
+        )
+    capture_contract_cdp_response(
+        reverse_completion_log,
+        "reverse-network-2",
+        int(expectation["status"]),
+        bridge_id=reverse_ids[1],
+    )
+    capture_contract_cdp_response(
+        reverse_completion_log,
+        "reverse-network-1",
+        int(expectation["status"]),
+        bridge_id=reverse_ids[0],
+    )
+    _require(
+        reverse_items[0]["network_request_id"]
+        == "contract-session:reverse-network-1"
+        and reverse_items[1]["network_request_id"]
+        == "contract-session:reverse-network-2",
+        "response-header bridge crossed reverse-completing identical requests",
+    )
+
+    late_console_log = build_log(include_console=False)
+
+    class DelayedConsolePage:
+        delivered = False
+
+        def wait_for_timeout(self, _timeout_ms: int) -> None:
+            if self.delivered:
+                return
+            self.delivered = True
+            list.append(late_console_log, str(console["text"]))
+            late_console_log.evidence.append(dict(console))
+            late_console_log.cdp_console_evidence.append(dict(console))
+
+    _wait_for_declared_http_errors(
+        DelayedConsolePage(),
+        late_console_log,
+        expectation_ids=(str(expectation["expectation_id"]),),
+        timeout_ms=100,
+    )
+
+    not_found_expectation = {
+        **expectation,
+        "expectation_id": "contract-404",
+        "request_id": "contract-404-request",
+        "network_request_id": "contract-session:contract-404-network",
+        "label": "contract-not-found",
+        "page_id": "contract-404-page",
+        "page_url": f"{FRONTEND_URL}/contract-not-found",
+        "source_url": f"{BROWSER_API_URL}/contract-not-found",
+        "status": 404,
+        "response_header_required": True,
+    }
+    not_found_console = {
+        **console,
+        "expectation_id": not_found_expectation["expectation_id"],
+        "network_request_id": not_found_expectation["network_request_id"],
+        "label": not_found_expectation["label"],
+        "listener_page_id": not_found_expectation["page_id"],
+        "listener_page_url": not_found_expectation["page_url"],
+        "page_id": not_found_expectation["page_id"],
+        "page_url": not_found_expectation["page_url"],
+        "text": _expected_http_console_text(404),
+        "url": not_found_expectation["source_url"],
+    }
+    not_found_response = {
+        **response,
+        **not_found_expectation,
+        "listener_page_id": not_found_expectation["page_id"],
+        "listener_page_url": not_found_expectation["page_url"],
+        "frame_url_at_request": not_found_expectation["page_url"],
+        "bridge_expectation_id": not_found_expectation["expectation_id"],
+    }
+    not_found_log = ConsoleErrorLog()
+    not_found_log.expectations.append(not_found_expectation)
+    list.append(not_found_log, str(not_found_console["text"]))
+    not_found_log.evidence.append(not_found_console)
+    not_found_log.cdp_console_evidence.append(dict(not_found_console))
+    not_found_log.response_evidence.append(not_found_response)
+    _require(
+        not _unexpected_console_errors(not_found_log),
+        "valid response-bridged predeclared 404 evidence did not reconcile",
+    )
+    headerless_404_log = ConsoleErrorLog()
+    headerless_404_log.expectations.append(dict(not_found_expectation))
+    list.append(headerless_404_log, str(not_found_console["text"]))
+    headerless_404_log.evidence.append(dict(not_found_console))
+    headerless_404_log.cdp_console_evidence.append(dict(not_found_console))
+    headerless_404_log.response_evidence.append(
+        {**not_found_response, "bridge_expectation_id": None}
+    )
+    _require(
+        bool(_unexpected_console_errors(headerless_404_log)),
+        "headerless 404 evidence bypassed the response identity bridge",
+    )
+    surplus_404_log = ConsoleErrorLog()
+    surplus_404_log.expectations.append(dict(not_found_expectation))
+    list.append(surplus_404_log, str(not_found_console["text"]))
+    surplus_404_log.evidence.append(dict(not_found_console))
+    surplus_404_log.cdp_console_evidence.append(dict(not_found_console))
+    surplus_404_log.response_evidence.extend(
+        [
+            dict(not_found_response),
+            {
+                **not_found_response,
+                "expectation_id": None,
+                "request_id": "contract-unregistered-500",
+                "network_request_id": None,
+                "status": 500,
+            },
+        ]
+    )
+    _require(
+        bool(_unexpected_console_errors(surplus_404_log)),
+        "predeclared 404 ledger accepted a surplus HTTP failure",
+    )
+
+    def lifecycle_log(
+        *,
+        method: str = "GET",
+        failure: str | None = "net::ERR_ABORTED",
+        finished: bool = False,
+        closed: bool = True,
+        response_status: int | None = None,
+        source_url: str = f"{BROWSER_API_URL}/learning/state",
+        resource_type: str = "fetch",
+        main_frame: bool = True,
+        service_worker_url: str = "",
+        start_sequence: int = 1,
+        navigation_generation: int = 1,
+        terminal_page_url: str | None = None,
+        terminal_navigation_generation: int | None = None,
+        rsc_request: bool = False,
+        next_router_prefetch: bool = False,
+        declare_no_content: bool = False,
+    ) -> ConsoleErrorLog:
+        log = ConsoleErrorLog()
+        page_id = "contract-lifecycle-page"
+        request_id = "contract-lifecycle-request"
+        page_url = f"{FRONTEND_URL}/articles"
+        response_url = source_url if response_status is not None else None
+        evidence = {
+            "label": "contract-lifecycle",
+            "page_id": page_id,
+            "page_url": page_url,
+            "frame_url_at_request": page_url,
+            "source_url": source_url,
+            "method": method,
+            "resource_type": resource_type,
+            "navigation_request": False,
+            "main_frame": main_frame,
+            "service_worker_url": service_worker_url,
+            "rsc_request": rsc_request,
+            "next_router_prefetch": next_router_prefetch,
+            "purpose": "",
+            "sec_purpose": "",
+            "route_intent_sequence": (
+                start_sequence
+                if rsc_request and not next_router_prefetch
+                else None
+            ),
+            "start_sequence": start_sequence,
+            "start_monotonic": 1.0,
+            "response_sequence": 2 if response_status is not None else None,
+            "response_monotonic": 1.1 if response_status is not None else None,
+            "terminal_sequence": 4 if failure is not None or finished else None,
+            "terminal_monotonic": 1.2 if failure is not None or finished else None,
+            "navigation_generation": navigation_generation,
+            "terminal_page_url": terminal_page_url,
+            "terminal_navigation_generation": terminal_navigation_generation,
+            "response_status": response_status,
+            "response_url": response_url,
+            "finished": finished,
+            "failure": failure,
+        }
+        log.request_evidence[request_id] = evidence
+        if closed:
+            log._closed_page_ids.add(page_id)
+            log._page_close_intent_sequences[page_id] = 3
+        if declare_no_content:
+            expectation_id = "contract-no-content-1"
+            log.no_content_expectations.append(
+                {
+                    "expectation_id": expectation_id,
+                    "label": evidence["label"],
+                    "page_id": page_id,
+                    "page_url": page_url,
+                    "source_url": source_url,
+                    "method": method,
+                    "declaration_sequence": 0,
+                    "request_id": request_id,
+                    "response_status": response_status,
+                    "response_url": response_url,
+                    "finished": finished,
+                    "failure": failure,
+                }
+            )
+            log._expected_no_content_request_ids[request_id] = expectation_id
+        return log
+
+    def add_completed_route_expectation(
+        log: ConsoleErrorLog,
+        *,
+        destination_url: str,
+        allow_speculative_cancellations: bool = False,
+    ) -> None:
+        evidence = log.request_evidence["contract-lifecycle-request"]
+        log.route_transition_expectations.append(
+            {
+                "expectation_id": "contract-route-1",
+                "label": evidence["label"],
+                "page_id": evidence["page_id"],
+                "request_page_url": evidence["page_url"],
+                "destination_url": destination_url,
+                "allow_speculative_cancellations": allow_speculative_cancellations,
+                "cancelled_route_urls": (),
+                "cancelled_read_urls": (),
+                "declaration_sequence": 0,
+                "declaration_navigation_generation": 0,
+                "completion_sequence": 5,
+                "completion_url": destination_url,
+                "completion_navigation_generation": (
+                    1 if destination_url == evidence["page_url"] else 0
+                ),
+                "bound_request_ids": ("contract-lifecycle-request",),
+            }
+        )
+
+    class ContractPage:
+        def __init__(self, url: str) -> None:
+            self.url = url
+
+    production_page = ContractPage(f"{FRONTEND_URL}/articles")
+    production_log = ConsoleErrorLog()
+    production_page_id = _page_identity(production_page)
+    production_log._observed_pages[production_page_id] = "contract-production"
+    production_expectation_id = production_log.declare_route_transition(
+        page=production_page,
+        destination_url=f"{FRONTEND_URL}/session",
+    )
+    production_log.request_evidence["production-route-request"] = {
+        "label": "contract-production",
+        "page_id": production_page_id,
+        "page_url": f"{FRONTEND_URL}/articles",
+        "frame_url_at_request": f"{FRONTEND_URL}/articles",
+        "source_url": f"{FRONTEND_URL}/session?_rsc=production",
+        "method": "GET",
+        "resource_type": "fetch",
+        "navigation_request": False,
+        "main_frame": True,
+        "service_worker_url": "",
+        "rsc_request": True,
+        "next_router_prefetch": False,
+        "purpose": "",
+        "sec_purpose": "",
+        "route_intent_sequence": 2,
+        "start_sequence": 2,
+        "start_monotonic": 1.0,
+        "response_sequence": 3,
+        "response_monotonic": 1.05,
+        "terminal_sequence": 4,
+        "terminal_monotonic": 1.1,
+        "navigation_generation": 0,
+        "terminal_page_url": f"{FRONTEND_URL}/session",
+        "terminal_navigation_generation": 1,
+        "response_status": 200,
+        "response_url": f"{FRONTEND_URL}/session?_rsc=production",
+        "finished": False,
+        "failure": "net::ERR_ABORTED",
+    }
+    production_log._event_sequence = 4
+    production_page.url = f"{FRONTEND_URL}/session"
+    production_log.complete_route_transition(
+        page=production_page,
+        expectation_id=production_expectation_id,
+    )
+    production_expectation = production_log.route_transition_expectations[0]
+    _require(
+        production_expectation["bound_request_ids"]
+        == ("production-route-request",)
+        and production_expectation["completion_sequence"] == 5,
+        "production route lifecycle did not freeze its exact request at completion",
+    )
+    production_log.request_evidence["late-route-request"] = {
+        **production_log.request_evidence["production-route-request"],
+        "start_sequence": 6,
+        "terminal_sequence": 7,
+    }
+    _require(
+        production_expectation["bound_request_ids"]
+        == ("production-route-request",),
+        "production route lifecycle admitted a request after completion",
+    )
+
+    pending_page = ContractPage(f"{FRONTEND_URL}/articles")
+    pending_log = ConsoleErrorLog()
+    pending_page_id = _page_identity(pending_page)
+    pending_log._observed_pages[pending_page_id] = "contract-pending"
+    pending_expectation_id = pending_log.declare_route_transition(
+        page=pending_page,
+        destination_url=f"{FRONTEND_URL}/session",
+    )
+    pending_log.request_evidence["pending-route-request"] = {
+        **production_log.request_evidence["production-route-request"],
+        "label": "contract-pending",
+        "page_id": pending_page_id,
+        "page_url": f"{FRONTEND_URL}/articles",
+        "frame_url_at_request": f"{FRONTEND_URL}/articles",
+        "source_url": f"{FRONTEND_URL}/session?_rsc=pending",
+        "start_sequence": 2,
+        "response_sequence": 3,
+        "terminal_sequence": None,
+        "terminal_monotonic": None,
+        "terminal_page_url": None,
+        "terminal_navigation_generation": None,
+        "response_status": 200,
+        "response_url": f"{FRONTEND_URL}/session?_rsc=pending",
+        "finished": False,
+        "failure": None,
+    }
+    pending_page.url = f"{FRONTEND_URL}/session"
+    try:
+        pending_log.complete_route_transition(
+            page=pending_page,
+            expectation_id=pending_expectation_id,
+        )
+    except E2EFailure:
+        pass
+    else:
+        raise E2EFailure(
+            "production route lifecycle completed with a pending exact RSC request"
+        )
+
+    fragment_page = ContractPage(f"{FRONTEND_URL}/articles")
+    fragment_log = ConsoleErrorLog()
+    fragment_log._observed_pages[_page_identity(fragment_page)] = "contract-fragment"
+    fragment_expectation_id = fragment_log.declare_route_transition(
+        page=fragment_page,
+        destination_url=f"{FRONTEND_URL}/articles#expected",
+    )
+    fragment_page.url = f"{FRONTEND_URL}/articles#wrong"
+    try:
+        fragment_log.complete_route_transition(
+            page=fragment_page,
+            expectation_id=fragment_expectation_id,
+        )
+    except E2EFailure:
+        pass
+    else:
+        raise E2EFailure(
+            "production route lifecycle accepted the wrong completion fragment"
+        )
+
+    framework_prefetch_url = f"{FRONTEND_URL}/articles?_rsc=contract"
+    _require(
+        not _unexpected_console_errors(
+            lifecycle_log(
+                source_url=framework_prefetch_url,
+                rsc_request=True,
+                next_router_prefetch=True,
+            )
+        ),
+        "closed-page Next.js prefetch cancellation was not classified as teardown",
+    )
+    _require(
+        not _unexpected_console_errors(
+            lifecycle_log(
+                source_url=framework_prefetch_url,
+                failure=None,
+                rsc_request=True,
+                next_router_prefetch=True,
+            )
+        ),
+        "closed-page unsettled Next.js prefetch was not classified as teardown",
+    )
+    _require(
+        not _unexpected_console_errors(
+            lifecycle_log(
+                closed=False,
+                source_url=framework_prefetch_url,
+                rsc_request=True,
+                next_router_prefetch=True,
+            )
+        ),
+        "explicit Next.js prefetch cancellation was not classified",
+    )
+    _require(
+        not _unexpected_console_errors(
+            lifecycle_log(
+                closed=False,
+                source_url=framework_prefetch_url,
+                response_status=200,
+                rsc_request=True,
+                next_router_prefetch=True,
+            )
+        ),
+        "response-backed explicit Next.js prefetch cancellation was not classified",
+    )
+    contract_frontend_mode = ACTIVE_FRONTEND_MODE
+    globals()["ACTIVE_FRONTEND_MODE"] = "dev"
+    try:
+        _require(
+            not _trusted_next_build_manifests_available()
+            and not _next_route_static_chunk_paths(framework_prefetch_url)
+            and not _next_route_exclusive_static_chunk_paths(
+                framework_prefetch_url
+            ),
+            "development mode trusted stale production build manifests",
+        )
+    finally:
+        globals()["ACTIVE_FRONTEND_MODE"] = contract_frontend_mode
+    production_build_manifest_available = _trusted_next_build_manifests_available()
+    if production_build_manifest_available:
+        dependent_prefetch_chunk = lifecycle_log(
+            closed=False,
+            source_url=framework_prefetch_url,
+            rsc_request=True,
+            next_router_prefetch=True,
+        )
+        article_prefetch_chunks = _next_route_exclusive_static_chunk_paths(
+            framework_prefetch_url
+        )
+        tutor_only_chunks = _next_route_exclusive_static_chunk_paths(
+            f"{FRONTEND_URL}/tutor?_rsc=contract"
+        )
+        _require(
+            article_prefetch_chunks and tutor_only_chunks,
+            "Next.js build manifest did not expose route-bound contract chunks",
+        )
+        dependent_prefetch_chunk.request_evidence["dependent-static-chunk"] = {
+            **dependent_prefetch_chunk.request_evidence[
+                "contract-lifecycle-request"
+            ],
+            "source_url": f"{FRONTEND_URL}{sorted(article_prefetch_chunks)[0]}",
+            "resource_type": "script",
+            "rsc_request": False,
+            "next_router_prefetch": False,
+            "start_sequence": 2,
+            "start_monotonic": 1.05,
+            "terminal_sequence": 3,
+            "terminal_monotonic": 1.15,
+        }
+        _require(
+            not _unexpected_console_errors(dependent_prefetch_chunk),
+            "explicit Next.js prefetch did not own its exact static dependency",
+        )
+        shared_prefetch_chunks = _next_route_static_chunk_paths(
+            framework_prefetch_url
+        ) - article_prefetch_chunks
+        _require(
+            shared_prefetch_chunks,
+            "Next.js build manifest did not expose a shared contract chunk",
+        )
+        shared_prefetch_chunk = lifecycle_log(
+            closed=False,
+            source_url=framework_prefetch_url,
+            rsc_request=True,
+            next_router_prefetch=True,
+        )
+        shared_prefetch_chunk.request_evidence["shared-static-chunk"] = {
+            **shared_prefetch_chunk.request_evidence[
+                "contract-lifecycle-request"
+            ],
+            "source_url": f"{FRONTEND_URL}{sorted(shared_prefetch_chunks)[0]}",
+            "resource_type": "script",
+            "rsc_request": False,
+            "next_router_prefetch": False,
+            "start_sequence": 2,
+            "start_monotonic": 1.05,
+            "terminal_sequence": 3,
+            "terminal_monotonic": 1.15,
+        }
+        _require(
+            bool(_unexpected_console_errors(shared_prefetch_chunk)),
+            "shared Next.js chunk was falsely attributed to one route prefetch",
+        )
+    unrelated_prefetch_chunk = lifecycle_log(
+        closed=False,
+        source_url=framework_prefetch_url,
+        rsc_request=True,
+        next_router_prefetch=True,
+    )
+    unrelated_prefetch_chunk.request_evidence["unrelated-static-chunk"] = {
+        **unrelated_prefetch_chunk.request_evidence["contract-lifecycle-request"],
+        "source_url": (
+            f"{FRONTEND_URL}/_next/static/chunks/"
+            "p3-036-unrelated-contract.js"
+        ),
+        "resource_type": "script",
+        "rsc_request": False,
+        "next_router_prefetch": False,
+        "start_sequence": 2,
+        "start_monotonic": 1.05,
+        "terminal_sequence": 3,
+        "terminal_monotonic": 1.15,
+    }
+    undeclared_backend_route_cancellation = lifecycle_log(
+        closed=False,
+        terminal_page_url=f"{FRONTEND_URL}/session",
+        terminal_navigation_generation=2,
+    )
+    following_navigation = lifecycle_log(closed=False)
+    following_navigation._page_navigation_events["contract-lifecycle-page"] = [
+        {
+            "sequence": 5,
+            "generation": 2,
+            "url": f"{FRONTEND_URL}/session",
+            "monotonic": 1.3,
+        }
+    ]
+    same_url_rsc_navigation = lifecycle_log(
+        closed=False,
+        source_url=framework_prefetch_url,
+        response_status=200,
+        rsc_request=True,
+        terminal_navigation_generation=1,
+    )
+    same_url_rsc_navigation._page_navigation_events[
+        "contract-lifecycle-page"
+    ] = [
+        {
+            "sequence": 5,
+            "generation": 2,
+            "url": f"{FRONTEND_URL}/articles",
+            "monotonic": 1.3,
+        }
+    ]
+    preterminal_route_supersession = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/session?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+        terminal_page_url=f"{FRONTEND_URL}/articles",
+        terminal_navigation_generation=2,
+    )
+    preterminal_route_supersession._page_navigation_events[
+        "contract-lifecycle-page"
+    ] = [
+        {
+            "sequence": 3,
+            "generation": 2,
+            "url": f"{FRONTEND_URL}/articles",
+            "monotonic": 1.15,
+        }
+    ]
+    declared_query_transition = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/articles?q=changed&_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        declared_query_transition,
+        destination_url=f"{FRONTEND_URL}/articles?q=changed",
+    )
+    _require(
+        not _unexpected_console_errors(declared_query_transition),
+        "declared same-path RSC transition was not classified",
+    )
+    declared_source_route_transition = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/articles?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        declared_source_route_transition,
+        destination_url=f"{FRONTEND_URL}/session",
+    )
+    _require(
+        not _unexpected_console_errors(declared_source_route_transition),
+        "declared source-route RSC cancellation was not classified",
+    )
+    event_bound_stale_page_route = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/session?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+        start_sequence=2,
+        navigation_generation=1,
+    )
+    add_completed_route_expectation(
+        event_bound_stale_page_route,
+        destination_url=f"{FRONTEND_URL}/session",
+    )
+    event_bound_expectation = event_bound_stale_page_route.route_transition_expectations[0]
+    event_bound_expectation["request_page_url"] = f"{FRONTEND_URL}/articles"
+    event_bound_evidence = event_bound_stale_page_route.request_evidence[
+        "contract-lifecycle-request"
+    ]
+    event_bound_evidence["page_url"] = f"{FRONTEND_URL}/library"
+    event_bound_evidence["frame_url_at_request"] = f"{FRONTEND_URL}/library"
+    event_bound_evidence["response_sequence"] = 3
+    event_bound_stale_page_route._page_navigation_events[
+        "contract-lifecycle-page"
+    ] = [
+        {
+            "sequence": 1,
+            "generation": 1,
+            "url": f"{FRONTEND_URL}/articles",
+            "monotonic": 0.9,
+        }
+    ]
+    _require(
+        _route_transition_request_kind(
+            event_bound_stale_page_route,
+            event_bound_expectation,
+            event_bound_evidence,
+        )
+        == "route"
+        and not _unexpected_console_errors(event_bound_stale_page_route),
+        "an exact sequence-bounded navigation event did not recover a stale page URL",
+    )
+    unrelated_same_generation_route = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/session?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+        start_sequence=2,
+        navigation_generation=1,
+    )
+    add_completed_route_expectation(
+        unrelated_same_generation_route,
+        destination_url=f"{FRONTEND_URL}/session",
+    )
+    unrelated_expectation = unrelated_same_generation_route.route_transition_expectations[0]
+    unrelated_expectation["request_page_url"] = f"{FRONTEND_URL}/articles"
+    unrelated_evidence = unrelated_same_generation_route.request_evidence[
+        "contract-lifecycle-request"
+    ]
+    unrelated_evidence["page_url"] = f"{FRONTEND_URL}/library"
+    unrelated_evidence["frame_url_at_request"] = f"{FRONTEND_URL}/library"
+    unrelated_same_generation_route._page_navigation_events[
+        "contract-lifecycle-page"
+    ] = [
+        {
+            "sequence": 1,
+            "generation": 1,
+            "url": f"{FRONTEND_URL}/library",
+            "monotonic": 0.9,
+        }
+    ]
+    _require(
+        _route_transition_request_kind(
+            unrelated_same_generation_route,
+            unrelated_expectation,
+            unrelated_evidence,
+        )
+        is None
+        and bool(_unexpected_console_errors(unrelated_same_generation_route)),
+        "same-generation evidence from an unrelated page bound a route request",
+    )
+    for case_label, event_generation, event_sequence in (
+        ("wrong-generation", 2, 1),
+        ("before-declaration", 1, -1),
+        ("at-declaration", 1, 0),
+        ("at-request-start", 1, 2),
+        ("after-request-start", 1, 3),
+    ):
+        invalid_event_route = lifecycle_log(
+            closed=False,
+            source_url=f"{FRONTEND_URL}/session?_rsc=contract",
+            response_status=200,
+            rsc_request=True,
+            start_sequence=2,
+            navigation_generation=1,
+        )
+        add_completed_route_expectation(
+            invalid_event_route,
+            destination_url=f"{FRONTEND_URL}/session",
+        )
+        invalid_event_expectation = invalid_event_route.route_transition_expectations[0]
+        invalid_event_expectation["request_page_url"] = f"{FRONTEND_URL}/articles"
+        invalid_event_evidence = invalid_event_route.request_evidence[
+            "contract-lifecycle-request"
+        ]
+        invalid_event_evidence["page_url"] = f"{FRONTEND_URL}/library"
+        invalid_event_evidence["frame_url_at_request"] = f"{FRONTEND_URL}/library"
+        invalid_event_evidence["response_sequence"] = 3
+        invalid_event_route._page_navigation_events[
+            "contract-lifecycle-page"
+        ] = [
+            {
+                "sequence": event_sequence,
+                "generation": event_generation,
+                "url": f"{FRONTEND_URL}/articles",
+                "monotonic": 0.9,
+            }
+        ]
+        _require(
+            _route_transition_request_kind(
+                invalid_event_route,
+                invalid_event_expectation,
+                invalid_event_evidence,
+            )
+            is None
+            and bool(_unexpected_console_errors(invalid_event_route)),
+            "invalid navigation-event fallback bypassed generation or sequence bounds: "
+            f"{case_label}",
+        )
+    duplicate_endpoint_route = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/articles?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        duplicate_endpoint_route,
+        destination_url=f"{FRONTEND_URL}/session",
+    )
+    duplicate_endpoint_expectation = (
+        duplicate_endpoint_route.route_transition_expectations[0]
+    )
+    duplicate_endpoint_route.request_evidence["duplicate-route-request"] = {
+        **duplicate_endpoint_route.request_evidence[
+            "contract-lifecycle-request"
+        ],
+    }
+    duplicate_endpoint_expectation["bound_request_ids"] = (
+        "contract-lifecycle-request",
+        "duplicate-route-request",
+    )
+    _require(
+        bool(_unexpected_console_errors(duplicate_endpoint_route)),
+        "one route transition accepted duplicate endpoint request bindings",
+    )
+    declared_superseded_route = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/session?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        declared_superseded_route,
+        destination_url=f"{FRONTEND_URL}/articles",
+    )
+    declared_superseded_route.route_transition_expectations[0][
+        "cancelled_route_urls"
+    ] = (f"{FRONTEND_URL}/session",)
+    _require(
+        not _unexpected_console_errors(declared_superseded_route),
+        "explicitly declared superseded RSC route was not classified",
+    )
+    duplicate_declared_supersession = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/session?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        duplicate_declared_supersession,
+        destination_url=f"{FRONTEND_URL}/articles",
+    )
+    duplicate_expectation = (
+        duplicate_declared_supersession.route_transition_expectations[0]
+    )
+    duplicate_expectation["cancelled_route_urls"] = (
+        f"{FRONTEND_URL}/session",
+    )
+    duplicate_declared_supersession.request_evidence[
+        "duplicate-cancelled-route-request"
+    ] = {
+        **duplicate_declared_supersession.request_evidence[
+            "contract-lifecycle-request"
+        ],
+    }
+    duplicate_expectation["bound_request_ids"] = (
+        "contract-lifecycle-request",
+        "duplicate-cancelled-route-request",
+    )
+    _require(
+        bool(_unexpected_console_errors(duplicate_declared_supersession)),
+        "one cancelled-route declaration accepted duplicate request bindings",
+    )
+    canonical_route_collision = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/session?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        canonical_route_collision,
+        destination_url=f"{FRONTEND_URL}/articles",
+    )
+    canonical_route_collision.route_transition_expectations[0][
+        "cancelled_route_urls"
+    ] = (
+        f"{FRONTEND_URL}/session",
+        f"{FRONTEND_URL}/session?_rsc=duplicate",
+    )
+    _require(
+        bool(_unexpected_console_errors(canonical_route_collision)),
+        "canonical duplicate cancelled-route identities were accepted",
+    )
+    canonical_read_url = (
+        f"{BROWSER_API_URL}/graph/nodes/concept%3Aattention"
+    )
+    canonical_read_collision = lifecycle_log(
+        closed=False,
+        source_url=canonical_read_url,
+    )
+    add_completed_route_expectation(
+        canonical_read_collision,
+        destination_url=(
+            f"{FRONTEND_URL}/graph?node_id=article%3Aattention-basics"
+        ),
+    )
+    canonical_read_collision.route_transition_expectations[0][
+        "cancelled_read_urls"
+    ] = (
+        canonical_read_url,
+        canonical_read_url.replace("localhost", "LOCALHOST"),
+    )
+    _require(
+        bool(_unexpected_console_errors(canonical_read_collision)),
+        "canonical duplicate cancelled-read identities were accepted",
+    )
+    cancelled_endpoint_no_op = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/articles?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        cancelled_endpoint_no_op,
+        destination_url=f"{FRONTEND_URL}/articles",
+    )
+    cancelled_endpoint_expectation = (
+        cancelled_endpoint_no_op.route_transition_expectations[0]
+    )
+    cancelled_endpoint_expectation["cancelled_route_urls"] = (
+        f"{FRONTEND_URL}/articles",
+    )
+    cancelled_endpoint_expectation["completion_navigation_generation"] = 0
+    _require(
+        bool(_unexpected_console_errors(cancelled_endpoint_no_op)),
+        "no-op transition accepted an endpoint as its cancelled route",
+    )
+    long_response_prefetch = lifecycle_log(
+        closed=False,
+        source_url=framework_prefetch_url,
+        response_status=200,
+        rsc_request=True,
+        next_router_prefetch=True,
+    )
+    long_response_prefetch.request_evidence["contract-lifecycle-request"][
+        "terminal_monotonic"
+    ] = 101.0
+    _require(
+        bool(_unexpected_console_errors(long_response_prefetch)),
+        "long-lived response-backed prefetch cancellation bypassed its time bound",
+    )
+    declared_destination_frame_transition = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/articles?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        declared_destination_frame_transition,
+        destination_url=f"{FRONTEND_URL}/session",
+    )
+    declared_destination_frame_evidence = (
+        declared_destination_frame_transition.request_evidence[
+            "contract-lifecycle-request"
+        ]
+    )
+    declared_destination_frame_evidence["page_url"] = f"{FRONTEND_URL}/session"
+    declared_destination_frame_evidence["frame_url_at_request"] = (
+        f"{FRONTEND_URL}/session"
+    )
+    _require(
+        not _unexpected_console_errors(declared_destination_frame_transition),
+        "declared RSC transition rejected destination-owned frame evidence",
+    )
+    if production_build_manifest_available:
+        canonicalization_chunks = _next_route_exclusive_static_chunk_paths(
+            f"{FRONTEND_URL}/articles?q=canonical"
+        )
+        _require(
+            canonicalization_chunks,
+            "Next.js build manifest did not expose canonicalization chunks",
+        )
+        declared_canonicalization_chunk = lifecycle_log(
+            closed=False,
+            source_url=f"{FRONTEND_URL}{sorted(canonicalization_chunks)[0]}",
+            resource_type="script",
+        )
+        add_completed_route_expectation(
+            declared_canonicalization_chunk,
+            destination_url=f"{FRONTEND_URL}/articles?q=canonical",
+            allow_speculative_cancellations=True,
+        )
+        _require(
+            not _unexpected_console_errors(declared_canonicalization_chunk),
+            "declared canonicalization did not classify its static-chunk cancellation",
+        )
+    declared_route_read = lifecycle_log(
+        closed=False,
+        source_url=f"{BROWSER_API_URL}/graph/nodes/concept%3Aattention",
+    )
+    add_completed_route_expectation(
+        declared_route_read,
+        destination_url=f"{FRONTEND_URL}/graph?node_id=article%3Aattention-basics",
+    )
+    declared_route_read.route_transition_expectations[0][
+        "cancelled_read_urls"
+    ] = (f"{BROWSER_API_URL}/graph/nodes/concept%3Aattention",)
+    _require(
+        not _unexpected_console_errors(declared_route_read),
+        "declared route-owned read cancellation was not classified",
+    )
+    superseded_read = lifecycle_log(closed=False)
+    superseded_read.request_evidence["contract-replacement-request"] = {
+        **superseded_read.request_evidence["contract-lifecycle-request"],
+        "route_intent_sequence": None,
+        "start_sequence": 2,
+        "start_monotonic": 1.05,
+        "response_sequence": 3,
+        "response_monotonic": 1.1,
+        "terminal_sequence": 5,
+        "terminal_monotonic": 1.3,
+        "response_status": 200,
+        "response_url": f"{BROWSER_API_URL}/learning/state",
+        "finished": True,
+        "failure": None,
+    }
+    _require(
+        not _unexpected_console_errors(superseded_read),
+        "aborted read with an exact successful replacement was not reconciled",
+    )
+    _require(
+        not _unexpected_console_errors(
+            lifecycle_log(
+                source_url=f"{FRONTEND_URL}/_next/static/chunks/app/session/page.js",
+                resource_type="script",
+            )
+        ),
+        "Next.js static chunk cancellation was not classified",
+    )
+    _require(
+        not _unexpected_console_errors(
+            lifecycle_log(
+                method="DELETE",
+                response_status=204,
+                declare_no_content=True,
+            )
+        ),
+        "declared 204 mutation abort was not accepted as terminal evidence",
+    )
+    _require(
+        not _unexpected_console_errors(
+            lifecycle_log(
+                method="DELETE",
+                failure=None,
+                finished=True,
+                response_status=204,
+                declare_no_content=True,
+            )
+        ),
+        "declared completed 204 mutation was not accepted as terminal evidence",
+    )
+
+    mismatched_no_content = lifecycle_log(
+        method="DELETE",
+        response_status=204,
+        declare_no_content=True,
+    )
+    mismatched_no_content.no_content_expectations[0]["source_url"] = (
+        f"{BROWSER_API_URL}/wrong"
+    )
+    mismatched_response = lifecycle_log(response_status=200)
+    mismatched_response.request_evidence[
+        "contract-lifecycle-request"
+    ]["response_url"] = f"{BROWSER_API_URL}/wrong"
+    unbound_no_content = lifecycle_log(
+        method="DELETE",
+        response_status=204,
+        declare_no_content=True,
+    )
+    unbound_no_content.no_content_expectations[0]["request_id"] = None
+    unbound_no_content._expected_no_content_request_ids.clear()
+    ambiguous_no_content = lifecycle_log(method="DELETE", response_status=204)
+    ambiguous_actual = ambiguous_no_content.request_evidence[
+        "contract-lifecycle-request"
+    ]
+    for index in (1, 2):
+        ambiguous_no_content.no_content_expectations.append(
+            {
+                "expectation_id": f"ambiguous-no-content-{index}",
+                "label": ambiguous_actual["label"],
+                "page_id": ambiguous_actual["page_id"],
+                "page_url": ambiguous_actual["page_url"],
+                "source_url": ambiguous_actual["source_url"],
+                "method": ambiguous_actual["method"],
+                "request_id": None,
+                "response_status": None,
+                "response_url": None,
+                "finished": False,
+                "failure": None,
+            }
+        )
+    ambiguous_no_content._bind_no_content_response(
+        request_id="contract-lifecycle-request",
+        actual=ambiguous_actual,
+        response_url=str(ambiguous_actual["source_url"]),
+    )
+    query_only_prefetch = lifecycle_log(source_url=framework_prefetch_url)
+    response_after_close_intent = lifecycle_log(response_status=200)
+    response_after_close_intent.request_evidence[
+        "contract-lifecycle-request"
+    ]["response_sequence"] = 4
+    terminal_before_close_intent = lifecycle_log(response_status=200)
+    terminal_before_close_intent.request_evidence[
+        "contract-lifecycle-request"
+    ]["terminal_sequence"] = 2
+    closed_without_close_intent = lifecycle_log(response_status=200)
+    closed_without_close_intent._page_close_intent_sequences.clear()
+    closed_after_response_headers = lifecycle_log(response_status=200)
+    closed_with_unfinished_response = lifecycle_log(
+        response_status=200,
+        failure=None,
+    )
+    static_chunk_without_close_intent = lifecycle_log(
+        source_url=f"{FRONTEND_URL}/_next/static/chunks/app/session/page.js",
+        resource_type="script",
+    )
+    static_chunk_without_close_intent._page_close_intent_sequences.clear()
+    following_same_url = lifecycle_log(closed=False)
+    following_same_url._page_navigation_events["contract-lifecycle-page"] = [
+        {
+            "sequence": 5,
+            "generation": 2,
+            "url": f"{FRONTEND_URL}/articles",
+        }
+    ]
+    following_navigation_after_new_work = lifecycle_log(closed=False)
+    following_navigation_after_new_work._page_navigation_events[
+        "contract-lifecycle-page"
+    ] = [
+        {
+            "sequence": 6,
+            "generation": 2,
+            "url": f"{FRONTEND_URL}/session",
+        }
+    ]
+    following_navigation_after_new_work.request_evidence["new-request"] = {
+        **following_navigation_after_new_work.request_evidence[
+            "contract-lifecycle-request"
+        ],
+        "start_sequence": 5,
+        "response_sequence": None,
+        "terminal_sequence": None,
+        "response_status": None,
+        "response_url": None,
+        "finished": True,
+        "failure": None,
+    }
+    query_only_terminal_transition = lifecycle_log(
+        closed=False,
+        terminal_page_url=f"{FRONTEND_URL}/articles?q=changed",
+        terminal_navigation_generation=2,
+    )
+    retrospective_replacement = lifecycle_log(closed=False)
+    retrospective_replacement.request_evidence["late-replacement"] = {
+        **retrospective_replacement.request_evidence[
+            "contract-lifecycle-request"
+        ],
+        "route_intent_sequence": None,
+        "start_sequence": 5,
+        "start_monotonic": 1.3,
+        "response_sequence": 6,
+        "response_monotonic": 1.4,
+        "terminal_sequence": 7,
+        "terminal_monotonic": 1.5,
+        "response_status": 200,
+        "response_url": f"{BROWSER_API_URL}/learning/state",
+        "finished": True,
+        "failure": None,
+    }
+    cross_route_replacement = lifecycle_log(closed=False)
+    cross_route_replacement.request_evidence["cross-route-replacement"] = {
+        **cross_route_replacement.request_evidence[
+            "contract-lifecycle-request"
+        ],
+        "page_url": f"{FRONTEND_URL}/session",
+        "frame_url_at_request": f"{FRONTEND_URL}/session",
+        "navigation_generation": 2,
+        "route_intent_sequence": None,
+        "start_sequence": 2,
+        "start_monotonic": 1.05,
+        "response_sequence": 3,
+        "response_monotonic": 1.1,
+        "terminal_sequence": 5,
+        "terminal_monotonic": 1.3,
+        "response_status": 200,
+        "response_url": f"{BROWSER_API_URL}/learning/state",
+        "finished": True,
+        "failure": None,
+    }
+    duplicate_abort_reconciliation = lifecycle_log(closed=False)
+    duplicate_abort_reconciliation.request_evidence["second-aborted-request"] = {
+        **duplicate_abort_reconciliation.request_evidence[
+            "contract-lifecycle-request"
+        ],
+        "start_sequence": 2,
+        "start_monotonic": 1.05,
+        "response_sequence": None,
+        "response_monotonic": None,
+        "terminal_sequence": 5,
+        "terminal_monotonic": 1.3,
+    }
+    duplicate_abort_reconciliation.request_evidence["single-replacement"] = {
+        **duplicate_abort_reconciliation.request_evidence[
+            "contract-lifecycle-request"
+        ],
+        "route_intent_sequence": None,
+        "start_sequence": 3,
+        "start_monotonic": 1.1,
+        "response_sequence": 6,
+        "response_monotonic": 1.4,
+        "terminal_sequence": 7,
+        "terminal_monotonic": 1.5,
+        "response_status": 200,
+        "response_url": f"{BROWSER_API_URL}/learning/state",
+        "finished": True,
+        "failure": None,
+    }
+    incomplete_route_expectation = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/articles?q=changed&_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        incomplete_route_expectation,
+        destination_url=f"{FRONTEND_URL}/articles?q=changed",
+    )
+    incomplete_route_expectation.route_transition_expectations[0][
+        "completion_sequence"
+    ] = None
+    incomplete_route_expectation.route_transition_expectations[0][
+        "completion_url"
+    ] = None
+    mismatched_route_expectation = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/articles?q=changed&_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        mismatched_route_expectation,
+        destination_url=f"{FRONTEND_URL}/articles?q=other",
+    )
+    late_route_termination = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/articles?q=changed&_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        late_route_termination,
+        destination_url=f"{FRONTEND_URL}/articles?q=changed",
+    )
+    late_route_termination.request_evidence["contract-lifecycle-request"][
+        "terminal_sequence"
+    ] = 6
+    wrong_fragment_completion = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/articles?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        wrong_fragment_completion,
+        destination_url=f"{FRONTEND_URL}/articles#expected",
+    )
+    wrong_fragment_completion.route_transition_expectations[0][
+        "completion_url"
+    ] = f"{FRONTEND_URL}/articles#wrong"
+    unrelated_route_expectation = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/tutor?_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        unrelated_route_expectation,
+        destination_url=f"{FRONTEND_URL}/session",
+    )
+    mismatched_declared_read = lifecycle_log(
+        closed=False,
+        source_url=f"{BROWSER_API_URL}/graph/nodes/concept%3Aattention",
+    )
+    add_completed_route_expectation(
+        mismatched_declared_read,
+        destination_url=f"{FRONTEND_URL}/graph?node_id=article%3Aattention-basics",
+    )
+    mismatched_declared_read.route_transition_expectations[0][
+        "cancelled_read_urls"
+    ] = (f"{BROWSER_API_URL}/graph/nodes/concept%3Acrb",)
+    mismatched_backend_rsc_read = lifecycle_log(
+        closed=False,
+        source_url=(
+            f"{BROWSER_API_URL}/graph/nodes/concept%3Aattention?_rsc=actual"
+        ),
+    )
+    add_completed_route_expectation(
+        mismatched_backend_rsc_read,
+        destination_url=f"{FRONTEND_URL}/graph?node_id=article%3Aattention-basics",
+    )
+    mismatched_backend_rsc_read.route_transition_expectations[0][
+        "cancelled_read_urls"
+    ] = (
+        f"{BROWSER_API_URL}/graph/nodes/concept%3Aattention?_rsc=declared",
+    )
+    unrelated_static_chunk = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/_next/static/chunks/app/tutor/page.js",
+        resource_type="script",
+    )
+    add_completed_route_expectation(
+        unrelated_static_chunk,
+        destination_url=f"{FRONTEND_URL}/articles?q=changed",
+        allow_speculative_cancellations=True,
+    )
+    unbound_duplicate_route_request = lifecycle_log(
+        closed=False,
+        source_url=f"{FRONTEND_URL}/articles?q=changed&_rsc=contract",
+        response_status=200,
+        rsc_request=True,
+    )
+    add_completed_route_expectation(
+        unbound_duplicate_route_request,
+        destination_url=f"{FRONTEND_URL}/articles?q=changed",
+    )
+    unbound_duplicate_route_request.request_evidence["second-route-request"] = {
+        **unbound_duplicate_route_request.request_evidence[
+            "contract-lifecycle-request"
+        ],
+        "start_sequence": 2,
+        "response_sequence": 3,
+        "terminal_sequence": 4,
+    }
+    retrospective_no_content = lifecycle_log(
+        method="DELETE",
+        response_status=204,
+        declare_no_content=True,
+    )
+    retrospective_no_content.no_content_expectations[0][
+        "declaration_sequence"
+    ] = 2
+    lifecycle_negative_cases = (
+        lifecycle_log(),
+        lifecycle_log(failure=None),
+        query_only_prefetch,
+        lifecycle_log(source_url=framework_prefetch_url, closed=False),
+        lifecycle_log(source_url=framework_prefetch_url, main_frame=False),
+        lifecycle_log(
+            source_url=framework_prefetch_url,
+            service_worker_url="service-worker.js",
+        ),
+        lifecycle_log(failure="net::ERR_CONNECTION_REFUSED"),
+        lifecycle_log(
+            closed=False,
+            terminal_page_url=f"{FRONTEND_URL}/articles",
+            terminal_navigation_generation=1,
+        ),
+        lifecycle_log(response_status=503),
+        mismatched_response,
+        closed_after_response_headers,
+        closed_with_unfinished_response,
+        response_after_close_intent,
+        terminal_before_close_intent,
+        closed_without_close_intent,
+        static_chunk_without_close_intent,
+        following_navigation,
+        following_same_url,
+        following_navigation_after_new_work,
+        unrelated_prefetch_chunk,
+        undeclared_backend_route_cancellation,
+        same_url_rsc_navigation,
+        preterminal_route_supersession,
+        query_only_terminal_transition,
+        retrospective_replacement,
+        cross_route_replacement,
+        duplicate_abort_reconciliation,
+        incomplete_route_expectation,
+        mismatched_route_expectation,
+        late_route_termination,
+        wrong_fragment_completion,
+        unrelated_route_expectation,
+        mismatched_declared_read,
+        mismatched_backend_rsc_read,
+        unrelated_static_chunk,
+        unbound_duplicate_route_request,
+        lifecycle_log(method="DELETE", response_status=204),
+        lifecycle_log(
+            method="DELETE",
+            failure=None,
+            finished=True,
+            response_status=204,
+        ),
+        lifecycle_log(method="DELETE", response_status=200),
+        lifecycle_log(
+            method="DELETE",
+            failure="net::ERR_CONNECTION_REFUSED",
+            response_status=204,
+            declare_no_content=True,
+        ),
+        mismatched_no_content,
+        unbound_no_content,
+        ambiguous_no_content,
+        retrospective_no_content,
+    )
+    _require(
+        all(_unexpected_console_errors(case) for case in lifecycle_negative_cases),
+        "request lifecycle policy accepted a mutation, live-page, transport, or HTTP failure",
+    )
+
+    _require(
+        all(
+            _is_allowed_http_url(url)
+            for url in (
+                FRONTEND_URL,
+                BROWSER_API_URL,
+                API_URL,
+            )
+        ),
+        "local HTTP network allowlist rejected a product origin",
+    )
+    _require(
+        all(
+            not _is_allowed_http_url(url)
+            for url in (
+                "https://spaces.ac.cn/",
+                "http://127.0.0.1:9000/",
+                "http://localhost/articles",
+                "http://localhost:3000/articles",
+                "https://127.0.0.1:3000/articles",
+                "http://[::1]:3000/articles",
+                "http://user@127.0.0.1:3000/articles",
+            )
+        ),
+        "HTTP network allowlist accepted a non-product origin",
+    )
+    _require(
+        _is_allowed_websocket_url("ws://127.0.0.1:3000/socket")
+        and not _is_allowed_websocket_url("wss://spaces.ac.cn/socket")
+        and not _is_allowed_websocket_url("ws://127.0.0.1:9000/socket")
+        and not _is_allowed_websocket_url("ws://localhost:3000/socket")
+        and not _is_allowed_websocket_url("wss://127.0.0.1:3000/socket")
+        and not _is_allowed_websocket_url("ws://user@127.0.0.1:3000/socket"),
+        "WebSocket network allowlist did not enforce product origins",
+    )
+    _require(
+        _network_url_key(f"{BROWSER_API_URL}/learning/state")
+        != _network_url_key(f"{BROWSER_API_URL}/learning/state;unexpected")
+        and _network_url_key(f"{BROWSER_API_URL}/learning/state?a=1&a=2")
+        != _network_url_key(f"{BROWSER_API_URL}/learning/state?a=2&a=1")
+        and _route_url_key(f"{FRONTEND_URL}/articles?_rsc=one&a=1&a=2")
+        != _route_url_key(f"{FRONTEND_URL}/articles;unexpected?_rsc=two&a=1&a=2")
+        and _route_url_key(f"{FRONTEND_URL}/articles?_rsc=one&a=1&a=2")
+        != _route_url_key(f"{FRONTEND_URL}/articles?a=2&_rsc=two&a=1"),
+        "network or route URL keys collapsed params or query ordering",
+    )
 
 
 def _reset_mutable_runtime(runtime: dict[str, Path | dict[str, str]]) -> None:
