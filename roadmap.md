@@ -8,17 +8,19 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-P3-036 E2E evidence repair
+P3-036 docs-only closure CI
 
 Current milestone:
 P3-036
 
 Status:
-P3-036 REOPENED / CI EVIDENCE REPAIR
+P3-036 IMPLEMENTATION PASS / CLOSURE CI PENDING
 
 Next gate:
-Verify the P3-036 route-evidence repair with local browser tests and exact-SHA
-main CI, then verify its docs-only closure CI. No v1.2 candidate is assigned.
+Implementation `472350e` passed exact-SHA main CI `34194053415`. Verify the
+separate docs-only closure CI, then stage the independently reviewed Tutor
+citation continuity task. No new plan confirmation is needed; no v1.2 candidate
+is assigned.
 
 ## Historical Notes
 

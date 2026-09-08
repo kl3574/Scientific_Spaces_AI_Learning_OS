@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED; P3-036 is REOPENED / CI EVIDENCE REPAIR; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED; P3-036 implementation is PASS and docs-only closure CI is pending; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -996,7 +996,16 @@ with every required job passing and zero uploaded artifacts.
 
 ### P3-036 - Workspace Mutation Focus Continuity
 
-Status: **REOPENED / CI EVIDENCE REPAIR**.
+Status: **IMPLEMENTATION PASS / CLOSURE CI PENDING**.
+
+Latest repair `472350ede8bc20651928ebbc5d88abb206ee6b47` passes exact-SHA
+main CI
+[`34194053415`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34194053415).
+All required jobs pass; ordinary Product E2E completes 3/3 runs with 243 checks
+each, restart persistence and zero unexpected errors or external requests.
+Uploaded artifacts: 0. The separate docs-only closure commit must pass its
+own exact-SHA CI before final closure and staging the next task. Local evidence
+and prior failures remain in the task report; the following is historical.
 
 The later closure run `34024098616` and repair run `34065911116` failed Product
 E2E. The earlier evidence below is historical; replacement route-evidence
@@ -1059,9 +1068,12 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-Complete the P3-036 route-evidence repair and exact-SHA implementation CI, then
-record and verify docs-only closure. A later bounded GUI task may be selected
-through independent review.
+Verify P3-036's separate docs-only closure CI. Then stage the independently
+reviewed Tutor citation continuity task: source inspection should preserve the
+live Tutor answer/Quiz/context. Four current-tab cases lose that work; four
+temporary separate-tab prototypes preserve it. This is not yet a product fix
+or a persistence feature. Continue under the owner's autonomous-execution
+direction without a repeated plan-confirmation request.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain

@@ -3,7 +3,7 @@
 Canonical task:
 `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
 
-Status: **REOPENED / CI EVIDENCE REPAIR**
+Status: **IMPLEMENTATION PASS / CLOSURE CI PENDING**
 
 BOUNDED FRONTEND FOCUS OWNERSHIP, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, TWO INDEPENDENT SUB-AGENT REVIEWS, LOCAL
@@ -91,7 +91,16 @@ No v1.2 candidate is assigned.
 
 ## Current Gate
 
-Latest exact-SHA repair CI `34188149037` at `d1e26828` fails the existing
+Implementation repair `472350ede8bc20651928ebbc5d88abb206ee6b47` is pushed.
+Exact-SHA CI `34194053415` completed SUCCESS: Backend, Frontend, dependency,
+workflow, secret, SBOM and Product E2E PASS. Its ordinary browser suite passes
+3/3 runs with 243 checks each, restart persistence and zero unexpected errors
+or external requests. Uploaded artifacts: 0. Normal-main Docker/release jobs
+are skipped by policy. Only the separate docs-only closure commit and its
+exact-SHA CI remain before both tasks can be declared PASS / CLOSED. The
+reviewed Tutor citation follow-on is not started before that gate passes.
+
+Previous exact-SHA repair CI `34188149037` at `d1e26828` fails the existing
 Reference Matched focus assertion before the final network audit. Other
 required jobs pass. P3-036.1 now handles the independently reviewed candidate
 focus lifecycle defect; this is an explicit product-scope amendment, not an

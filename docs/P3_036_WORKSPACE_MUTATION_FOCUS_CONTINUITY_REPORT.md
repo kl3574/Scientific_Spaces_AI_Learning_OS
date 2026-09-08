@@ -2,18 +2,18 @@
 
 ## 1. Status
 
-- Product implementation: **PASS**, historical local evidence below
-- Current caller-evidence repair local gates: **PASS**
-- Current repair independent final review: **PASS**, two independent reviewers
-- Latest exact-SHA repair main CI: **FAILED**, run `34180979475`
-- Task closure: **REOPENED / CI EVIDENCE REPAIR**
-- Replacement implementation and docs-only closure CI: **PENDING**
+- Product implementation: **PASS**, latest repair `472350e`
+- Current repair local gates: **PASS**, including 3 x 243 Product E2E checks
+- Current repair independent final review: **PASS**, two final and one supplementary review
+- Latest exact-SHA repair main CI: **PASS**, run `34194053415`
+- Task closure: **CLOSURE CI PENDING**
+- Docs-only closure commit and its own exact-SHA CI: **PENDING**
 - Candidate version: not assigned
 
-Sections 2-10 preserve the earlier implementation evidence. Subsequent closure
-run `34024098616` and repair run `34065911116` failed Product E2E; they supersede
-the earlier closure claim. The bounded script repair and fresh browser/CI
-evidence below must pass before the task closes.
+Sections 2-15 preserve the chronological implementation, failure and repair
+evidence. Section 16 records the current successful implementation CI. Earlier
+closure/failure snapshots are not current status. The separate docs-only
+closure commit must pass its own exact-SHA CI before final closure reporting.
 
 ## 2. Entry Evidence
 
@@ -828,3 +828,113 @@ The bounded `fix: preserve reference candidate filter focus` implementation
 commit and non-force push are ready. P3-036 and P3-036.1 stay open until the
 implementation exact-SHA main CI and separate docs-only closure CI pass. No
 candidate version, tag, Release or later product task is declared complete.
+
+### Implementation Publication And Pending CI
+
+- Commit: `472350ede8bc20651928ebbc5d88abb206ee6b47`.
+- Message: `fix: preserve reference candidate filter focus`.
+- Non-force push to `main`: PASS; local HEAD and cached `origin/main` agree.
+- Exact-SHA main CI:
+  `https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34194053415`.
+- Latest readback: IN PROGRESS. Backend, Frontend, dependency, workflow,
+  secret and SBOM jobs PASS. Product E2E has finished setup/build/Chromium
+  installation and is executing its three-run step. Normal-main Docker is
+  skipped by policy. A successful terminal E2E/overall result is not inferred.
+- Both tasks remain open. A separate docs-only closure commit and its own
+  exact-SHA CI are still required; no tag, Release or candidate operation.
+
+### Follow-on GUI Diagnostic, Not An Implementation
+
+An independent read-only GUI review identified that local Tutor source links
+leave the current tab, while answer/quiz state resides in the Tutor component.
+The next bounded diagnostic used the existing three-Article temporary runtime
+and fake providers on the pushed commit. No source or private Zotero access,
+real provider, source edits or persisted diagnostic artifacts were involved.
+
+Four real Chromium cases (1440/390 pixels, Explain/submitted Quiz) performed:
+select CRB, generate an answer or score, click `Open local article`, inspect
+the correct Reader, then browser Back. All four returned to `/tutor` without
+the prior answer/quiz score or selected Article. The source link had no target
+attribute. No additional Tutor POST, external request or page error occurred
+during source inspection and return. Temporary runtime and servers were
+removed. This is a reproduced continuity defect, not a failed P3-036 focus
+assertion and not a claim that inline Markdown citations were already tested.
+
+Recommended separate follow-on: preserve Tutor work while inspecting local
+citations, including source-list and inline Markdown links, with an explicit
+separate-tab affordance. Preserve safe URLs/fragments and same-document
+anchors; intentional Return-to-Article/Concept navigation remains unchanged.
+Verify retained answers, quiz selections/score and zero extra Tutor generation
+or activity writes through desktop/mobile rendered interactions. No Backend,
+persistence, provider or matching change is needed by this proposal. Stage it
+after P3-036 closure; no P3-037 implementation has occurred in this commit.
+
+The follow-up single-variable browser prototype changed only the rendered
+source link's `target`/`rel` attributes in the temporary page, not source files.
+The same four viewport/mode cases all preserved the originating Tutor URL,
+answer or submitted Quiz score/selections, and selected Article while the
+correct Reader opened separately. Each child had `window.opener === null`;
+closing it returned to the existing Tutor page. Additional Tutor POSTs,
+external requests, unexpected context pages and page errors were zero. All
+temporary servers/data were removed. This supports the proposed navigation
+mechanism; it is not a shipped fix or full citation regression evidence.
+
+An independent design review supports a separate bounded P3-037 once both
+P3-036 CI gates pass. Important contract details for its implementation:
+
+- Classify accepted hash-only anchors versus accepted document links, not
+  case-sensitive HTTP prefixes. The current sanitizer preserves accepted
+  mixed-case HTTP(S) spelling; those must still open a separate tab.
+- Preserve `getSafeTutorMarkdownHref` admission and sanitized hrefs exactly;
+  do not add arbitrary relative routes or normalize URLs. Rejected links
+  remain noninteractive. An admitted URL does not prove the Article exists.
+- Keep native anchors/Next Link, explicit new-tab wording, and
+  `noopener noreferrer`; no `window.open`, named-tab reuse, or same-tab fallback.
+- Test source-list and inline answer links, submitted-Quiz source links,
+  disclosure expansion, pointer/keyboard activation, query/fragment fidelity,
+  mixed-case absolute loopback URLs, existing hash anchors, and unchanged
+  Article/Concept Return actions. Quiz explanations are plain text, not an
+  inline-Markdown seam. Cover narrow and short-landscape layout as well.
+- Settle generation and activity before request/state baselines, observe both
+  pages before activation, register only the exact expected popup, settle it
+  before closing, and retain strict network/error auditing.
+- The scope preserves a live originating tab, not state across refresh, tab
+  closure or browser eviction. No state/persistence/provider change is implied.
+
+The active implementation CI remains IN PROGRESS. One `gh run watch`
+observation ended with a TLS handshake timeout; a subsequent read of the same
+run confirmed Product E2E still executing. The workflow was not restarted.
+Its completed jobs report a GitHub Actions runtime-deprecation annotation;
+those jobs pass, and workflow-pin maintenance is outside this GUI patch.
+
+## 16. Final Implementation CI And Closure Handoff
+
+Implementation `472350ede8bc20651928ebbc5d88abb206ee6b47` passed exact-SHA
+main CI run
+[`34194053415`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34194053415).
+The run is completed with conclusion `success`. Backend pytest, Frontend
+build, Product E2E, dependency audit, workflow policy, secret audit and SBOM
+validation all PASS. Docker compose smoke and release-evidence dry-run are
+skipped under normal-main policy; no Docker or release claim is inferred.
+
+The completed Product E2E job's JSON was parsed from its log in memory:
+
+- Chromium: 149.0.7827.55.
+- Ordinary, uninstrumented complete runs: 3/3 PASS, 243 checks each, all true.
+- Unexpected console/page errors and external requests: 0 in each run.
+- Article static-chunk cancellations: 0.
+- Restart persistence: bookmarks, completed states, ended sessions and notes PASS.
+- Final artifact API readback: `total_count=0`.
+
+This corroborates the complete local run without the temporary diagnostic
+wrapper. The earlier unexplained Reader chunk failure remains historical risk,
+not a claimed loader fix. Actions runtime-deprecation annotations remain a
+separate maintenance risk; they did not fail the required jobs.
+
+No additional product change is needed for P3-036/P3-036.1 on this evidence.
+The remaining action is `docs: close P3-036 mutation focus continuity`,
+non-force push and verification of that exact documentation commit's main CI.
+Status is deliberately CLOSURE CI PENDING until its terminal success is read
+back. The user-authorized autonomous workflow requires no repeated plan
+confirmation. Only then stage the independently reviewed Tutor citation task;
+its live-tab scope, prototype evidence and limitations are recorded above.

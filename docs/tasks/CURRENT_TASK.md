@@ -7,7 +7,21 @@
 Active bounded repair:
 `docs/tasks/P3-036.1_REFERENCE_CANDIDATE_FOCUS_LIFECYCLE.md`.
 
-Latest repair CI `34188149037` at `d1e26828` fails Reference Matched focus
+Implementation repair `472350ede8bc20651928ebbc5d88abb206ee6b47` is pushed.
+Exact-SHA CI `34194053415` completed SUCCESS: all seven required jobs PASS,
+including three ordinary Product E2E runs with 243 checks each and restart
+persistence. External requests, unexpected console/page errors and uploaded
+artifacts: 0. Docker/release jobs are skipped by normal-main policy.
+Current action: docs-only closure commit and its exact-SHA CI. Both tasks stay
+in CLOSURE CI PENDING until that run passes. No new plan confirmation is needed.
+
+The next independent GUI candidate is Tutor citation continuity. A fresh
+fake-runtime browser diagnostic reproduces lost answer/quiz/context state on
+source-click then Back in all four desktop/mobile cases. No next-task product
+code has been changed. Details and boundaries are at the end of section 15
+of the P3-036 report; stage a separate task only after this closure gate.
+
+Previous repair CI `34188149037` at `d1e26828` fails Reference Matched focus
 before the final network audit. Other required jobs pass. Fresh Chromium
 reproduced a disabled-target focus attempt. The reviewed subtask explicitly
 adds the Reference candidate focus lifecycle to product scope; parent P3-036
@@ -51,7 +65,8 @@ section 14 of the P3-036 report is authoritative for this repair.
 
 ## Staged Task
 
-None
+None. Tutor citation continuity is independently reviewed and prototype-tested;
+create its separate canonical task after P3-036 closure CI passes.
 
 ## Last Closed Task
 
@@ -69,7 +84,8 @@ None
 - P3-033: PASS / CLOSED
 - P3-034: PASS / CLOSED
 - P3-035: PASS / CLOSED
-- P3-036: REOPENED / CI EVIDENCE REPAIR
+- P3-036: IMPLEMENTATION PASS / CLOSURE CI PENDING
+- P3-036.1: IMPLEMENTATION PASS / CLOSURE CI PENDING
 
 ## Authorization
 

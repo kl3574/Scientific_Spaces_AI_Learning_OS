@@ -2,7 +2,14 @@
 
 ## Status
 
-REOPENED / CI EVIDENCE REPAIR
+IMPLEMENTATION PASS / CLOSURE CI PENDING
+
+Latest implementation: `472350ede8bc20651928ebbc5d88abb206ee6b47`.
+Exact-SHA CI `34194053415`: SUCCESS, all required jobs PASS, ordinary Product
+E2E 3/3 x 243 checks, restart persistence PASS and zero unexpected errors,
+external requests or uploaded artifacts. This docs-only closure commit still
+requires its own exact-SHA CI before final PASS / CLOSED reporting. Section 16
+of the evidence report supersedes earlier failure/status snapshots.
 
 ## Task Identity
 
