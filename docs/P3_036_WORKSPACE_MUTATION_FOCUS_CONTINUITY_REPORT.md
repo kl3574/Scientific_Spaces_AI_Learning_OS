@@ -1200,3 +1200,30 @@ POST count was two per case, extra Tutor POSTs on the round trip zero;
 external requests and unexpected console/page errors were zero. Temporary
 runtime and servers were removed. This corroborates the bounded Tutor
 citation-continuity candidate in section 15, not a shipped fix.
+
+## 21. Closure CI Blocked By Schema Transport
+
+Docs-only commit `55ba624951df30c5fe803dcaebb3213185010f1c` was non-force
+pushed; exact-SHA run
+[`34205485973`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34205485973)
+completed FAILURE. SBOM job `101993861976` generated 40 Backend / 239 Frontend /
+281 combined components successfully, then failed before schema validation:
+`CycloneDX schema unavailable: HTTPError`, exit 2. The status code and external
+cause were not logged; neither quota nor HTTP 403 is established.
+
+The other six required jobs PASS: Backend, Frontend, Product E2E, dependency,
+secret and workflow policy. Product E2E job `101993862003` completed JSON was
+parsed from logs in memory: Chromium 149.0.7827.55, 3/3 ordinary runs, 243/243
+checks each, bookmark/completed-state/ended-session/note restart PASS, zero
+external requests, unexpected console/page errors or static-chunk cancellations.
+Docker/release jobs were skipped by normal-main policy. Uploaded artifact count
+is zero by the run artifact API. The run remains failed,
+not a successful or conditional closure; no blind rerun was requested.
+
+P3-036 is **OPEN / CI BLOCKED**. Independently reviewed P3-005.2 addresses
+only the schema transport and its ordinary-CI regressions, using the existing
+official alternate and unchanged hash, validator and security gates. Its
+canonical task/report separately bind this security scope. P3-036 product
+acceptance and all E2E assertions remain unchanged. Only successful repair
+CI and a subsequent docs-only closure CI permit parent closure. The Graph
+incident remains OPEN / UNRESOLVED; Tutor implementation is not staged.

@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED; P3-036 is OPEN / CLOSURE CI PENDING with current complete gates passing and the historical Graph incident retained OPEN; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED; P3-036 is OPEN / CI BLOCKED by SBOM schema download, with a separate P3-005.2 repair in validation and the historical Graph incident retained OPEN; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -996,7 +996,15 @@ with every required job passing and zero uploaded artifacts.
 
 ### P3-036 - Workspace Mutation Focus Continuity
 
-Status: **OPEN / CLOSURE CI PENDING**.
+Status: **OPEN / CI BLOCKED**.
+
+Latest closure `55ba624` / exact-SHA `34205485973` fails only SBOM schema
+download (HTTPError, specific status unknown). Other six required jobs pass,
+including 3 x 243 Product E2E checks, restart persistence and zero unexpected
+errors/external requests. The independent P3-005.2 pinned-schema transport
+revision is in validation; it changes no product, workflow or pins. Its
+implementation CI and a replacement docs-only parent closure gate must pass
+before the Tutor follow-on. The following preserves earlier snapshots.
 
 Current `e2ec5e8` passes complete local and exact-SHA CI `34201705175` gates:
 3 x 243 Product E2E checks locally and remotely, restart persistence, Backend
@@ -1086,7 +1094,8 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-Verify P3-036's reviewed docs-only closure candidate's exact-SHA CI. Retain the
+Verify the separate P3-005.2 pinned SBOM transport repair and its exact-SHA CI,
+then P3-036's replacement docs-only closure candidate's exact-SHA CI. Retain the
 open Graph incident without claiming a root-cause fix. Then stage the independently
 reviewed Tutor citation continuity task: source inspection should preserve the
 live Tutor answer/Quiz/context. Four current-tab cases lose that work; four

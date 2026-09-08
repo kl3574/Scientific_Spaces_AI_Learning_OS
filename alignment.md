@@ -1,4 +1,35 @@
-# P3-036 Workspace Mutation Focus Continuity Alignment
+# P3-005.2 SBOM Schema Transport Resilience Alignment
+
+Canonical task: `docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENCE.md`.
+Status: **LOCAL VALIDATION PASS / EXACT-SHA CI PENDING**. This reviewed security revision supersedes
+the active-work pointer below, not P3-036's acceptance or product allowlist.
+
+Current baseline `55ba624` is clean and synchronized. Its exact-SHA CI
+`34205485973` fails SBOM schema download with HTTPError; generation succeeds,
+HTTP status/remote cause unknown. P3-036 remains OPEN / CI BLOCKED. The user
+authorizes independent review then automatic execution, without another plan
+confirmation. The independent scope/security review approved the bounded task.
+
+Allowed: `scripts/security/validate_sbom.py`, its new ordinary-CI regression
+`backend/tests/test_sbom_schema_transport.py`, and the exact status/evidence
+documents listed by the canonical revision. Implement API -> pinned official
+raw -> eligible raw retry within three attempts, unchanged digest/schema/
+validator/TLS and every security gate. Digest mismatch is terminal. Run offline
+regressions, full Backend/security suites, temporary full schema validation,
+safety audits and final independent review; commit
+`fix: add pinned SBOM schema transport fallback`, non-force push and verify all
+required exact-SHA main CI jobs. Then resume the separate P3-036 closure gate.
+
+No product, workflow, policy-pin, dependency, lockfile, API, M1, source/corpus,
+provider, private Zotero, paid request, candidate, tag or Release changes.
+Unknown worktree drift, forbidden artifacts/secrets or required failures stop
+the affected gate. No blind CI rerun, artifact publication or validation waiver.
+Tutor remains unstaged. The full revision contract is in the canonical task.
+
+## Historical P3-036 Alignment
+
+The following records the parent scope and gates; it does not authorize
+security changes outside the separate revision above.
 
 Canonical task:
 `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`

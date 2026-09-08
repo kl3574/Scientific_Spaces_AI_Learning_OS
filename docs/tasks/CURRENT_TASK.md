@@ -1,5 +1,21 @@
 # Current Task
 
+## Active Security Revision
+
+`docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENCE.md`
+
+Status: LOCAL VALIDATION PASS / EXACT-SHA CI PENDING. Closure commit `55ba624` fails SBOM validation
+in exact-SHA CI `34205485973`: generation succeeds, schema download raises
+HTTPError, specific status/cause unknown. The independent security review
+approves a pinned official alternate and fail-closed regression coverage.
+The other six required jobs pass, Product E2E 3 x 243 checks, restart PASS,
+zero unexpected errors/external requests and zero uploaded artifacts.
+No product, workflow, dependency or schema-pin change. Implementation and
+exact-SHA CI precede a replacement parent docs-only closure. P3-036 stays
+OPEN / CI BLOCKED; Tutor is not staged. No recurring user confirmation.
+
+The following is the parent task and its prior closure-pending snapshot.
+
 ## Active Implementation Task
 
 `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
@@ -103,7 +119,8 @@ create its separate canonical task after P3-036 closure CI passes.
 - P3-033: PASS / CLOSED
 - P3-034: PASS / CLOSED
 - P3-035: PASS / CLOSED
-- P3-036: OPEN / CLOSURE CI PENDING
+- P3-005.2: LOCAL VALIDATION PASS / EXACT-SHA CI PENDING
+- P3-036: OPEN / CI BLOCKED
 - P3-036.1: IMPLEMENTATION PASS / PARENT CLOSURE CI PENDING
 
 ## Authorization
@@ -269,6 +286,11 @@ create its separate canonical task after P3-036 closure CI passes.
 - evidence report: `docs/P3_031_READER_NOTE_DELETION_SAFETY_REPORT.md`
 
 ## Next Gate
+
+Validate P3-005.2, publish the reviewed security repair and verify its own
+exact-SHA main CI. Then prepare a replacement docs-only P3-036 closure and
+verify that closure commit's own CI. The original 55ba624 closure stays FAILED.
+The following preserves the parent closure requirements.
 
 Verify the reviewed documentation closure commit's own exact-SHA main CI.
 All existing assertions, request/error admission and local gates remain

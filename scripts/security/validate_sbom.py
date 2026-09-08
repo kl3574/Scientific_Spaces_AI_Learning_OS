@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import re
 import subprocess
@@ -136,27 +137,61 @@ def _schema_validate(paths: list[Path], policy: dict[str, Any]) -> None:
     validator = str(policy["schema_validator"])
     if "==" not in validator:
         raise SecurityToolError("schema validator must be exactly pinned")
-    request = urllib.request.Request(
-        str(policy["schema_api_url"]),
-        headers={
-            "Accept": "application/vnd.github.raw+json",
-            "User-Agent": "Scientific-Spaces-CI-Security/1.0",
-        },
+    endpoints = (
+        ("api", "schema_api_url", "application/vnd.github.raw+json"),
+        ("raw", "schema_url", "application/json"),
     )
     schema_content: bytes | None = None
-    last_error: Exception | None = None
+    failures: list[str] = []
+    # One API attempt, then the existing pinned raw source and one eligible retry.
     for attempt in range(3):
+        endpoint, url_key, accept = endpoints[min(attempt, 1)]
+        request = urllib.request.Request(
+            str(policy[url_key]),
+            headers={
+                "Accept": accept,
+                "User-Agent": "Scientific-Spaces-CI-Security/1.0",
+            },
+        )
+        content: bytes | None = None
         try:
             with urllib.request.urlopen(request, timeout=30) as response:
-                schema_content = response.read()
+                content = response.read()
+            schema_content = content
             break
-        except (OSError, urllib.error.URLError) as exc:
-            last_error = exc
-            if attempt < 2:
-                time.sleep(2**attempt)
+        except (OSError, urllib.error.URLError, http.client.IncompleteRead) as exc:
+            # A cleanup failure must not hide the integrity of a completed read.
+            if content is not None and hashlib.sha256(content).hexdigest() != policy["schema_sha256"]:
+                raise SecurityToolError("CycloneDX schema digest mismatch") from None
+            retryable = True
+            if isinstance(exc, urllib.error.HTTPError):
+                status = exc.code if isinstance(exc.code, int) and 100 <= exc.code < 600 else None
+                detail = f"HTTPError status={status if status is not None else 'unknown'}"
+                retryable = status is not None and (status in (408, 429) or status >= 500)
+                try:
+                    exc.close()
+                except Exception:
+                    raise SecurityToolError(
+                        f"CycloneDX schema response cleanup failed: attempt={attempt + 1} "
+                        f"endpoint={endpoint}"
+                    ) from None
+            elif isinstance(exc, http.client.IncompleteRead):
+                detail = "IncompleteRead status=unknown"
+            elif isinstance(exc, TimeoutError):
+                detail = "TimeoutError status=unknown"
+            elif isinstance(exc, urllib.error.URLError):
+                detail = "URLError status=unknown"
+            else:
+                detail = "OSError status=unknown"
+            failure = f"attempt={attempt + 1} endpoint={endpoint} error={detail}"
+            failures.append(failure)
+            print(f"sbom_schema_download {failure}", file=sys.stderr)
+            if attempt == 2 or (endpoint == "raw" and not retryable):
+                break
+            time.sleep(2**attempt)
     if schema_content is None:
         raise SecurityToolError(
-            f"CycloneDX schema unavailable: {type(last_error).__name__}"
+            "CycloneDX schema unavailable: " + "; ".join(failures)
         )
     if hashlib.sha256(schema_content).hexdigest() != policy["schema_sha256"]:
         raise SecurityToolError("CycloneDX schema digest mismatch")

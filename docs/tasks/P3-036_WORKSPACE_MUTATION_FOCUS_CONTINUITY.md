@@ -2,7 +2,16 @@
 
 ## Status
 
-OPEN / CLOSURE CI PENDING
+OPEN / CI BLOCKED
+
+Latest closure `55ba624` / exact-SHA CI `34205485973` fails only SBOM schema
+download with HTTPError (specific HTTP status unknown). Six other required
+jobs pass, including Product E2E 3 x 243 checks and restart persistence with
+zero unexpected errors/external requests. The separate reviewed security task
+`P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENCE.md` repairs transport without changing
+this task's product scope or acceptance. Its exact-SHA CI precedes a replacement
+docs-only closure gate. Report section 21 is current; snapshots below are
+historical. No Graph repair or Tutor implementation is claimed.
 
 Current cumulative diagnostic commit `e2ec5e8` passes complete local and
 exact-SHA CI `34201705175` gates, with 3 x 243 Product E2E checks both locally
