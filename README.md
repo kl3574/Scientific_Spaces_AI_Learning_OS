@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-036 implementation gates PASS; replacement closure CI pending`
+- Status: `P3-036 PASS / CLOSED; P3-037 local gates PASS, implementation CI pending`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `7332995 exact-SHA CI PASS, including SBOM and Product E2E`
-- Current task: `P3-036 reviewed docs-only closure CI`
+- Latest gate: `P3-037 local Product E2E PASS, 3 x 281 checks; exact-SHA CI pending`
+- Current task: `P3-037 Tutor citation continuity`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -62,10 +62,12 @@ P3-034 canonical task: `docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUI
 P3-034 evidence: `docs/P3_034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY_REPORT.md` (local gates and exact-SHA implementation CI PASS).
 P3-035 canonical task: `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md` (PASS / CLOSED).
 P3-035 evidence: `docs/P3_035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY_REPORT.md` (responsive repair, local gates, and exact-SHA implementation CI PASS).
-P3-036 canonical task: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md` (replacement closure CI pending).
-P3-036 evidence: `docs/P3_036_WORKSPACE_MUTATION_FOCUS_CONTINUITY_REPORT.md` (section 22 records all current implementation CI gates PASS; the historical Graph incident remains open).
+P3-036 canonical task: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md` (PASS / CLOSED).
+P3-036 evidence: `docs/P3_036_WORKSPACE_MUTATION_FOCUS_CONTINUITY_REPORT.md` (section 23 records closure CI PASS; the historical Graph incident remains open).
 P3-005.2 security revision: `docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENCE.md`.
 P3-005.2 evidence: `docs/P3_005_2_SBOM_SCHEMA_TRANSPORT_REPORT.md`.
+P3-037 canonical task: `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md` (OPEN / IMPLEMENTATION CI PENDING).
+P3-037 evidence: `docs/P3_037_TUTOR_CITATION_CONTINUITY_REPORT.md`.
 
 v1.2 planning specifications:
 
@@ -206,13 +208,18 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 ## Current Development Task
 
 - Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `P3-036 docs-only closure CI`
+- Active task: `P3-037 Tutor citation continuity`
 - Staged task: `None`
-- Status: `P3-005.2 implementation PASS; P3-036 OPEN / CLOSURE CI PENDING`
-- Last closed task: `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
+- Status: `Local gates PASS; implementation CI and separate closure CI pending`
+- Last closed task: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`
+
+### Historical Development Evidence
+
+The following retains earlier implementation and closure snapshots; the active
+task and next action are defined above, not by these historical gate notes.
 
 P3-018 is `PASS / CLOSED`. One responsive Application
 Shell now provides direct Dashboard, Articles, References, Graph, and Tutor

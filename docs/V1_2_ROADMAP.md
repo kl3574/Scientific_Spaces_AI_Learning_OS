@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED; P3-036 is OPEN / CLOSURE CI PENDING, with P3-005.2 implementation and all seven current CI gates PASS and the historical Graph incident retained OPEN; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-036, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-037 Tutor citation continuity is OPEN / IMPLEMENTATION CI PENDING with local gates PASS; the historical Graph incident remains OPEN; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -996,7 +996,10 @@ with every required job passing and zero uploaded artifacts.
 
 ### P3-036 - Workspace Mutation Focus Continuity
 
-Status: **OPEN / CLOSURE CI PENDING**.
+Status: **PASS / CLOSED**. Docs-only closure f87ba6b passes exact-SHA
+CI 34212438350, all seven required jobs, 3 x 243 E2E checks, restart
+persistence and artifact gates. Report section 23 is current. The historical
+Graph incident remains OPEN / UNRESOLVED. Earlier snapshots follow.
 
 Current `7332995` / `34208984649` passes all seven required jobs, including
 the separate P3-005.2 SBOM transport repair, three Product E2E runs with 243
@@ -1102,14 +1105,17 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-P3-005.2 implementation CI is PASS. Verify P3-036's replacement docs-only
-closure candidate's exact-SHA CI. Retain the
-open Graph incident without claiming a root-cause fix. Then stage the independently
-reviewed Tutor citation continuity task: source inspection should preserve the
-live Tutor answer/Quiz/context. Four current-tab cases lose that work; four
-temporary separate-tab prototypes preserve it. This is not yet a product fix
-or a persistence feature. Continue under the owner's autonomous-execution
-direction without a repeated plan-confirmation request.
+P3-037 Tutor Citation Continuity: OPEN / IMPLEMENTATION CI PENDING.
+Canonical: `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md`.
+Evidence: `docs/P3_037_TUTOR_CITATION_CONTINUITY_REPORT.md`.
+The P3-036 closure and security revision now pass their exact-SHA gates.
+Local gates pass, including Product E2E 3 x 281 checks. Publish the independently
+reviewed two-component repair and verify its exact-SHA implementation CI, then
+the separate docs-only closure CI. Source inspection preserves live Tutor
+answer/Quiz/context without changing sanitized hrefs, same-page hashes or
+intentional Returns. This is not a new persistence feature. Retain the separate
+unresolved Graph incident. Continue
+under the owner's autonomous-execution direction without repeated confirmation.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain

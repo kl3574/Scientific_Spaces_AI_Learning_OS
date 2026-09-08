@@ -9558,6 +9558,16 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     checks["reader_learning_mutation_integrity"] = True
 
+    checks.update(
+        _verify_tutor_citation_continuity(
+            browser,
+            iteration=iteration,
+            blocked_external=blocked_external,
+            console_errors=console_errors,
+            page_errors=page_errors,
+        )
+    )
+
     framework_prefetch_cancellations = _framework_prefetch_cancellations(console_errors)
     route_transition_cancellations = _route_transition_cancellations(console_errors)
     precursor_snapshot_route_cancellations = (
@@ -9623,6 +9633,362 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console_error_count": len(unexpected_console_errors),
         "page_error_count": len(page_errors),
     }
+
+
+def _verify_tutor_citation_continuity(
+    browser,
+    *,
+    iteration: int,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+) -> dict[str, bool]:
+    from playwright.sync_api import expect
+
+    checks: dict[str, bool] = {}
+    scenarios = [
+        (width, height, origin, mode, source_kind, activation)
+        for width, height in ((1440, 1000), (390, 844))
+        for origin in ("picker", "concept")
+        for mode, source_kind in (("Explain", "list"), ("Explain", "inline"), ("Quiz", "list"))
+        for activation in ("pointer", "keyboard")
+    ]
+    scenarios += [
+        (width, height, "picker", mode, "inline", "pointer")
+        for width, height in ((1440, 1000), (390, 844))
+        for mode in ("Derive", "Q&A", "Research")
+    ]
+    scenarios += [
+        (width, height, "picker", mode, "list", "keyboard")
+        for width, height in ((320, 844), (720, 450))
+        for mode in ("Explain", "Quiz")
+    ]
+    modes = {"Explain": "explain", "Derive": "derive", "Q&A": "qa", "Research": "research", "Quiz": "quiz"}
+
+    for case_index, (width, height, origin, mode, source_kind, activation) in enumerate(scenarios):
+        label = f"tutor-citation-{iteration}-{case_index}-{width}-{origin}-{mode}-{source_kind}-{activation}"
+        context = browser.new_context(viewport={"width": width, "height": height}, locale="zh-CN")
+        _install_network_guard(context, blocked_external)
+        before_sessions = _api_json(context, "GET", "/learning/sessions")
+        sessions: dict[str, dict[str, object]] = {}
+        posts: list[str] = []
+        opened_pages = []
+        selected_id = ATTENTION_ARTICLE_ID if origin == "concept" else CRB_ARTICLE_ID
+        selected_title = ATTENTION_TITLE if origin == "concept" else CRB_TITLE
+        destination_id = CRB_ARTICLE_ID if origin == "concept" else ATTENTION_ARTICLE_ID
+        destination_title = CRB_TITLE if origin == "concept" else ATTENTION_TITLE
+        document_path = f"/articles/{destination_id}"
+        query_fragment = "?x=A%2FB&x=C%2BD&literal=%252F#article-start"
+        relative_href = document_path + query_fragment
+        lower_href = FRONTEND_URL + relative_href
+        mixed_href = "HtTp://127.0.0.1:3000" + relative_href
+        inline_hrefs = {
+            "Inspect derivation": relative_href,
+            "Inspect absolute citation": lower_href,
+            "Inspect mixed-case citation": mixed_href,
+        }
+        rejected_hrefs = {
+            "Rejected script": "javascript:alert%281%29",
+            "Rejected file": "file:///tmp/fixture-only",
+            "Rejected data": "data:text/plain,fixture",
+            "Rejected email": "mailto:fixture@example.com",
+            "Rejected protocol relative": "//example.com/source",
+            "Rejected route": "/graph",
+            "Rejected traversal": "/articles/../fixture-only",
+            "Rejected encoded traversal": "/articles/%2e%2e/fixture-only",
+            "Rejected hash": "##main-content",
+        }
+        sources = [
+            {
+                "source_type": "article_chunk",
+                "source_id": f"{destination_id}:{index}",
+                "title": f"{destination_title} source {index + 1}",
+                "url": f"https://spaces.ac.cn/archives/6508?source={index}#evidence",
+                "section_title": f"Fixture section {index + 1}",
+                "chunk_index": index,
+                "evidence": None,
+                "metadata": {},
+            }
+            for index in range(5)
+        ]
+        sources[0]["source_id"] = f"{selected_id}:0"
+        sources[0]["metadata"] = {"article_id": destination_id}
+        sources[2]["metadata"] = {"article_id": "../fixture-only"}
+        sources[3]["source_id"] = "../fixture-only"
+        sources[3]["metadata"] = {"article_id": "../fixture-only"}
+        markdown = (
+            "## Cited evidence\n\nFisher information $I(\\theta)$ supports the lower bound.\n\n"
+            + "\n\n".join(f"[{name}]({href})" for name, href in inline_hrefs.items())
+            + "\n\n[Answer landmark](#main-content)\n\n"
+            + "\n\n".join(f"[{name}]({href})" for name, href in rejected_hrefs.items())
+        )
+        answer = {
+            "answer": markdown,
+            "mode": modes[mode],
+            "sources": sources,
+            "graph_context": {"nodes": [{"id": "concept:fixture-a"}, {"id": "concept:fixture-b"}], "edges": [{"id": "fixture-edge"}]},
+            "zotero_context": [],
+            "follow_up_questions": ["What changes for biased estimators?"],
+            "refusal_reason": None,
+        }
+        quiz = {
+            "questions": [
+                {
+                    "question": "Which quantity controls the local lower bound?",
+                    "options": ["Fisher information", "Publication year"],
+                    "correct_answer": "Fisher information",
+                    "explanation": "The source relates variance to information.",
+                    "sources": sources,
+                },
+                {
+                    "question": "Which prerequisite does this bound assume?",
+                    "options": ["Unbiased estimator", "Any biased estimator"],
+                    "correct_answer": "Unbiased estimator",
+                    "explanation": "The stated bound assumes an unbiased estimator.",
+                    "sources": [],
+                },
+            ],
+            "total": 2,
+        }
+        cors = {"Access-Control-Allow-Origin": FRONTEND_URL, "Vary": "Origin"}
+
+        def record_post(request) -> None:
+            path = urlparse(request.url).path
+            if request.method == "POST" and path in {"/tutor/ask", "/tutor/quiz", "/tutor/sessions"}:
+                posts.append(path)
+
+        def session_collection(route) -> None:
+            method = route.request.method
+            if urlparse(route.request.url).query:
+                route.abort("blockedbyclient")
+                raise E2EFailure(f"{label}: unexpected Reader session query blocked")
+            if method == "POST":
+                payload = json.loads(route.request.post_data or "{}")
+                _require(payload == {"article_id": destination_id, "source": "reader"}, f"{label}: unexpected Reader session payload")
+                session_id = f"p3-037-{iteration}-{case_index}-{len(sessions)}"
+                record = {
+                    "session_id": session_id,
+                    "article_id": destination_id,
+                    "started_at": "2026-09-08T00:00:00Z",
+                    "ended_at": None,
+                    "duration_seconds": None,
+                    "source": "reader",
+                }
+                sessions[session_id] = record
+                route.fulfill(status=200, content_type="application/json", headers=cors, body=json.dumps(record))
+            elif method == "GET":
+                rows = [*before_sessions["items"], *sessions.values()]
+                route.fulfill(status=200, content_type="application/json", headers=cors, body=json.dumps({"items": rows, "total": len(rows)}))
+            else:
+                route.continue_()
+
+        def session_end(route) -> None:
+            session_id = urlparse(route.request.url).path.split("/")[-2]
+            if route.request.method == "OPTIONS":
+                route.continue_()
+                return
+            if route.request.method != "PUT" or session_id not in sessions or urlparse(route.request.url).query:
+                route.abort("blockedbyclient")
+                raise E2EFailure(f"{label}: unowned Reader session end blocked")
+            record = {**sessions[session_id], "ended_at": "2026-09-08T00:00:05Z", "duration_seconds": 5}
+            sessions[session_id] = record
+            route.fulfill(status=200, content_type="application/json", headers=cors, body=json.dumps(record))
+
+        context.on("request", record_post)
+        context.route(re.compile(re.escape(BROWSER_API_URL) + r"/learning/sessions(?:\?.*)?$"), session_collection)
+        context.route(re.compile(re.escape(BROWSER_API_URL) + r"/learning/sessions/[^/?]+/end(?:\?.*)?$"), session_end)
+        context.route(re.compile(re.escape(BROWSER_API_URL) + r"/tutor/ask$"), lambda route: route.fulfill(status=200, content_type="application/json", headers=cors, body=json.dumps(answer)))
+        context.route(re.compile(re.escape(BROWSER_API_URL) + r"/tutor/quiz$"), lambda route: route.fulfill(status=200, content_type="application/json", headers=cors, body=json.dumps(quiz)))
+        page = _new_observed_page(context, console_errors, page_errors, label=label)
+        try:
+            if origin == "concept":
+                page.goto(FRONTEND_URL + ATTENTION_CONCEPT_RETURN)
+                _wait_for_application_shell(page)
+                study_set = page.get_by_test_id("concept-study-set")
+                expect(study_set).to_be_visible(timeout=30_000)
+                launch = study_set.get_by_role("link", name="Open concept quiz" if mode == "Quiz" else "Explain concept", exact=True)
+                _wait_for_page_requests_to_settle(page, console_errors)
+                transition = _declare_expected_route_transition(page, destination_url=FRONTEND_URL + str(launch.get_attribute("href")))
+                launch.click()
+                expect(page.get_by_test_id("concept-learning-context")).to_be_visible()
+                _wait_for_page_requests_to_settle(page, console_errors)
+                _complete_expected_route_transition(page, transition)
+                expect(page.get_by_role("link", name="Return to concept", exact=True)).to_have_attribute("href", ATTENTION_CONCEPT_RETURN)
+                expect(page.get_by_role("link", name="Return to concept", exact=True)).not_to_have_attribute("target", "_blank")
+            else:
+                page.goto(FRONTEND_URL + "/tutor")
+                _wait_for_application_shell(page)
+                picker = page.locator('section[aria-labelledby="tutor-article-context"]')
+                picker.get_by_label("Search articles").fill("CRB")
+                picker.get_by_role("button", name="Search library", exact=True).click()
+                picker.get_by_role("button", name="Select " + CRB_TITLE, exact=True).click()
+                page.get_by_text("Advanced context", exact=True).click()
+                page.get_by_role("textbox", name="Graph concept key", exact=True).fill("concept:crb")
+                page.get_by_role("button", name=mode, exact=True).click()
+            expect(page.get_by_test_id("tutor-selected-article")).to_contain_text(selected_title)
+            prompt = "Explain the cited lower bound and retain my work"
+            prompt_field = page.get_by_role("textbox", name="Prompt" if mode == "Quiz" else "Question", exact=True)
+            prompt_field.fill(prompt)
+            page.get_by_role("button", name="Generate quiz" if mode == "Quiz" else "Ask tutor", exact=True).click()
+            if mode == "Quiz":
+                result = page.get_by_test_id("tutor-quiz-workspace")
+                expect(result).to_be_visible()
+                result.get_by_role("radio", name=re.compile(r"Fisher information$")).check()
+                result.get_by_role("radio", name=re.compile(r"Any biased estimator$")).check()
+                result.get_by_role("button", name="Check answers", exact=True).click()
+                expect(page.get_by_test_id("tutor-quiz-score")).to_contain_text("1 / 2")
+                source_scope = page.get_by_test_id("tutor-quiz-review-0")
+            else:
+                result = page.get_by_test_id("tutor-result")
+                expect(result).to_be_visible()
+                source_scope = page.get_by_test_id("guided-tutor-workspace").locator("aside")
+                context_summary = source_scope.locator("section").filter(has=page.get_by_role("heading", name="Context", exact=True))
+                expect(context_summary.locator("dd")).to_have_text(["2", "1", "0"])
+            source_scope.get_by_role("button", name=re.compile("展开另外")).click()
+            cards = source_scope.locator("article")
+            expect(cards).to_have_count(5)
+            for index in (0, 1, 2, 4):
+                local = cards.nth(index).get_by_role("link", name=re.compile("^Open local article"))
+                expect(local).to_have_attribute("href", document_path)
+                expect(local).to_have_attribute("target", "_blank")
+                expect(local).to_have_attribute("rel", "noopener noreferrer")
+                expect(local).to_contain_text("(new tab)")
+            expect(cards.nth(3).get_by_role("link", name=re.compile("^Open local article"))).to_have_count(0)
+            for index in range(5):
+                external = cards.nth(index).get_by_role("link", name=re.compile("^Open original source"))
+                expect(external).to_have_attribute("href", sources[index]["url"])
+                expect(external).to_have_attribute("target", "_blank")
+                expect(external).to_have_attribute("rel", "noopener noreferrer")
+                expect(external).to_contain_text("(new tab)")
+
+            if mode != "Quiz":
+                content = page.get_by_test_id("tutor-answer")
+                for name, href in inline_hrefs.items():
+                    link = content.get_by_role("link", name=name + " (new tab)", exact=True)
+                    expect(link).to_have_attribute("href", href)
+                    expect(link).to_have_attribute("target", "_blank")
+                    expect(link).to_have_attribute("rel", "noopener noreferrer")
+                for name in rejected_hrefs:
+                    expect(content.get_by_role("link", name=re.compile("^" + re.escape(name)))).to_have_count(0)
+                    expect(content.get_by_text(name, exact=True)).to_be_visible()
+                hash_link = content.get_by_role("link", name="Answer landmark", exact=True)
+                expect(hash_link).to_have_attribute("href", "#main-content")
+                _require(hash_link.get_attribute("target") is None and hash_link.get_attribute("rel") is None, f"{label}: hash link changed")
+                expect(hash_link).not_to_contain_text("(new tab)")
+
+            if source_kind == "list":
+                target = cards.nth(4).get_by_role("link", name="Open local article (new tab)", exact=True)
+                raw_href = document_path
+            else:
+                # Exercise each accepted document shape without changing the safe-href helper.
+                name = "Inspect mixed-case citation" if mode in {"Derive", "Research"} else "Inspect absolute citation" if mode == "Q&A" else "Inspect derivation"
+                target = page.get_by_test_id("tutor-answer").get_by_role("link", name=name + " (new tab)", exact=True)
+                raw_href = inline_hrefs[name]
+            expect(target).to_have_attribute("href", raw_href)
+            destination = FRONTEND_URL + (document_path if source_kind == "list" else relative_href)
+            _require(target.evaluate("el => el.href") == destination, f"{label}: resolved citation URL changed")
+            target.scroll_into_view_if_needed()
+            if activation == "keyboard":
+                _focus_via_tab(page, target)
+            else:
+                target.focus()
+            expect(target).to_be_focused()
+            _wait_for_page_requests_to_settle(page, console_errors)
+
+            def snapshot() -> dict[str, object]:
+                state = page.evaluate("""() => ({
+                  url: location.href, historyLength: history.length, historyState: history.state,
+                  scroll: [scrollX, scrollY],
+                  answers: [...document.querySelectorAll('input[type=radio]')].map(el => [el.value, el.checked, el.matches(':disabled')]),
+                  concept: document.querySelector('[data-testid="concept-learning-context"]')?.textContent ?? null,
+                  returns: [...document.querySelectorAll('[data-testid="concept-learning-context"] a, [data-testid="learning-workflow-context"] a')].map(el => [el.textContent, el.getAttribute('href'), el.getAttribute('target'), el.getAttribute('rel')]),
+                  selected: document.querySelector('[data-testid="tutor-selected-article"]')?.textContent,
+                  disclosure: [...document.querySelectorAll('button')].filter(el => el.textContent.startsWith('收起来源')).map(el => el.textContent),
+                })""")
+                state.update({
+                    "prompt": prompt_field.input_value(),
+                    "mode": page.get_by_role("button", name=mode, exact=True).get_attribute("aria-pressed"),
+                    "graph": page.get_by_role("textbox", name="Graph concept key", exact=True).input_value() if origin == "picker" else None,
+                    "result": result.inner_text(),
+                    "source_cards": cards.all_text_contents(),
+                    "source_links": cards.locator("a").evaluate_all("links => links.map(el => [el.textContent, el.getAttribute('href'), el.getAttribute('target'), el.getAttribute('rel')])"),
+                    "returned_context": source_scope.locator("dd").all_text_contents() if mode != "Quiz" else None,
+                    "citation_focused": target.evaluate("el => el === document.activeElement"),
+                })
+                return state
+
+            before = snapshot()
+            _require(before["prompt"] == prompt and before["mode"] == "true" and before["citation_focused"], f"{label}: missing baseline context")
+            _require(len(before["disclosure"]) == 1, f"{label}: disclosure not expanded")
+            if origin == "picker":
+                _require(before["graph"] == "concept:crb", f"{label}: Graph input not populated")
+            else:
+                _require("attention" in str(before["concept"]).lower(), f"{label}: Concept context absent")
+            if mode == "Quiz":
+                _require(len(before["answers"]) == 4 and all(row[2] for row in before["answers"]), f"{label}: Quiz answers not disabled after submission")
+                _require([row[0] for row in before["answers"] if row[1]] == ["Fisher information", "Any biased estimator"], f"{label}: Quiz choices not preserved in baseline")
+            expected_posts = ["/tutor/quiz" if mode == "Quiz" else "/tutor/ask", "/tutor/sessions"]
+            _require(posts == expected_posts, f"{label}: generation/activity did not settle: {posts}")
+            box = target.bounding_box()
+            _require(box is not None and box["x"] >= 0 and box["y"] >= 0 and box["x"] + box["width"] <= width and box["y"] + box["height"] <= height, f"{label}: citation is clipped: {box}")
+            _require(_document_width(page) <= width, f"{label}: Tutor horizontal overflow")
+
+            def observe_child(child) -> None:
+                opened_pages.append(child)
+                child.on("console", lambda message: _capture_console_error(console_errors, message, label=label + "-child", page=child))
+                child.on("pageerror", lambda error: _capture_page_error(page_errors, label + "-child", child, error))
+                console_errors.observe_http_errors(child, label=label + "-child")
+
+            context.on("page", observe_child)
+            with context.expect_page(timeout=10_000) as opened:
+                if activation == "keyboard":
+                    page.keyboard.press("Enter")
+                else:
+                    target.click()
+            child = opened.value
+            _mark_expected_popup(blocked_external, context, child)
+            child.wait_for_load_state("domcontentloaded")
+            _wait_for_application_shell(child)
+            expect(child.locator("article#article-start > h1")).to_have_text(destination_title, timeout=30_000)
+            expect(child.get_by_role("button", name="End session", exact=True)).to_be_enabled(timeout=30_000)
+            _wait_for_page_requests_to_settle(child, console_errors)
+            _wait_for_page_requests_to_settle(page, console_errors)
+            _require(len(opened_pages) == 1 and len(context.pages) == 2, f"{label}: expected exactly one Reader child")
+            _require(child.url == destination and child.evaluate("window.opener === null"), f"{label}: wrong destination or live opener")
+            during = snapshot()
+            _require(during == before, f"{label}: parent changed while child open: {[key for key in before if before[key] != during[key]]}")
+            _require(posts == expected_posts, f"{label}: citation regenerated Tutor state")
+            child.close()
+            page.bring_to_front()
+            _wait_for_page_requests_to_settle(page, console_errors)
+            expect(target).to_be_focused()
+            if activation == "keyboard":
+                _require_visible_focus(target, label)
+            after = snapshot()
+            _require(after == before, f"{label}: parent changed after child closed: {[key for key in before if before[key] != after[key]]}")
+            _require(posts == expected_posts and len(opened_pages) == 1, f"{label}: extra Tutor POST or child")
+            _require(len(sessions) == 1, f"{label}: Reader session was not isolated once")
+
+            if mode == "Explain" and source_kind == "inline" and activation == "pointer":
+                hash_link = page.get_by_test_id("tutor-answer").get_by_role("link", name="Answer landmark", exact=True)
+                _wait_for_page_requests_to_settle(page, console_errors)
+                hash_link.click()
+                page.wait_for_function("location.hash === '#main-content'")
+                _require(len(opened_pages) == 1 and len(context.pages) == 1, f"{label}: hash link opened a child")
+                _require(posts == expected_posts, f"{label}: hash link regenerated Tutor state")
+                expect(result).to_be_visible()
+                _wait_for_page_requests_to_settle(page, console_errors)
+                hash_after = snapshot()
+                changed_by_hash = {"url", "historyLength", "historyState", "scroll", "citation_focused"}
+                _require(all(hash_after[key] == before[key] for key in before if key not in changed_by_hash), f"{label}: hash link lost Tutor work")
+                checks[f"tutor_citation_hash_{width}_{origin}"] = True
+
+            _require(_api_json(context, "GET", "/learning/sessions") == before_sessions, f"{label}: canonical Reader session store changed")
+            checks[f"tutor_citation_{width}_{height}_{origin}_{modes[mode]}_{source_kind}_{activation}"] = True
+        finally:
+            context.close()
+    return checks
+
 
 
 def _graph_map_failure_note(page) -> str:

@@ -520,6 +520,29 @@ test("Tutor Markdown links allow bounded local/HTTP targets and reject executabl
   assert.equal(getSafeTutorMarkdownHref("https://example.com/?next=file:///tmp/secret"), null);
 });
 
+test("Tutor citation admission preserves exact query order, encoding, fragments, and mixed-case schemes", () => {
+  const path = "/articles/crb-formula?x=A%2FB&x=C%2BD&literal=%252F#article-start";
+  for (const href of [path, `http://127.0.0.1:3000${path}`, `HtTp://127.0.0.1:3000${path}`, "#main-content"]) {
+    assert.equal(getSafeTutorMarkdownHref(href), href);
+  }
+});
+
+test("Tutor citation isolation does not widen rejected URL families", () => {
+  for (const href of [
+    "javascript:alert%281%29",
+    "data:text/plain,fixture",
+    "file:///tmp/fixture-only",
+    "mailto:fixture@example.com",
+    "//example.com/source",
+    "/graph",
+    "/articles/../fixture-only",
+    "/articles/%2e%2e/fixture-only",
+    "##main-content",
+  ]) {
+    assert.equal(getSafeTutorMarkdownHref(href), null, href);
+  }
+});
+
 test("createTutorSession uses the existing session endpoint without changing its contract", async () => {
   const calls: Array<{ input: string; init?: RequestInit }> = [];
   globalThis.fetch = (async (input: string | URL | Request, init?: RequestInit) => {

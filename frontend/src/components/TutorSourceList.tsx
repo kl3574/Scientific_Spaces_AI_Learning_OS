@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
 import type { TutorSource } from "@/lib/tutor";
@@ -60,13 +59,13 @@ export function TutorSourceList({
               </p>
               <div className="mt-2 flex min-w-0 flex-wrap gap-2">
                 {articleId ? (
-                  <Link className="inline-block max-w-full whitespace-normal break-words rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:border-slate-900" href={`/articles/${encodeURIComponent(articleId)}`}>
-                    Open local article
-                  </Link>
+                  <a className="inline-block max-w-full whitespace-normal break-words rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:border-slate-900" href={`/articles/${encodeURIComponent(articleId)}`} rel="noopener noreferrer" target="_blank">
+                    Open local article (new tab)
+                  </a>
                 ) : null}
                 {externalUrl ? (
-                  <a className="inline-block max-w-full whitespace-normal break-words rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:border-slate-900" href={externalUrl} rel="noreferrer" target="_blank">
-                    Open original source
+                  <a className="inline-block max-w-full whitespace-normal break-words rounded border border-slate-200 px-2 py-1 text-xs text-slate-700 hover:border-slate-900" href={externalUrl} rel="noopener noreferrer" target="_blank">
+                    Open original source (new tab)
                   </a>
                 ) : null}
               </div>

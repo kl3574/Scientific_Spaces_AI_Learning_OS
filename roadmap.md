@@ -8,21 +8,21 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-P3-036 reviewed docs-only closure CI
+P3-037 Tutor Citation Continuity
 
 Current milestone:
-P3-036, with P3-005.2 implementation PASS
+P3-037, after P3-036 / P3-036.1 / P3-005.2 PASS / CLOSED
 
 Status:
-P3-036 OPEN / CLOSURE CI PENDING
+P3-037 OPEN / IMPLEMENTATION CI PENDING
 
 Next gate:
-Security repair `7332995` passes exact-SHA CI `34208984649`, all seven required
-jobs, Product E2E 3 x 243, restart PASS and zero unexpected errors/external
-requests/artifacts. Verify the replacement docs-only closure CI before staging
-the reviewed Tutor citation-continuity task. Both historical failed closure
-runs remain failed; Graph incident OPEN, root cause UNKNOWN. No new plan
-confirmation or v1.2 candidate is assigned.
+Closure `f87ba6b` passes exact-SHA CI `34212438350`, all seven required jobs,
+Product E2E 3 x 243, restart persistence and artifact gates. Tutor local gates
+now pass, including 3 x 281 E2E checks. Publish the reviewed implementation and
+verify its exact-SHA CI before separate docs-only closure. Both historical
+failed closure runs remain failed; Graph incident OPEN, root cause UNKNOWN.
+No repeated plan confirmation or v1.2 candidate is assigned.
 
 ## Historical Notes
 

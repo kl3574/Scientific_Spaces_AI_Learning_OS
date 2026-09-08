@@ -1,4 +1,28 @@
-# P3-036 Documentation Closure Alignment
+# P3-037 Tutor Citation Continuity Alignment
+
+Canonical: `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md`.
+Status: **OPEN / IMPLEMENTATION CI PENDING**. Local gates pass, including
+3 x 281 Product E2E checks, restart persistence and two independent reviews.
+P3-036 closure `f87ba6b` passes exact-SHA
+CI `34212438350`, all seven required jobs, three complete 243-check E2E runs,
+restart persistence and artifact gates. Parent and its bounded revisions are
+PASS / CLOSED. Historical Graph incident remains OPEN, root cause UNKNOWN.
+
+The owner authorizes independent review followed by automatic GUI improvement.
+The reviewed task changes only TutorSourceList and TutorMarkdown document-link
+behavior, their admission-boundary tests, additive rendered E2E cases and the
+canonical task's explicit status/evidence documents. Preserve exact safe hrefs,
+hash-only links, intentional Returns and live Tutor work. No URL admission,
+API, Backend, data, provider, persistence, dependency or workflow changes.
+
+Run the canonical local/review/safety gates, then commit
+`fix: preserve tutor citation workspace`, non-force push main and inspect its
+exact-SHA CI. A separate docs-only closure and its own CI are required before
+PASS / CLOSED. No recurring user confirmation, candidate, tag or Release.
+No source/private/paid access or committed runtime artifacts. Preserve user
+work and stop the affected action on unknown drift or a failed required gate.
+
+## Historical P3-036 Documentation Closure Alignment
 
 Canonical parent: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`.
 Security revision: `docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENCE.md`.
@@ -73,13 +97,13 @@ LOCKFILES, WORKFLOWS, VERSION/CANDIDATE, TAG, RELEASE, ATTESTATION, SOURCE NETWO
 EXTERNAL SEARCH, PRIVATE ZOTERO, REAL/PAID PROVIDERS, DESTRUCTIVE GIT ACTIONS, AND
 HISTORY REWRITING: **NOT GRANTED**
 
-## Objective
+### Historical Objective
 
 Make every reproduced in-page learning mutation retain an explicit, visible,
 semantically related focus owner when its initiating control disables,
 unmounts, or switches rendering mode, without changing data or route behavior.
 
-## Binding Contract
+### Historical Binding Contract
 
 - No required operation settles on `BODY`, a disconnected element, or an
   unrelated Shell fallback.
@@ -92,7 +116,7 @@ unmounts, or switches rendering mode, without changing data or route behavior.
   business outcomes remain unchanged.
 - Existing correct focus contracts remain correct.
 
-## Allowed Changes
+### Historical Allowed Changes
 
 - the nine bounded Frontend components named by the canonical task
 - focused pure Frontend tests only if a reusable state helper is necessary
@@ -103,7 +127,7 @@ unmounts, or switches rendering mode, without changing data or route behavior.
   `docs/tasks/CURRENT_TASK.md`, `docs/00_PROJECT_STATE.md`, `roadmap.md`,
   `docs/V1_2_ROADMAP.md`, and `README.md`
 
-## Acceptance
+### Historical Acceptance
 
 - Every exact focus target in the canonical task is verified through public
   rendered interactions and visible focus.
@@ -117,7 +141,7 @@ unmounts, or switches rendering mode, without changing data or route behavior.
 - Implementation and docs-only closure commits each pass exact-SHA main CI and
   final `main` is clean and synchronized.
 
-## Authorization Basis
+### Historical Authorization Basis
 
 The product owner explicitly directed continued platform and GUI improvement,
 independent sub-agent review, and automatic execution without recurring plan
@@ -125,7 +149,7 @@ confirmation. Two independent reviews and controlled Chromium produced current,
 reproducible Important evidence at the rendered GUI seam. This standing
 direction authorizes only the exact bounded scope above.
 
-## Stop Conditions
+### Historical Stop Conditions
 
 Stop rather than widen scope if correct behavior requires Backend, API, data,
 provider, persistence, dependency, workflow, external/private, or release
@@ -134,7 +158,7 @@ gate, or exact-SHA CI failure appears.
 
 No v1.2 candidate is assigned.
 
-## Git Plan
+### Historical Git Plan
 
 - Implementation commit: `fix: preserve workspace mutation focus`
 - Current bounded E2E repair commit:
@@ -148,7 +172,7 @@ No v1.2 candidate is assigned.
 - Non-force push to `main`, followed by exact-SHA closure CI readback
 - Tag and Release operations are not authorized
 
-## Current Gate
+### Historical P3-036 Gate
 
 Diagnostic commit `e2ec5e8f2b7682303bd1ca9f3e5ded94f3d8966b` passed
 exact-SHA CI `34201705175`, all seven required jobs. Both the fresh local and

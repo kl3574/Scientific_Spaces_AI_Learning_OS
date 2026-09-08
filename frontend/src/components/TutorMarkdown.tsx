@@ -19,15 +19,16 @@ export function TutorMarkdown({ content }: Readonly<{ content: string }>) {
             if (!safeHref) {
               return <span>{children}</span>;
             }
-            const external = safeHref.startsWith("http://") || safeHref.startsWith("https://");
+            const opensDocument = !safeHref.startsWith("#");
             return (
               <a
                 className="font-medium text-emerald-800 underline decoration-emerald-300 underline-offset-2"
                 href={safeHref}
-                rel={external ? "noreferrer" : undefined}
-                target={external ? "_blank" : undefined}
+                rel={opensDocument ? "noopener noreferrer" : undefined}
+                target={opensDocument ? "_blank" : undefined}
               >
                 {children}
+                {opensDocument ? " (new tab)" : null}
               </a>
             );
           },

@@ -2,7 +2,13 @@
 
 ## Status
 
-OPEN / CLOSURE CI PENDING
+PASS / CLOSED
+
+Docs-only closure `f87ba6b` passes exact-SHA CI `34212438350`: all seven
+required jobs, 3 x 243 Product E2E checks, restart persistence and zero uploaded
+artifacts. Clean synchronized main and unchanged published tags verified.
+Report section 23 is current. Graph incident remains OPEN / UNRESOLVED; no
+acceptance, assertion or scope waiver. The following preserves prior snapshots.
 
 Security repair `7332995` passes exact-SHA CI `34208984649`, all seven
 required jobs, including SBOM and 3 x 243 Product E2E checks, restart PASS and

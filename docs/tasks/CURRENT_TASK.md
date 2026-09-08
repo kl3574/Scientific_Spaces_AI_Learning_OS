@@ -1,6 +1,25 @@
 # Current Task
 
-## Current Closure Gate
+## Active Task
+
+`docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md`
+
+Status: **OPEN / IMPLEMENTATION CI PENDING**. Native citation links preserve
+live Tutor answer, Article/Concept context and submitted Quiz work while a
+separate Reader opens. Local gates pass: Backend 671/4 skipped, Frontend 143,
+production build, Product E2E 3 x 281 checks, restart persistence, safety and
+two independent reviews. Implementation and separate docs-only closure CI
+remain required. Scope stays bounded by the canonical task; no repeated plan
+confirmation is required.
+
+P3-036, P3-036.1 and P3-005.2: **PASS / CLOSED**. Docs-only closure
+`f87ba6bb0191d08fa84b0b5ef2cdf4d1a79a26db` passes exact-SHA main CI
+`34212438350`, all seven required jobs, 3 x 243 Product E2E checks, restart
+persistence and zero uploaded artifacts. Formal version v1.1.0; candidate none.
+Graph visibility incident remains OPEN / UNRESOLVED, root cause UNKNOWN.
+Report section 23 records final closure. Earlier status snapshots follow.
+
+## Historical Closure Gate
 
 P3-036: **OPEN / CLOSURE CI PENDING**. Security repair
 `73329956a6a69cf738e42f571df8b924aacf3deb` passes exact-SHA CI `34208984649`:
@@ -12,7 +31,7 @@ Only terminal success permits closing P3-036/P3-036.1 and the security revision.
 Report section 22 is current. Historical Graph incident remains open. The
 reviewed 22-case Tutor prototype is a later candidate, not a staged task.
 
-## Validated Security Revision
+## Historical Security Revision
 
 `docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENCE.md`
 
@@ -29,7 +48,7 @@ OPEN / CI BLOCKED; Tutor is not staged. No recurring user confirmation.
 
 The following is the parent task and its prior closure-pending snapshot.
 
-## Active Implementation Task
+## Historical P3-036 Implementation Task
 
 `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
 
@@ -111,16 +130,16 @@ scenarios, and 3 x 227 Product E2E checks with zero unexpected errors or externa
 requests. Exact-SHA repair and docs-only closure CI are still required;
 section 14 of the P3-036 report is authoritative for this repair.
 
-## Staged Task
+## Historical Staged Task
 
 None. Tutor citation continuity is independently reviewed and prototype-tested;
 create its separate canonical task after P3-036 closure CI passes.
 
-## Last Closed Task
+## Historical Last Closed Task
 
 `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
 
-## Status
+## Historical Status
 
 - P3-026: PASS / CLOSED
 - P3-027: PASS / CLOSED
@@ -136,7 +155,7 @@ create its separate canonical task after P3-036 closure CI passes.
 - P3-036: OPEN / CLOSURE CI PENDING
 - P3-036.1: IMPLEMENTATION PASS / PARENT CLOSURE CI PENDING
 
-## Authorization
+## Historical Authorization
 
 - P3-036.1 candidate-filter focus lifecycle, exact-token helper and regression
   changes: AUTHORIZED by the standing autonomous GUI improvement direction
@@ -298,7 +317,7 @@ create its separate canonical task after P3-036 closure CI passes.
 - independent final reviews: 2 PASS, 0 Critical / 0 Important
 - evidence report: `docs/P3_031_READER_NOTE_DELETION_SAFETY_REPORT.md`
 
-## Next Gate
+## Historical Next Gate
 
 P3-005.2 implementation exact-SHA CI is PASS at 7332995 / 34208984649.
 Prepare a replacement docs-only P3-036 closure and verify that closure

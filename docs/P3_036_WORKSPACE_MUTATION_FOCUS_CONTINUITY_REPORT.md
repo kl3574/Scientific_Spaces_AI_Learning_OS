@@ -1327,3 +1327,31 @@ New-case Reader session writes must be isolated without changing the existing
 exactly-25-ended-sessions restart gate. No refresh/eviction/tab-closure recovery
 or physical-mobile popup guarantee is claimed. Stage this task only after the
 parent closure CI passes; no repeated user confirmation is required.
+
+## 23. Final Closure CI PASS
+
+Docs-only closure `f87ba6bb0191d08fa84b0b5ef2cdf4d1a79a26db` was pushed
+without rewriting history. Exact-SHA main CI
+[`34212438350`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34212438350)
+completed SUCCESS on 2026-09-08. All seven required jobs PASS: Backend,
+Frontend, Product E2E, dependency, secret, workflow policy and SBOM. Docker
+and release evidence are skipped by normal-main policy; no workflow rerun.
+
+Product E2E job `102016332027` finished in 26m46s. Complete JSON was parsed
+from its logs in memory: Chromium 149.0.7827.55, 3/3 runs, 243/243 checks
+each, all checks true. Restart bookmark, completed-state, exactly-25-ended-
+session and note persistence PASS. External requests, page errors and static
+chunk cancellations: 0. Each strict final network/console audit passes.
+The artifact API reports total_count=0. No downloaded log was persisted.
+
+Local HEAD, cached origin/main and live remote main agree at f87ba6b; worktree
+and index are clean. Published targets remain v1.0.0 ->
+8e1e5bbbdebb8835c7e1b05a42f69093d43ddee6 and v1.1.0 ->
+3efbe2a792a9853f1bac456f0287c3b5b62713ce. Closure changes exactly ten Markdown
+files, with no product/test/workflow/policy/dependency or forbidden artifact.
+
+P3-036, P3-036.1 and P3-005.2 are **PASS / CLOSED** under their unchanged
+acceptance. The historical Graph incident remains OPEN / UNRESOLVED, root
+cause UNKNOWN, with its assertion and failure-only evidence unchanged.
+Earlier failed runs remain failed; closure makes no universal reliability claim.
+Stage the independently reviewed P3-037 Tutor citation-continuity task.

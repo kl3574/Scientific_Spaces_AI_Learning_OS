@@ -1,6 +1,11 @@
 # P3-005.2 SBOM Schema Transport Report
 
-Status: **IMPLEMENTATION PASS / PARENT CLOSURE CI PENDING**
+Status: **PASS / CLOSED**
+
+Parent docs-only closure `f87ba6b` passes exact-SHA CI `34212438350`, all seven
+required jobs including SBOM, three 243-check E2E runs, restart persistence
+and zero uploaded artifacts. No pin, validation or acceptance change. Original
+HTTP cause remains unknown; historical failure evidence below is unchanged.
 
 ## Failure Evidence
 
