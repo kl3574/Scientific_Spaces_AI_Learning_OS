@@ -31,6 +31,7 @@ import {
 } from "@/lib/references";
 import {
   CandidateFilter,
+  CandidateFilterFocusIntent,
   ReferenceReviewState,
   consumeCandidateFilterFocus,
   consumeReferenceDetailFocus,
@@ -115,6 +116,11 @@ export function ZoteroReferenceReview({
   const selectedReferenceRegionRef = useRef<HTMLElement>(null);
   const detailRegionRef = useRef<HTMLElement>(null);
   const detailErrorRef = useRef<HTMLDivElement>(null);
+  const candidateFocusRef = useRef<Readonly<{
+    intent: CandidateFilterFocusIntent;
+    referenceId: string | null;
+    href: string;
+  }> | null>(null);
 
   const listRequestKey = JSON.stringify([
     initialState.q,
@@ -151,6 +157,40 @@ export function ZoteroReferenceReview({
   useEffect(() => {
     setNavigating(false);
   }, [canonicalHref]);
+
+  useEffect(() => {
+    const cancelCandidateFocus = () => {
+      const owner = candidateFocusRef.current;
+      if (owner) {
+        candidateFocusRef.current = null;
+        consumeCandidateFilterFocus(owner.intent.filter, owner.intent);
+      }
+    };
+    const observeFocus = (event: FocusEvent) => {
+      const owner = candidateFocusRef.current;
+      const target = event.target;
+      if (
+        owner
+        && target instanceof HTMLElement
+        && target !== document.body
+        && target.id !== `candidate-filter-${owner.intent.filter}`
+      ) {
+        cancelCandidateFocus();
+      }
+    };
+    const events = ["keydown", "pointerdown", "touchstart", "wheel", "popstate", "hashchange"];
+    for (const event of events) {
+      window.addEventListener(event, cancelCandidateFocus, { capture: true, passive: true });
+    }
+    window.addEventListener("focusin", observeFocus, true);
+    return () => {
+      for (const event of events) {
+        window.removeEventListener(event, cancelCandidateFocus, true);
+      }
+      window.removeEventListener("focusin", observeFocus, true);
+      cancelCandidateFocus();
+    };
+  }, []);
 
   useEffect(() => {
     const generation = listGeneration.current + 1;
@@ -428,20 +468,40 @@ export function ZoteroReferenceReview({
   }, [detailSnapshot.status, initialState.referenceId]);
 
   useEffect(() => {
+    const owner = candidateFocusRef.current;
     if (
-      detailSnapshot.status !== "loaded"
+      !owner
+      || navigating
+      || detailSnapshot.status !== "loaded"
       || candidateSnapshot.status === "loading"
-      || !consumeCandidateFilterFocus(initialState.candidateFilter)
     ) {
+      return;
+    }
+    if (owner.referenceId !== initialState.referenceId || owner.href !== canonicalHref) {
+      candidateFocusRef.current = null;
+      consumeCandidateFilterFocus(owner.intent.filter, owner.intent);
       return;
     }
     const frame = window.requestAnimationFrame(() => {
       const target = document.getElementById(`candidate-filter-${initialState.candidateFilter}`);
-      target?.scrollIntoView({ block: "center" });
-      target?.focus({ preventScroll: true });
+      if (
+        candidateFocusRef.current !== owner
+        || `${window.location.pathname}${window.location.search}` !== owner.href
+        || !(target instanceof HTMLButtonElement)
+        || !target.isConnected
+        || target.disabled
+      ) {
+        return;
+      }
+      candidateFocusRef.current = null;
+      if (!consumeCandidateFilterFocus(initialState.candidateFilter, owner.intent)) {
+        return;
+      }
+      target.scrollIntoView({ block: "center" });
+      target.focus({ preventScroll: true });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [candidateSnapshot.status, detailSnapshot.status, initialState.candidateFilter]);
+  }, [candidateSnapshot.status, canonicalHref, detailSnapshot.status, initialState.candidateFilter, initialState.referenceId, navigating]);
 
   const detail = detailSnapshot.requestKey === detailRequestKey
     ? detailSnapshot.data
@@ -488,7 +548,11 @@ export function ZoteroReferenceReview({
     } else if (focus === "detail" && nextState.referenceId) {
       rememberReferenceDetailFocus(nextState.referenceId);
     } else if (focus === "candidate") {
-      rememberCandidateFilterFocus(nextState.candidateFilter);
+      candidateFocusRef.current = {
+        intent: rememberCandidateFilterFocus(nextState.candidateFilter),
+        referenceId: nextState.referenceId,
+        href,
+      };
     }
     const listStateChanged = nextState.q !== initialState.q
       || nextState.referenceType !== initialState.referenceType
@@ -529,7 +593,11 @@ export function ZoteroReferenceReview({
       document.getElementById(`candidate-filter-${initialState.candidateFilter}`),
       "center",
     );
-    rememberCandidateFilterFocus(initialState.candidateFilter);
+    candidateFocusRef.current = {
+      intent: rememberCandidateFilterFocus(initialState.candidateFilter),
+      referenceId: initialState.referenceId,
+      href: canonicalHref,
+    };
     setCandidateRevision((current) => current + 1);
   }
 

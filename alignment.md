@@ -39,6 +39,8 @@ unmounts, or switches rendering mode, without changing data or route behavior.
 
 - the nine bounded Frontend components named by the canonical task
 - focused pure Frontend tests only if a reusable state helper is necessary
+- candidate-filter lifecycle changes explicitly bounded by
+  `docs/tasks/P3-036.1_REFERENCE_CANDIDATE_FOCUS_LIFECYCLE.md`
 - `scripts/e2e/run_product_e2e.py`
 - the canonical task, evidence report, `alignment.md`,
   `docs/tasks/CURRENT_TASK.md`, `docs/00_PROJECT_STATE.md`, `roadmap.md`,
@@ -80,12 +82,34 @@ No v1.2 candidate is assigned.
 - Implementation commit: `fix: preserve workspace mutation focus`
 - Current bounded E2E repair commit:
   `test: complete Shell and reference route evidence`
+- Follow-up P3-036.1 product lifecycle repair commit:
+  `fix: preserve reference candidate filter focus`
 - Non-force push to `main`, followed by exact-SHA implementation CI readback
 - Docs-only closure commit: `docs: close P3-036 mutation focus continuity`
 - Non-force push to `main`, followed by exact-SHA closure CI readback
 - Tag and Release operations are not authorized
 
 ## Current Gate
+
+Latest exact-SHA repair CI `34188149037` at `d1e26828` fails the existing
+Reference Matched focus assertion before the final network audit. Other
+required jobs pass. P3-036.1 now handles the independently reviewed candidate
+focus lifecycle defect; this is an explicit product-scope amendment, not an
+evidence relaxation. P3-036 remains open. The following describes prior gates.
+
+P3-036.1 focused validation and two independent reviews pass. The prior
+full local invocation failed earlier at Reader resume with a chunk-load
+error; 12 isolated Reader probes pass, which is not a root-cause resolution.
+The original 53-check prefix and 20 subsequent Dashboard-to-Reader transitions
+now pass with raw CDP attached to the replacement page. All 20 Article chunk
+loads finish HTTP 200, without page errors. This is bounded non-reproduction,
+not a demonstrated root-cause fix. The complete replacement gate now passes
+3/3 runs, 243 checks each, including strict network/error audits and restart
+persistence. Additional in-memory diagnostics did not change existing tests,
+timeouts or admission rules. Backend 600/4 skipped, Frontend 141, build and
+safety gates pass; a further independent diff review has no Critical or
+Important finding. The bounded implementation commit and non-force push can
+proceed. Exact-SHA implementation and separate closure CI remain required.
 
 The prior closure and repair failures remain historical evidence. Latest run
 `34180979475` at `d80780506fed84d4def4342c904954e9b049f22d` passed Backend,

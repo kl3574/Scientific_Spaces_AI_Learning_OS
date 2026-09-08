@@ -31,10 +31,15 @@ export type ArticleReferenceReturnTarget = {
   path: string;
 };
 
+export type CandidateFilterFocusIntent = Readonly<{
+  target: "candidate-filter";
+  filter: CandidateFilter;
+}>;
+
 type ReferenceReviewFocusIntent =
   | { target: "results" }
   | { target: "detail"; referenceId: string }
-  | { target: "candidate-filter"; filter: CandidateFilter };
+  | CandidateFilterFocusIntent;
 
 let pendingFocusIntent: ReferenceReviewFocusIntent | null = null;
 
@@ -296,14 +301,20 @@ export function consumeReferenceDetailFocus(referenceId: string): boolean {
   return true;
 }
 
-export function rememberCandidateFilterFocus(filter: CandidateFilter): void {
-  pendingFocusIntent = { target: "candidate-filter", filter };
+export function rememberCandidateFilterFocus(filter: CandidateFilter): CandidateFilterFocusIntent {
+  const intent: CandidateFilterFocusIntent = { target: "candidate-filter", filter };
+  pendingFocusIntent = intent;
+  return intent;
 }
 
-export function consumeCandidateFilterFocus(filter: CandidateFilter): boolean {
+export function consumeCandidateFilterFocus(
+  filter: CandidateFilter,
+  intent?: CandidateFilterFocusIntent,
+): boolean {
   if (
     pendingFocusIntent?.target !== "candidate-filter"
     || pendingFocusIntent.filter !== filter
+    || (intent !== undefined && pendingFocusIntent !== intent)
   ) {
     return false;
   }

@@ -91,6 +91,11 @@ non-boundary item movement already have valid focus owners and must remain so.
 
 ## Allowed Changes
 
+The additional candidate-filter lifecycle repair is explicitly bounded by
+`P3-036.1_REFERENCE_CANDIDATE_FOCUS_LIFECYCLE.md`. It follows exact-SHA CI
+`34188149037` and a fresh browser RED, and is not an expansion into matching,
+API, data or other Reference/Shell behavior.
+
 - `frontend/src/components/ArticleListView.tsx`
 - `frontend/src/components/ArticleDetailView.tsx`
 - `frontend/src/components/SavedLibraryView.tsx`

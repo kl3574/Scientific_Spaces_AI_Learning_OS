@@ -590,3 +590,241 @@ Backend, Frontend, dependency, lockfile, workflow, or runtime-data change is in
 the patch. Network-dependent dependency auditing remains assigned to exact-SHA
 CI. The repair is ready for its implementation commit and CI; P3-036 remains
 open until implementation and docs-only closure CI succeed.
+
+## 15. Reference Candidate Focus Lifecycle Repair
+
+Date: 2026-09-08. Baseline `d1e26828fe42f2f1c605973b034295c5b6ee80af`.
+Exact-SHA run:
+`https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34188149037`.
+Backend, Frontend build, dependency, workflow/suppression, secret and SBOM jobs
+passed. Product E2E failed the existing Matched-focus assertion in structured
+reference review, before the final network audit. Its failure must not be
+reported as a passing network audit or a closed P3-036. Docker/release jobs
+were skipped under normal-main policy. No CI artifacts were uploaded.
+
+### RED And Scope
+
+An isolated three-Article fake runtime reproduced the defect without the prior
+identity/retry sequence. Repeated All/Matched navigation passed 12/12 at CPU1;
+CPU4 failed at switch 10 (All), CPU8 at switch 5 (Matched). The current filter's
+focus callback ran while disabled, did nothing, consumed the intent, and was
+followed by Shell main focus. On CPU8 the failing callback ran at 5416.3 ms,
+the button re-enabled at 5419 ms, and Shell main received focus at 5580 ms.
+The event sequence distinguishes the cause from stale All stealing focus or a
+test timeout. All three contexts had zero external or unexpected errors.
+
+Independent review confirmed the original allowlist did not include this
+component. `docs/tasks/P3-036.1_REFERENCE_CANDIDATE_FOCUS_LIFECYCLE.md` now
+explicitly bounds the product repair under the owner's automatic-execution
+instruction. It does not expand API, data, matching, Shell or frozen M1 scope.
+
+### Repair And Regression
+
+- Candidate focus waits for navigation settlement and checks an enabled,
+  connected target before consuming intent in the animation callback.
+- Exact intent identity prevents stale same-filter cleanup from consuming a
+  newer operation. Local reference/URL ownership and later interaction,
+  history/hash, meaningful focus and unmount cancellation prevent stale work.
+- Animation cleanup cancels only the frame, not the current operation.
+- Existing result/detail effects, request flow, URL/history and HTTP audit
+  policy remain unchanged.
+- The two added pure tests initially failed compilation against the old helper
+  signature, then passed with exact-token support. The original browser RED is
+  the behavioral pre-fix evidence, not that compilation failure.
+- Independent review found a blanket Shell-main exception in the first patch.
+  A separate real-browser negative reproduced `main_still_focused=false`,
+  actual focus `candidate-filter-all`, after explicit main focus during retry.
+  That exception was removed; this negative remains in regression coverage.
+
+The first new browser invocation completed route switches and six retry cases
+but failed on a newly authored, nonexistent navigation test locator. That test
+locator was corrected to the existing Primary navigation role; no product or
+acceptance behavior was changed. Replacement focused validation passed all
+32 route switches, seven retry scenarios and all 21 existing Reference checks,
+with zero external, console-audit or page errors. This was before the final
+main-focus exception removal and additional cancellation coverage; it is not
+final full-suite evidence.
+
+Backend: 600 passed / 4 skipped (38.88 seconds). Focused Frontend: 141 passed
+(Articles 67, References 23, Tutor 22, Graph 29). Production build: PASS,
+Next.js 15.5.21, 11 routes. Workflow/suppression and secret checks: PASS.
+Temporary SBOM generation/validation: PASS, 40 Backend / 239 Frontend / 281
+combined, forbidden fields zero; all temporary outputs removed. The initial
+SBOM validation invocation incorrectly passed an individual file instead of
+its output directory and failed; the corrected directory invocation passed.
+
+Final expanded browser regression, three-run Product E2E, final independent
+reviews, and implementation/closure exact-SHA CI remain required. No closure
+or later GUI task is claimed here.
+
+The additional scroll diagnostic found native layout adjustment, not a stale
+programmatic scroll: both wheel/hash cases changed `scrollY` from 313 to 365
+while document height grew from 1213 to 1305 (viewport 900). Forwarding
+`scrollIntoView` observations were empty and focus remained unchanged. The
+new regression therefore checks zero completion-time programmatic focus or
+scroll calls after those interactions, instead of assuming fixed `scrollY`
+across loading/result layout changes. Existing assertions and HTTP admission
+remain unchanged; AST comparison confirms only the main iteration gains a new
+helper call and the new lifecycle helper is added.
+
+The expanded browser gate passed all 16 checks (32 switches and 12 retry
+scenarios), including main/filter/wheel/hash behavior. Independent review then
+identified two limitations in the new RAF test: held callbacks lost their
+original cancellation IDs on release, and immediate retry focus could satisfy
+the final assertion without deferred execution. The three-run invocation on
+script blob `f8657096ae420558abc20362f589e214dc132cc7` was deliberately
+interrupted with exit 130 for this test repair. It is not passing full-suite
+evidence. Servers were stopped and no output/artifact remained.
+
+The RAF gate now keeps original-to-released cancellation mapping and uses the
+actual delivered frame timestamp. A forwarding observer installed after the
+synchronous retry focus requires exactly one deferred, enabled All-filter
+focus call. This tests cancellation plus newer same-filter retry; preservation
+of a still-current intent across effect cleanup is additionally supported by
+the consume-in-callback code and the navigation lifecycle regression.
+
+Desktop 1440x900 and mobile 390x844 screenshots were inspected in a separate
+read-only fixture context: the Matched focus ring is visible, content fits,
+and no horizontal overflow or browser/network error was observed. Both owned
+temporary screenshots were deleted immediately after inspection.
+
+The final focused invocation on script blob
+`589b7d9c58ba75d7af871a5abeaf5dba0615f980` passed all 16 checks (32 route
+switches, 12 retry scenarios), with zero external requests and empty final
+console/page audits. Both independent final reviewers approved that exact
+snapshot with no blocking product or test finding; one independently passed
+eight RAF cancellation/timestamp cases. The replacement three-run gate uses
+this unchanged snapshot; its result and exact-SHA CI are still pending.
+
+### Replacement Full Gate Result
+
+The replacement full invocation on `589b7d9c58ba75d7af871a5abeaf5dba0615f980`
+completed with exit 1, before the new candidate helper executes. At Reader
+resume (`_run_single_iteration`, line 3740), the expected Article heading was
+absent and the existing error boundary displayed a failed load for webpack
+chunk 406:
+`/_next/static/chunks/app/articles/%5Bid%5D/page-30d87e88b4a1b9a5.js`.
+406 is the bundle identifier, not an observed HTTP response status. The
+failure report has no request-ledger evidence, so its precise transport and
+document attribution remain unknown.
+
+The exact file exists (108250 bytes), with mtime 05:13:43 UTC and BUILD_ID
+mtime 05:13:45 UTC, before the full run. No build ran during that invocation;
+focused test runners use their own temporary output directories. The bounded
+Frontend server log shows normal startup, not a missing-file exception.
+
+Twelve fresh isolated Dashboard-to-Reader probes (CPU1/4 alternating) all
+rendered the Reader. Every observed request for the exact Article chunk
+finished HTTP 200 with no request failure; external requests and page errors
+were zero. This excludes a persistently missing asset in those probes, but
+does not establish the cause or dismiss the full-run failure.
+
+Independent read-only diagnosis identified the un-settled hard-navigation
+boundary after Dashboard DOM assertions as a hypothesis. The request ledger
+uses distinct request GUIDs rather than URL merging. Page-error labels use
+the current URL at delivery, so original-document attribution needs loader
+evidence. The next bounded replay executes the original iteration prefix
+through the failed assertion and observes chunk CDP loader/frame/document
+metadata. It is diagnostic-only, not a completed Product E2E run.
+
+P3-036 and P3-036.1 remain open. No implementation commit, push, closure,
+tag or Release has been performed for this patch.
+
+The diagnostic prefix replay completed with exit 0 and 53 existing checks
+through the previously failed Reader heading assertion. The final URL was
+`/articles/crb-formula#%E6%95%B0%E5%80%BC%E6%A3%80%E6%9F%A5`.
+The final Reader chunk request was recorded as HTTP 200, finished, no failure;
+page errors were empty. This single replay did not reproduce the failure and
+did not run the full suite or final HTTP audit. Its extra raw CDP observer was
+attached only to the original `primary` page: the original scenario replaces
+that page with `graph-reload` before the failing boundary. The next diagnostic
+must also attach to that replacement page; no final-loader provenance is
+claimed from the primary-only CDP output. The existing request ledger does
+include the replacement-page request.
+
+The failed full-run JSON was reduced to the diagnostic metadata above and
+removed. All owned test services, runtime directories and screenshots were
+cleaned. The next action is targeted Reader chunk-lifecycle diagnosis, not a
+blind CI rerun, an assertion relaxation, or publication of this partial gate.
+
+### Replacement-page Loader Diagnostic
+
+The next isolated diagnostic completed with exit 0. Raw CDP was attached to
+`graph-reload`, the replacement page that reaches the failed boundary. The
+unaltered 53-check prefix passed, followed by 20 Dashboard-to-Reader hard
+navigations. Ten used CPU1; ten used CPU4 plus 60 ms network latency and
+128000 bytes/second throughput. CPU and network settings changed together, so
+this is boundary/stress evidence, not independent attribution to either one.
+
+Every observed Article chunk returned HTTP 200 and finished; MIME type was
+`application/javascript`. The diagnostic recorded each document URL, loader
+and frame identity. All 20 transitions rendered the expected Reader heading
+and page errors remained empty. No root cause was reproduced. This run did
+not execute the full suite or its final HTTP audit. Temporary fixture data and
+servers were removed by the runner; no diagnostic output file was persisted.
+
+The next invocation executes all original Product E2E checks three times on
+the unchanged script blob `589b7d9c58ba75d7af871a5abeaf5dba0615f980`.
+An in-memory wrapper adds Reader-chunk CDP metadata and a bounded whitelist of
+existing request-ledger fields if the original iteration raises. It snapshots
+before server teardown and re-raises the original exception. No assertions,
+timeouts, response bodies, request behavior or admission rules are changed.
+No source diagnostic helper, downloaded content, headers or private data are
+persisted. The result is pending; both tasks remain open.
+
+### Replacement Complete Gate Result
+
+The invocation above completed with exit 0 on 2026-09-08. All three original
+iterations passed 243 checks each, including the new candidate lifecycle
+helper and the unchanged final HTTP/error audit. Chromium: 149.0.7827.55.
+The runner's existing restart check also passed bookmarks, completed states,
+ended sessions and notes. This is a complete instrumented local run, not just
+a prefix replay; ordinary uninstrumented exact-SHA CI is still required.
+
+| Metric | Result |
+| --- | --- |
+| Complete Product E2E iterations | 3/3 PASS |
+| Checks in each iteration | 243/243 PASS |
+| Candidate route switches / retry cases per iteration | 32 / 12 PASS |
+| Unexpected console / page errors | 0 / 0 in each iteration |
+| External requests | 0 |
+| Restart persistence | PASS |
+| Mobile page widths | 390/390 for all six reported workspaces |
+| Article static chunk cancellations | 0 |
+| Controlled route cancellations | 56, admitted by unchanged strict evidence rules |
+| Ordinary route declarations | 591 |
+| Controlled route-read cancellations | 12 |
+| Successful no-content responses | 30 |
+
+The original Reader chunk error did not recur. No Reader or runtime loader
+fix was made and no root-cause resolution is claimed. The remaining risk is
+intermittent chunk loading under a long browser workflow; any recurrence must
+retain document/request evidence and fail the existing gate rather than be
+silently retried or suppressed.
+
+Fresh corroborating checks in the same worktree:
+
+- Backend: 600 passed, 4 skipped in 39.81 seconds, offline.
+- Frontend: Articles 67, References 23, Tutor 22, Graph 29; 141 total PASS.
+- Fresh production build after test services stopped: PASS, Next.js 15.5.21,
+  11 generated routes; no build ran during the browser suite.
+- Workflow/suppression and secret audit: PASS, zero findings.
+- Fresh temporary SBOM structural/lock coverage: PASS, 40/239/281 components,
+  zero forbidden fields. This offline invocation did not rerun online schema
+  validation; the new exact-SHA CI must validate the schema and dependencies.
+- No Backend, workflow, dependency or lockfile diff. Artifact-name matches are
+  only existing fixture files and `crawler/cache.py`; none is modified.
+- The owned browser/runtime/server processes exited and their temporary
+  directory was removed. No HTML, screenshots, PDF, profile, trace, raw ledger
+  or JSON result artifact is added to Git.
+
+The further independent final diff review checked the exact component/helper/
+test/runner blobs `433d4c1`, `fde872a5`, `6944266`, `589b7d9c` and found no
+Critical or Important issue. Its nonblocking request to distinguish the prior
+failed run from the active replacement run has been incorporated into the
+task pointers. The two prior final reviews remain recorded above.
+
+The bounded `fix: preserve reference candidate filter focus` implementation
+commit and non-force push are ready. P3-036 and P3-036.1 stay open until the
+implementation exact-SHA main CI and separate docs-only closure CI pass. No
+candidate version, tag, Release or later product task is declared complete.

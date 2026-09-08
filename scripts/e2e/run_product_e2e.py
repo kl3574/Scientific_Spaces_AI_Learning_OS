@@ -9514,6 +9514,15 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     mobile_context.close()
 
     checks.update(
+        _verify_reference_candidate_focus_lifecycle(
+            browser,
+            blocked_external=blocked_external,
+            console_errors=console_errors,
+            page_errors=page_errors,
+        )
+    )
+
+    checks.update(
         _verify_structured_reference_review_round_trip(
             browser,
             blocked_external=blocked_external,
@@ -9606,6 +9615,236 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console_error_count": len(unexpected_console_errors),
         "page_error_count": len(page_errors),
     }
+
+
+def _verify_reference_candidate_focus_lifecycle(
+    browser,
+    *,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+) -> dict[str, bool]:
+    from playwright.sync_api import expect
+
+    checks: dict[str, bool] = {}
+    reference_ids: list[str] = []
+    for width, height, cpu in [(1440, 900, 4), (390, 844, 8), (320, 844, 4), (720, 450, 8)]:
+        context = browser.new_context(viewport={"width": width, "height": height})
+        _install_network_guard(context, blocked_external)
+        page = _new_observed_page(context, console_errors, page_errors, label=f"candidate focus {width}")
+        try:
+            page.goto(f"{FRONTEND_URL}/zotero", wait_until="domcontentloaded")
+            _wait_for_application_shell(page)
+            rows = page.get_by_test_id("reference-result-list").locator("button[data-reference-id]")
+            expect(rows.nth(1)).to_be_visible(timeout=30_000)
+            reference_ids = rows.evaluate_all("nodes => nodes.slice(0, 2).map(node => node.dataset.referenceId)")
+            selected_url = f"{FRONTEND_URL}/zotero?{urlencode({'reference_id': reference_ids[1]})}"
+            page.goto(selected_url, wait_until="domcontentloaded")
+            expect(page.get_by_test_id("selected-reference-detail")).to_be_visible(timeout=30_000)
+            expect(page.get_by_text("Loading Zotero candidates...", exact=True)).to_have_count(0, timeout=30_000)
+            _wait_for_page_requests_to_settle(page, console_errors)
+            cdp = context.new_cdp_session(page)
+            cdp.send("Emulation.setCPUThrottlingRate", {"rate": cpu})
+            for index in range(8):
+                candidate = "matched" if index % 2 == 0 else "all"
+                destination = selected_url + ("&candidate=matched" if candidate == "matched" else "")
+                button = page.get_by_role("button", name=candidate.title(), exact=True)
+                transition = _declare_expected_route_transition(page, destination_url=destination)
+                button.focus()
+                button.press("Enter")
+                expect(page).to_have_url(destination, timeout=30_000)
+                expect(button).to_be_enabled(timeout=30_000)
+                expect(button).to_be_focused(timeout=30_000)
+                _wait_for_page_requests_to_settle(page, console_errors)
+                expect(button).to_be_focused()
+                _require_visible_focus(button, "settled candidate filter")
+                _require_focus_in_viewport(button, "settled candidate filter")
+                _complete_expected_route_transition(page, transition)
+            _require(
+                page.evaluate("document.documentElement.scrollWidth <= innerWidth"),
+                f"candidate filter workspace overflows at {width}x{height}",
+            )
+            checks[f"candidate_filter_settled_focus_{width}"] = True
+        finally:
+            context.close()
+
+    for action, outcome in [
+        ("none", "success"), ("none", "error"), ("input", "success"),
+        ("input", "error"), ("modal", "success"), ("reference", "success"),
+        ("unmount", "success"), ("main", "success"), ("filter", "success"),
+        ("wheel", "success"), ("hash", "success"), ("raf-retry", "error"),
+    ]:
+        context = browser.new_context(viewport={"width": 1440, "height": 900})
+        _install_network_guard(context, blocked_external)
+        page = _new_observed_page(context, console_errors, page_errors, label=f"candidate retry {action} {outcome}")
+        # Exercise UI retry with a response-backed client failure, not live Zotero.
+        context.add_init_script("""
+            (() => {
+              const originalFetch = window.fetch.bind(window);
+              window.__candidateFocusReads = 0;
+              window.fetch = async (...args) => {
+                const response = await originalFetch(...args);
+                const url = new URL(String(args[0] instanceof Request ? args[0].url : args[0]), location.href);
+                if (url.pathname.endsWith('/zotero-candidates')) {
+                  const read = ++window.__candidateFocusReads;
+                  if (read === 1) throw new Error('candidate focus retry probe');
+                  if (read === 2) {
+                    const fail = await new Promise(resolve => { window.__releaseCandidateFocus = resolve; });
+                    delete window.__releaseCandidateFocus;
+                    if (fail) throw new Error('candidate focus retry probe');
+                  }
+                }
+                return response;
+              };
+            })();
+        """)
+        try:
+            selected_url = f"{FRONTEND_URL}/zotero?{urlencode({'reference_id': reference_ids[1]})}"
+            page.goto(selected_url, wait_until="domcontentloaded")
+            _wait_for_application_shell(page)
+            retry = page.get_by_role("button", name="Retry Zotero candidates", exact=True)
+            expect(retry).to_be_visible(timeout=30_000)
+            _wait_for_page_requests_to_settle(page, console_errors)
+            retry.click()
+            page.wait_for_function("typeof window.__releaseCandidateFocus === 'function'", timeout=30_000)
+            all_filter = page.get_by_role("button", name="All", exact=True)
+            expect(all_filter).to_be_focused()
+            transition = None
+            scroll_before_release = None
+            if action == "input":
+                owner = page.get_by_label("Search references", exact=True)
+                owner.fill("newer draft")
+            elif action == "modal":
+                page.keyboard.press("Control+k")
+                owner = page.get_by_test_id("global-search-dialog").get_by_label("Search library")
+                expect(owner).to_be_focused()
+            elif action == "main":
+                owner = page.get_by_test_id("shell-main-content")
+                owner.focus()
+            elif action == "filter":
+                destination = selected_url + "&candidate=matched"
+                transition = _declare_expected_route_transition(page, destination_url=destination)
+                owner = page.get_by_role("button", name="Matched", exact=True)
+                owner.click()
+                expect(page).to_have_url(destination, timeout=30_000)
+            elif action == "wheel":
+                owner = all_filter
+                page.mouse.move(1300, 450)
+                page.mouse.wheel(0, 250)
+                page.wait_for_timeout(200)
+                scroll_before_release = page.evaluate("scrollY")
+            elif action == "hash":
+                owner = all_filter
+                page.evaluate("location.hash = 'candidate-focus-probe'")
+                page.wait_for_function("location.hash === '#candidate-focus-probe'")
+                page.wait_for_timeout(50)
+                scroll_before_release = page.evaluate("scrollY")
+            elif action == "raf-retry":
+                owner = all_filter
+                page.evaluate("""() => {
+                  const request = window.requestAnimationFrame.bind(window);
+                  const cancel = window.cancelAnimationFrame.bind(window);
+                  const gate = { frames: new Map(), released: new Map(), cancelled: 0 };
+                  window.__candidateFrameGate = gate;
+                  window.requestAnimationFrame = callback => {
+                    const id = request(time => {
+                      if (gate.hold) gate.frames.set(id, callback);
+                      else callback(time);
+                    });
+                    return id;
+                  };
+                  window.cancelAnimationFrame = id => {
+                    if (gate.frames.delete(id)) gate.cancelled += 1;
+                    cancel(gate.released.get(id) ?? id);
+                    gate.released.delete(id);
+                  };
+                  gate.hold = true;
+                  gate.release = () => {
+                    gate.hold = false;
+                    for (const [id, callback] of gate.frames) {
+                      gate.released.set(id, request(time => {
+                        gate.released.delete(id);
+                        callback(time);
+                      }));
+                    }
+                    gate.frames.clear();
+                  };
+                }""")
+            elif action == "reference":
+                destination = f"{FRONTEND_URL}/zotero?{urlencode({'reference_id': reference_ids[0]})}"
+                transition = _declare_expected_route_transition(page, destination_url=destination)
+                page.locator(f'button[data-reference-id="{reference_ids[0]}"]').click()
+                owner = page.get_by_test_id("selected-reference-detail")
+                expect(owner).to_have_attribute("data-reference-id", reference_ids[0], timeout=30_000)
+                expect(owner).to_be_focused(timeout=30_000)
+            elif action == "unmount":
+                transition = _declare_expected_route_transition(page, destination_url=f"{FRONTEND_URL}/articles")
+                page.get_by_role("navigation", name="Primary", exact=True).get_by_role("link", name="Articles", exact=True).click()
+                expect(page).to_have_url(f"{FRONTEND_URL}/articles", timeout=30_000)
+                owner = page.get_by_placeholder("Search title or keyword")
+                owner.fill("newer draft")
+            else:
+                owner = all_filter
+            if scroll_before_release is not None:
+                page.evaluate("""() => {
+                  window.__candidateFocusCalls = [];
+                  const scroll = Element.prototype.scrollIntoView;
+                  const focus = HTMLElement.prototype.focus;
+                  Element.prototype.scrollIntoView = function(...args) {
+                    window.__candidateFocusCalls.push({ kind: 'scroll', id: this.id });
+                    return scroll.apply(this, args);
+                  };
+                  HTMLElement.prototype.focus = function(...args) {
+                    window.__candidateFocusCalls.push({ kind: 'focus', id: this.id });
+                    return focus.apply(this, args);
+                  };
+                }""")
+            page.evaluate("fail => window.__releaseCandidateFocus(fail)", outcome == "error")
+            page.wait_for_function("typeof window.__releaseCandidateFocus !== 'function'", polling=50)
+            if action not in {"reference", "unmount"}:
+                expect(page.get_by_text("Loading Zotero candidates...", exact=True)).to_have_count(0, timeout=30_000)
+                if outcome == "error":
+                    expect(retry).to_be_visible()
+                else:
+                    expect(retry).to_have_count(0)
+            if action == "raf-retry":
+                page.wait_for_function("window.__candidateFrameGate.frames.size > 0", polling=50)
+                retry.focus()
+                retry.press("Enter")
+                expect(retry).to_have_count(0, timeout=30_000)
+                expect(page.get_by_text("Loading Zotero candidates...", exact=True)).to_have_count(0, timeout=30_000)
+                page.wait_for_function("window.__candidateFrameGate.frames.size > 0 && window.__candidateFrameGate.cancelled > 0", polling=50)
+                page.evaluate("""() => {
+                  window.__candidateDeferredFocus = [];
+                  const original = HTMLElement.prototype.focus;
+                  HTMLElement.prototype.focus = function(...args) {
+                    if (this.id.startsWith('candidate-filter-')) {
+                      window.__candidateDeferredFocus.push({ id: this.id, disabled: this.disabled });
+                    }
+                    return original.apply(this, args);
+                  };
+                  window.__candidateFrameGate.release();
+                }""")
+                page.wait_for_function("window.__candidateDeferredFocus.length > 0", polling=50)
+                _require(
+                    page.evaluate("window.__candidateDeferredFocus") == [{"id": "candidate-filter-all", "disabled": False}],
+                    "newer candidate retry did not execute exactly one enabled deferred focus",
+                )
+            _wait_for_page_requests_to_settle(page, console_errors)
+            expect(owner).to_be_focused()
+            if action == "input":
+                expect(owner).to_have_value("newer draft")
+            if scroll_before_release is not None:
+                calls = page.evaluate("window.__candidateFocusCalls")
+                _require(not calls, f"stale candidate retry reclaimed focus or scrolled: action={action} calls={calls}")
+            if transition:
+                _complete_expected_route_transition(page, transition)
+            expected_reads = 3 if action in {"reference", "raf-retry"} else 2
+            _require(page.evaluate("window.__candidateFocusReads") == expected_reads, "candidate retry emitted unexpected reads")
+            checks[f"candidate_retry_focus_{action}_{outcome}"] = True
+        finally:
+            context.close()
+    return checks
 
 
 def _verify_structured_reference_review_round_trip(

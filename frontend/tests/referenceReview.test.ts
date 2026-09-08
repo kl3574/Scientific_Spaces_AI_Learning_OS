@@ -194,3 +194,23 @@ test("route focus intents are exact and consumed once", () => {
   assert.equal(consumeCandidateFilterFocus("ambiguous"), true);
   assert.equal(consumeCandidateFilterFocus("ambiguous"), false);
 });
+
+test("stale candidate work cannot consume a newer same-filter intent", () => {
+  const stale = rememberCandidateFilterFocus("matched");
+  const current = rememberCandidateFilterFocus("matched");
+  assert.notEqual(stale, current);
+  assert.equal(consumeCandidateFilterFocus("matched", stale), false);
+  assert.equal(consumeCandidateFilterFocus("matched", current), true);
+  assert.equal(consumeCandidateFilterFocus("matched", current), false);
+});
+
+test("candidate cleanup preserves newer detail and result focus", () => {
+  const stale = rememberCandidateFilterFocus("all");
+  rememberReferenceDetailFocus("ref-b");
+  assert.equal(consumeCandidateFilterFocus("all", stale), false);
+  assert.equal(consumeReferenceDetailFocus("ref-b"), true);
+  const another = rememberCandidateFilterFocus("all");
+  rememberReferenceResultsFocus();
+  assert.equal(consumeCandidateFilterFocus("all", another), false);
+  assert.equal(consumeReferenceResultsFocus(), true);
+});

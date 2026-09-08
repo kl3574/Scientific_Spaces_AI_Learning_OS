@@ -4,7 +4,35 @@
 
 `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
 
-Bounded E2E evidence repair after failed closure CI; product scope unchanged.
+Active bounded repair:
+`docs/tasks/P3-036.1_REFERENCE_CANDIDATE_FOCUS_LIFECYCLE.md`.
+
+Latest repair CI `34188149037` at `d1e26828` fails Reference Matched focus
+before the final network audit. Other required jobs pass. Fresh Chromium
+reproduced a disabled-target focus attempt. The reviewed subtask explicitly
+adds the Reference candidate focus lifecycle to product scope; parent P3-036
+remains open. Prior evidence-only repair history follows.
+
+P3-036.1 local focus checks and independent final reviews now pass. A prior
+full invocation on script blob `589b7d9c` failed earlier at Reader resume
+with a JavaScript chunk-load error (webpack chunk 406, not HTTP 406). Twelve
+isolated Dashboard-to-Reader probes pass with the exact chunk HTTP 200 and
+finished. Do not classify the historical chunk failure as root-cause resolved
+or infer parent closure from those focused checks. Current evidence is report
+section 15.
+
+The first original-prefix replay passed 53 checks through that Reader
+boundary without reproducing the failure. The next replay attached raw CDP to
+the replacement `graph-reload` page, passed the same prefix, and passed all 20
+subsequent Dashboard-to-Reader transitions. Each Article chunk finished HTTP
+200, with no page errors. The subsequent complete three-run gate passes 3/3,
+243 checks each, with restart persistence PASS and zero external requests or
+unexpected console/page errors. It used additive in-memory failure diagnostics;
+existing assertions and audit policy are unchanged. Backend 600/4 skipped,
+Frontend 141, production build and safety gates pass. A further independent
+diff review reports no Critical/Important finding. The implementation commit
+and non-force push are ready; exact-SHA CI and separate closure CI are pending.
+The historical Reader error remains unexplained, not declared repaired.
 
 Latest implementation CI `34180979475` at `d807805` failed the final route
 audit after all UI assertions; its Backend, Frontend, and security jobs pass.
@@ -44,6 +72,11 @@ None
 - P3-036: REOPENED / CI EVIDENCE REPAIR
 
 ## Authorization
+
+- P3-036.1 candidate-filter focus lifecycle, exact-token helper and regression
+  changes: AUTHORIZED by the standing autonomous GUI improvement direction
+  and independent review, within its explicit canonical allowlist. Parent
+  closure remains dependent on its full local and exact-SHA CI gates.
 
 - P3-024 Frontend, tests, governance documentation, local read-only Article and
   Graph validation, isolated fake-provider runtime, local commits, non-force
