@@ -8,20 +8,21 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-P3-005.2 pinned SBOM schema transport resilience
+P3-036 reviewed docs-only closure CI
 
 Current milestone:
-P3-005.2 security revision supporting P3-036 closure
+P3-036, with P3-005.2 implementation PASS
 
 Status:
-P3-005.2 OPEN / VALIDATION; P3-036 OPEN / CI BLOCKED
+P3-036 OPEN / CLOSURE CI PENDING
 
 Next gate:
-Closure `55ba624` / `34205485973` fails only SBOM schema download;
-Product E2E passes 3 x 243 checks. Verify the separate P3-005.2 pinned transport
-repair, then resume exact-SHA docs-only closure before staging Tutor citation
-continuity. Historical `d28fec6` Graph rendering incident remains OPEN,
-root cause UNKNOWN. No new confirmation or v1.2 candidate is required.
+Security repair `7332995` passes exact-SHA CI `34208984649`, all seven required
+jobs, Product E2E 3 x 243, restart PASS and zero unexpected errors/external
+requests/artifacts. Verify the replacement docs-only closure CI before staging
+the reviewed Tutor citation-continuity task. Both historical failed closure
+runs remain failed; Graph incident OPEN, root cause UNKNOWN. No new plan
+confirmation or v1.2 candidate is assigned.
 
 ## Historical Notes
 

@@ -2,7 +2,16 @@
 
 ## Status
 
-OPEN / CI BLOCKED
+OPEN / CLOSURE CI PENDING
+
+Security repair `7332995` passes exact-SHA CI `34208984649`, all seven
+required jobs, including SBOM and 3 x 243 Product E2E checks, restart PASS and
+zero unexpected errors/external requests/artifacts. Its separate P3-005.2
+revision leaves product code, workflow, dependency/policy pins and this
+acceptance unchanged. Prepare the replacement docs-only closure candidate;
+only its own terminal CI success permits closure and staging the next Tutor
+task. Report section 22 is current; all failures below remain historical
+failures, not reclassified successes. Graph incident remains OPEN / UNRESOLVED.
 
 Latest closure `55ba624` / exact-SHA CI `34205485973` fails only SBOM schema
 download with HTTPError (specific HTTP status unknown). Six other required

@@ -1,10 +1,23 @@
 # Current Task
 
-## Active Security Revision
+## Current Closure Gate
+
+P3-036: **OPEN / CLOSURE CI PENDING**. Security repair
+`73329956a6a69cf738e42f571df8b924aacf3deb` passes exact-SHA CI `34208984649`:
+all seven required jobs PASS, Product E2E 3 x 243, restart persistence PASS,
+zero unexpected errors/external requests and uploaded artifacts. Prepare the
+independently reviewed docs-only closure candidate and verify its own CI.
+No implementation/test/workflow/dependency change is part of this closure.
+Only terminal success permits closing P3-036/P3-036.1 and the security revision.
+Report section 22 is current. Historical Graph incident remains open. The
+reviewed 22-case Tutor prototype is a later candidate, not a staged task.
+
+## Validated Security Revision
 
 `docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENCE.md`
 
-Status: LOCAL VALIDATION PASS / EXACT-SHA CI PENDING. Closure commit `55ba624` fails SBOM validation
+Status: IMPLEMENTATION PASS / PARENT CLOSURE CI PENDING. The following records
+its entry blocker. Closure commit `55ba624` fails SBOM validation
 in exact-SHA CI `34205485973`: generation succeeds, schema download raises
 HTTPError, specific status/cause unknown. The independent security review
 approves a pinned official alternate and fail-closed regression coverage.
@@ -119,8 +132,8 @@ create its separate canonical task after P3-036 closure CI passes.
 - P3-033: PASS / CLOSED
 - P3-034: PASS / CLOSED
 - P3-035: PASS / CLOSED
-- P3-005.2: LOCAL VALIDATION PASS / EXACT-SHA CI PENDING
-- P3-036: OPEN / CI BLOCKED
+- P3-005.2: IMPLEMENTATION PASS / PARENT CLOSURE CI PENDING
+- P3-036: OPEN / CLOSURE CI PENDING
 - P3-036.1: IMPLEMENTATION PASS / PARENT CLOSURE CI PENDING
 
 ## Authorization
@@ -287,9 +300,9 @@ create its separate canonical task after P3-036 closure CI passes.
 
 ## Next Gate
 
-Validate P3-005.2, publish the reviewed security repair and verify its own
-exact-SHA main CI. Then prepare a replacement docs-only P3-036 closure and
-verify that closure commit's own CI. The original 55ba624 closure stays FAILED.
+P3-005.2 implementation exact-SHA CI is PASS at 7332995 / 34208984649.
+Prepare a replacement docs-only P3-036 closure and verify that closure
+commit's own CI. The original 55ba624 closure stays FAILED.
 The following preserves the parent closure requirements.
 
 Verify the reviewed documentation closure commit's own exact-SHA main CI.

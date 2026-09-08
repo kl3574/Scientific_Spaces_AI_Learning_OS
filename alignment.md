@@ -1,8 +1,34 @@
-# P3-005.2 SBOM Schema Transport Resilience Alignment
+# P3-036 Documentation Closure Alignment
+
+Canonical parent: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`.
+Security revision: `docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENCE.md`.
+Status: **OPEN / CLOSURE CI PENDING**.
+
+Implementation `73329956a6a69cf738e42f571df8b924aacf3deb` passed exact-SHA
+main CI `34208984649`, all seven required jobs. Product E2E: 3 x 243,
+restart PASS, zero unexpected errors/external requests and uploaded artifacts.
+The separate P3-005.2 security implementation is PASS; it changes no product,
+workflow, pins or dependency. The failed 55ba624 closure remains failed.
+
+Current action is docs-only: update this alignment, README, project state,
+current-task pointer, both roadmaps, the P3-036 canonical task/report and
+P3-005.2 canonical task/report. Independent review and final safety checks
+precede `docs: close P3-036 mutation focus continuity`, non-force main push
+and this closure commit's own exact-SHA CI. Only terminal success and clean
+synchronized refs permit final closure; no acceptance change or blind rerun.
+No product/test/security/workflow/dependency/data/Provider/tag/Release changes.
+Historical Graph incident remains OPEN / UNRESOLVED, root cause UNKNOWN.
+The 22-case Tutor native-link prototype and independent design review support
+a later two-component task, not current product implementation or staging.
+No repeated plan confirmation is required under the owner's standing direction.
+
+## Historical P3-005.2 Implementation Alignment
 
 Canonical task: `docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENCE.md`.
-Status: **LOCAL VALIDATION PASS / EXACT-SHA CI PENDING**. This reviewed security revision supersedes
-the active-work pointer below, not P3-036's acceptance or product allowlist.
+Implementation status: **PASS at 7332995 / CI 34208984649**. This reviewed
+revision temporarily superseded the parent pointer, not P3-036 acceptance or
+product scope. The implementation authorization below is now consumed; only
+the docs-only closure action above is active.
 
 Current baseline `55ba624` is clean and synchronized. Its exact-SHA CI
 `34205485973` fails SBOM schema download with HTTPError; generation succeeds,

@@ -1,6 +1,6 @@
 # P3-005.2 SBOM Schema Transport Report
 
-Status: **LOCAL VALIDATION AND FINAL REVIEW PASS / EXACT-SHA CI PENDING**
+Status: **IMPLEMENTATION PASS / PARENT CLOSURE CI PENDING**
 
 ## Failure Evidence
 
@@ -97,3 +97,32 @@ external dependencies; if neither is usable the gate still blocks. Retry is
 bounded but not a global time/redirect bound. Full validator execution is still
 required, and its existing runtime dependencies can also be unavailable.
 No secret/runtime artifacts are intended for commit or publication.
+
+## Exact-SHA Implementation CI
+
+- Commit: `73329956a6a69cf738e42f571df8b924aacf3deb`, non-force pushed to main.
+- Run: [`34208984649`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34208984649),
+  terminal SUCCESS, exact head SHA verified. Backend, Frontend, Product E2E,
+  workflow, dependency, secret and SBOM jobs all PASS. Docker and release
+  evidence correctly SKIPPED for normal main push.
+- SBOM job `102005189995`: full schema/coverage validation PASS, combined
+  241026 bytes, zero forbidden values. This CI uses the healthy API path;
+  actual alternate access was separately validated locally under a synthetic
+  primary outage. Do not claim the original remote HTTP cause was reproduced.
+- Backend job `102005190218`: 667 passed, 8 skipped, 4 warnings, 84.04s.
+  The eight skip positions were mapped against all 675 collected tests:
+  four existing opt-in live/PDF cases and four existing local Node-renderer
+  cases. Backend CI does not install Frontend node_modules; those four cases
+  pass locally. All 42 new schema regressions ran; no new skip rule was added.
+- Product E2E job `102005190265`: Chromium 149.0.7827.55, 3/3 complete runs,
+  243/243 checks each; bookmark/completed-state/ended-session/note restart PASS;
+  unexpected console/page errors, external requests and static-chunk
+  cancellations zero. Full log JSON was parsed in memory, not saved.
+- Uploaded artifacts: zero by run artifact API. Local main/cached origin/main
+  and live remote main match; worktree clean.
+- The observer and one log fetch encountered TLS timeouts. Re-reading the
+  same run/job confirmed progress and terminal success; no workflow rerun.
+
+Resume the independently reviewed parent docs-only closure. This report does
+not claim that unexecuted closure CI is already PASS. The historical schema
+failure remains FAILED and the unrelated Graph incident remains OPEN.

@@ -5,17 +5,21 @@
 - Product implementation: **PASS**, latest repair `472350e`
 - Current repair local gates: **PASS**, including 3 x 243 Product E2E checks
 - Current repair independent final review: **PASS**, two final and one supplementary review
-- Latest cumulative exact-SHA main CI: **PASS**, `e2ec5e8`, run `34201705175`
+- Latest cumulative exact-SHA main CI: **PASS**, `7332995`, run `34208984649`
+- P3-005.2 SBOM transport revision: **IMPLEMENTATION PASS**
 - Task closure: **OPEN / CLOSURE CI PENDING**
 - Docs-only closure commit `d28fec6` CI: **FAIL**, run `34196981094`
+- Docs-only closure commit `55ba624` CI: **FAIL**, run `34205485973`
 - Historical Graph rendering incident: **OPEN / UNRESOLVED**, root cause unknown
 - Candidate version: not assigned
 
 Sections 2-15 preserve the chronological implementation, failure and repair
 evidence. Sections 16-18 record implementation CI, the later closure failure
-and failure-only diagnostic. Sections 19-20 are current: complete replacement
-gates pass, and the independently reviewed closure candidate requires its own
-CI. Earlier failures remain failures. No later product task has started.
+and failure-only diagnostic. Sections 19-21 record the diagnostic PASS and
+subsequent SBOM closure failure. Section 22 is current: the separate security
+repair and complete implementation CI pass; the replacement docs-only closure
+still needs its own CI. Earlier failures remain failures. No later product
+task has started.
 
 ## 2. Entry Evidence
 
@@ -1227,3 +1231,99 @@ canonical task/report separately bind this security scope. P3-036 product
 acceptance and all E2E assertions remain unchanged. Only successful repair
 CI and a subsequent docs-only closure CI permit parent closure. The Graph
 incident remains OPEN / UNRESOLVED; Tutor implementation is not staged.
+
+## 22. Security Repair PASS And Replacement Closure Candidate
+
+Separate P3-005.2 commit `73329956a6a69cf738e42f571df8b924aacf3deb`
+(`fix: add pinned SBOM schema transport fallback`) was non-force pushed after
+production-path RED/GREEN tests, independent security review and staged safety
+checks. It changes the schema downloader, 42 offline regressions and status/
+evidence documents only. Product, E2E runner, workflow, schema/validator pins,
+dependencies, source/corpus and frozen API/M1 paths are unchanged.
+
+Exact-SHA main CI
+[`34208984649`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34208984649)
+is terminal SUCCESS, all seven required jobs PASS. Normal-main Docker and
+release evidence jobs are skipped as designed. Uploaded artifacts: 0.
+
+- Local Backend: 671 passed, 4 skipped, 4 existing warnings, 38.75s.
+- CI Backend: 667 passed, 8 skipped, 4 warnings, 84.04s. Four extra skips
+  are existing Node-renderer tests needing Frontend dependencies absent in
+  the Backend job; these pass locally. All 42 new tests execute in CI.
+- Fresh local production build: PASS, 11 generated routes; CI Frontend PASS.
+- Existing security tests 17 PASS, workflow/suppression/secret gates PASS;
+  actual full temporary SBOM/schema CLI PASS, generated data removed.
+- CI Product E2E `102005190265`: 3/3 complete runs, 243/243 checks each,
+  Chromium 149.0.7827.55, all restart-persistence checks PASS, zero external
+  requests, unexpected console/page errors or static-chunk cancellations.
+- Final CI JSON was parsed in memory, not saved. Observer TLS timeouts were
+  recovered by reading the same run/job; no workflow rerun was used.
+- Local/cached/live remote main agree at the implementation commit; worktree
+  was clean before this docs-only candidate.
+
+The current SBOM CI takes the healthy API route. A separate local controlled
+primary-outage probe verifies actual official raw HTTP 200 and unchanged
+digest/full validator PASS. This establishes fallback viability, not the
+unlogged original HTTP cause. The earlier failed run stays FAILED. Full
+security details and cleanup-boundary regressions are in the P3-005.2 report.
+
+Prepare the independently reviewed **docs-only** closure candidate, keeping
+P3-036 **OPEN / CLOSURE CI PENDING** until its own exact-SHA main CI succeeds.
+No canonical acceptance, required job, assertion, error admission, product or
+test file is changed by this closure. The historical Graph incident stays
+OPEN / UNRESOLVED under section 20, root cause UNKNOWN. Any required closure
+failure returns to diagnosis. No candidate, tag or Release is assigned.
+
+Two independent read-only final documentation reviews approve exactly the
+10 Markdown changes, with zero Critical/Important findings on evidence/
+consistency and scope/acceptance respectively. Runtime and CI figures were
+provided by the parent runner's executions, not rerun by those reviewers.
+This approves publication of the candidate, not its still-unexecuted closure CI.
+
+### Tutor Candidate: Expanded Temporary Prototype
+
+While implementation CI ran, a temporary fake-runtime Chromium prototype
+replaced only the selected citation DOM anchor with a native link using
+`target="_blank"`, `rel="noopener noreferrer"` and a visible ` (new tab)` cue.
+It changed no product file, provider or persistent production data. The current
+same-tab defect from section 20 remains unshipped; this is design evidence,
+not validation of a new compiled component.
+
+22/22 cases PASS:
+
+- Core 12: 1440x1000 and 390x844, Explain source list / Explain inline /
+  submitted Quiz source list, each pointer and Tab/Enter.
+- Six further cases: Derive, Q&A and Research inline sources at both widths.
+- Four layout cases: Explain and Quiz source list by keyboard at 320x844 and
+  720x450.
+
+All use the public Article picker and populated Graph key `concept:crb`, five
+sources with disclosure expanded, and generation/activity POSTs settled first.
+After inspecting the correct Reader and closing the one new page, parent
+prompt, mode, selected Article, actual Graph input value, answer/Quiz choices/
+score, disclosure, URL/history, scroll and initiating-link focus match their
+pre-click snapshots. Raw href remains unchanged, resolved destination including
+inline repeated query parameters and fragment is exact, `window.opener` is
+null, and the source fits the viewport without page overflow. Extra Tutor
+POSTs, unexpected pages, console/page errors and external requests: 0.
+Observers were attached before popup activation and both pages settled before
+teardown. All temporary stores, browser contexts and owned servers were removed.
+
+An earlier 12-case probe did not read the actual Graph input because it assumed
+an aria-label attribute. The expanded probe uses the public named textbox.
+Its first attempt then exposed an exact `get_by_label` lookup limitation after
+textarea value changes. A separate ARIA readback confirms the real textbox name
+is still exactly `Question`; there is no established product accessibility bug.
+Role-based lookup corrected the probe. No product-label change is proposed.
+
+Independent design review supports a later two-component task: keep existing
+safe-href/Article-ID admission and exact encoding, open accepted document
+citations separately with an explicit cue, preserve hash-only and intentional
+Return actions. Final product tests must exercise compiled rendered links,
+not DOM replacements, compare state while the child exists as well as after
+closing, and cover mixed-case loopback URLs, rejected URLs and Concept-origin
+context. External source links are inspected, never activated in offline tests.
+New-case Reader session writes must be isolated without changing the existing
+exactly-25-ended-sessions restart gate. No refresh/eviction/tab-closure recovery
+or physical-mobile popup guarantee is claimed. Stage this task only after the
+parent closure CI passes; no repeated user confirmation is required.
