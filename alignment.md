@@ -1,24 +1,22 @@
 # P3-037 Tutor Citation Continuity Alignment
 
 Canonical: `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md`.
-Status: **OPEN / IMPLEMENTATION CI PENDING**. Local gates pass, including
-3 x 281 Product E2E checks, restart persistence and two independent reviews.
-P3-036 closure `f87ba6b` passes exact-SHA
-CI `34212438350`, all seven required jobs, three complete 243-check E2E runs,
-restart persistence and artifact gates. Parent and its bounded revisions are
-PASS / CLOSED. Historical Graph incident remains OPEN, root cause UNKNOWN.
+Status: **OPEN / CLOSURE CI PENDING**. Implementation `37ba58c` passes exact-SHA
+main CI `34221048974`, all seven required jobs, Product E2E 3 x 281, restart
+persistence and zero uploaded artifacts. Local and independent review gates
+also pass. P3-036 and its bounded revisions are PASS / CLOSED. Historical
+Graph incident remains OPEN, root cause UNKNOWN.
 
 The owner authorizes independent review followed by automatic GUI improvement.
-The reviewed task changes only TutorSourceList and TutorMarkdown document-link
-behavior, their admission-boundary tests, additive rendered E2E cases and the
-canonical task's explicit status/evidence documents. Preserve exact safe hrefs,
-hash-only links, intentional Returns and live Tutor work. No URL admission,
+The implementation authorization is consumed. Current work is docs-only:
+update this alignment, README, project state, current-task pointer, both
+roadmaps and the P3-037 canonical task/report. No product, tests, URL admission,
 API, Backend, data, provider, persistence, dependency or workflow changes.
 
-Run the canonical local/review/safety gates, then commit
-`fix: preserve tutor citation workspace`, non-force push main and inspect its
-exact-SHA CI. A separate docs-only closure and its own CI are required before
-PASS / CLOSED. No recurring user confirmation, candidate, tag or Release.
+After independent review and final safety checks, commit
+`docs: close P3-037 tutor citation continuity`, non-force push main and verify
+that closure commit's own exact-SHA CI before PASS / CLOSED. No recurring
+user confirmation, candidate, tag or Release.
 No source/private/paid access or committed runtime artifacts. Preserve user
 work and stop the affected action on unknown drift or a failed required gate.
 

@@ -1,6 +1,12 @@
 # P3-037 Tutor Citation Continuity
 
-Status: OPEN / IMPLEMENTATION CI PENDING
+Status: OPEN / CLOSURE CI PENDING
+
+Implementation `37ba58c6bec7cb433a8361b939ea7f106d790d0f` passes exact-SHA
+main CI `34221048974`, all seven required jobs, Product E2E 3 x 281,
+restart persistence and zero uploaded artifacts. All local/review/safety
+gates pass. The separate docs-only closure commit still requires its own
+exact-SHA CI before PASS / CLOSED. No product/test change is part of closure.
 
 ## Baseline And Authorization
 

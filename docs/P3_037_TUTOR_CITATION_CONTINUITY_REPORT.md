@@ -1,6 +1,6 @@
 # P3-037 Tutor Citation Continuity Report
 
-Status: OPEN / IMPLEMENTATION CI PENDING
+Status: OPEN / CLOSURE CI PENDING
 
 ## Baseline And Cause
 
@@ -66,7 +66,8 @@ snapshotted, and inherited fieldset disabledness uses :disabled.
   audit 40 Python / 239 npm packages and zero findings: PASS.
 - Temporary full SBOM validation: schema and lock coverage PASS, combined
   241026 bytes, forbidden values 0. Generated files removed. Its metadata
-  identifies baseline HEAD f87ba6b; final implementation CI is still required.
+  identifies baseline HEAD f87ba6b; exact implementation SBOM CI also passes
+  as recorded below.
 - Full three-run Product E2E: PASS, exit 0, 1955.73s. Chromium
   149.0.7827.55 completes all three runs with 281/281 checks each, including
   38 Tutor citation checks per run. Console errors, page errors, external
@@ -98,8 +99,80 @@ snapshotted, and inherited fieldset disabledness uses :disabled.
   (including untracked/staged documents), suppression policy, workflow policy
   and diff whitespace checks PASS. Fresh remote main equals baseline f87ba6b;
   published v1.0.0 and v1.1.0 object/peeled refs remain unchanged.
-- Implementation exact-SHA CI and separate docs-only closure CI: pending.
-  This is not a completed or shipped task.
+- Implementation exact-SHA CI: PASS. Separate docs-only closure CI remains
+  pending; this is not yet a closed task.
+
+## Implementation CI
+
+- Implementation: `37ba58c6bec7cb433a8361b939ea7f106d790d0f`.
+- Exact-SHA main push run:
+  [34221048974](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34221048974).
+- Terminal overall conclusion: SUCCESS, directly read back with matching
+  head SHA. Product E2E completed at 2026-09-08T12:09:37Z.
+
+| Required job | Job ID | Result |
+| --- | --- | --- |
+| Backend pytest | 102043984341 | PASS |
+| Frontend build | 102043984022 | PASS |
+| Product E2E | 102043984512 | PASS |
+| Workflow policy | 102043984187 | PASS |
+| Dependency audit | 102043984412 | PASS |
+| Secret audit | 102043984464 | PASS |
+| SBOM validation | 102043984367 | PASS |
+
+Backend job log: 667 passed, 8 skipped, 4 warnings in 98.66s. The four additional
+skips relative to local validation are consistent with the four Node-renderer
+tests that require frontend node_modules; the Backend job does not install
+those dependencies. All four passed locally. No live/PDF gate was enabled.
+
+The completed E2E job's JSON was decoded in memory: Chromium 149.0.7827.55,
+three complete runs, 281/281 checks each and 38 Tutor citation checks per run.
+Each run has zero console errors, page errors and external requests. Restart
+bookmark, completed states, exactly-25-ended-sessions and note checks all PASS.
+Global external requests and static-chunk cancellations: 0. Uploaded artifacts:
+0, verified after completion. Docker compose smoke and release evidence
+dry-run are skipped by normal-main policy, not reported as executed.
+
+A local gh watcher exited on TLS handshake timeout while the remote run was
+still active. Direct readback resumed on the same run; no workflow rerun or
+replacement implementation was used. Actions emitted Node.js 20 deprecation
+and runtime-override annotations, without a failed job. Pinned Action
+maintenance remains a separate future task; no workflow was changed here.
+
+## Supplemental Preview And Graph Evidence
+
+The compiled preview's real local API with fake provider also passes at
+1440x1000 and 390x844: select the fixture Article, generate an answer, open its
+returned local citation, verify the Reader and null opener, end the temporary
+Reader session, close the child, and verify the original prompt, answer,
+Article selection, URL and link focus remain intact. No response fixture
+interception was used. External requests and unexpected console/page errors:
+0. Only isolated preview Tutor activity and two explicitly ended Reader
+sessions were written; canonical stores were not touched. The separate
+loopback preview remains intentionally available with temporary synthetic data.
+
+A bounded Graph follow-up used the same context for 12 alternating Article/
+Concept selections at each of the same two viewports, after the original
+edge-focus / Search / Escape sequence. All 24 selections and model/wrapper
+geometry checks pass in 39.15s; external requests and unexpected errors are 0.
+This is NOT REPRODUCED, not a repair or a replacement for full E2E. The
+historical Graph incident remains OPEN / UNRESOLVED, root cause UNKNOWN.
+Independent diagnostic review recommends a separately reviewed, generation-
+bound measurement-history probe if further attribution is needed. DOM/observer
+identity cannot establish store identity; no such instrumentation or product
+change was made in this task.
+
+## Documentation Closure Gate
+
+This separate docs-only closure candidate records verified implementation
+evidence and current pointers. Product, tests, dependencies, workflows and
+data remain unchanged from 37ba58c. Independent standards/spec documentation
+review approves with zero findings. Final audit confirms eight allowlisted
+Markdown files, no untracked files or new forbidden artifacts, unchanged
+protected paths/tags, and passing secret, workflow, suppression and whitespace
+checks. The closure commit's own
+exact-SHA main CI must pass before PASS / CLOSED is declared. A required
+failure returns to diagnosis without assertion relaxation or blind reruns.
 
 ## Boundaries And Risks
 

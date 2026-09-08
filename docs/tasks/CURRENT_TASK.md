@@ -4,13 +4,14 @@
 
 `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md`
 
-Status: **OPEN / IMPLEMENTATION CI PENDING**. Native citation links preserve
+Status: **OPEN / CLOSURE CI PENDING**. Native citation links preserve
 live Tutor answer, Article/Concept context and submitted Quiz work while a
 separate Reader opens. Local gates pass: Backend 671/4 skipped, Frontend 143,
 production build, Product E2E 3 x 281 checks, restart persistence, safety and
-two independent reviews. Implementation and separate docs-only closure CI
-remain required. Scope stays bounded by the canonical task; no repeated plan
-confirmation is required.
+two independent reviews. Implementation `37ba58c` passes exact-SHA main CI
+`34221048974`, all seven required jobs, E2E 3 x 281, restart persistence and
+zero uploaded artifacts. Current action is the separate docs-only closure
+and its own exact-SHA CI; no product/test change or repeated plan confirmation.
 
 P3-036, P3-036.1 and P3-005.2: **PASS / CLOSED**. Docs-only closure
 `f87ba6bb0191d08fa84b0b5ef2cdf4d1a79a26db` passes exact-SHA main CI

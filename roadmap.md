@@ -14,13 +14,13 @@ Current milestone:
 P3-037, after P3-036 / P3-036.1 / P3-005.2 PASS / CLOSED
 
 Status:
-P3-037 OPEN / IMPLEMENTATION CI PENDING
+P3-037 OPEN / CLOSURE CI PENDING
 
 Next gate:
-Closure `f87ba6b` passes exact-SHA CI `34212438350`, all seven required jobs,
-Product E2E 3 x 243, restart persistence and artifact gates. Tutor local gates
-now pass, including 3 x 281 E2E checks. Publish the reviewed implementation and
-verify its exact-SHA CI before separate docs-only closure. Both historical
+Implementation `37ba58c` passes exact-SHA CI `34221048974`, all seven required
+jobs, Product E2E 3 x 281, restart persistence and zero uploaded artifacts.
+Publish the independently reviewed docs-only closure and verify its own
+exact-SHA CI before declaring P3-037 PASS / CLOSED. Both historical
 failed closure runs remain failed; Graph incident OPEN, root cause UNKNOWN.
 No repeated plan confirmation or v1.2 candidate is assigned.
 
