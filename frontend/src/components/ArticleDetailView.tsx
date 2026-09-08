@@ -335,7 +335,7 @@ export function ArticleDetailView({
   const fragmentVisibilityCleanupRef = useRef<(() => void) | null>(null);
   const readerInteractionVersionRef = useRef(0);
   const readerFocusClaimInteractionVersionRef = useRef<number | null>(null);
-  const readerProgressIntentRef = useRef<((intent: "tools" | "body" | "layout", section?: ArticleOutlineItem) => void) | null>(null);
+  const readerProgressIntentRef = useRef<((intent: "tools" | "body" | "layout", sectionId?: string) => void) | null>(null);
   const noteDeleteCancelRef = useRef<HTMLButtonElement | null>(null);
   const noteDeleteConfirmationRef = useRef<HTMLDivElement | null>(null);
   const noteDeleteButtonRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -745,6 +745,9 @@ export function ArticleDetailView({
           );
           target.scrollIntoView({ behavior: "auto", block: "start" });
           target.focus({ preventScroll: true });
+          if (options.requireArticleHeading) {
+            readerProgressIntentRef.current?.("body", targetId);
+          }
           const visibilityDeadline = window.performance.now() + 5_000;
           let visibilityActive = true;
           const stopVisibility = () => {
@@ -2571,7 +2574,8 @@ export function ArticleDetailView({
       }
     };
 
-    const setPositionIntent = (intent: "tools" | "body" | "layout", section?: ArticleOutlineItem) => {
+    const setPositionIntent = (intent: "tools" | "body" | "layout", sectionId?: string) => {
+      const section = sectionId ? outline.find((item) => item.id === sectionId) : undefined;
       cancelScrollbarRelease();
       scrollbarPointerId = null;
       if (intent !== "layout") {
@@ -2931,7 +2935,7 @@ export function ArticleDetailView({
     readerProgressIntentRef.current?.("body");
     target.scrollIntoView({ behavior: "auto", block: "start" });
     target.focus({ preventScroll: true });
-    readerProgressIntentRef.current?.("body", section);
+    readerProgressIntentRef.current?.("body", section.id);
   }
 
   function handleReaderPreferences(nextPreferences: ReaderPreferences) {

@@ -1,7 +1,18 @@
 # P3-038 Reader Progress Ownership Alignment
 
 Canonical: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`.
-Status: OPEN / IMPLEMENTATION CI PENDING.
+Status: OPEN / REPAIR CI PENDING.
+
+Implementation f24e67beae880fccefdd398175b9bdf0862b3046 is the pushed baseline;
+its worktree was clean when the CI failure was diagnosed.
+Exact-SHA main CI 34252242993 fails the desktop Dashboard heading-resume
+assertion in Product E2E; the other six required jobs pass. No closure commit
+is authorized by this failed gate. The exact rendered failure is reproduced
+and corrected within P3-038 after independent review; replacement exclusive
+full validation passes 3 x 298 with restart persistence. Retain the assertion;
+repair commit/exact-SHA CI is now the next gate. No blind CI rerun or borrowed
+local acceptance, and no closure until repair and separate closure CI pass.
+The entry baseline and implementation plan below remain historical context.
 Baseline a294c8fd36beee1b79673f05150310156d0d7f7f is clean and synchronized;
 its P3-037 closure CI 34225518378 passes all seven required jobs and 3 x 281
 E2E checks. P3-037 is PASS / CLOSED. Formal v1.1.0; candidate none.
@@ -27,12 +38,24 @@ commit and its own CI precede PASS / CLOSED. Stop affected gates on unknown
 drift, required failures, forbidden artifacts/secrets or necessary scope
 expansion. The historical Graph incident remains OPEN / UNKNOWN.
 
-Current local gates pass: Backend 671/4 skipped, Frontend 149, production build,
+Prior local gates at that implementation passed: Backend 671/4 skipped, Frontend 149, production build,
 exclusive Product E2E 3 x 298 with 17 ownership journeys each, restart
 persistence, 13 native-input checks, four rendered viewports, safety and two
 independent reviews. The failed and invalidated full invocations stay recorded.
-Product/test bindings are in the report. Next verify implementation exact-SHA
-CI, then the separate docs-only closure and its own CI; not PASS / CLOSED yet.
+Product/test bindings are in the report. These local results do not override
+the failed implementation CI. Reproduce and diagnose before any replacement
+implementation validation; separate docs-only closure and its own CI remain
+required. The task is not PASS / CLOSED.
+
+The independently reviewed CI correction preserves explicit heading identity
+after deferred focus and adds the evidenced initial-clamp regression. Focused
+GREEN, original-CI CPU4 replay 3/3, unit/build, native/visual and safety gates
+pass on component 7119895 / runner b966b963. Replacement exclusive full E2E
+passes 3/3, 298 checks and all 17 Reader journeys each, restart persistence,
+zero unexpected errors/external requests and unchanged source/build bindings.
+Its temporary runtime is removed. Local/review/safety gates now permit
+`fix: preserve resumed reader section`, non-force push and exact-SHA CI, then
+the unchanged separate docs-only closure gate. No new user confirmation.
 
 ## Historical P3-037 Alignment
 

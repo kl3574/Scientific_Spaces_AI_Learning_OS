@@ -1,8 +1,12 @@
 # P3-038 Reader Progress Ownership Report
 
-Status: OPEN / IMPLEMENTATION CI PENDING
+Status: OPEN / REPAIR CI PENDING
 Baseline: a294c8fd36beee1b79673f05150310156d0d7f7f.
 P3-037 closure CI 34225518378 is terminal PASS. This task is independent.
+
+Current evidence is the final section, Replacement Full Acceptance.
+Earlier pending/pass paragraphs are historical local snapshots,
+not a claim that the failed implementation CI or task closure has passed.
 
 ## Reproduced Defect
 
@@ -444,3 +448,169 @@ Next: submit `fix: preserve meaningful reader progress` and verify that exact
 commit's main CI. Only then prepare `docs: close P3-038 reader progress ownership`
 and verify its separate exact-SHA CI before PASS / CLOSED. Formal v1.1.0,
 candidate none; no source/Provider/private Zotero access, tag or Release action.
+
+## Implementation CI: Desktop Heading Resume Failure
+
+Observed 2026-09-09, Asia/Shanghai. Implementation
+`f24e67beae880fccefdd398175b9bdf0862b3046` is pushed; local main, cached
+origin/main and the live remote main agree. The exact-SHA push run is
+[34252242993](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34252242993).
+It is terminal with conclusion `failure`; its `updated_at` is
+2026-09-08T16:53:30Z. This is not presented as an independently recorded run
+completion timestamp.
+
+- Product E2E job 102149241311: FAIL, completed 16:53:22Z. The first iteration
+  reaches `reader-progress-1-body-1440-1000-reading-tools` and fails its
+  Dashboard heading-resume assertion at runner lines 10070 / 9941. No complete
+  three-repeat or restart acceptance result is available from this invocation.
+- Backend pytest 102149241542, Frontend build 102149241547, Workflow policy
+  102149241451, Dependency audit 102149241543, Secret audit 102149241518 and
+  SBOM validation 102149241695: terminal success.
+- Docker compose smoke and Release evidence dry-run: skipped by normal-main
+  policy, not executed PASS. Completed-run uploaded artifact count: 0.
+- The earlier `gh run watch` EOF was an observation failure, not this test
+  failure. A subsequent same-run readback confirmed the actual terminal result;
+  no CI rerun or workflow dispatch was requested.
+
+The requested URL fragment and focused H3 both identify the saved regularity
+conditions heading. Its top is 207.453125px at viewport height 1000, below the
+unchanged 180px reading line. The preceding derivation heading is 111.921875px.
+The visible progress, stored progress and independent current-geometry oracle
+all equal 39%, and the visible/stored/active section is that preceding heading.
+Thus the failure is specifically loss of the intended resumed section, not a
+demonstrated percentage-denominator disagreement. Root top is -364px,
+scrollHeight 1930px and windowY 429px. A causal explanation still needs a
+bounded reproduction and timeline; geometry agreement does not waive the
+explicit-heading resume contract.
+
+The full local PASS remains valid local evidence but cannot override this CI
+failure. Closure is stopped. The current action is an isolated real-rendered
+reproduction of the unchanged body journey and independent test/spec review,
+then a bounded correction only if supported by evidence. Do not weaken the
+assertion, alter the reading line/denominator or declare the separate historical
+Graph incident repaired. Published v1.0.0/v1.1.0 tag objects and targets are
+unchanged. No product/test file has been changed for this diagnosis yet.
+
+The original isolated body matrix completes successfully for both mobile and
+desktop on the unchanged production bundle. That is bounded non-reproduction,
+not CI clearance. The initial CPU4 harness attaches a page-event CDP callback
+too early and fails the existing page-observation guard before the journey;
+it supplies no product evidence. The corrected harness attaches CPU throttling
+only after the original observed-page helper returns, preserving the guard.
+Its first iteration reproduces the exact desktop CI failure, including the
+207.453125px target, 429px scroll, 1930px root and incorrect preceding section
+at 39%. The ordinary body assertions and runtime isolation are unchanged.
+Both owned runtimes and servers terminate and are removed. No product/test
+correction has been made; a pass-through timeline is the next diagnostic.
+
+## Deferred Heading Intent Correction
+
+The narrowed desktop pass-through replay fails in 8.96s. On return from
+Dashboard, references are loading: Article scrollHeight is 1334px and document
+maximum scroll is 429px. The native restoration call reaches that maximum,
+leaving the requested heading at 207.453125px, below the 180px reading line.
+The later deferred focus call repeats the same clamped native scroll, but
+first submits a sectionless body intent, clearing the restored heading anchor.
+References then become ready: root height grows to 1930px and maximum scroll
+to 1025px, with windowY and the requested heading unchanged. The observer
+correctly recalculates 39%, but the cleared anchor permits the preceding
+section to be stored. No wheel, key or pointer input intervenes; fonts are
+already loaded during this return. The uninstrumented narrowed CPU4 replay
+also fails with the exact same geometry and section, so the trace is not the
+sole reproduction evidence.
+
+Independent product review endorses preserving the explicit heading identity
+after the existing native scroll/focus, not changing the geometric anchor
+release rule. The internal intent now takes an optional section ID, resolved
+against the current effect's outline. Validated deferred heading focus supplies
+that ID after scrolling/focusing; ordinary outline clicks supply their existing
+section ID. Only a resolved section enters the explicit branch. Tool intents,
+ordinary sectionless body intents, genuine-reading release, rounding, reading
+line, denominator, storage schema and focus/route ownership remain unchanged.
+
+The independently reviewed regression strengthens the existing desktop body
+journey, without removing any of the 17 cases or existing assertions:
+
+- Hold one unchanged exact-local reference response using the existing bounded,
+  redirect-rejecting handler. No new route admission or network destination.
+- Before fulfillment, atomically verify exact URL, owned connected target,
+  requested-heading focus, loading references, target below the reading line
+  and document-end scroll clamping. Afterward verify root and scroll-range
+  growth, final geometric percentage and the original explicit-section checks.
+- Before any tool/reload navigation, genuine body input must select a different
+  section according to independent geometry, with URL/hash unchanged. Existing
+  keyboard/end/retreat/tool/history checks remain in place.
+
+On the unchanged component a94660a, this persisted regression fails at the
+original resumed-section assertion after all clamp preconditions pass. The
+800ms unchanged-response delay alone suffices; no CPU throttle is needed for
+the persisted case. On component 7119895ab547deb5ea89eb522b627555694fc8ad,
+runner b966b963ff0dbb986340279cae6114a40fc49985 and production BUILD_ID
+FIhfTU2mmYMApfsG9GRei, both mobile and desktop body journeys PASS, including
+the new pre-reload section-changing positive. External requests and unexpected
+console/page errors: 0; owned runtime and servers removed. Frontend suites
+73/24/23/29 (149) and the 11-route production build also PASS.
+
+These are focused GREEN results, not full task clearance. Original-CI CPU4
+replay, full replacement local gates, final independent reviews and exact-SHA
+repair/closure CI remain required. The failed f24e67b CI stays failed and the
+task remains OPEN / CI BLOCKED until replacement evidence is complete. No
+unrelated Graph fix, source/private access, candidate, tag or Release is claimed.
+
+The original desktop body function, read from f24e67b and replayed without the
+new response-delay condition, now passes 3/3 at CPU4 on the corrected build
+in 90.8s. This rechecks the original bug, not only the new regression. External
+requests and unexpected console/page errors are zero; its owned runtime is
+removed. Backend: 671 passed / 4 skipped / 4 existing warnings in 38.42s.
+Fresh four-viewport screenshots are visually inspected with Chinese/formulas
+present and no horizontal overflow or incoherent overlap; screenshots/runtime
+are removed. All 13 native/no-op/return checks pass in another fresh runtime,
+also removed, with zero external requests or unexpected errors.
+
+Current safety gates pass: 17 security unit tests, 19/19 pinned workflow
+actions and explicit permissions, zero suppressions, zero secret findings,
+dependency audit 40 PyPI / 239 npm with zero findings, and temporary official-
+schema SBOM validation (40/239/281 components, forbidden=0). SBOM files are
+removed. Both independent final incremental reviews report no remaining
+Critical/Important finding. AST comparison against f24e67b finds changes only
+inside the Reader ownership function; all other runner functions/classes and
+top-level policy remain unchanged.
+
+The replacement canonical three-repeat Product E2E starts on the component,
+runner and BUILD_ID above after all focused/visual/native runtimes are gone.
+Its runtime is exclusive; no browser/API sidecar is permitted. Full acceptance
+and restart results remain pending until terminal output. Product/test/build
+bindings must stay unchanged. The subsequent repair commit is
+`fix: preserve resumed reader section`; it and the later docs-only closure
+require separate exact-SHA CI. The failed original CI is never overwritten.
+
+## Replacement Full Acceptance
+
+Date: 2026-09-09, Asia/Shanghai. The exclusive replacement canonical command
+`uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3 --frontend-mode start`
+finishes with exit 0 / PASS in 2468.08s. Component 7119895ab547deb5ea89eb522b627555694fc8ad,
+runner b966b963ff0dbb986340279cae6114a40fc49985, helper/pure-test blobs and
+BUILD_ID FIhfTU2mmYMApfsG9GRei remain unchanged throughout.
+
+- Complete repeats: 3/3; 298/298 checks PASS in every repeat.
+- All 17 Reader ownership journeys PASS each time, including the new initial-
+  clamp setup, post-expansion explicit-heading assertions and pre-reload
+  genuine section-changing input. Existing journeys and acceptance remain.
+- Restart persistence: bookmark, completed states, ended sessions and note
+  PASS; the exactly-25-ended-session gate is unchanged.
+- External requests, unexpected console errors, page errors and Next static
+  chunk cancellations: 0. Existing expected framework-prefetch cancellations
+  are 1180, route-transition cancellations 59 and declared-read cancellations
+  12; they are not falsely described as zero or excluded by a new policy.
+- Source/build binding equality: true. No concurrent browser/API sidecar.
+  Owned runtime, both servers and temporary data are removed; ports 8000/3000
+  are free. No runtime or private artifact is a deliverable.
+- Current unit/build, original CPU4 replay, visual/native, safety and two
+  independent incremental reviews also PASS as recorded above.
+
+Local replacement gate: PASS. Task: OPEN / REPAIR CI PENDING. Submit the
+reviewed repair, verify its exact-SHA main CI, then prepare the separate
+docs-only closure and verify that commit's own CI. Original CI 34252242993
+remains failed; no run is relabelled or acceptance waived. Historical Graph
+incident remains OPEN / UNRESOLVED, root cause UNKNOWN. Formal v1.1.0,
+candidate none; no source, private Zotero, real Provider, tag or Release action.

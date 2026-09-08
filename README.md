@@ -7,10 +7,10 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-037 PASS / CLOSED; P3-038 local PASS / implementation CI pending`
+- Status: `P3-037 PASS / CLOSED; P3-038 LOCAL PASS / REPAIR CI PENDING`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-038 local Product E2E 3 x 298 PASS; exact-SHA CI pending`
+- Latest gate: `P3-038 replacement Product E2E 3 x 298 PASS; repair exact-SHA CI pending`
 - Current task: `P3-038 Reader progress ownership`
 - Current version: `v1.1.0`
 
@@ -68,7 +68,7 @@ P3-005.2 security revision: `docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENC
 P3-005.2 evidence: `docs/P3_005_2_SBOM_SCHEMA_TRANSPORT_REPORT.md`.
 P3-037 canonical task: `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md` (PASS / CLOSED).
 P3-037 evidence: `docs/P3_037_TUTOR_CITATION_CONTINUITY_REPORT.md`.
-P3-038 canonical task: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md` (OPEN / IMPLEMENTATION CI PENDING).
+P3-038 canonical task: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md` (OPEN / REPAIR CI PENDING).
 P3-038 evidence: `docs/P3_038_READER_PROGRESS_OWNERSHIP_REPORT.md`.
 
 v1.2 planning specifications:

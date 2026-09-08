@@ -9982,6 +9982,7 @@ def _verify_reader_progress_ownership(
             def dashboard_round_trip(
                 expected: dict[str, object], *, immediate: bool = False, dirty: bool = False,
                 delay_reference_read: bool = False,
+                require_initial_heading_clamp: bool = False,
             ) -> None:
                 if not immediate:
                     _wait_for_page_requests_to_settle(page, console_errors)
@@ -10011,6 +10012,10 @@ def _verify_reader_progress_ownership(
                     else (expected["stored"] or {}).get("section_id")
                 )
                 href = f"/articles/{article_id}" + (f"#{quote(section_id, safe='')}" if section_id else "")
+                _require(
+                    not require_initial_heading_clamp or (delay_reference_read and bool(section_id)),
+                    f"{label}: heading-clamp probe requires a delayed read and requested section",
+                )
                 expect(link).to_have_attribute("href", href)
                 transition = _declare_expected_route_transition(page, destination_url=FRONTEND_URL + href)
                 reference_route = re.compile(
@@ -10018,6 +10023,7 @@ def _verify_reader_progress_ownership(
                     + rf"/v1\.2/articles/{re.escape(article_id)}/references(?:\?.*)?\Z"
                 )
                 delayed_heights: list[int] = []
+                delayed_clamps: list[dict[str, object]] = []
                 delayed_reference_count = 0
 
                 def delay_incoming_references(route) -> None:
@@ -10044,6 +10050,37 @@ def _verify_reader_progress_ownership(
                     # Delay only this real local response; preserve its payload and headers.
                     page.wait_for_timeout(800)
                     delayed_heights.append(page.locator("article#article-start").evaluate("node => node.scrollHeight"))
+                    if require_initial_heading_clamp:
+                        clamp = page.evaluate(
+                            """
+                            sectionId => {
+                              const root = document.querySelector('article#article-start');
+                              const heading = document.getElementById(sectionId);
+                              const scroller = document.scrollingElement;
+                              return {
+                                url: location.href, targetId: heading?.id,
+                                owned: Boolean(root?.isConnected && heading?.isConnected && root.contains(heading)),
+                                focused: document.activeElement === heading,
+                                referenceState: root?.querySelector('[data-structured-references-state]')
+                                  ?.getAttribute('data-structured-references-state'),
+                                top: heading?.getBoundingClientRect().top,
+                                readingLine: Math.min(180, Math.max(96, innerHeight * 0.2)),
+                                scrollY, maximum: Math.max(0, scroller.scrollHeight - scroller.clientHeight),
+                              };
+                            }
+                            """,
+                            section_id,
+                        )
+                        delayed_clamps.append(clamp)
+                        _require(
+                            clamp["url"] == FRONTEND_URL + href
+                            and clamp["targetId"] == section_id
+                            and clamp["owned"] and clamp["focused"]
+                            and clamp["referenceState"] == "loading"
+                            and clamp["top"] > clamp["readingLine"]
+                            and abs(clamp["scrollY"] - clamp["maximum"]) <= 1,
+                            f"{label}: incoming heading did not establish the initial document-end clamp: {clamp}",
+                        )
                     route.fulfill(response=response)
 
                 if delay_reference_read:
@@ -10061,6 +10098,14 @@ def _verify_reader_progress_ownership(
                         and settled_height > delayed_heights[0],
                         f"{label}: delayed references did not expand the incoming Article: {delayed_heights} -> {settled_height}",
                     )
+                    if require_initial_heading_clamp:
+                        maximum = page.evaluate(
+                            "Math.max(0, document.scrollingElement.scrollHeight - document.scrollingElement.clientHeight)"
+                        )
+                        _require(
+                            len(delayed_clamps) == 1 and maximum > delayed_clamps[0]["maximum"],
+                            f"{label}: reference growth did not release the initial scroll clamp: {delayed_clamps} -> {maximum}",
+                        )
                 _complete_expected_route_transition(page, transition)
                 _require(page.url == FRONTEND_URL + href, f"{label}: Continue Learning changed the exact destination")
                 if section_id:
@@ -10453,13 +10498,27 @@ def _verify_reader_progress_ownership(
                     page.set_viewport_size({"width": width, "height": height})
                     settle()
                     middle = body_checkpoint("body viewport restoration")
-                    dashboard_round_trip(middle)
+                    dashboard_round_trip(
+                        middle, delay_reference_read=width >= 1024,
+                        require_initial_heading_clamp=width >= 1024,
+                    )
                     before_keyboard = snapshot()["scrollY"]
                     page.keyboard.press("ArrowDown")
                     page.keyboard.press("ArrowDown")
                     settle()
                     _require(snapshot()["scrollY"] > before_keyboard, f"{label}: keyboard did not scroll the body")
                     body_checkpoint("body keyboard")
+
+                    if width >= 1024:
+                        resumed_url = page.url
+                        resumed_section = unquote(urlparse(resumed_url).fragment)
+                        body_wheel(0.25)
+                        after_resume_reading = body_checkpoint("section-changing body input after resume")
+                        _require(
+                            after_resume_reading["stored"]["section_id"] != resumed_section
+                            and page.url == resumed_url,
+                            f"{label}: resumed heading locked subsequent body reading: {after_resume_reading}",
+                        )
 
                     if width < 1024:
                         page.get_by_role("link", name="Reading tools", exact=True).click()

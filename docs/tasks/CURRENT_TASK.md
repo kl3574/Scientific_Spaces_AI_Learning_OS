@@ -4,14 +4,27 @@
 
 `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`
 
-Status: **OPEN / IMPLEMENTATION CI PENDING**. Local gates pass on the bounded
+Status: **OPEN / REPAIR CI PENDING**. Prior implementation f24e67beae880fccefdd398175b9bdf0862b3046
+is pushed; exact-SHA CI 34252242993 fails Product E2E at desktop Dashboard
+heading resume. Six other required jobs pass and uploaded artifacts are zero.
+The independently reviewed correction passes exclusive full validation:
+3 x 298 checks, all 17 Reader journeys each, restart PASS and zero unexpected
+errors/external requests. Next: repair commit/exact-SHA CI, then closure CI.
+No blind rerun or closure. Prior local gates passed at f24e67b on the bounded
 Reader repair: Backend 671/4 skipped, Frontend 149, production build, exclusive
 Product E2E 3 x 298 including 17 ownership journeys each, restart persistence,
 13 native-input checks, four viewports, safety and two independent reviews.
 Tool-only movement preserves progress; ordinary body tracking, native
-navigation, origins and schema remain intact. Next: implementation commit and
-exact-SHA CI, then a separate docs-only closure with its own CI. The earlier
+navigation, origins and schema remain intact in that local evidence. The CI
+failure is not overridden by those results. A corrected implementation must
+pass full validation and exact-SHA CI, then separate docs-only closure CI. The earlier
 failed and invalidated runs remain recorded; no borrowed acceptance evidence.
+
+The bounded deferred-heading correction now passes focused GREEN, the original
+CI body replay three times at CPU4, units/build, native/visual and safety gates,
+and two independent static reviews. Replacement exclusive full E2E passes
+on component 7119895 / runner b966b963 with unchanged bindings. Its owned
+runtime is removed. Repair and separate closure CI PASS are not yet claimed.
 
 P3-037: **PASS / CLOSED** at closure a294c8fd36beee1b79673f05150310156d0d7f7f,
 exact-SHA main CI 34225518378, all seven required jobs, 3 x 281 E2E checks,

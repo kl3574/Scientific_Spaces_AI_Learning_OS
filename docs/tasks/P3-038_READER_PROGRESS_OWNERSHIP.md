@@ -1,6 +1,6 @@
 # P3-038 Reader Progress Ownership
 
-Status: OPEN / IMPLEMENTATION CI PENDING
+Status: OPEN / REPAIR CI PENDING
 
 ## Baseline And Authority
 
@@ -12,7 +12,20 @@ platform/GUI improvement, without recurring plan confirmation.
 
 ## Current Gate
 
-Local gates PASS on the bound candidate: Backend 671 passed / 4 skipped,
+Implementation f24e67beae880fccefdd398175b9bdf0862b3046 is pushed. Exact-SHA
+main CI 34252242993 fails Product E2E at desktop Dashboard heading resume;
+all six other required jobs pass. The requested URL/focus is the saved
+heading, but rendered/stored/active-outline section falls back to its preceding
+heading. A fresh real-browser trace reproduces initial document-end clamping
+while references load and loss of section identity during deferred focus.
+The bounded internal section-ID correction passes its persisted regression,
+original CPU4 replay and exclusive full replacement validation: 3 x 298,
+all 17 Reader journeys each, restart PASS and zero unexpected errors/external
+requests. Unit/build, native/visual, safety and two independent review gates
+also pass. Repair exact-SHA CI and separate closure CI remain required. No
+blind rerun, assertion waiver or closure.
+
+Prior local gates PASS at f24e67b: Backend 671 passed / 4 skipped,
 Frontend 149, production build, exclusive Product E2E 3 x 298 with all 17
 ownership journeys each, restart persistence, 13 native-input checks, four
 viewports, safety and two independent reviews. Implementation and separate
@@ -90,6 +103,12 @@ probes in separate owned runtimes and remove them before the full command.
   retreat journeys. Resume despite unchanged tool hash/focus where applicable.
   Include body-only viewport shrink/restore without an extra wheel, checking
   displayed and saved progress against the independent current geometry.
+  The desktop Dashboard return also holds one unchanged exact-local reference
+  response, proves the requested focused heading is initially clamped below
+  the reading line, then proves root and document scroll-range growth. Preserve
+  requested heading identity and final geometric progress. Before any tool or
+  reload action, genuine body input must select a different section with the
+  resumed URL/hash unchanged. Keep all existing positives and the 17 journeys.
 - One additional desktop clamped-final-heading regression, including its
   resulting scroll, cold restoration, and subsequent genuine body retreat.
 - One outgoing mobile Reader-to-Dashboard regression under bounded CPU
@@ -133,6 +152,7 @@ failure, artifact/secret finding or necessary scope expansion. Diagnose from
 evidence instead of blind reruns. No renewed generic user confirmation.
 
 Implementation commit: fix: preserve meaningful reader progress
+CI repair commit: fix: preserve resumed reader section
 Closure commit: docs: close P3-038 reader progress ownership
 Non-force main push and exact-SHA CI readback are authorized after each gate.
 No candidate, tag, Release, attestation or destructive Git action.
