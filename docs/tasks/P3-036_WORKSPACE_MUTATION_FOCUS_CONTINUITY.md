@@ -261,3 +261,40 @@ Repair commit message: `test: await Tutor activity before page closure`.
 The repair and docs-only closure still require exact-SHA main CI. The task
 remains REOPENED / CI EVIDENCE REPAIR; no later task or candidate is authorized
 by this record. Detailed evidence is in section 13 of the P3-036 report.
+
+### Subsequent Navigation Caller Repair
+
+The Tutor repair at `d80780506fed84d4def4342c904954e9b049f22d` passed the
+non-E2E jobs in CI `34180979475`, but Product E2E rejected two undeclared
+response-backed route cancellations. A minimal slow Graph browser probe
+reproduced the failure; the Reference page-two return has matching CI evidence.
+
+The initial bounded repair adds existing declaration/settlement/completion
+instrumentation to 35 existing navigation callers and exact slow-Graph terminal
+validation. No product behavior, classifier, or verification standard changes.
+Caller-only snapshot: `db3a61543c4acfcc01b2fc5b0783083197383339`.
+Focused slow-Graph execution passes 3/3. The first full invocation on the
+preceding 16-caller patch exposed another undeclared Session-to-Reader return;
+seven Reader caller pairs are now included without changing its modal races,
+and the focused Reader function passes 3/3. An independent follow-up audit
+identified 12 further ordinary desktop/mobile round-trip gaps, now covered by
+the same existing helpers. These static omissions are not separate reproduced
+failures. Its full invocation failed at Reader-to-Graph completion because
+Graph canonicalizes query ordering without changing any values. The subsequent
+repair adds an opt-in, declaration-frozen query-order alias certificate to the
+E2E evidence model. Only exact encoded parameter permutations are eligible;
+canonical completion, HTTP 200 response provenance, terminal ordering,
+navigation ownership, and zero-or-one alias cancellation are checked. Pending
+requests and certificate mutation remain failures. Global URL identity and
+existing required-cancellation cardinality do not change. This is a narrowly
+scoped classifier extension; it is not product code or an M1 standard change.
+Final local gates and two independent reviews pass on script blob
+`95feae7950c002127199941e2719832828e87233`: Backend 600/4 skipped, Frontend
+139, production build, full HTTP contract including 156 new scenarios, and
+3/3 complete Product E2E runs with 227 checks each. Restart persistence passes;
+external requests and unexpected console/page errors are zero. Implementation
+and docs-only closure exact-SHA CI remain required.
+
+Repair commit message: `test: complete Shell and reference route evidence`.
+Section 14 of the task report is the current evidence source. P3-036 remains
+REOPENED / CI EVIDENCE REPAIR.

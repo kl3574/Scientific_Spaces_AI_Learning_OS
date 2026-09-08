@@ -79,7 +79,7 @@ No v1.2 candidate is assigned.
 
 - Implementation commit: `fix: preserve workspace mutation focus`
 - Current bounded E2E repair commit:
-  `test: await Tutor activity before page closure`
+  `test: complete Shell and reference route evidence`
 - Non-force push to `main`, followed by exact-SHA implementation CI readback
 - Docs-only closure commit: `docs: close P3-036 mutation focus continuity`
 - Non-force push to `main`, followed by exact-SHA closure CI readback
@@ -87,12 +87,32 @@ No v1.2 candidate is assigned.
 
 ## Current Gate
 
-The prior closure run `34024098616` and repair runs `34065911116` and
-`34178687022` failed Product E2E. The latest failure is an unfinished Tutor
-activity GET when the test closes its page after answer focus. A controlled
-network-level reproduction confirms the missing pre-close settlement. The
-local repair now passes three complete 227-check E2E runs, Backend and Frontend
-regression, the production build, safety gates, and two independent reviews.
-No product scope or error allowance has been added. The repair and subsequent
-docs-only closure each still require successful exact-SHA main CI before final
-reporting; P3-036 remains open.
+The prior closure and repair failures remain historical evidence. Latest run
+`34180979475` at `d80780506fed84d4def4342c904954e9b049f22d` passed Backend,
+Frontend and security jobs but failed Product E2E's final request audit. The
+previous Tutor pending read is absent; the remaining failures are two HTTP 200
+RSC cancellations at undeclared Shell/Reference navigation callers.
+
+The original slow Graph caller now reproduces the exact audit failure in a
+four-second loop. The repair adds ordinary declaration/settlement/completion
+pairs to 15 existing Shell navigations, one page-two reference return, and
+seven cross-route Reader fragment interactions, and 12 additional reviewed
+desktop/mobile learning-workspace round trips, plus exact terminal-request
+validation for the slow Graph probe. Product scope and original UI assertions
+remain unchanged. Focused
+slow-route verification passes 3/3. The first complete regression invocation
+exposed the additional Reader caller omission; its focused repair passes 3/3.
+The 35-caller full invocation then exposed the Reader-to-Graph query-order
+canonicalization: the rendered link and canonical destination have identical
+encoded parameters in a different order. A bounded opt-in alias certificate
+is now being added to the E2E ledger, frozen before activation, with exact
+canonical completion and response-backed cancellation evidence. This is an
+explicit evidence-model extension, not an unchanged classifier. Global URL
+identity, required-cancellation cardinality, and existing default behavior
+remain unchanged. Final local gates pass: Backend 600/4 skipped, Frontend 139,
+production build, 156 new HTTP-contract scenarios, and three complete Product
+E2E runs with 227 checks each and zero unexpected console/page/external errors.
+Two independent final reviews pass on script blob
+`95feae7950c002127199941e2719832828e87233`. Replacement exact-SHA CI and
+docs-only closure CI are still required. P3-036 remains open. Current evidence
+is section 14 of the task report.

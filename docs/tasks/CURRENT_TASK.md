@@ -6,6 +6,21 @@
 
 Bounded E2E evidence repair after failed closure CI; product scope unchanged.
 
+Latest implementation CI `34180979475` at `d807805` failed the final route
+audit after all UI assertions; its Backend, Frontend, and security jobs pass.
+Current repair covers 15 existing Shell navigations, the page-two
+reference return, seven cross-route Reader fragment interactions, and 12
+additional reviewed desktop/mobile round trips. The first full local invocation
+exposed the Reader omission; its focused repair passes 3/3. The next full
+invocation exposed a query-order-only Reader-to-Graph canonicalization that
+the ordinary declaration cannot represent. A strict, predeclared optional
+alias certificate is being added within the E2E ledger; product URL behavior
+and global URL identity remain unchanged. Final local gates and two independent
+reviews pass: Backend 600/4 skipped, Frontend 139, build, 156 new contract
+scenarios, and 3 x 227 Product E2E checks with zero unexpected errors or external
+requests. Exact-SHA repair and docs-only closure CI are still required;
+section 14 of the P3-036 report is authoritative for this repair.
+
 ## Staged Task
 
 None
@@ -187,11 +202,12 @@ None
 
 ## Next Gate
 
-The P3-036 Tutor activity pre-close repair exposed by run `34178687022` passes
-3/3 local Product E2E runs with 227/227 checks each, all focused/full local
-regressions, the production build, safety gates, and two independent reviews.
-Next verify its exact-SHA main CI, then record and verify a docs-only closure
-commit. No later task or v1.2 candidate is staged.
+Complete the current Shell/Reference/Reader route-evidence repair, including
+the strict Reader-to-Graph query-order certificate. The earlier Tutor repair's
+local success is historical and its CI exposed these later omissions. Require
+fresh three-run Product E2E, final independent reviews, and exact-SHA repair CI;
+only then create and verify the docs-only closure commit. No later task or
+v1.2 candidate is staged.
 
 ## P3-033 Local Evidence
 

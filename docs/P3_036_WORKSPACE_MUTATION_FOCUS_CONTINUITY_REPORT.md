@@ -2,10 +2,10 @@
 
 ## 1. Status
 
-- Local implementation: **PASS**
-- Independent final review: **PASS**, 2/2 reviewers, 0 Critical / 0 Important /
-  0 Minor
-- Latest exact-SHA repair main CI: **FAILED**, run `34178687022`
+- Product implementation: **PASS**, historical local evidence below
+- Current caller-evidence repair local gates: **PASS**
+- Current repair independent final review: **PASS**, two independent reviewers
+- Latest exact-SHA repair main CI: **FAILED**, run `34180979475`
 - Task closure: **REOPENED / CI EVIDENCE REPAIR**
 - Replacement implementation and docs-only closure CI: **PENDING**
 - Candidate version: not assigned
@@ -308,3 +308,285 @@ Final local gates for script blob
 The final local three-run invocation used the same script blob throughout;
 only governance text changed while it ran. Replacement exact-SHA main CI and
 the subsequent docs-only closure CI remain required. P3-036 is not yet closed.
+
+## 14. Navigation Caller Evidence Repair (2026-09-08)
+
+Baseline: `d80780506fed84d4def4342c904954e9b049f22d`, clean `main`, matching
+the cached `origin/main`; no `REWORK.md` or `.audit` exists. Exact-SHA CI
+[`34180979475`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34180979475)
+passed Backend, Frontend, dependency, workflow/suppression, secret, and SBOM
+jobs. Product E2E reached its final audit and rejected two HTTP 200 RSC
+`net::ERR_ABORTED` lifecycles. The previous unfinished Tutor activity read did
+not recur. This failed run cannot close P3-036.
+
+### Diagnosis And Reproduction
+
+- Shell request A: homepage to `/graph?node_id=concept%3Acrb&q=CRB`,
+  start/response/terminal/navigation sequences `2957/2958/2962/2963` in CI.
+  A local execution of the unchanged full Shell prefix failed one of two
+  runs with the same request identity fields and start sequence, before the
+  later modal Back/Forward actions. The failure belongs to the earlier slow
+  Graph search activation, not the separately declared same-route CRB visit.
+- A minimized execution of the original slow Graph block failed 3/3 times,
+  taking 4.16-4.27 seconds each. The rendered destination, focus, and existing
+  120-frame delay assertions passed; the unchanged final audit rejected the
+  undeclared response-backed cancellation. The request's homepage source is
+  an ordinary transition endpoint. No stale-frame exception is needed.
+- Reference request B: selected Zotero reference to the CRB Article's second
+  reference page, including its exact row fragment. CI sequences were
+  `11743/11744/11749/11750` for start/response/navigation/terminal. That caller
+  also lacked a declaration/completion pair. Cold and previously loaded Reader
+  probes passed 3/3 each locally because the RSC responses fully completed;
+  those results do not claim to reproduce B's CI cancellation.
+- Temporary three-Article fixture stores, fake providers, and loopback-only
+  Chromium were used throughout. External requests and page errors were zero.
+  No source, private Zotero, or real/paid Provider was accessed.
+
+### Bounded Repair
+
+The only implementation change is in `scripts/e2e/run_product_e2e.py`:
+
+- Add 15 ordinary Shell declaration/completion pairs covering stale-focus and
+  stale-opener navigation, slow Graph, workspace shortcuts and their returns,
+  Article Back, and modal query/pathname history.
+- Add one exact page-two source-reference return pair, including the fragment.
+- Declare before activation using the current page as source; complete only
+  after all original semantic/focus assertions and terminal request settlement.
+- Require the slow Graph probe's exact observed RSC terminal result and verify
+  any cancellation through the existing completed-transition predicate.
+- Preserve all original assertions, observers, race injection, product routes,
+  data behavior, classifier predicates, timeouts, and error allowances.
+
+An independent bounded caller audit approved this approach. The other missing
+pairs are code-proven instrumentation gaps, not claims that each has separately
+failed at runtime. The atomic event-time stale-route probe remains unchanged;
+it is not treated as an ordinary source override or a proven failure.
+
+### Focused Evidence
+
+The updated slow Graph block passed 3/3 times: two HTTP 200 cancellations each
+bound to the exact completed declaration, and one fully finished HTTP 200
+control. All three final audits were clean. The embedded HTTP evidence
+contract also passed before and after the patch.
+
+An in-memory original-code control rejected an aborted HTTP 200 request, then
+correctly accepted a fully finished HTTP 200 request. Its diagnostic driver
+incorrectly expected every schedule to abort and stopped on the second case;
+this is not evidence of a deterministic all-schedule negative control or a
+product regression. No page-two updated-code result was produced by that
+interrupted diagnostic invocation.
+
+First repair script blob: `07c9b7911dec77b4de3fabca7c69c4176bd14e59`.
+Two independent reviewers passed this snapshot; the second also ran the
+embedded HTTP contract and 16 positive / 63 negative offline cases. AST
+comparison confirmed only two caller functions changed, with every original
+statement retained in order and all ledger/classifier/helper definitions
+unchanged. Backend passed 600 tests with 4 skips; Frontend passed 139 tests;
+production build passed with 11 generated pages. Workflow, suppression,
+secret, temporary SBOM, artifact, and protected-path gates passed. Local
+network-dependent dependency auditing remains deferred to exact-SHA CI.
+
+### Full-Run Reader Finding
+
+The first full three-run invocation on that blob did not pass. It reached the
+final audit and rejected one different HTTP 200 RSC cancellation on
+`reader-fragment-route-owner`: `/session` to
+`/articles/crb-formula?from=%2Fsession#reading-tools`. Request, response,
+navigation, and terminal sequences were `1733/1734/1738/1739`; navigation
+generation advanced from 31 to 32. The earlier Shell and Reference failures
+were absent from this final audit. No successful complete-three-run result is
+claimed from that invocation.
+
+The original Reader function passed once in isolation with action-level
+diagnostic tracing. This does not contradict the full-run failure or prove a
+deterministic isolated reproduction. A bounded independent audit identified
+seven missing cross-route pairs: Article-outline history return, two guided
+reading-tools entries, return to Session, saved-heading entry, and its
+Back/Forward round trip.
+
+The current patch adds those seven pairs, for 23 total. The atomic
+`focus(); history.back()` action is unchanged. The second guided entry still
+opens and closes its modal immediately; settlement occurs only after every
+original modal/focus assertion. Hash-only moves and all classifier predicates
+remain unchanged. The Reader pair design passed independent review.
+
+Reader repair snapshot: `303715775d02a369907dd8302aee83d5ee0fdfa3`.
+The complete updated Reader function passed 3/3 in 54.14-54.88 seconds per
+iteration, with 18 route declarations and 1/1/2 bound cancellations. Final
+audits, page errors, and external requests were zero in every iteration.
+
+A follow-up bounded audit identified ten further unpaired desktop/mobile
+round trips; the adjacent outbound Reader-to-Tutor and Reader-to-Graph links
+had the same omission. All 12 now use ordinary existing pairs, retaining full
+query/fragment identity and all original UI assertions. These are preventive
+instrumentation repairs, not separately reproduced failures. This bounded
+review is not a claim that every possible navigation in the script has been
+exhaustively classified.
+
+Caller-only script blob: `db3a61543c4acfcc01b2fc5b0783083197383339`.
+The patch contains 35 new pairs across three caller functions. No original
+source lines were removed; AST comparison confirms every other function and
+class, including all classifiers/helpers, is unchanged. The embedded HTTP
+evidence contract passes. Replacement full E2E and final snapshot reviews are
+in progress. Replacement implementation CI and a separate docs-only closure
+CI remain mandatory. No closure or candidate is declared.
+
+### Query-Order Canonicalization Finding
+
+The second full invocation on the 35-caller snapshot failed at the newly
+declared Reader-to-Graph completion. The rendered link orders parameters as
+`article_id, article_title, return_to, node_id`; Graph canonicalizes them as
+`node_id, article_id, article_title, return_to`. All encoded values are
+identical. This is current product behavior in `createLearningToolHref` and
+`createGraphWorkspaceHref`, not a broken page or permission to globally sort
+URL identity. The invocation is not a completed three-run result.
+
+A local Chromium probe using the actual Reader link showed both valid
+lifecycles: raw-link RSC HTTP 200 followed by `ERR_ABORTED`, and fully finished
+HTTP 200. Declaring the raw URL as a required cancelled route passed the first
+case but correctly failed the second, because required cancellations must bind
+exactly once. Making that existing cardinality optional would weaken unrelated
+evidence and is not the repair.
+
+The subsequent E2E-only repair introduces an explicit `query_order_alias_url`
+certificate. It is frozen with source, canonical destination, page, label,
+sequence, and generation before activation. Only a different ordering of the
+same raw encoded query components is admitted; duplicate decoded keys,
+transport parameters, empty separators, changed encoding/values, and changed
+non-query URL components are rejected. Completion remains at the exact
+canonical URL. Alias aborts additionally need an exact HTTP 200 response,
+ordered terminal evidence, and observed canonical navigation without unrelated
+intervening routes or declarations. The alias may finish normally without an
+abort; duplicate aborts and pending requests fail. Snapshot changes at binding
+or final audit fail. Existing default behavior, global URL keys, required
+cancelled-route/read counts, cache, prefetch, and static-chunk policies remain
+unchanged. This is an opt-in evidence-classification extension and is not
+described as an unchanged classifier. No product implementation changed.
+
+The contract regression, real-browser alias probe, replacement full run, and
+independent final reviews must pass before any new CI/closure claim.
+
+### Alias Browser And Local Gate Evidence
+
+- Five unthrottled real Reader-to-Graph activations passed with fully finished
+  HTTP 200 raw RSC responses and zero error bindings.
+- Six further activations with Chromium CPU throttling at 4x and network
+  conditions of 30 ms latency / 128,000 bytes per second passed: four finished
+  HTTP 200 responses, two HTTP 200 `ERR_ABORTED` responses bound exactly once.
+  The latter six used the generation-bound canonical navigation checks and
+  combined alias/canonical cancellation ceiling. Every final request audit was
+  clean; page errors and external requests were zero.
+- Each probe used a fresh browser context and temporary three-Article fake
+  runtime; all runtime directories were cleaned on exit. No real source,
+  private library, Provider, screenshot, or downloaded content was involved.
+- Fresh Backend regression: 600 passed / 4 skipped in 39.05 seconds.
+- Fresh Frontend suites: Articles 67, References 21, Tutor 22, Graph 29;
+  139 total passed. Fresh Next.js production build passed with 11 pages.
+- Workflow and suppression policies, secret scan, temporary SBOM validation,
+  artifact scan, and protected-path diff passed. SBOM component counts were
+  40 / 239 / 281 with schema validation PASS and forbidden count 0. The first
+  SBOM validation invocation used an invalid option; the corrected positional
+  invocation passed and both temporary directories were cleaned.
+- The artifact-name scan matched only the tracked `.env.example` template,
+  not a runtime environment file; secret scan reported zero findings.
+
+These are bounded and supporting results, not a substitute for the required
+three complete Product E2E runs or exact-SHA CI.
+
+### Contract Regression
+
+The independent test author added 141 scenarios inside the existing HTTP
+evidence contract: 19 positive controls and 122 rejection cases. The complete
+contract passed after fixing two newly exposed holes: `urlparse` normalizes
+scheme spelling, so the alias check now also preserves the literal non-query
+prefix; alias request ownership now requires the recorded frame URL to equal
+the owning page URL. These constraints apply only to the opt-in certificate.
+
+The matrix covers absent/finished/aborted alias and canonical requests, exact
+response provenance, immutable declarations before and after completion,
+missing/deleted snapshots, pending responses, duplicate and combined endpoint
+bindings, late requests, canonical navigation generations, unrelated frames,
+competing declarations, and exact query encoding. Three valid prefetch controls
+retain the existing independent prefetch policy without binding the alias;
+three overlong prefetch cases remain failures. Omitted, explicit `None`, and
+legacy missing-field declarations retain their original behavior.
+
+The replacement three-run Product E2E invocation uses frozen script blob
+`9840c591399ea7cae15a9b9fb1c76c59d8ae5490`; results and final independent
+reviews are pending. No Product E2E or CI success is inferred from these pure
+contract tests.
+
+The run on `9840c591399ea7cae15a9b9fb1c76c59d8ae5490` was intentionally
+interrupted (exit 130) when independent final review found three additional
+certificate gaps. It is not passing full-run evidence. The isolated servers
+were stopped and temporary runtime data was cleaned. Findings and repairs:
+
+- Deleting an expectation could allow the list-length-based ID to be reused
+  and overwrite its private alias snapshot. Declaration now rejects reuse of
+  any retained alias registry ID, preserving the missing-declaration failure.
+- `urlparse` discards literal tabs/newlines within a URL. Both declared URLs
+  now reject literal ASCII controls/whitespace before parsing. Alias request
+  URLs also retain literal origin/path spelling and cannot carry a fragment;
+  properly encoded values are unaffected.
+- Terminal navigation generation was unchecked. Alias evidence now requires
+  `declaration <= request <= terminal <= completion` generations and a terminal
+  page within the same declared endpoints.
+
+The new literal-tab regression failed before the repair and the entire
+contract passed afterward. Eleven further rejection cases cover these findings
+and literal request URLs, bringing the matrix to 152 scenarios: 19 positives
+and 133 negatives. The replacement full gate and final reviews remain required.
+
+Further independent review found that in-range generations can still disagree
+with the collected event order. Alias admission now replays the declaration's
+complete ordered navigation window: every recorded event increments one
+generation, and request/terminal generations must equal the latest event before
+their respective sequences. This follows the existing collector's behavior
+without changing it or requiring terminal generation to equal completion.
+Three additional rejection cases cover early/late generations and missing
+intermediate events; one positive verifies canonical navigation after terminal.
+The complete contract passes 156 added scenarios (20 positive / 136 negative).
+
+The last bounded Chromium probe before this event-replay tightening passed
+3/3 (two bound HTTP 200 aborts, one finished HTTP 200), with clean final audits
+and zero page/external errors. Replacement full E2E is running on script blob
+`95feae7950c002127199941e2719832828e87233`; its final result remains pending.
+
+Two independent final reviewers passed this snapshot with no remaining
+Critical, Important, or Minor finding. The first independently exercised eight
+generation/ordering probes; the second reran the complete 156-scenario contract
+and the prior counterexamples. Both confirmed that canonical commit after
+terminal remains valid. The second also verified all 35 caller pairs preserve
+original code lines, UI assertions, and race timing, and that protected URL,
+prefetch/cache, and required-cancellation behavior remains unchanged. These
+reviews are code/evidence-model approval, not full E2E or CI completion.
+
+### Final Local Result
+
+Frozen script blob: `95feae7950c002127199941e2719832828e87233`, unchanged
+through the final run and subsequent readback.
+
+`uv run --offline --project backend python scripts/e2e/run_product_e2e.py
+--repeat 3 --frontend-mode start` completed with exit 0:
+
+- Product E2E: 3/3 complete runs, 227/227 checks in every run.
+- Restart persistence: PASS for notes, bookmarks, completed states, and ended
+  sessions.
+- Chromium: `149.0.7827.55`.
+- Unexpected console errors, page errors, and external requests: zero in all
+  three runs.
+- Route declarations: 486; bound requests: 78; valid route cancellations: 57;
+  independently validated prefetch cancellations: 675; successful no-content
+  writes: 30. No specialized precursor-snapshot recovery was used.
+- Backend 600 passed / 4 skipped; Frontend 139 passed; production build PASS
+  with 11 pages; the full HTTP contract including 156 new scenarios PASS.
+- Two independent final reviews and local workflow, suppression, secret,
+  temporary SBOM, artifact, and protected-path checks PASS.
+
+The temporary output was read back as structured JSON and removed after its
+bounded metadata was recorded here. Isolated runtime directories and services
+were cleaned; ports 3000/8000 are no longer held by this test. No product,
+Backend, Frontend, dependency, lockfile, workflow, or runtime-data change is in
+the patch. Network-dependent dependency auditing remains assigned to exact-SHA
+CI. The repair is ready for its implementation commit and CI; P3-036 remains
+open until implementation and docs-only closure CI succeed.
