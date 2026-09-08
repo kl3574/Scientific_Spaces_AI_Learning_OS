@@ -5,14 +5,15 @@
 - Local implementation: **PASS**
 - Independent final review: **PASS**, 2/2 reviewers, 0 Critical / 0 Important /
   0 Minor
-- Exact-SHA cumulative repair main CI: **PASS**
-- Task closure: **PASS / CLOSED**
-- Exact-SHA docs-only closure CI: **PENDING FOR THIS COMMIT**
+- Latest exact-SHA repair main CI: **FAILED**, run `34065911116`
+- Task closure: **REOPENED / CI EVIDENCE REPAIR**
+- Replacement implementation and docs-only closure CI: **PENDING**
 - Candidate version: not assigned
 
-All required local behavior, regression, browser, review, repository safety,
-and exact-SHA cumulative implementation gates pass. This docs-only commit
-records closure and requires its own exact-SHA main CI before final reporting.
+Sections 2-10 preserve the earlier implementation evidence. Subsequent closure
+run `34024098616` and repair run `34065911116` failed Product E2E; they supersede
+the earlier closure claim. The bounded script repair and fresh browser/CI
+evidence below must pass before the task closes.
 
 ## 2. Entry Evidence
 
@@ -176,7 +177,69 @@ Repair evidence:
 
 ## 11. Final Disposition
 
-P3-036 result: **PASS / CLOSED**. The cumulative repair passed exact-SHA main
-CI. This docs-only closure commit consumes the remaining authorization and
-requires its own exact-SHA CI readback. No v1.2 candidate, tag, or Release is
-assigned.
+P3-036 result: **REOPENED / CI EVIDENCE REPAIR**. No v1.2 candidate, tag, or
+Release is assigned. Local GUI runs and final focused regression pass with the
+version qualification below; the replacement repair and docs-only closure
+require exact-SHA main CI.
+
+## 12. Route Evidence Repair (2026-09-08)
+
+The later CI failure concerns a destination RSC response that returned HTTP
+200, was cancelled by the browser, and was followed immediately by the exact
+destination navigation while Playwright still recorded the earlier page URL.
+The UI assertions must pass independently; a cancelled response is not reported
+as a successfully downloaded response or proof of cache consumption.
+
+The repair adds an explicitly bound recovery path with ordered request,
+response, cancellation, and navigation evidence. It requires one exact
+next-generation destination event within 250 ms, no competing route declaration,
+and exact current-request ownership. Previously completed same-destination
+responses are captured at declaration and classified as a precursor snapshot,
+without claiming which response supplied the rendered page.
+
+An initial overly broad historical-sibling check caused false failures on
+ordinary navigation. A focused Shell reproduction completed all visible
+navigation/focus assertions but reported three audit failures. The recovered
+request ledger showed independently valid prefetch cancellations being counted
+again as competing destination requests. The final correction preserves their
+separate validation and applies historical equality only to explicit stale-page
+recovery. The matching ordinary-route waiter uses the same boundary, retaining
+strict selection among current requests. The focused Shell reproduction then
+passed with zero audit failures, external requests, and page errors.
+
+Regression evidence includes real declaration/binding/completion/audit methods
+with two completed precursors, two ordinary visits through the actual waiter,
+invalid response and ordering cases, and valid/failed historical prefetches.
+Missing responses, HTTP 301/500, competing current requests, delayed or duplicate
+special navigation, and cross-expectation reuse are rejected. Responsive
+reference-filter checks also verify the selected filter and fixture-appropriate
+candidate or empty state in addition to focus and URL.
+
+Current local evidence:
+
+- Backend: 600 passed, 4 skipped.
+- Frontend: Articles 67, References 21, Tutor 22, Graph 29; total 139 passed.
+- Production build: PASS, 11 routes.
+- Embedded evidence regressions and focused Shell browser probe: PASS.
+- Local three-run Product E2E: PASS, 3/3 complete runs, 226/226 checks each; restart persistence
+  PASS, zero external requests and unexpected console/page errors. See the
+  version qualification below.
+- Route telemetry across three runs: 381 declared transitions, 66 bound
+  requests, 50 ordinary route cancellations, 640 independently validated
+  prefetch cancellations, and zero special precursor-snapshot recoveries.
+- Independent final reviews: 2/2 PASS on script blob
+  `af0f5b9f1a07912ea6d4ec5551c2283b66891d0c`; no remaining Important findings.
+- Workflow, suppression, secret audit: PASS; no findings.
+- Temporary SBOM: PASS, 40 Backend / 239 Frontend / 281 combined components.
+- Replacement repair and closure CI: pending.
+
+One earlier three-run invocation was intentionally interrupted after the waiter
+fix was identified; it is not counted as completed verification.
+
+The completed local three-run invocation began at script blob
+`370664ffdb1e7691096ef24957281e61f7b7eac5`. During that run, the existing
+pre-start navigation certificate was extracted into one shared helper used by
+the caller, waiter, and final audit. The final helper and three-visit waiter
+regressions passed independently and in both reviews. Exact-version three-run
+GUI evidence remains required in the replacement commit's CI; the local run
+does not claim to test this later helper extraction.

@@ -3,12 +3,12 @@
 Canonical task:
 `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
 
-Status: **PASS / CLOSED**
+Status: **REOPENED / CI EVIDENCE REPAIR**
 
 BOUNDED FRONTEND FOCUS OWNERSHIP, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, TWO INDEPENDENT SUB-AGENT REVIEWS, LOCAL
-COMMITS, NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **CONSUMED / CLOSED
-AFTER THIS DOCS-ONLY COMMIT**
+COMMITS, NON-FORCE PUSH TO `main`, AND EXACT-SHA CI READBACK: **AUTHORIZED FOR
+THE REMAINING BOUNDED REPAIR AND CLOSURE**
 
 BACKEND, API, PROVIDER, PERSISTENCE, STORAGE SCHEMA, FROZEN M1, SOURCE OR ARTICLE
 RECORDS, CORPUS, GRAPH OR REFERENCE DATA, MATCHING, DERIVED ASSETS, DEPENDENCIES,
@@ -85,8 +85,8 @@ No v1.2 candidate is assigned.
 
 ## Current Gate
 
-Cumulative repair commit `39369ea430e942ce12c176fb9a9ca24111e59ef3`
-passed exact-SHA main CI run
-`https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34023028516`
-with all required jobs passing and zero uploaded artifacts. This docs-only
-closure commit requires its own exact-SHA main CI before final reporting.
+The prior closure run `34024098616` and subsequent repair run `34065911116`
+failed Product E2E. The task remains open while the existing script's route
+request evidence is repaired and verified. No product scope has been added.
+The repair and subsequent docs-only closure each require successful exact-SHA
+main CI before final reporting.

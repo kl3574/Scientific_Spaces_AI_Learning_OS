@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-036 are PASS / CLOSED with exact-SHA cumulative implementation CI; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED; P3-036 is REOPENED / CI EVIDENCE REPAIR; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -996,7 +996,11 @@ with every required job passing and zero uploaded artifacts.
 
 ### P3-036 - Workspace Mutation Focus Continuity
 
-Status: **PASS / CLOSED**.
+Status: **REOPENED / CI EVIDENCE REPAIR**.
+
+The later closure run `34024098616` and repair run `34065911116` failed Product
+E2E. The earlier evidence below is historical; replacement route-evidence
+validation and exact-SHA implementation/closure CI remain required.
 
 Two independent GUI reviews and controlled Chromium found that in-page actions
 can settle on `BODY` when their initiating control disables, unmounts, or
@@ -1055,8 +1059,9 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-Push the P3-036 docs-only closure commit and require exact-SHA main CI. A later
-bounded GUI task may be selected through independent review.
+Complete the P3-036 route-evidence repair and exact-SHA implementation CI, then
+record and verify docs-only closure. A later bounded GUI task may be selected
+through independent review.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain

@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-036 PASS / CLOSED`
+- Status: `P3-036 REOPENED / CI EVIDENCE REPAIR`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-036 cumulative repair exact-SHA main CI PASS`
-- Current task: `None`
+- Latest gate: `P3-036 replacement browser and exact-SHA CI validation pending`
+- Current task: `P3-036 E2E evidence repair`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -62,8 +62,8 @@ P3-034 canonical task: `docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUI
 P3-034 evidence: `docs/P3_034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY_REPORT.md` (local gates and exact-SHA implementation CI PASS).
 P3-035 canonical task: `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md` (PASS / CLOSED).
 P3-035 evidence: `docs/P3_035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY_REPORT.md` (responsive repair, local gates, and exact-SHA implementation CI PASS).
-P3-036 canonical task: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md` (PASS / CLOSED).
-P3-036 evidence: `docs/P3_036_WORKSPACE_MUTATION_FOCUS_CONTINUITY_REPORT.md` (focus continuity, fail-closed E2E repair, and exact-SHA cumulative CI PASS).
+P3-036 canonical task: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md` (REOPENED / CI EVIDENCE REPAIR).
+P3-036 evidence: `docs/P3_036_WORKSPACE_MUTATION_FOCUS_CONTINUITY_REPORT.md` (focus continuity and current route-evidence repair).
 
 v1.2 planning specifications:
 
@@ -206,8 +206,8 @@ Store, never accesses Scientific Spaces or private Zotero, and returns
 - Current task: `docs/tasks/CURRENT_TASK.md`
 - Active task: `None`
 - Staged task: `None`
-- Status: `P3-036 PASS / CLOSED`
-- Last closed task: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
+- Status: `P3-036 REOPENED / CI EVIDENCE REPAIR`
+- Last closed task: `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
 - Task specifications: `docs/tasks/`
 - v1.2 roadmap: `docs/V1_2_ROADMAP.md`
 - Project state: `docs/00_PROJECT_STATE.md`

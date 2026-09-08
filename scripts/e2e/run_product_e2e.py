@@ -53,6 +53,7 @@ ATTENTION_CONCEPT_RETURN = "/graph?node_id=concept%3Aattention"
 ATTENTION_CONCEPT_QUERY_RETURN = f"{ATTENTION_CONCEPT_RETURN}&q=Attention"
 EXPECTED_ARTICLE_COUNT = 3
 CONTROLLED_HTTP_EXPECTATION_HEADER = "x-scientific-spaces-e2e-expectation"
+POST_TERMINAL_DESTINATION_COMMIT_MAX_SECONDS = 0.25
 ALLOWED_HTTP_ORIGINS = frozenset(
     {
         ("http", "127.0.0.1", 3000),
@@ -390,6 +391,8 @@ class ConsoleErrorLog(list[str]):
         destination_url: str,
         request_page_url: str | None = None,
         allow_speculative_cancellations: bool = False,
+        allow_post_terminal_destination_commit: bool = False,
+        allow_complete_precursor_snapshot: bool = True,
         cancelled_route_urls: tuple[str, ...] = (),
         cancelled_read_urls: tuple[str, ...] = (),
     ) -> str:
@@ -435,6 +438,23 @@ class ConsoleErrorLog(list[str]):
             ),
             f"route transition declared invalid cancelled read URLs: {cancelled_read_urls}",
         )
+        declaration_sequence = self._next_event_sequence()
+        cache_precursor_request_ids = ()
+        if allow_complete_precursor_snapshot:
+            cache_precursor_request_ids = tuple(
+                request_id
+                for request_id, evidence in sorted(
+                    self.request_evidence.items(),
+                    key=lambda item: int(item[1].get("start_sequence") or -1),
+                )
+                if _is_valid_route_cache_precursor(
+                    evidence,
+                    page_id=page_id,
+                    label=label,
+                    destination_url=destination_url,
+                    declaration_sequence=declaration_sequence,
+                )
+            )
         expectation_id = (
             f"controlled-route-{len(self.route_transition_expectations) + 1}"
         )
@@ -446,9 +466,15 @@ class ConsoleErrorLog(list[str]):
                 "request_page_url": effective_request_page_url,
                 "destination_url": destination_url,
                 "allow_speculative_cancellations": allow_speculative_cancellations,
+                "allow_post_terminal_destination_commit": (
+                    allow_post_terminal_destination_commit
+                ),
+                "allow_complete_precursor_snapshot": (
+                    allow_complete_precursor_snapshot
+                ),
                 "cancelled_route_urls": cancelled_route_urls,
                 "cancelled_read_urls": cancelled_read_urls,
-                "declaration_sequence": self._next_event_sequence(),
+                "declaration_sequence": declaration_sequence,
                 "declaration_navigation_generation": (
                     self._page_navigation_generations.get(page_id, 0)
                 ),
@@ -456,6 +482,8 @@ class ConsoleErrorLog(list[str]):
                 "completion_url": None,
                 "completion_navigation_generation": None,
                 "bound_request_ids": None,
+                "post_terminal_request_id": None,
+                "cache_precursor_request_ids": cache_precursor_request_ids,
             }
         )
         return expectation_id
@@ -523,6 +551,11 @@ class ConsoleErrorLog(list[str]):
             f"{pending_route_request_ids}",
         )
         completion_sequence = self._next_event_sequence()
+        expectation["completion_sequence"] = completion_sequence
+        expectation["completion_url"] = page.url
+        expectation["completion_navigation_generation"] = (
+            self._page_navigation_generations.get(_page_identity(page), 0)
+        )
         already_bound = {
             str(request_id)
             for item in self.route_transition_expectations
@@ -537,12 +570,71 @@ class ConsoleErrorLog(list[str]):
             and isinstance(evidence.get("terminal_sequence"), int)
             and int(evidence["terminal_sequence"]) < completion_sequence
         )
-        expectation["completion_sequence"] = completion_sequence
-        expectation["completion_url"] = page.url
-        expectation["completion_navigation_generation"] = (
-            self._page_navigation_generations.get(_page_identity(page), 0)
-        )
         expectation["bound_request_ids"] = bound_request_ids
+
+    def bind_post_terminal_destination_request(
+        self,
+        *,
+        expectation_id: str,
+        evidence: dict[str, object],
+    ) -> None:
+        candidates = [
+            item
+            for item in self.route_transition_expectations
+            if item["expectation_id"] == expectation_id
+        ]
+        _require(
+            len(candidates) == 1,
+            f"post-terminal route expectation is missing or ambiguous: {expectation_id}",
+        )
+        expectation = candidates[0]
+        request_ids = [
+            request_id
+            for request_id, candidate in self.request_evidence.items()
+            if candidate is evidence
+        ]
+        _require(
+            expectation.get("allow_post_terminal_destination_commit") is True
+            and expectation.get("post_terminal_request_id") is None
+            and expectation.get("completion_sequence") is None
+            and expectation.get("completion_url") is None
+            and expectation.get("completion_navigation_generation") is None
+            and expectation.get("bound_request_ids") is None
+            and len(request_ids) == 1,
+            "post-terminal destination request was not uniquely bindable",
+        )
+        request_id = request_ids[0]
+        _require(
+            all(
+                item.get("post_terminal_request_id") != request_id
+                for item in self.route_transition_expectations
+                if item is not expectation
+            ),
+            f"post-terminal destination request was already bound: {request_id}",
+        )
+        source_url = str(evidence.get("source_url") or "")
+        _require(
+            expectation.get("page_id") == evidence.get("page_id")
+            and expectation.get("label") == evidence.get("label")
+            and evidence.get("method") == "GET"
+            and evidence.get("resource_type") in {"fetch", "xhr"}
+            and evidence.get("navigation_request") is False
+            and evidence.get("main_frame") is True
+            and not evidence.get("service_worker_url")
+            and evidence.get("rsc_request") is True
+            and evidence.get("next_router_prefetch") is not True
+            and evidence.get("purpose") != "prefetch"
+            and str(evidence.get("sec_purpose") or "").split(";", 1)[0]
+            != "prefetch"
+            and evidence.get("response_status") == 200
+            and evidence.get("response_url") == source_url
+            and evidence.get("failure") == "net::ERR_ABORTED"
+            and evidence.get("finished") is not True
+            and _route_document_key(source_url)
+            == _route_document_key(str(expectation.get("destination_url") or "")),
+            "post-terminal destination request did not match its exact route lifecycle",
+        )
+        expectation["post_terminal_request_id"] = request_id
 
     def _capture_request_start(self, request) -> None:
         request_id = _request_identity(request)
@@ -1384,6 +1476,10 @@ def run_browser_suite(
         ),
         "route_transition_cancellation_count": sum(
             int(run["route_transition_cancellation_count"]) for run in runs
+        ),
+        "route_with_complete_precursor_snapshot_count": sum(
+            int(run["route_with_complete_precursor_snapshot_count"])
+            for run in runs
         ),
         "declared_cancelled_route_request_count": sum(
             int(run["declared_cancelled_route_request_count"]) for run in runs
@@ -2326,7 +2422,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     expect(page.get_by_test_id("shell-main-content")).to_be_focused(timeout=30_000)
     _require_visible_focus(page.get_by_test_id("shell-main-content"), "Search Graph destination")
     _require("node_id=concept%3Aattention" in page.url, f"Graph deep link was not preserved: {page.url}")
-    _wait_for_exact_route_request_to_finish(
+    initial_attention_route_request = _wait_for_exact_route_request_to_finish(
         page,
         console_errors,
         source_url=graph_search_url,
@@ -2334,6 +2430,14 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         expect_prefetch=False,
         require_observed_request=True,
         allow_response_backed_route_abort=True,
+        cache_precursor_expectation_id=graph_search_transition,
+    )
+    _require(
+        isinstance(initial_attention_route_request, dict)
+        and initial_attention_route_request.get("finished") is True
+        and initial_attention_route_request.get("failure") is None,
+        "completed-precursor revisit coverage requires a successful initial Attention response: "
+        f"{initial_attention_route_request}",
     )
     _complete_expected_route_transition(page, graph_search_transition)
     checks["global_search_reference_and_graph_deep_link"] = True
@@ -2345,14 +2449,19 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     same_route_graph_transition = _declare_expected_route_transition(
         page,
         destination_url=same_route_graph_url,
+        allow_post_terminal_destination_commit=True,
     )
-    same_route_search.get_by_label("Search library").fill("CRB")
+    same_route_search_input = same_route_search.get_by_label("Search library")
+    same_route_search_input.fill("CRB")
     same_route_graph_result = same_route_search.get_by_role(
         "link", name=re.compile(r"^crb\s+Concept\s+·\s+Knowledge Graph$", re.I)
     )
     expect(same_route_graph_result).to_be_visible(timeout=30_000)
-    same_route_graph_result.focus()
-    same_route_graph_result.press("Enter")
+    same_route_graph_result.hover()
+    expect(same_route_graph_result).to_have_class(re.compile(r"\bborder-emerald-600\b"))
+    same_route_search_input.focus()
+    expect(same_route_search_input).to_be_focused()
+    same_route_search_input.press("Enter")
     expect(same_route_search).to_have_count(0)
     same_route_selected = page.get_by_test_id("graph-selected-region")
     expect(same_route_selected).to_be_focused(timeout=30_000)
@@ -2365,7 +2474,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         f"same-route Graph navigation diverged from its URL: {page.url}",
     )
     checks["global_search_same_route_graph_navigation"] = True
-    _wait_for_exact_route_request_to_finish(
+    same_route_graph_request = _wait_for_exact_route_request_to_finish(
         page,
         console_errors,
         source_url=same_route_graph_url,
@@ -2373,8 +2482,45 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         expect_prefetch=False,
         require_observed_request=True,
         allow_response_backed_route_abort=True,
+        cache_precursor_expectation_id=same_route_graph_transition,
     )
+    _require(
+        isinstance(same_route_graph_request, dict),
+        "same-route Graph transition did not expose its exact RSC request",
+    )
+    same_route_graph_expectation = next(
+        item
+        for item in console_errors.route_transition_expectations
+        if item["expectation_id"] == same_route_graph_transition
+    )
+    if (
+        same_route_graph_request.get("failure") == "net::ERR_ABORTED"
+        and _route_document_key(str(same_route_graph_request.get("page_url") or ""))
+        not in {
+            _route_document_key(str(same_route_graph_expectation["request_page_url"])),
+            _route_document_key(same_route_graph_url),
+        }
+        and not _has_pre_start_route_navigation(
+            console_errors, same_route_graph_expectation, same_route_graph_request
+        )
+    ):
+        _bind_expected_post_terminal_destination_request(
+            page,
+            expectation_id=same_route_graph_transition,
+            evidence=same_route_graph_request,
+        )
     _complete_expected_route_transition(page, same_route_graph_transition)
+    _require(
+        same_route_graph_request.get("failure") != "net::ERR_ABORTED"
+        or _is_route_transition_cancellation(
+            console_errors,
+            same_route_graph_request,
+        ),
+        "same-route Graph response-backed cancellation lost its exact lifecycle: "
+        f"expectation={same_route_graph_expectation} "
+        f"request={same_route_graph_request} "
+        f"navigation_events={console_errors._page_navigation_events.get(_page_identity(page), ())}",
+    )
 
     same_route_selected.press("Control+k")
     shortcut_search = page.get_by_test_id("global-search-dialog")
@@ -2387,6 +2533,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     shortcut_graph_transition = _declare_expected_route_transition(
         page,
         destination_url=shortcut_graph_url,
+        allow_complete_precursor_snapshot=True,
     )
     shortcut_input.fill("Attention")
     shortcut_graph_result = shortcut_search.get_by_role(
@@ -2438,6 +2585,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         expect_prefetch=False,
         require_observed_request=True,
         allow_response_backed_route_abort=True,
+        cache_precursor_expectation_id=shortcut_graph_transition,
     )
     _complete_expected_route_transition(page, shortcut_graph_transition)
     shortcut_graph_back_transition = _declare_expected_route_transition(
@@ -4727,6 +4875,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         expect_prefetch=False,
         require_observed_request=True,
         allow_response_backed_route_abort=True,
+        cache_precursor_expectation_id=activity_route_transition,
     )
     _complete_expected_route_transition(
         activity_order_page,
@@ -5161,6 +5310,7 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     )
     _require(not page_errors, f"Graph detail recovery emitted page errors: {page_errors}")
     checks["graph_detail_error_focus_and_retry"] = True
+    _wait_for_page_requests_to_settle(page, console_errors)
     page.close()
 
     page = _new_observed_page(context, console_errors, page_errors, label="dashboard-partial")
@@ -9135,6 +9285,11 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
 
     framework_prefetch_cancellations = _framework_prefetch_cancellations(console_errors)
     route_transition_cancellations = _route_transition_cancellations(console_errors)
+    precursor_snapshot_route_cancellations = (
+        _route_cancellations_with_complete_precursor_snapshot(
+            console_errors
+        )
+    )
     declared_cancelled_route_requests = _declared_cancelled_route_requests(
         console_errors
     )
@@ -9171,6 +9326,9 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "external_network_request_count": len(blocked_external),
         "framework_prefetch_cancellation_count": len(framework_prefetch_cancellations),
         "route_transition_cancellation_count": len(route_transition_cancellations),
+        "route_with_complete_precursor_snapshot_count": len(
+            precursor_snapshot_route_cancellations
+        ),
         "declared_cancelled_route_request_count": len(
             declared_cancelled_route_requests
         ),
@@ -11011,6 +11169,7 @@ def _verify_structured_reference_review_round_trip(
         expect_prefetch=False,
         require_observed_request=True,
         allow_response_backed_route_abort=True,
+        cache_precursor_expectation_id=delayed_race_a_transition,
     )
     _complete_expected_route_transition(page, delayed_race_a_transition)
     second_race_button = review_workspace.get_by_test_id("reference-result-list").locator("button").nth(1)
@@ -11033,6 +11192,7 @@ def _verify_structured_reference_review_round_trip(
         expect_prefetch=False,
         require_observed_request=True,
         allow_response_backed_route_abort=True,
+        cache_precursor_expectation_id=current_race_b_transition,
     )
     _complete_expected_route_transition(page, current_race_b_transition)
     page.wait_for_timeout(1_000)
@@ -11067,6 +11227,7 @@ def _verify_structured_reference_review_round_trip(
         responsive_selection_transition = _declare_expected_route_transition(
             page,
             destination_url=responsive_selection_url,
+            allow_complete_precursor_snapshot=True,
         )
         review_workspace.get_by_test_id("reference-result-list").locator("button").nth(target_index).click()
         responsive_detail = page.get_by_test_id("selected-reference-detail")
@@ -11087,6 +11248,7 @@ def _verify_structured_reference_review_round_trip(
             expect_prefetch=False,
             require_observed_request=True,
             allow_response_backed_route_abort=True,
+            cache_precursor_expectation_id=responsive_selection_transition,
         )
         _complete_expected_route_transition(page, responsive_selection_transition)
         _require_visible_focus(responsive_detail, f"{viewport['width']}x{viewport['height']} reference detail")
@@ -11107,9 +11269,23 @@ def _verify_structured_reference_review_round_trip(
         responsive_filter_transition = _declare_expected_route_transition(
             page,
             destination_url=responsive_filter_url,
+            allow_complete_precursor_snapshot=True,
         )
         filter_button.click()
         expect(filter_button).to_be_focused(timeout=30_000)
+        expect(filter_button).to_have_attribute("aria-pressed", "true")
+        expect(responsive_detail).to_have_attribute("data-reference-id", target_id)
+        if responsive_candidate_values[index] == "matched":
+            expect(responsive_candidates.locator("li")).to_have_count(1)
+            expect(responsive_candidates).to_contain_text(
+                "STALE CANDIDATE A" if target_id == race_a else "CURRENT CANDIDATE B"
+            )
+        else:
+            expect(responsive_candidates).to_have_count(0)
+            expect(review_workspace.get_by_text(
+                "No candidates in the loaded bounded set match the selected result filter.",
+                exact=True,
+            )).to_be_visible(timeout=30_000)
         _wait_for_exact_route_request_to_finish(
             page,
             console_errors,
@@ -11118,6 +11294,7 @@ def _verify_structured_reference_review_round_trip(
             expect_prefetch=False,
             require_observed_request=True,
             allow_response_backed_route_abort=True,
+            cache_precursor_expectation_id=responsive_filter_transition,
         )
         _complete_expected_route_transition(page, responsive_filter_transition)
         _require_focus_in_viewport(
@@ -14573,6 +14750,8 @@ def _declare_expected_route_transition(
     destination_url: str,
     request_page_url: str | None = None,
     allow_speculative_cancellations: bool = False,
+    allow_post_terminal_destination_commit: bool = False,
+    allow_complete_precursor_snapshot: bool = True,
     cancelled_route_urls: tuple[str, ...] = (),
     cancelled_read_urls: tuple[str, ...] = (),
 ) -> str:
@@ -14587,6 +14766,12 @@ def _declare_expected_route_transition(
         destination_url=destination_url,
         request_page_url=request_page_url,
         allow_speculative_cancellations=allow_speculative_cancellations,
+        allow_post_terminal_destination_commit=(
+            allow_post_terminal_destination_commit
+        ),
+        allow_complete_precursor_snapshot=(
+            allow_complete_precursor_snapshot
+        ),
         cancelled_route_urls=cancelled_route_urls,
         cancelled_read_urls=cancelled_read_urls,
     )
@@ -14602,6 +14787,24 @@ def _complete_expected_route_transition(page, expectation_id: str) -> None:
     console_errors.complete_route_transition(
         page=page,
         expectation_id=expectation_id,
+    )
+
+
+def _bind_expected_post_terminal_destination_request(
+    page,
+    *,
+    expectation_id: str,
+    evidence: dict[str, object],
+) -> None:
+    console_errors = getattr(page, "_scientific_spaces_console_error_log", None)
+    _require(
+        isinstance(console_errors, ConsoleErrorLog),
+        "post-terminal destination binding requires the structured console ledger",
+    )
+    assert isinstance(console_errors, ConsoleErrorLog)
+    console_errors.bind_post_terminal_destination_request(
+        expectation_id=expectation_id,
+        evidence=evidence,
     )
 
 
@@ -14645,6 +14848,97 @@ def _wait_for_page_requests_to_settle(
         page.wait_for_timeout(50)
 
 
+def _select_exact_route_request_terminal_candidate(
+    candidates: list[dict[str, object]],
+    *,
+    allow_response_backed_route_abort: bool,
+    route_key: tuple[object, ...],
+    current_page_url: str,
+    current_navigation_generation: int,
+) -> dict[str, object] | None:
+    successful_candidates = [
+        evidence for evidence in candidates if evidence.get("finished") is True
+    ]
+    aborted_candidates = [
+        evidence for evidence in candidates if evidence.get("failure") is not None
+    ]
+    pending_candidates = [
+        evidence
+        for evidence in candidates
+        if evidence.get("finished") is not True
+        and evidence.get("failure") is None
+    ]
+    for evidence in successful_candidates:
+        status = evidence.get("response_status")
+        _require(
+            evidence.get("failure") is None
+            and isinstance(status, int)
+            and 200 <= status < 300
+            and evidence.get("response_url") == evidence.get("source_url"),
+            "exact route request did not finish successfully: " f"{evidence}",
+        )
+    response_backed_abort_candidates = []
+    for evidence in aborted_candidates:
+        status = evidence.get("response_status")
+        navigation_generation = evidence.get("navigation_generation")
+        response_backed_route_abort_candidate = (
+            allow_response_backed_route_abort
+            and evidence.get("failure") == "net::ERR_ABORTED"
+            and isinstance(status, int)
+            and 200 <= status < 300
+            and evidence.get("response_url") == evidence.get("source_url")
+            and isinstance(navigation_generation, int)
+        )
+        if (
+            response_backed_route_abort_candidate
+            and _route_document_key(current_page_url) == route_key
+            and current_navigation_generation > navigation_generation
+        ):
+            response_backed_abort_candidates.append(evidence)
+            continue
+        if not response_backed_route_abort_candidate:
+            raise E2EFailure(
+                "exact route request failed before its lifecycle was proven: "
+                f"{evidence}"
+            )
+    if pending_candidates or (
+        len(response_backed_abort_candidates) != len(aborted_candidates)
+    ):
+        return None
+    _require(
+        len(candidates) == 1,
+        "response-backed route request produced an ambiguous retry set: "
+        f"candidates={candidates}",
+    )
+    return (
+        response_backed_abort_candidates[0]
+        if response_backed_abort_candidates
+        else successful_candidates[0]
+    )
+
+
+def _require_unambiguous_response_backed_route_abort(
+    selected_candidate: dict[str, object],
+    all_exact_candidates: list[dict[str, object]],
+    *,
+    source_url: str,
+    cache_precursor_evidences: tuple[dict[str, object], ...] = (),
+) -> None:
+    if selected_candidate.get("failure") is None:
+        return
+    expected_candidates = [selected_candidate]
+    expected_candidates.extend(cache_precursor_evidences)
+    _require(
+        len(all_exact_candidates) == len(expected_candidates)
+        and all(
+            any(candidate is expected for candidate in all_exact_candidates)
+            for expected in expected_candidates
+        ),
+        "response-backed route abort had a competing exact destination lifecycle: "
+        f"source={source_url} candidates={all_exact_candidates}",
+    )
+
+
 def _wait_for_exact_route_request_to_finish(
     page,
     console_errors: ConsoleErrorLog,
@@ -14656,86 +14950,172 @@ def _wait_for_exact_route_request_to_finish(
     expect_prefetch: bool = True,
     require_observed_request: bool = False,
     allow_response_backed_route_abort: bool = False,
+    cache_precursor_expectation_id: str | None = None,
 ) -> dict[str, object] | None:
     _require(
         not allow_response_backed_route_abort or require_observed_request,
         "response-backed route abort handling requires an observed route request",
     )
+    _require(
+        not allow_response_backed_route_abort or not expect_prefetch,
+        "response-backed route abort handling cannot target a prefetch request",
+    )
+    _require(
+        cache_precursor_expectation_id is None
+        or allow_response_backed_route_abort,
+        "route cache precursor requires response-backed abort handling",
+    )
     page_id = _page_identity(page)
     route_key = _route_document_key(source_url)
+    cache_precursor_evidences: tuple[dict[str, object], ...] = ()
+    route_expectation: dict[str, object] | None = None
+    if cache_precursor_expectation_id is not None:
+        cache_expectations = [
+            expectation
+            for expectation in console_errors.route_transition_expectations
+            if expectation.get("expectation_id")
+            == cache_precursor_expectation_id
+        ]
+        _require(
+            len(cache_expectations) == 1
+            and cache_expectations[0].get(
+                "allow_complete_precursor_snapshot"
+            )
+            is True
+            and cache_expectations[0].get("page_id") == page_id
+            and _route_document_key(
+                str(cache_expectations[0].get("destination_url") or "")
+            )
+            == route_key,
+            "route cache precursor expectation was missing or mismatched: "
+            f"{cache_precursor_expectation_id}",
+        )
+        cache_precursors = _route_transition_cache_precursors(
+            console_errors,
+            cache_expectations[0],
+        )
+        route_expectation = cache_expectations[0]
+        _require(
+            cache_precursors is not None,
+            "route cache precursor expectation was invalid: "
+            f"{cache_expectations[0]}",
+        )
+        cache_precursor_evidences = tuple(
+            evidence for _, evidence in cache_precursors
+        )
     started_at = time.monotonic()
     deadline = started_at + timeout_ms / 1_000
     discovery_deadline = started_at + discovery_ms / 1_000
+    stable_signature: tuple[tuple[object, ...], ...] | None = None
+    stable_since: float | None = None
     while True:
-        candidates = [
-            evidence
-            for evidence in console_errors.request_evidence.values()
+        all_exact_candidate_items = [
+            (request_id, evidence)
+            for request_id, evidence in console_errors.request_evidence.items()
             if evidence.get("page_id") == page_id
             and isinstance(evidence.get("start_sequence"), int)
-            and int(evidence["start_sequence"]) > after_sequence
             and evidence.get("rsc_request") is True
             and evidence.get("method") == "GET"
             and evidence.get("resource_type") in {"fetch", "xhr"}
             and evidence.get("navigation_request") is False
             and evidence.get("main_frame") is True
             and not evidence.get("service_worker_url")
-            and (
+            and _route_document_key(str(evidence.get("source_url") or ""))
+            == route_key
+            and not _is_framework_prefetch_cancellation(console_errors, evidence)
+        ]
+        window_candidate_items = [
+            (request_id, evidence)
+            for request_id, evidence in all_exact_candidate_items
+            if int(evidence["start_sequence"]) > after_sequence
+        ]
+        candidate_items = [
+            (request_id, evidence)
+            for request_id, evidence in window_candidate_items
+            if (
                 evidence.get("next_router_prefetch") is True
                 or evidence.get("purpose") == "prefetch"
                 or str(evidence.get("sec_purpose") or "").split(";", 1)[0]
                 == "prefetch"
             )
             is expect_prefetch
-            and _route_document_key(str(evidence.get("source_url") or ""))
-            == route_key
         ]
+        candidates = [evidence for _, evidence in candidate_items]
         _require(
-            len(candidates) <= 1,
+            len(candidates) <= (2 if allow_response_backed_route_abort else 1),
             "exact route request produced ambiguous matching lifecycles: "
             f"source={source_url} candidates={candidates}",
         )
-        if candidates:
-            evidence = candidates[0]
-            if evidence.get("finished") is True:
-                status = evidence.get("response_status")
-                _require(
-                    evidence.get("failure") is None
-                    and isinstance(status, int)
-                    and 200 <= status < 400
-                    and evidence.get("response_url")
-                    == evidence.get("source_url"),
-                    "exact route request did not finish successfully: "
-                    f"{evidence}",
-                )
-                return evidence
-            if evidence.get("failure") is not None:
-                status = evidence.get("response_status")
-                navigation_generation = evidence.get("navigation_generation")
-                current_navigation_generation = (
-                    console_errors._page_navigation_generations.get(page_id, 0)
-                )
-                response_backed_route_abort_candidate = (
+        if candidate_items:
+            selected_candidate = _select_exact_route_request_terminal_candidate(
+                candidates,
+                allow_response_backed_route_abort=(
                     allow_response_backed_route_abort
-                    and evidence.get("failure") == "net::ERR_ABORTED"
-                    and isinstance(status, int)
-                    and 200 <= status < 400
-                    and evidence.get("response_url")
-                    == evidence.get("source_url")
-                    and isinstance(navigation_generation, int)
-                )
-                if (
-                    response_backed_route_abort_candidate
-                    and _route_document_key(page.url) == route_key
-                    and current_navigation_generation > navigation_generation
-                ):
-                    return evidence
-                if not response_backed_route_abort_candidate:
-                    raise E2EFailure(
-                        "exact route request failed before its lifecycle was proven: "
-                        f"{evidence}"
+                ),
+                route_key=route_key,
+                current_page_url=page.url,
+                current_navigation_generation=(
+                    console_errors._page_navigation_generations.get(page_id, 0)
+                ),
+            )
+            if allow_response_backed_route_abort:
+                if selected_candidate is not None:
+                    ambiguity_items = all_exact_candidate_items
+                    needs_post_terminal_recovery = (
+                        selected_candidate.get("failure") is not None
+                        and (
+                            route_expectation is None
+                            or _route_document_key(
+                                str(selected_candidate.get("page_url") or "")
+                            ) not in {
+                                _route_document_key(str(route_expectation["request_page_url"])),
+                                route_key,
+                            }
+                            and not _has_pre_start_route_navigation(
+                                console_errors, route_expectation, selected_candidate
+                            )
+                        )
                     )
+                    if needs_post_terminal_recovery:
+                        _require_unambiguous_response_backed_route_abort(
+                            selected_candidate,
+                            [evidence for _, evidence in ambiguity_items],
+                            source_url=source_url,
+                            cache_precursor_evidences=cache_precursor_evidences,
+                        )
+                    signature_items = (
+                        ambiguity_items
+                        if needs_post_terminal_recovery
+                        else candidate_items
+                    )
+                    signature = tuple(
+                        (
+                            request_id,
+                            evidence.get("start_sequence"),
+                            evidence.get("response_sequence"),
+                            evidence.get("terminal_sequence"),
+                            evidence.get("finished"),
+                            evidence.get("failure"),
+                        )
+                        for request_id, evidence in signature_items
+                    )
+                    now = time.monotonic()
+                    if signature != stable_signature:
+                        stable_signature = signature
+                        stable_since = now
+                    elif (
+                        stable_since is not None
+                        and now - stable_since
+                        >= POST_TERMINAL_DESTINATION_COMMIT_MAX_SECONDS
+                    ):
+                        return selected_candidate
+                else:
+                    stable_signature = None
+                    stable_since = None
+            elif selected_candidate is not None:
+                return selected_candidate
         now = time.monotonic()
-        if not candidates and now >= discovery_deadline:
+        if not candidate_items and now >= discovery_deadline:
             if require_observed_request:
                 raise E2EFailure(
                     "required exact route request did not start: "
@@ -14991,6 +15371,107 @@ def _static_chunk_matches_declared_route(
     )
 
 
+def _is_valid_route_cache_precursor(
+    evidence: dict[str, object],
+    *,
+    page_id: str,
+    label: str,
+    destination_url: str,
+    declaration_sequence: int,
+) -> bool:
+    source_url = str(evidence.get("source_url") or "")
+    start_sequence = evidence.get("start_sequence")
+    response_sequence = evidence.get("response_sequence")
+    terminal_sequence = evidence.get("terminal_sequence")
+    status = evidence.get("response_status")
+    return bool(
+        evidence.get("page_id") == page_id
+        and evidence.get("label") == label
+        and _is_allowed_frontend_url(source_url)
+        and _route_document_key(source_url) == _route_document_key(destination_url)
+        and evidence.get("method") == "GET"
+        and evidence.get("resource_type") in {"fetch", "xhr"}
+        and evidence.get("navigation_request") is False
+        and evidence.get("main_frame") is True
+        and not evidence.get("service_worker_url")
+        and evidence.get("rsc_request") is True
+        and isinstance(status, int)
+        and 200 <= status < 300
+        and evidence.get("response_url") == source_url
+        and evidence.get("finished") is True
+        and evidence.get("failure") is None
+        and isinstance(start_sequence, int)
+        and isinstance(response_sequence, int)
+        and isinstance(terminal_sequence, int)
+        and start_sequence < response_sequence < terminal_sequence
+        and terminal_sequence < declaration_sequence
+    )
+
+
+def _route_transition_cache_precursors(
+    messages: ConsoleErrorLog,
+    expectation: dict[str, object],
+) -> tuple[tuple[str, dict[str, object]], ...] | None:
+    request_ids = expectation.get("cache_precursor_request_ids")
+    declaration_sequence = expectation.get("declaration_sequence")
+    allow_cache = expectation.get("allow_complete_precursor_snapshot")
+    if not (
+        isinstance(allow_cache, bool)
+        and isinstance(request_ids, tuple)
+        and all(isinstance(request_id, str) for request_id in request_ids)
+        and len(request_ids) == len(set(request_ids))
+        and isinstance(declaration_sequence, int)
+    ):
+        return None
+    if not allow_cache:
+        return () if not request_ids else None
+    results = []
+    for request_id in request_ids:
+        evidence = messages.request_evidence.get(request_id)
+        if evidence is None or not _is_valid_route_cache_precursor(
+            evidence,
+            page_id=str(expectation.get("page_id") or ""),
+            label=str(expectation.get("label") or ""),
+            destination_url=str(expectation.get("destination_url") or ""),
+            declaration_sequence=declaration_sequence,
+        ):
+            return None
+        results.append((request_id, evidence))
+    if tuple(
+        sorted(
+            results,
+            key=lambda item: int(item[1].get("start_sequence") or -1),
+        )
+    ) != tuple(results):
+        return None
+    return tuple(results)
+
+
+def _has_pre_start_route_navigation(
+    messages: ConsoleErrorLog,
+    expectation: dict[str, object],
+    evidence: dict[str, object],
+) -> bool:
+    generation = evidence.get("navigation_generation")
+    declaration = expectation.get("declaration_sequence")
+    start = evidence.get("start_sequence")
+    if not all(isinstance(value, int) for value in (generation, declaration, start)):
+        return False
+    endpoint_keys = {
+        _route_document_key(str(expectation.get(key) or ""))
+        for key in ("request_page_url", "destination_url")
+    }
+    return sum(
+        event.get("generation") == generation
+        and isinstance(event.get("sequence"), int)
+        and declaration < event["sequence"] < start
+        and _route_document_key(str(event.get("url") or "")) in endpoint_keys
+        for event in messages._page_navigation_events.get(
+            str(evidence.get("page_id") or ""), ()
+        )
+    ) == 1
+
+
 def _route_transition_request_kind(
     messages: ConsoleErrorLog,
     expectation: dict[str, object],
@@ -15028,20 +15509,196 @@ def _route_transition_request_kind(
     )
     page_id = str(evidence.get("page_id") or "")
     navigation_generation = evidence.get("navigation_generation")
-    matching_navigation_events = [
+    source_route_key = _route_document_key(source_url)
+    destination_route_key = _route_document_key(
+        str(expectation.get("destination_url") or "")
+    )
+    completion_sequence = expectation.get("completion_sequence")
+    response_sequence = evidence.get("response_sequence")
+    declaration_navigation_generation = expectation.get(
+        "declaration_navigation_generation"
+    )
+    completion_navigation_generation = expectation.get(
+        "completion_navigation_generation"
+    )
+    terminal_navigation_generation = evidence.get("terminal_navigation_generation")
+    terminal_monotonic = evidence.get("terminal_monotonic")
+    cache_precursors = _route_transition_cache_precursors(messages, expectation)
+    if cache_precursors is None:
+        return None
+    cache_precursor_request_ids = tuple(
+        request_id for request_id, _ in cache_precursors
+    )
+    cache_precursor_evidences = tuple(
+        precursor for _, precursor in cache_precursors
+    )
+    evidence_request_ids = [
+        request_id
+        for request_id, candidate in messages.request_evidence.items()
+        if candidate is evidence
+    ]
+    explicit_prefetch = (
+        evidence.get("next_router_prefetch") is True
+        or evidence.get("purpose") == "prefetch"
+        or str(evidence.get("sec_purpose") or "").split(";", 1)[0]
+        == "prefetch"
+    )
+    route_abort_with_precursors = False
+    if (
+        evidence.get("rsc_request") is True
+        and not explicit_prefetch
+        and source_route_key == destination_route_key
+        and isinstance(completion_sequence, int)
+        and len(evidence_request_ids) == 1
+        and expectation.get("post_terminal_request_id") == evidence_request_ids[0]
+    ):
+        destination_siblings = [
+            (request_id, candidate)
+            for request_id, candidate in messages.request_evidence.items()
+            if candidate is not evidence
+            and candidate.get("page_id") == evidence.get("page_id")
+            and candidate.get("label") == evidence.get("label")
+            and isinstance(candidate.get("start_sequence"), int)
+            and int(candidate["start_sequence"]) < completion_sequence
+            and candidate.get("rsc_request") is True
+            and candidate.get("method") == "GET"
+            and candidate.get("resource_type") in {"fetch", "xhr"}
+            and candidate.get("navigation_request") is False
+            and candidate.get("main_frame") is True
+            and not candidate.get("service_worker_url")
+            and _route_document_key(str(candidate.get("source_url") or ""))
+            == destination_route_key
+            and not _is_framework_prefetch_cancellation(messages, candidate)
+        ]
+        if destination_siblings:
+            if not (
+                cache_precursor_request_ids
+                and len(destination_siblings)
+                == len(cache_precursor_request_ids)
+                and {request_id for request_id, _ in destination_siblings}
+                == set(cache_precursor_request_ids)
+                and all(
+                    any(
+                        request_id == precursor_request_id
+                        and candidate is precursor
+                        for precursor_request_id, precursor in cache_precursors
+                    )
+                    for request_id, candidate in destination_siblings
+                )
+            ):
+                return None
+            if not (
+                isinstance(evidence.get("response_status"), int)
+                and 200 <= int(evidence["response_status"]) < 300
+                and evidence.get("response_url") == source_url
+                and isinstance(response_sequence, int)
+                and start_sequence < response_sequence < terminal_sequence
+            ):
+                return None
+            route_abort_with_precursors = True
+        elif cache_precursor_request_ids:
+            return None
+    pre_start_navigation = _has_pre_start_route_navigation(messages, expectation, evidence)
+    post_terminal_navigation_events = [
         event
         for event in messages._page_navigation_events.get(page_id, ())
-        if isinstance(navigation_generation, int)
-        and event.get("generation") == navigation_generation
-        and isinstance(event.get("sequence"), int)
-        and declaration_sequence < int(event["sequence"]) < start_sequence
-        and _route_document_key(str(event.get("url") or ""))
-        in allowed_page_keys
+        if isinstance(event.get("sequence"), int)
+        and isinstance(completion_sequence, int)
+        and terminal_sequence
+        < int(event["sequence"])
+        < completion_sequence
     ]
+    post_terminal_destination_events = []
+    for event in post_terminal_navigation_events:
+        event_sequence = event.get("sequence")
+        event_monotonic = event.get("monotonic")
+        if not (
+            expectation.get("allow_post_terminal_destination_commit") is True
+            and len(evidence_request_ids) == 1
+            and expectation.get("post_terminal_request_id")
+            == evidence_request_ids[0]
+            and evidence.get("rsc_request") is True
+            and evidence.get("resource_type") in {"fetch", "xhr"}
+            and not explicit_prefetch
+            and evidence.get("response_status") == 200
+            and evidence.get("response_url") == source_url
+            and isinstance(response_sequence, int)
+            and declaration_sequence
+            < start_sequence
+            < response_sequence
+            < terminal_sequence
+            and isinstance(navigation_generation, int)
+            and declaration_navigation_generation == navigation_generation
+            and terminal_navigation_generation == navigation_generation
+            and completion_navigation_generation == navigation_generation + 1
+            and event.get("generation") == navigation_generation + 1
+            and isinstance(event_sequence, int)
+            and isinstance(terminal_monotonic, (int, float))
+            and isinstance(event_monotonic, (int, float))
+            and 0
+            <= float(event_monotonic) - float(terminal_monotonic)
+            <= POST_TERMINAL_DESTINATION_COMMIT_MAX_SECONDS
+            and _route_url_key(str(event.get("url") or ""))
+            == _route_url_key(str(expectation.get("destination_url") or ""))
+            and source_route_key == destination_route_key
+        ):
+            continue
+        competing_declarations = [
+            item
+            for item in messages.route_transition_expectations
+            if item is not expectation
+            and item.get("page_id") == evidence.get("page_id")
+            and item.get("label") == evidence.get("label")
+            and isinstance(item.get("declaration_sequence"), int)
+            and start_sequence
+            < int(item["declaration_sequence"])
+            < event_sequence
+        ]
+        competing_destination_requests = [
+            candidate
+            for candidate in messages.request_evidence.values()
+            if candidate is not evidence
+            and all(
+                candidate is not precursor
+                for precursor in cache_precursor_evidences
+            )
+            and candidate.get("page_id") == evidence.get("page_id")
+            and candidate.get("label") == evidence.get("label")
+            and isinstance(candidate.get("start_sequence"), int)
+            and int(candidate["start_sequence"]) < event_sequence
+            and candidate.get("rsc_request") is True
+            and candidate.get("method") == "GET"
+            and candidate.get("resource_type") in {"fetch", "xhr"}
+            and candidate.get("navigation_request") is False
+            and candidate.get("main_frame") is True
+            and not candidate.get("service_worker_url")
+            and _route_document_key(str(candidate.get("source_url") or ""))
+            == destination_route_key
+            and not _is_framework_prefetch_cancellation(messages, candidate)
+        ]
+        if not competing_declarations and not competing_destination_requests:
+            post_terminal_destination_events.append(event)
+    if (
+        len(evidence_request_ids) == 1
+        and expectation.get("post_terminal_request_id") == evidence_request_ids[0]
+        and not (
+            len(post_terminal_navigation_events) == 1
+            and len(post_terminal_destination_events) == 1
+        )
+    ):
+        return None
     # Playwright can briefly report a stale frame URL around a client route.
-    # Accept that observation only when the ledger contains one earlier,
-    # same-generation navigation event for an exact transition endpoint.
-    if evidence_page_key not in allowed_page_keys and len(matching_navigation_events) != 1:
+    # Accept that observation only with one exact endpoint event: either the
+    # same-generation event preceded the request, or the next-generation
+    # destination commit immediately followed the aborted destination RSC.
+    if evidence_page_key not in allowed_page_keys and (
+        int(pre_start_navigation)
+        + int(
+            len(post_terminal_navigation_events) == 1
+            and len(post_terminal_destination_events) == 1
+        )
+        != 1
+    ):
         return None
     parsed_source = urlparse(source_url)
     if parsed_source.port == 8000:
@@ -15062,12 +15719,6 @@ def _route_transition_request_kind(
         if evidence.get("resource_type") not in {"fetch", "xhr"}:
             return None
         source_route_key = _route_document_key(source_url)
-        explicit_prefetch = (
-            evidence.get("next_router_prefetch") is True
-            or evidence.get("purpose") == "prefetch"
-            or str(evidence.get("sec_purpose") or "").split(";", 1)[0]
-            == "prefetch"
-        )
         if explicit_prefetch:
             return (
                 "speculative"
@@ -15086,7 +15737,11 @@ def _route_transition_request_kind(
         }
         if source_route_key not in declared_route_keys:
             return None
-        return "route"
+        return (
+            "route_with_complete_precursor_snapshot"
+            if route_abort_with_precursors
+            else "route"
+        )
     if (
         evidence.get("resource_type") == "script"
         and expectation.get("allow_speculative_cancellations") is True
@@ -15125,13 +15780,13 @@ def _completed_route_transition_for_request(
         "route request classification selected conflicting request kinds",
     )
     if explicit_read:
-        expected_kind = "explicit_read"
+        expected_kinds = {"explicit_read"}
     elif cancelled_route:
-        expected_kind = "cancelled_route"
+        expected_kinds = {"cancelled_route"}
     elif speculative:
-        expected_kind = "speculative"
+        expected_kinds = {"speculative"}
     else:
-        expected_kind = "route"
+        expected_kinds = {"route", "route_with_complete_precursor_snapshot"}
     candidates = []
     for expectation in messages.route_transition_expectations:
         declaration_sequence = expectation.get("declaration_sequence")
@@ -15145,7 +15800,7 @@ def _completed_route_transition_for_request(
             == _route_url_key(str(expectation.get("destination_url") or ""))
             and request_id in (expectation.get("bound_request_ids") or ())
             and _route_transition_request_kind(messages, expectation, evidence)
-            == expected_kind
+            in expected_kinds
         ):
             continue
         candidates.append(expectation)
@@ -15283,7 +15938,7 @@ def _is_framework_prefetch_cancellation(
     terminal_monotonic = evidence.get("terminal_monotonic")
     return (
         isinstance(status, int)
-        and 200 <= status < 400
+        and 200 <= status < 300
         and evidence.get("response_url") == evidence.get("source_url")
         and failure == "net::ERR_ABORTED"
         and evidence.get("finished") is not True
@@ -15325,7 +15980,7 @@ def _is_route_transition_cancellation(
     terminal_sequence = evidence.get("terminal_sequence")
     response_lifecycle_valid = status is None or (
         isinstance(status, int)
-        and 200 <= status < 400
+        and 200 <= status < 300
         and evidence.get("response_url") == evidence.get("source_url")
         and isinstance(start_sequence, int)
         and isinstance(response_sequence, int)
@@ -15358,6 +16013,26 @@ def _route_transition_cancellations(
     ]
 
 
+def _route_cancellations_with_complete_precursor_snapshot(
+    messages: ConsoleErrorLog,
+) -> list[dict[str, object]]:
+    results = []
+    for evidence in messages.request_evidence.values():
+        if not (
+            _is_product_browser_request(evidence)
+            and _is_route_transition_cancellation(messages, evidence)
+        ):
+            continue
+        expectation = _completed_route_transition_for_request(messages, evidence)
+        if (
+            expectation is not None
+            and _route_transition_request_kind(messages, expectation, evidence)
+            == "route_with_complete_precursor_snapshot"
+        ):
+            results.append(evidence)
+    return results
+
+
 def _is_declared_cancelled_route_request(
     messages: ConsoleErrorLog,
     evidence: dict[str, object],
@@ -15369,7 +16044,7 @@ def _is_declared_cancelled_route_request(
     terminal_sequence = evidence.get("terminal_sequence")
     response_lifecycle_valid = status is None or (
         isinstance(status, int)
-        and 200 <= status < 400
+        and 200 <= status < 300
         and evidence.get("response_url") == source_url
         and isinstance(start_sequence, int)
         and isinstance(response_sequence, int)
@@ -17285,6 +17960,7 @@ def _verify_shell_reader_focus_ownership(
             expect_prefetch=False,
             require_observed_request=True,
             allow_response_backed_route_abort=True,
+            cache_precursor_expectation_id=reader_route_transition,
         )
         _complete_expected_route_transition(page, reader_route_transition)
 
@@ -17601,6 +18277,7 @@ def _verify_overlapping_shell_route_supersession(
             expect_prefetch=False,
             require_observed_request=True,
             allow_response_backed_route_abort=True,
+            cache_precursor_expectation_id=library_transition,
         )
         _complete_expected_route_transition(page, library_transition)
         root_transition = _declare_expected_route_transition(
@@ -18400,6 +19077,14 @@ def _unexpected_console_errors(messages: list[str]) -> list[object]:
             _route_document_key(str(expectation.get("destination_url") or "")),
         }
         bound_request_ids = tuple(expectation.get("bound_request_ids") or ())
+        post_terminal_request_id = expectation.get("post_terminal_request_id")
+        cache_precursor_request_ids = expectation.get(
+            "cache_precursor_request_ids"
+        )
+        cache_precursors = _route_transition_cache_precursors(
+            messages,
+            expectation,
+        )
         endpoint_route_binding_counts = {
             route_key: sum(
                 1
@@ -18410,7 +19095,7 @@ def _unexpected_console_errors(messages: list[str]) -> list[object]:
                     expectation,
                     messages.request_evidence[request_id],
                 )
-                == "route"
+                in {"route", "route_with_complete_precursor_snapshot"}
                 and _route_document_key(
                     str(
                         messages.request_evidence[request_id].get(
@@ -18470,6 +19155,17 @@ def _unexpected_console_errors(messages: list[str]) -> list[object]:
             for read_key in cancelled_read_keys
         }
         route_bound_request_ids.extend(str(item) for item in bound_request_ids)
+        precursor_snapshot_binding_count = sum(
+            1
+            for request_id in bound_request_ids
+            if request_id in messages.request_evidence
+            and _route_transition_request_kind(
+                messages,
+                expectation,
+                messages.request_evidence[request_id],
+            )
+            == "route_with_complete_precursor_snapshot"
+        )
         completion_sequence = expectation.get("completion_sequence")
         declaration_navigation_generation = expectation.get(
             "declaration_navigation_generation"
@@ -18517,6 +19213,36 @@ def _unexpected_console_errors(messages: list[str]) -> list[object]:
                 route_identity_changed
                 or observed_navigation
                 or observed_explicit_supersession
+            )
+            and isinstance(
+                expectation.get("allow_post_terminal_destination_commit"), bool
+            )
+            and (
+                post_terminal_request_id is None
+                or (
+                    expectation.get("allow_post_terminal_destination_commit") is True
+                    and isinstance(post_terminal_request_id, str)
+                    and post_terminal_request_id in bound_request_ids
+                )
+            )
+            and (
+                cache_precursors is not None
+                and isinstance(
+                    expectation.get("allow_complete_precursor_snapshot"),
+                    bool,
+                )
+                and isinstance(cache_precursor_request_ids, tuple)
+                and precursor_snapshot_binding_count in {0, 1}
+                and (
+                    precursor_snapshot_binding_count == 0
+                    or (
+                        expectation.get(
+                            "allow_complete_precursor_snapshot"
+                        )
+                        is True
+                        and bool(cache_precursors)
+                    )
+                )
             )
             and len(cancelled_route_keys) == len(set(cancelled_route_keys))
             and all(count <= 1 for count in endpoint_route_binding_counts.values())
@@ -18574,7 +19300,6 @@ def _unexpected_console_errors(messages: list[str]) -> list[object]:
                 "request_ids": route_bound_request_ids,
             }
         )
-
     for request_id, evidence in messages.request_evidence.items():
         if not _is_product_browser_request(evidence):
             continue
@@ -19356,6 +20081,8 @@ def _verify_http_error_evidence_contract() -> None:
                 "request_page_url": evidence["page_url"],
                 "destination_url": destination_url,
                 "allow_speculative_cancellations": allow_speculative_cancellations,
+                "allow_post_terminal_destination_commit": False,
+                "allow_complete_precursor_snapshot": False,
                 "cancelled_route_urls": (),
                 "cancelled_read_urls": (),
                 "declaration_sequence": 0,
@@ -19366,12 +20093,17 @@ def _verify_http_error_evidence_contract() -> None:
                     1 if destination_url == evidence["page_url"] else 0
                 ),
                 "bound_request_ids": ("contract-lifecycle-request",),
+                "post_terminal_request_id": None,
+                "cache_precursor_request_ids": (),
             }
         )
 
     class ContractPage:
         def __init__(self, url: str) -> None:
             self.url = url
+
+        def wait_for_timeout(self, milliseconds: int) -> None:
+            time.sleep(milliseconds / 1_000)
 
     production_page = ContractPage(f"{FRONTEND_URL}/articles")
     production_log = ConsoleErrorLog()
@@ -19433,6 +20165,157 @@ def _verify_http_error_evidence_contract() -> None:
         production_expectation["bound_request_ids"]
         == ("production-route-request",),
         "production route lifecycle admitted a request after completion",
+    )
+
+    cache_page = ContractPage(f"{FRONTEND_URL}/articles")
+    cache_log = ConsoleErrorLog()
+    cache_page_id = _page_identity(cache_page)
+    cache_log._observed_pages[cache_page_id] = "contract-cache"
+    cache_precursor_evidence = {
+        **production_log.request_evidence["production-route-request"],
+        "label": "contract-cache",
+        "page_id": cache_page_id,
+        "source_url": f"{FRONTEND_URL}/session?_rsc=cache-precursor",
+        "response_url": f"{FRONTEND_URL}/session?_rsc=cache-precursor",
+        "start_sequence": 1,
+        "response_sequence": 2,
+        "terminal_sequence": 3,
+        "finished": True,
+        "failure": None,
+    }
+    cache_log.request_evidence["contract-cache-precursor"] = (
+        cache_precursor_evidence
+    )
+    cache_log.request_evidence["contract-cache-precursor-2"] = {
+        **cache_precursor_evidence,
+        "source_url": f"{FRONTEND_URL}/session?_rsc=cache-precursor-2",
+        "response_url": f"{FRONTEND_URL}/session?_rsc=cache-precursor-2",
+        "start_sequence": 4,
+        "response_sequence": 5,
+        "terminal_sequence": 6,
+    }
+    cache_log._event_sequence = 6
+    cache_expectation_id = cache_log.declare_route_transition(
+        page=cache_page,
+        destination_url=f"{FRONTEND_URL}/session",
+        allow_complete_precursor_snapshot=True,
+        allow_post_terminal_destination_commit=True,
+    )
+    _require(
+        cache_log.route_transition_expectations[0][
+            "cache_precursor_request_ids"
+        ]
+        == ("contract-cache-precursor", "contract-cache-precursor-2")
+        and cache_log.route_transition_expectations[0]["declaration_sequence"]
+        == 7,
+        "route cache precursor was not bound before the new transition",
+    )
+    cache_current_request = {
+        **production_log.request_evidence["production-route-request"],
+        "label": "contract-cache",
+        "page_id": cache_page_id,
+        "start_sequence": 8,
+        "response_sequence": 9,
+        "terminal_sequence": 10,
+        "page_url": f"{FRONTEND_URL}/library",
+        "frame_url_at_request": f"{FRONTEND_URL}/library",
+        "terminal_page_url": f"{FRONTEND_URL}/library",
+        "terminal_navigation_generation": 0,
+    }
+    cache_log.request_evidence["contract-current-route"] = cache_current_request
+    cache_log.bind_post_terminal_destination_request(
+        expectation_id=cache_expectation_id,
+        evidence=cache_current_request,
+    )
+    cache_page.url = f"{FRONTEND_URL}/session"
+    cache_log._event_sequence = 11
+    cache_log._page_navigation_generations[cache_page_id] = 1
+    cache_log._page_navigation_events[cache_page_id] = [{
+        "sequence": 11,
+        "generation": 1,
+        "url": cache_page.url,
+        "monotonic": 1.2,
+    }]
+    cache_log.complete_route_transition(
+        page=cache_page,
+        expectation_id=cache_expectation_id,
+    )
+    _require(
+        cache_log.route_transition_expectations[0]["bound_request_ids"]
+        == ("contract-current-route",)
+        and not _unexpected_console_errors(cache_log)
+        and _route_cancellations_with_complete_precursor_snapshot(cache_log)
+        == [cache_current_request],
+        "production route snapshot did not preserve and audit both precursors",
+    )
+    for invalid_status in (None, 301, 500):
+        cache_current_request["response_status"] = invalid_status
+        _require(
+            not _route_cancellations_with_complete_precursor_snapshot(cache_log)
+            and bool(_unexpected_console_errors(cache_log)),
+            f"prior successful responses hid current HTTP status {invalid_status}",
+        )
+    cache_current_request["response_status"] = 200
+
+    revisit_page = ContractPage(f"{FRONTEND_URL}/articles")
+    revisit_log = ConsoleErrorLog()
+    revisit_page_id = _page_identity(revisit_page)
+    revisit_log._observed_pages[revisit_page_id] = "contract-revisit"
+    for visit in range(3):
+        revisit_expectation_id = revisit_log.declare_route_transition(
+            page=revisit_page,
+            destination_url=f"{FRONTEND_URL}/session",
+        )
+        anchor = revisit_log._event_sequence
+        revisit_request = {
+            **production_log.request_evidence["production-route-request"],
+            "label": "contract-revisit",
+            "page_id": revisit_page_id,
+            "page_url": f"{FRONTEND_URL}/library" if visit == 2 else revisit_page.url,
+            "navigation_generation": visit,
+            "terminal_navigation_generation": visit + 1,
+            "start_sequence": anchor + 2,
+            "response_sequence": anchor + 3,
+            "terminal_sequence": anchor + 4,
+        }
+        if visit == 2:
+            revisit_log._page_navigation_events[revisit_page_id] = [{
+                "sequence": anchor + 1,
+                "generation": visit,
+                "url": revisit_page.url,
+                "monotonic": 1.0,
+            }]
+        revisit_log.request_evidence[f"revisit-{visit}"] = revisit_request
+        revisit_log._event_sequence = anchor + 4
+        revisit_page.url = f"{FRONTEND_URL}/session"
+        revisit_log._page_navigation_generations[revisit_page_id] = visit + 1
+        _require(
+            _wait_for_exact_route_request_to_finish(
+                revisit_page,
+                revisit_log,
+                source_url=revisit_page.url,
+                after_sequence=anchor,
+                expect_prefetch=False,
+                require_observed_request=True,
+                allow_response_backed_route_abort=True,
+                cache_precursor_expectation_id=revisit_expectation_id,
+            ) is revisit_request,
+            "a prior completed navigation contaminated the current route waiter",
+        )
+        revisit_log.complete_route_transition(
+            page=revisit_page,
+            expectation_id=revisit_expectation_id,
+        )
+        _require(
+            not _unexpected_console_errors(revisit_log),
+            "separate ordinary route cancellations did not retain exact ownership",
+        )
+    revisit_log._page_navigation_events[revisit_page_id][0]["url"] = (
+        f"{FRONTEND_URL}/unrelated"
+    )
+    _require(
+        bool(_unexpected_console_errors(revisit_log)),
+        "an unrelated pre-start event proved stale route ownership",
     )
 
     pending_page = ContractPage(f"{FRONTEND_URL}/articles")
@@ -19754,6 +20637,637 @@ def _verify_http_error_evidence_contract() -> None:
         and not _unexpected_console_errors(event_bound_stale_page_route),
         "an exact sequence-bounded navigation event did not recover a stale page URL",
     )
+
+    def post_terminal_stale_page_route(
+        *,
+        event_generation: int = 2,
+        event_sequence: int = 5,
+        event_monotonic: float = 1.3,
+        event_url: str = f"{FRONTEND_URL}/session",
+        source_url: str = f"{FRONTEND_URL}/session?_rsc=contract",
+        duplicate_event: bool = False,
+        completion_sequence: int | None = None,
+        terminal_sequence: int = 4,
+        bind_request: bool = True,
+        complete_transition: bool = True,
+    ) -> tuple[ConsoleErrorLog, dict[str, object], dict[str, object]]:
+        log = lifecycle_log(
+            closed=False,
+            source_url=source_url,
+            response_status=200,
+            rsc_request=True,
+            start_sequence=2,
+            navigation_generation=1,
+        )
+        add_completed_route_expectation(
+            log,
+            destination_url=f"{FRONTEND_URL}/session",
+        )
+        expectation = log.route_transition_expectations[0]
+        expectation["request_page_url"] = f"{FRONTEND_URL}/articles"
+        expectation["allow_post_terminal_destination_commit"] = True
+        expectation["declaration_navigation_generation"] = 1
+        planned_completion_sequence = (
+            completion_sequence
+            if completion_sequence is not None
+            else 7 if duplicate_event else 6
+        )
+        expectation["completion_sequence"] = None
+        expectation["completion_url"] = None
+        expectation["completion_navigation_generation"] = None
+        expectation["bound_request_ids"] = None
+        evidence = log.request_evidence["contract-lifecycle-request"]
+        evidence["page_url"] = f"{FRONTEND_URL}/library"
+        evidence["frame_url_at_request"] = f"{FRONTEND_URL}/library"
+        evidence["response_sequence"] = 3
+        evidence["terminal_sequence"] = terminal_sequence
+        evidence["terminal_page_url"] = f"{FRONTEND_URL}/library"
+        evidence["terminal_navigation_generation"] = 1
+        events = [
+            {
+                "sequence": event_sequence,
+                "generation": event_generation,
+                "url": event_url,
+                "monotonic": event_monotonic,
+            }
+        ]
+        if duplicate_event:
+            events.append(
+                {
+                    "sequence": 6,
+                    "generation": 3,
+                    "url": f"{FRONTEND_URL}/session",
+                    "monotonic": 1.4,
+                }
+            )
+        log._page_navigation_events["contract-lifecycle-page"] = events
+        if bind_request:
+            log.bind_post_terminal_destination_request(
+                expectation_id=str(expectation["expectation_id"]),
+                evidence=evidence,
+            )
+        if complete_transition:
+            expectation["completion_sequence"] = planned_completion_sequence
+            expectation["completion_url"] = f"{FRONTEND_URL}/session"
+            expectation["completion_navigation_generation"] = 2
+            expectation["bound_request_ids"] = (
+                ("contract-lifecycle-request",) if bind_request else ()
+            )
+        log._event_sequence = planned_completion_sequence
+        return log, expectation, evidence
+
+    def altered_post_terminal_route(
+        *,
+        expectation_updates: dict[str, object] | None = None,
+        evidence_updates: dict[str, object] | None = None,
+        **options,
+    ) -> tuple[ConsoleErrorLog, dict[str, object], dict[str, object]]:
+        log, expectation, evidence = post_terminal_stale_page_route(**options)
+        expectation.update(expectation_updates or {})
+        evidence.update(evidence_updates or {})
+        return log, expectation, evidence
+
+    post_terminal_route, post_terminal_expectation, post_terminal_evidence = (
+        post_terminal_stale_page_route()
+    )
+    _require(
+        _route_transition_request_kind(
+            post_terminal_route,
+            post_terminal_expectation,
+            post_terminal_evidence,
+        )
+        == "route"
+        and not _unexpected_console_errors(post_terminal_route),
+        "an exact next-generation destination commit did not recover a stale page URL",
+    )
+
+    prefetch_history_route = post_terminal_stale_page_route()
+    prefetch_history_route[0].request_evidence["earlier-prefetch-abort"] = {
+        **prefetch_history_route[2],
+        "source_url": f"{FRONTEND_URL}/session?_rsc=earlier-prefetch",
+        "response_url": f"{FRONTEND_URL}/session?_rsc=earlier-prefetch",
+        "next_router_prefetch": True,
+        "start_sequence": -3,
+        "response_sequence": -2,
+        "terminal_sequence": -1,
+        "start_monotonic": 0.1,
+        "terminal_monotonic": 0.2,
+    }
+    _require(
+        not _unexpected_console_errors(prefetch_history_route[0])
+        and len(_framework_prefetch_cancellations(prefetch_history_route[0])) == 1,
+        "independently valid prefetch cancellation contaminated later route evidence",
+    )
+    prefetch_history_route[0].request_evidence["earlier-prefetch-abort"][
+        "response_status"
+    ] = 500
+    _require(
+        bool(_unexpected_console_errors(prefetch_history_route[0])),
+        "an earlier failed prefetch was hidden by a later route transition",
+    )
+
+    route_with_precursors = post_terminal_stale_page_route(
+        event_sequence=9,
+        event_monotonic=1.4,
+        completion_sequence=10,
+        terminal_sequence=8,
+    )
+    route_with_precursors[1]["declaration_sequence"] = 4
+    route_with_precursors[1]["allow_complete_precursor_snapshot"] = True
+    route_with_precursors[1]["cache_precursor_request_ids"] = (
+        "contract-route-older-cache-precursor",
+        "contract-route-cache-precursor",
+    )
+    route_with_precursors[2].update(
+        {
+            "start_sequence": 5,
+            "response_sequence": 6,
+            "terminal_sequence": 8,
+            "terminal_monotonic": 1.3,
+        }
+    )
+    route_with_precursors[0].request_evidence[
+        "contract-route-cache-precursor"
+    ] = {
+        **route_with_precursors[2],
+        "source_url": f"{FRONTEND_URL}/session?_rsc=cache-precursor",
+        "navigation_generation": 0,
+        "start_sequence": 1,
+        "start_monotonic": 0.8,
+        "response_sequence": 2,
+        "response_monotonic": 0.85,
+        "terminal_sequence": 3,
+        "terminal_monotonic": 0.9,
+        "terminal_navigation_generation": 0,
+        "response_status": 200,
+        "response_url": f"{FRONTEND_URL}/session?_rsc=cache-precursor",
+        "finished": True,
+        "failure": None,
+    }
+    route_with_precursors[0].request_evidence[
+        "contract-route-older-cache-precursor"
+    ] = {
+        **route_with_precursors[0].request_evidence[
+            "contract-route-cache-precursor"
+        ],
+        "source_url": f"{FRONTEND_URL}/session?_rsc=older-cache-precursor",
+        "start_sequence": -2,
+        "response_sequence": -1,
+        "terminal_sequence": 0,
+        "response_url": f"{FRONTEND_URL}/session?_rsc=older-cache-precursor",
+    }
+    _require(
+        _route_transition_request_kind(
+            route_with_precursors[0],
+            route_with_precursors[1],
+            route_with_precursors[2],
+        )
+        == "route_with_complete_precursor_snapshot"
+        and not _unexpected_console_errors(route_with_precursors[0])
+        and len(_route_cancellations_with_complete_precursor_snapshot(route_with_precursors[0])) == 1,
+        "an explicitly predeclared precursor snapshot route lifecycle did not reconcile",
+    )
+
+    terminal_candidate_route_key = _route_document_key(f"{FRONTEND_URL}/session")
+    terminal_success = {
+        **post_terminal_evidence,
+        "finished": True,
+        "failure": None,
+    }
+    terminal_abort = {**post_terminal_evidence}
+    terminal_prefetch_success = {
+        **terminal_success,
+        "next_router_prefetch": True,
+    }
+    terminal_pending = {
+        **post_terminal_evidence,
+        "response_sequence": None,
+        "response_status": None,
+        "response_url": None,
+        "terminal_sequence": None,
+        "terminal_monotonic": None,
+        "finished": False,
+        "failure": None,
+    }
+    _require(
+        _select_exact_route_request_terminal_candidate(
+            [terminal_success],
+            allow_response_backed_route_abort=True,
+            route_key=terminal_candidate_route_key,
+            current_page_url=f"{FRONTEND_URL}/session",
+            current_navigation_generation=2,
+        )
+        is terminal_success,
+        "a single successful exact route lifecycle was not selected",
+    )
+    _require(
+        _select_exact_route_request_terminal_candidate(
+            [terminal_abort],
+            allow_response_backed_route_abort=True,
+            route_key=terminal_candidate_route_key,
+            current_page_url=f"{FRONTEND_URL}/session",
+            current_navigation_generation=2,
+        )
+        is terminal_abort,
+        "a single exact response-backed route abort was not selected",
+    )
+    _require(
+        _select_exact_route_request_terminal_candidate(
+            [terminal_success, terminal_pending],
+            allow_response_backed_route_abort=True,
+            route_key=terminal_candidate_route_key,
+            current_page_url=f"{FRONTEND_URL}/session",
+            current_navigation_generation=2,
+        )
+        is None,
+        "a pending exact route lifecycle was resolved prematurely",
+    )
+    _require_unambiguous_response_backed_route_abort(
+        terminal_success,
+        [terminal_prefetch_success, terminal_success],
+        source_url=f"{FRONTEND_URL}/session",
+    )
+    second_terminal_precursor = {
+        **terminal_prefetch_success,
+        "source_url": f"{FRONTEND_URL}/session?_rsc=second-precursor",
+        "response_url": f"{FRONTEND_URL}/session?_rsc=second-precursor",
+    }
+    _require_unambiguous_response_backed_route_abort(
+        terminal_abort,
+        [terminal_prefetch_success, second_terminal_precursor, terminal_abort],
+        source_url=f"{FRONTEND_URL}/session",
+        cache_precursor_evidences=(
+            terminal_prefetch_success,
+            second_terminal_precursor,
+        ),
+    )
+
+    def require_terminal_candidate_set_rejected(
+        candidates: list[dict[str, object]],
+        *,
+        label: str,
+    ) -> None:
+        try:
+            _select_exact_route_request_terminal_candidate(
+                candidates,
+                allow_response_backed_route_abort=True,
+                route_key=terminal_candidate_route_key,
+                current_page_url=f"{FRONTEND_URL}/session",
+                current_navigation_generation=2,
+            )
+        except E2EFailure:
+            return
+        raise E2EFailure(f"exact route terminal selection accepted {label}")
+
+    require_terminal_candidate_set_rejected(
+        [terminal_success, terminal_abort],
+        label="success followed by abort",
+    )
+    require_terminal_candidate_set_rejected(
+        [terminal_abort, terminal_success],
+        label="abort followed by success",
+    )
+    require_terminal_candidate_set_rejected(
+        [terminal_prefetch_success, terminal_abort],
+        label="successful prefetch followed by abort",
+    )
+    try:
+        _require_unambiguous_response_backed_route_abort(
+            terminal_abort,
+            [terminal_prefetch_success, terminal_abort],
+            source_url=f"{FRONTEND_URL}/session",
+        )
+    except E2EFailure:
+        pass
+    else:
+        raise E2EFailure(
+            "a successful prefetch laundered a response-backed route abort"
+        )
+
+    def require_post_terminal_binding_rejected(
+        log: ConsoleErrorLog,
+        *,
+        expectation_id: str,
+        evidence: dict[str, object],
+        label: str,
+    ) -> None:
+        try:
+            log.bind_post_terminal_destination_request(
+                expectation_id=expectation_id,
+                evidence=evidence,
+            )
+        except E2EFailure:
+            return
+        raise E2EFailure(f"post-terminal request binding accepted {label}")
+
+    duplicate_binding_route = post_terminal_stale_page_route(
+        complete_transition=False
+    )
+    require_post_terminal_binding_rejected(
+        duplicate_binding_route[0],
+        expectation_id=str(duplicate_binding_route[1]["expectation_id"]),
+        evidence=duplicate_binding_route[2],
+        label="a duplicate binding",
+    )
+    foreign_binding_route = post_terminal_stale_page_route(
+        bind_request=False,
+        complete_transition=False,
+    )
+    require_post_terminal_binding_rejected(
+        foreign_binding_route[0],
+        expectation_id=str(foreign_binding_route[1]["expectation_id"]),
+        evidence={**foreign_binding_route[2]},
+        label="foreign evidence",
+    )
+    completed_binding_route = post_terminal_stale_page_route(bind_request=False)
+    require_post_terminal_binding_rejected(
+        completed_binding_route[0],
+        expectation_id=str(completed_binding_route[1]["expectation_id"]),
+        evidence=completed_binding_route[2],
+        label="a completed expectation",
+    )
+    cross_expectation_binding_route = post_terminal_stale_page_route(
+        complete_transition=False
+    )
+    cross_expectation_binding_route[0].route_transition_expectations.append(
+        {
+            **cross_expectation_binding_route[1],
+            "expectation_id": "contract-route-cross-binding",
+            "declaration_sequence": 1,
+            "completion_sequence": None,
+            "completion_url": None,
+            "completion_navigation_generation": None,
+            "bound_request_ids": None,
+            "post_terminal_request_id": None,
+        }
+    )
+    require_post_terminal_binding_rejected(
+        cross_expectation_binding_route[0],
+        expectation_id="contract-route-cross-binding",
+        evidence=cross_expectation_binding_route[2],
+        label="one request across two expectations",
+    )
+
+    unrelated_other_page_activity = post_terminal_stale_page_route(
+        event_sequence=8,
+        completion_sequence=9,
+    )
+    unrelated_other_page_activity[0].request_evidence["other-page-request"] = {
+        **unrelated_other_page_activity[2],
+        "label": "other-page",
+        "page_id": "other-page-id",
+        "page_url": f"{FRONTEND_URL}/articles",
+        "frame_url_at_request": f"{FRONTEND_URL}/articles",
+        "source_url": f"{FRONTEND_URL}/articles?_rsc=other",
+        "start_sequence": 5,
+        "response_sequence": 6,
+        "terminal_sequence": 7,
+        "response_status": 200,
+        "response_url": f"{FRONTEND_URL}/articles?_rsc=other",
+        "finished": True,
+        "failure": None,
+    }
+    _require(
+        _route_transition_request_kind(
+            unrelated_other_page_activity[0],
+            unrelated_other_page_activity[1],
+            unrelated_other_page_activity[2],
+        )
+        == "route",
+        "unrelated other-page activity invalidated an exact destination commit",
+    )
+
+    competing_declaration_route = post_terminal_stale_page_route(
+        event_sequence=6,
+        completion_sequence=7,
+        terminal_sequence=5,
+    )
+    competing_declaration_route[0].route_transition_expectations.append(
+        {
+            **competing_declaration_route[1],
+            "expectation_id": "contract-route-2",
+            "declaration_sequence": 4,
+            "completion_sequence": None,
+            "completion_url": None,
+            "completion_navigation_generation": None,
+            "bound_request_ids": None,
+            "post_terminal_request_id": None,
+        }
+    )
+    competing_request_route = post_terminal_stale_page_route(
+        event_sequence=8,
+        completion_sequence=9,
+        terminal_sequence=7,
+    )
+    competing_request_route[0].request_evidence["competing-destination-request"] = {
+        **competing_request_route[2],
+        "start_sequence": 4,
+        "response_sequence": 5,
+        "terminal_sequence": 6,
+        "terminal_monotonic": 1.15,
+        "response_status": 200,
+        "response_url": f"{FRONTEND_URL}/session?_rsc=retry",
+        "source_url": f"{FRONTEND_URL}/session?_rsc=retry",
+        "finished": True,
+        "failure": None,
+    }
+    competing_prefetch_route = post_terminal_stale_page_route(
+        event_sequence=9,
+        event_monotonic=1.4,
+        completion_sequence=10,
+        terminal_sequence=8,
+    )
+    competing_prefetch_route[2].update(
+        {
+            "start_sequence": 5,
+            "response_sequence": 6,
+            "terminal_sequence": 8,
+            "terminal_monotonic": 1.3,
+        }
+    )
+    competing_prefetch_route[0].request_evidence[
+        "competing-destination-prefetch"
+    ] = {
+        **competing_prefetch_route[2],
+        "source_url": f"{FRONTEND_URL}/session?_rsc=prefetch",
+        "next_router_prefetch": True,
+        "start_sequence": 2,
+        "start_monotonic": 1.0,
+        "response_sequence": 3,
+        "response_monotonic": 1.05,
+        "terminal_sequence": 4,
+        "terminal_monotonic": 1.1,
+        "response_status": 200,
+        "response_url": f"{FRONTEND_URL}/session?_rsc=prefetch",
+        "finished": True,
+        "failure": None,
+    }
+    predeclaration_prefetch_route = post_terminal_stale_page_route(
+        event_sequence=9,
+        event_monotonic=1.4,
+        completion_sequence=10,
+        terminal_sequence=8,
+    )
+    predeclaration_prefetch_route[1]["declaration_sequence"] = 4
+    predeclaration_prefetch_route[2].update(
+        {
+            "start_sequence": 5,
+            "response_sequence": 6,
+            "terminal_sequence": 8,
+            "terminal_monotonic": 1.3,
+        }
+    )
+    predeclaration_prefetch_route[0].request_evidence[
+        "predeclaration-destination-prefetch"
+    ] = {
+        **predeclaration_prefetch_route[2],
+        "source_url": f"{FRONTEND_URL}/session?_rsc=predeclared-prefetch",
+        "next_router_prefetch": True,
+        "navigation_generation": 0,
+        "start_sequence": 1,
+        "start_monotonic": 0.8,
+        "response_sequence": 2,
+        "response_monotonic": 0.85,
+        "terminal_sequence": 3,
+        "terminal_monotonic": 0.9,
+        "terminal_navigation_generation": 0,
+        "response_status": 200,
+        "response_url": f"{FRONTEND_URL}/session?_rsc=predeclared-prefetch",
+        "finished": True,
+        "failure": None,
+    }
+
+    invalid_post_terminal_routes = (
+        (
+            "allowed-source-but-delayed-navigation",
+            altered_post_terminal_route(
+                event_monotonic=1.6,
+                evidence_updates={"page_url": f"{FRONTEND_URL}/articles"},
+            ),
+        ),
+        (
+            "allowed-source-but-duplicate-navigation",
+            altered_post_terminal_route(
+                duplicate_event=True,
+                evidence_updates={"page_url": f"{FRONTEND_URL}/articles"},
+            ),
+        ),
+        ("wrong-generation", post_terminal_stale_page_route(event_generation=1)),
+        ("generation-plus-two", post_terminal_stale_page_route(event_generation=3)),
+        ("before-terminal", post_terminal_stale_page_route(event_sequence=3)),
+        ("at-terminal", post_terminal_stale_page_route(event_sequence=4)),
+        (
+            "delayed-cached-navigation",
+            post_terminal_stale_page_route(
+                event_monotonic=1.6,
+            ),
+        ),
+        ("at-completion", post_terminal_stale_page_route(event_sequence=6)),
+        (
+            "wrong-destination",
+            post_terminal_stale_page_route(event_url=f"{FRONTEND_URL}/articles"),
+        ),
+        (
+            "wrong-fragment",
+            post_terminal_stale_page_route(
+                event_url=f"{FRONTEND_URL}/session#unrelated"
+            ),
+        ),
+        (
+            "non-destination-request",
+            altered_post_terminal_route(
+                evidence_updates={
+                    "source_url": f"{FRONTEND_URL}/articles?_rsc=contract",
+                    "response_url": f"{FRONTEND_URL}/articles?_rsc=contract",
+                }
+            ),
+        ),
+        ("duplicate-destination-events", post_terminal_stale_page_route(duplicate_event=True)),
+        (
+            "missing-response",
+            altered_post_terminal_route(
+                evidence_updates={
+                    "response_sequence": None,
+                    "response_status": None,
+                    "response_url": None,
+                }
+            ),
+        ),
+        (
+            "non-200-response",
+            altered_post_terminal_route(
+                evidence_updates={"response_status": 201}
+            ),
+        ),
+        (
+            "mismatched-response-url",
+            altered_post_terminal_route(
+                evidence_updates={"response_url": f"{FRONTEND_URL}/wrong"}
+            ),
+        ),
+        (
+            "invalid-response-sequence",
+            altered_post_terminal_route(
+                evidence_updates={"response_sequence": 2}
+            ),
+        ),
+        (
+            "declaration-generation-mismatch",
+            altered_post_terminal_route(
+                expectation_updates={"declaration_navigation_generation": 0}
+            ),
+        ),
+        (
+            "terminal-generation-mismatch",
+            altered_post_terminal_route(
+                evidence_updates={"terminal_navigation_generation": 2}
+            ),
+        ),
+        (
+            "completion-generation-mismatch",
+            altered_post_terminal_route(
+                expectation_updates={"completion_navigation_generation": 3}
+            ),
+        ),
+        (
+            "not-explicitly-enabled",
+            altered_post_terminal_route(
+                expectation_updates={
+                    "allow_post_terminal_destination_commit": False
+                }
+            ),
+        ),
+        (
+            "prefetch-request",
+            altered_post_terminal_route(
+                evidence_updates={"next_router_prefetch": True}
+            ),
+        ),
+        ("competing-route-declaration", competing_declaration_route),
+        ("competing-destination-request", competing_request_route),
+        ("competing-destination-prefetch", competing_prefetch_route),
+        (
+            "predeclaration-destination-prefetch",
+            predeclaration_prefetch_route,
+        ),
+    )
+    for case_label, (
+        invalid_post_terminal_route,
+        invalid_post_terminal_expectation,
+        invalid_post_terminal_evidence,
+    ) in invalid_post_terminal_routes:
+        _require(
+            _route_transition_request_kind(
+                invalid_post_terminal_route,
+                invalid_post_terminal_expectation,
+                invalid_post_terminal_evidence,
+            )
+            is None
+            and bool(_unexpected_console_errors(invalid_post_terminal_route)),
+            "invalid post-terminal navigation evidence bound a stale route request: "
+            f"{case_label}",
+        )
+
     unrelated_same_generation_route = lifecycle_log(
         closed=False,
         source_url=f"{FRONTEND_URL}/session?_rsc=contract",

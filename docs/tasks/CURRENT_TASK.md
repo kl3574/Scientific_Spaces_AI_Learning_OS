@@ -2,7 +2,9 @@
 
 ## Active Implementation Task
 
-None
+`docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
+
+Bounded E2E evidence repair after failed closure CI; product scope unchanged.
 
 ## Staged Task
 
@@ -10,7 +12,7 @@ None
 
 ## Last Closed Task
 
-`docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
+`docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md`
 
 ## Status
 
@@ -24,7 +26,7 @@ None
 - P3-033: PASS / CLOSED
 - P3-034: PASS / CLOSED
 - P3-035: PASS / CLOSED
-- P3-036: PASS / CLOSED
+- P3-036: REOPENED / CI EVIDENCE REPAIR
 
 ## Authorization
 
@@ -76,8 +78,8 @@ None
   closure commit
 - P3-036 bounded Frontend focus ownership, Product E2E, governance
   documentation, isolated fake-runtime validation, local commits, non-force
-  push, and exact-SHA CI execution: CONSUMED / CLOSED after this docs-only
-  closure commit
+  push, and exact-SHA CI execution: AUTHORIZED for the remaining bounded
+  evidence repair and closure
 - Backend, frozen M1, source records, Article records, derived assets,
   dependencies, lockfiles, workflows, and published API contracts: NOT GRANTED
 - source network, private Zotero, external search, real/paid Providers,
@@ -185,8 +187,9 @@ None
 
 ## Next Gate
 
-Push this docs-only P3-036 closure commit and require exact-SHA main CI. No
-active or staged implementation task exists, and no v1.2 candidate is staged.
+Complete the P3-036 E2E evidence repair, verify its exact-SHA main CI, then
+record and verify a docs-only closure commit. No later task or v1.2 candidate
+is staged.
 
 ## P3-033 Local Evidence
 
