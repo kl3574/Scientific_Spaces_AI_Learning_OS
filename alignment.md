@@ -78,6 +78,8 @@ No v1.2 candidate is assigned.
 ## Git Plan
 
 - Implementation commit: `fix: preserve workspace mutation focus`
+- Current bounded E2E repair commit:
+  `test: await Tutor activity before page closure`
 - Non-force push to `main`, followed by exact-SHA implementation CI readback
 - Docs-only closure commit: `docs: close P3-036 mutation focus continuity`
 - Non-force push to `main`, followed by exact-SHA closure CI readback
@@ -85,8 +87,12 @@ No v1.2 candidate is assigned.
 
 ## Current Gate
 
-The prior closure run `34024098616` and subsequent repair run `34065911116`
-failed Product E2E. The task remains open while the existing script's route
-request evidence is repaired and verified. No product scope has been added.
-The repair and subsequent docs-only closure each require successful exact-SHA
-main CI before final reporting.
+The prior closure run `34024098616` and repair runs `34065911116` and
+`34178687022` failed Product E2E. The latest failure is an unfinished Tutor
+activity GET when the test closes its page after answer focus. A controlled
+network-level reproduction confirms the missing pre-close settlement. The
+local repair now passes three complete 227-check E2E runs, Backend and Frontend
+regression, the production build, safety gates, and two independent reviews.
+No product scope or error allowance has been added. The repair and subsequent
+docs-only closure each still require successful exact-SHA main CI before final
+reporting; P3-036 remains open.

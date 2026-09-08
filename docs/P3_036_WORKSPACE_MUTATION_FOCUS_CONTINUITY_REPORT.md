@@ -5,7 +5,7 @@
 - Local implementation: **PASS**
 - Independent final review: **PASS**, 2/2 reviewers, 0 Critical / 0 Important /
   0 Minor
-- Latest exact-SHA repair main CI: **FAILED**, run `34065911116`
+- Latest exact-SHA repair main CI: **FAILED**, run `34178687022`
 - Task closure: **REOPENED / CI EVIDENCE REPAIR**
 - Replacement implementation and docs-only closure CI: **PENDING**
 - Candidate version: not assigned
@@ -243,3 +243,68 @@ the caller, waiter, and final audit. The final helper and three-visit waiter
 regressions passed independently and in both reviews. Exact-version three-run
 GUI evidence remains required in the replacement commit's CI; the local run
 does not claim to test this later helper extraction.
+
+## 13. Tutor Activity Closure Repair (2026-09-08)
+
+Exact-SHA main CI for `6844a4073134902337e58d07bb9d947fcc1d4814`,
+[`34178687022`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34178687022),
+completed with Backend, Frontend, dependency, workflow/suppression, secret,
+and SBOM jobs passing. Product E2E completed its UI assertions but failed its
+final ledger audit on one unfinished `GET /tutor/sessions` from the
+`graph-reload` page. Normal-main Docker and release jobs skipped as designed;
+uploaded artifacts: 0. This run is not passing closure evidence.
+
+The final Tutor retry waits for the answer's focus, then closes the page. The
+product intentionally starts its independent activity POST followed by GET
+after publishing the answer; answer focus does not prove that read has ended.
+The existing wait for the preceding intentional `/tutor/ask` error only drains
+that declared failed request, not the later activity read.
+
+A loopback-only Chromium reproduction held the actual activity GET after the
+successful retry. Answer focus passed with one activity request still pending;
+the old close left `unsettled_product_request` in the unchanged final audit.
+External requests and page errors were zero. The probe used temporary fake
+runtime storage and retained no runtime artifacts.
+
+The bounded repair changes only Product E2E: deliberately hold the retry's
+activity GET while asserting answer focus, release it to the real local
+Backend, wait for the existing page-request settlement gate, require HTTP 200
+and `requestfinished` for that exact request, then verify unchanged answer
+focus before closing. No product handler, network-error classification,
+timeout, or cancellation allowance is changed.
+
+Focused execution of the exact updated retry test block passed 3/3 times,
+with `start < response < terminal < close intent`, no audit issues, no page
+errors, and no external requests. Existing embedded HTTP-evidence contracts
+also pass. Two independent reviewers found no blocking issue in the bounded
+38-line test change.
+
+Independent offline negative checks passed: a never-ending GET and HTTP 200
+headers without a completed body both timed out at the configured 200 ms
+probe deadline; finished HTTP 500, an ordinary abort, and HTTP 200 followed by
+abort remained audit failures. A completed HTTP 200 control passed. The drain
+did not modify ledger evidence. Removing the wait from an in-memory delayed
+terminal simulation failed the exact-request assertion; that mutation may pass
+under an already-completed schedule, so the browser probe alone is not claimed
+to deterministically reject every no-wait variant.
+
+Final local gates for script blob
+`7a7bf03e4471b1d7e98b04f99a0d50f68087608c`:
+
+- Product E2E: 3/3 complete runs, 227/227 checks each, including the controlled
+  Tutor retry activity read; restart persistence PASS.
+- External requests, unexpected console errors, and page errors: 0 in all
+  three runs.
+- Route telemetry: 381 declarations, 68 bound requests, 48 ordinary route
+  cancellations, 703 independently validated prefetch cancellations, zero
+  special precursor-snapshot recoveries, and 30 successful no-content writes.
+- Backend: 600 passed, 4 skipped.
+- Frontend: Articles 67, References 21, Tutor 22, Graph 29; total 139 passed.
+- Production build: PASS, 11 generated pages.
+- Workflow policy, suppression policy, secret audit, temporary SBOM validation,
+  forbidden-artifact scan, and protected-path diff: PASS.
+- Backend, Frontend, dependency, lockfile, and workflow changes: none.
+
+The final local three-run invocation used the same script blob throughout;
+only governance text changed while it ran. Replacement exact-SHA main CI and
+the subsequent docs-only closure CI remain required. P3-036 is not yet closed.

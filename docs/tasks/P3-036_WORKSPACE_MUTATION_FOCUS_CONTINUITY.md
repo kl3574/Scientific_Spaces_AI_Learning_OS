@@ -203,7 +203,7 @@ owner keeps the task open.
 - CI: exact-SHA closure readback required
 - Tag / Release: not authorized
 
-## Local Gate Result
+## Historical Local Gate Result
 
 PASS. Focused Frontend tests passed `139/139`; the production build produced 11
 routes; Backend regression passed with 600 tests and 4 skips; Product E2E passed
@@ -239,3 +239,25 @@ remaining P3-036 authorization and requires its own exact-SHA main CI readback.
 Stop rather than widen scope if an unknown worktree change appears or correct
 behavior needs any prohibited Backend, API, persistence, data, dependency,
 workflow, external/private, Provider, or release change.
+
+## Current Repair Gate (2026-09-08)
+
+The earlier local and CI results above are historical. Later closure and
+repair runs failed, most recently `34178687022` at exact SHA
+`6844a4073134902337e58d07bb9d947fcc1d4814`. Its final ledger audit found an
+unfinished Tutor activity GET after answer focus and premature test-page
+closure. No product-code change is needed for this reproduced lifecycle issue.
+
+The bounded E2E repair now waits for the exact activity read's successful
+terminal event before closure. The unchanged audit still rejects timeouts,
+headers-only responses, HTTP failures, and ordinary aborts. Local evidence:
+3/3 complete E2E runs with 227/227 checks each, restart persistence PASS,
+139 Frontend tests, 600 Backend tests with 4 skips, production build PASS,
+two independent reviews without blocking findings, and safety gates PASS.
+External requests and unexpected console/page errors are zero. The tested
+script blob is `7a7bf03e4471b1d7e98b04f99a0d50f68087608c`.
+
+Repair commit message: `test: await Tutor activity before page closure`.
+The repair and docs-only closure still require exact-SHA main CI. The task
+remains REOPENED / CI EVIDENCE REPAIR; no later task or candidate is authorized
+by this record. Detailed evidence is in section 13 of the P3-036 report.

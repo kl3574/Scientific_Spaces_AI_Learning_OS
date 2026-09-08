@@ -4835,8 +4835,46 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         ),
         times=1,
     )
+    _wait_for_page_requests_to_settle(page, console_errors)
+    retry_activity_routes = []
+    retry_activity_url = f"{BROWSER_API_URL}/tutor/sessions"
+
+    def hold_retry_activity(route) -> None:
+        if route.request.method == "GET":
+            retry_activity_routes.append(route)
+        else:
+            route.fallback()
+
+    # Answer focus precedes the independent activity write/read round trip.
+    page.route(retry_activity_url, hold_retry_activity)
     page.get_by_role("button", name="Retry request", exact=True).press("Enter")
     expect(page.get_by_test_id("tutor-result")).to_be_focused(timeout=30_000)
+    retry_activity_deadline = time.monotonic() + 10
+    while not retry_activity_routes and time.monotonic() < retry_activity_deadline:
+        page.wait_for_timeout(20)
+    _require(
+        len(retry_activity_routes) == 1,
+        f"Tutor retry did not produce one activity read: {len(retry_activity_routes)}",
+    )
+    retry_activity_route = retry_activity_routes[0]
+    retry_activity_request_id = _request_identity(retry_activity_route.request)
+    retry_activity_evidence = console_errors.request_evidence[retry_activity_request_id]
+    _require(
+        retry_activity_evidence.get("response_sequence") is None
+        and retry_activity_evidence.get("terminal_sequence") is None,
+        "controlled Tutor activity read was not pending after answer focus",
+    )
+    retry_activity_route.continue_()
+    _wait_for_page_requests_to_settle(page, console_errors)
+    _require(
+        retry_activity_evidence.get("response_status") == 200
+        and retry_activity_evidence.get("finished") is True
+        and retry_activity_evidence.get("failure") is None,
+        f"Tutor activity read did not complete before closure: {retry_activity_evidence}",
+    )
+    expect(page.get_by_test_id("tutor-result")).to_be_focused()
+    page.unroute(retry_activity_url, hold_retry_activity)
+    checks["tutor_retry_activity_completes_before_page_close"] = True
     _wait_for_declared_http_errors(
         page, console_errors, expectation_ids=tutor_request_failure
     )

@@ -187,9 +187,11 @@ None
 
 ## Next Gate
 
-Complete the P3-036 E2E evidence repair, verify its exact-SHA main CI, then
-record and verify a docs-only closure commit. No later task or v1.2 candidate
-is staged.
+The P3-036 Tutor activity pre-close repair exposed by run `34178687022` passes
+3/3 local Product E2E runs with 227/227 checks each, all focused/full local
+regressions, the production build, safety gates, and two independent reviews.
+Next verify its exact-SHA main CI, then record and verify a docs-only closure
+commit. No later task or v1.2 candidate is staged.
 
 ## P3-033 Local Evidence
 
