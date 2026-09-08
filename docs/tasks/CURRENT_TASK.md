@@ -4,27 +4,25 @@
 
 `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`
 
-Status: **OPEN / REPAIR CI PENDING**. Prior implementation f24e67beae880fccefdd398175b9bdf0862b3046
-is pushed; exact-SHA CI 34252242993 fails Product E2E at desktop Dashboard
-heading resume. Six other required jobs pass and uploaded artifacts are zero.
-The independently reviewed correction passes exclusive full validation:
-3 x 298 checks, all 17 Reader journeys each, restart PASS and zero unexpected
-errors/external requests. Next: repair commit/exact-SHA CI, then closure CI.
-No blind rerun or closure. Prior local gates passed at f24e67b on the bounded
-Reader repair: Backend 671/4 skipped, Frontend 149, production build, exclusive
-Product E2E 3 x 298 including 17 ownership journeys each, restart persistence,
-13 native-input checks, four viewports, safety and two independent reviews.
-Tool-only movement preserves progress; ordinary body tracking, native
-navigation, origins and schema remain intact in that local evidence. The CI
-failure is not overridden by those results. A corrected implementation must
-pass full validation and exact-SHA CI, then separate docs-only closure CI. The earlier
-failed and invalidated runs remain recorded; no borrowed acceptance evidence.
+Status: **OPEN / CLOSURE CI PENDING**. Repair
+1ab812b7292c21cb8775a8e63b93785cf106cc03 passes exact-SHA main CI 34261697861:
+all seven required jobs, 3 x 298 Product E2E checks, all 17 Reader ownership
+journeys each, restart persistence and zero unexpected errors/external requests
+or uploaded artifacts. Remote Backend: 667 passed / 8 skipped; local Backend:
+671 passed / 4 skipped. Docker and release jobs are policy-skipped, not PASS.
 
-The bounded deferred-heading correction now passes focused GREEN, the original
-CI body replay three times at CPU4, units/build, native/visual and safety gates,
-and two independent static reviews. Replacement exclusive full E2E passes
-on component 7119895 / runner b966b963 with unchanged bindings. Its owned
-runtime is removed. Repair and separate closure CI PASS are not yet claimed.
+Local corrected-build unit/build, original-CI CPU4 replay, exclusive full E2E,
+four-view visual inspection, native inputs, safety and two independent reviews
+also pass. The failed original f24e67b run 34252242993 and invalidated local
+invocation remain recorded. Tool-only progress protection and genuine body
+reading pass without changing native navigation, origins or storage schema.
+
+Implementation authority is consumed. Prepare the separate eight-file docs-only
+closure defined by alignment.md, independently review its diff and safety,
+commit `docs: close P3-038 reader progress ownership`, non-force push and
+verify its own exact-SHA CI. Only then report PASS / CLOSED; no self-hash
+receipt-commit loop or early next-task implementation. Historical Graph
+visibility incident remains OPEN / UNRESOLVED, root cause UNKNOWN.
 
 P3-037: **PASS / CLOSED** at closure a294c8fd36beee1b79673f05150310156d0d7f7f,
 exact-SHA main CI 34225518378, all seven required jobs, 3 x 281 E2E checks,

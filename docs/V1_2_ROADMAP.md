@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-037, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-038 Reader progress ownership is OPEN / REPAIR CI PENDING after its independently reviewed correction passes replacement local gates; the historical Graph incident remains OPEN; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-037, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-038 Reader progress ownership is OPEN / CLOSURE CI PENDING after repair exact-SHA CI 34261697861 passes; the historical Graph incident remains OPEN; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -1105,25 +1105,23 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-P3-038 Reader Progress Ownership: OPEN / REPAIR CI PENDING.
+P3-038 Reader Progress Ownership: OPEN / CLOSURE CI PENDING.
 Canonical: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`.
 Evidence: `docs/P3_038_READER_PROGRESS_OWNERSHIP_REPORT.md`.
-P3-037 closure a294c8f passes exact-SHA CI 34225518378, all seven required
-jobs, Product E2E 3 x 281, restart persistence and zero uploaded artifacts.
-Prior local/review/safety gates at f24e67b passed: Backend 671/4 skipped, Frontend 149, production
-build, exclusive Product E2E 3 x 298 including 17 ownership journeys per run,
-restart persistence, 13 native-input checks and four rendered viewports.
-Implementation f24e67b is pushed. Exact-SHA CI 34252242993 fails Product E2E
-at desktop Dashboard heading resume; the other six required jobs pass and
-uploaded artifacts are zero. Replacement exclusive full validation now passes
-3 x 298, all 17 Reader journeys each, restart and zero unexpected errors/external
-requests. Commit the reviewed repair and verify exact-SHA CI. No blind rerun or closure;
-separate docs-only closure CI remains required. Retain the separate unresolved
-Graph incident and continue without repeated user plan confirmation.
-The independently reviewed deferred-heading correction passes focused tests,
-the original CPU4 replay, units/build, native/visual and safety gates. Its
-replacement exclusive full E2E also passes with unchanged bindings and its
-temporary runtime removed. Repair and separate closure CI remain pending.
+Repair 1ab812b7292c21cb8775a8e63b93785cf106cc03 passes exact-SHA main CI
+34261697861, all seven required jobs, 3 x 298 Product E2E checks with all
+17 Reader journeys each, restart PASS and zero unexpected errors/external
+requests or uploaded artifacts. Remote Backend: 667 passed / 8 skipped;
+Frontend build PASS; Docker and release jobs skipped by normal-main policy.
+Current local gates pass: Backend 671/4 skipped, Frontend 149, build, focused
+and original CPU4 replay, exclusive E2E, native/visual checks and safety.
+Independent product and test reviews pass. Prior failed 34252242993 and
+invalidated local runs remain recorded, never waived or relabelled.
+Implementation authority is consumed. Prepare the eight-file docs-only closure,
+independently review the final diff, verify consistency/safety and non-force
+push. Only its own exact-SHA CI PASS permits final closure or next-task
+implementation. Do not add self-hash receipt commits. Historical Graph incident
+remains OPEN / UNRESOLVED, root cause UNKNOWN. No repeated plan confirmation.
 
 No v1.2 candidate is currently staged. Tag, Release, attestation, real
 Provider, source access, external search, and private Zotero actions remain

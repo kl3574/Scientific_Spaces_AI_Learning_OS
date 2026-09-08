@@ -14,21 +14,18 @@ Current milestone:
 P3-038, after P3-037 PASS / CLOSED
 
 Status:
-P3-038 OPEN / REPAIR CI PENDING
+P3-038 OPEN / CLOSURE CI PENDING
 
 Next gate:
-P3-037 closure `a294c8f` passes exact-SHA CI `34225518378`, all seven required
-jobs, Product E2E 3 x 281, restart persistence and zero uploaded artifacts.
-P3-038 prior local/review/safety gates at f24e67b passed: Backend 671/4 skipped, Frontend 149,
-build, exclusive Product E2E 3 x 298 and restart persistence. Implementation
-f24e67b is pushed, but exact-SHA CI 34252242993 fails Product E2E at desktop
-Dashboard heading resume. Six other required jobs pass; uploaded artifacts: 0.
-Replacement exclusive full validation passes 3 x 298, all 17 Reader journeys
-each, restart and zero unexpected errors/external requests. Commit the reviewed
-repair and verify its exact-SHA CI.
-Do not rerun blindly or close the task. Separate closure CI remains required.
-The bounded deferred-heading correction has focused/replay/unit/build/safety
-and review PASS; repair CI and separate closure CI remain pending.
+P3-038 repair `1ab812b` passes exact-SHA CI `34261697861`: all seven required
+jobs, 3 x 298 Product E2E checks, all 17 Reader journeys each, restart PASS,
+zero unexpected errors/external requests and uploaded artifacts. Remote Backend
+667/8 skipped and Frontend build PASS; normal-main Docker/release jobs skipped.
+Current local/review/safety gates also pass. Original failed CI 34252242993 and
+invalidated runs remain historical evidence, not waived acceptance.
+Implementation authority is consumed. Independently review and submit the
+eight-file docs-only closure, then verify its own exact-SHA CI before final
+PASS / CLOSED or next-task implementation. No self-hash receipt-commit loop.
 Historical Graph incident remains OPEN, root cause UNKNOWN.
 No repeated plan confirmation or v1.2 candidate is assigned.
 

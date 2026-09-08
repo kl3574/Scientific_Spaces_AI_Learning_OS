@@ -1,6 +1,6 @@
 # P3-038 Reader Progress Ownership
 
-Status: OPEN / REPAIR CI PENDING
+Status: OPEN / CLOSURE CI PENDING
 
 ## Baseline And Authority
 
@@ -11,6 +11,21 @@ The owner authorizes independent sub-agent review followed by automatic
 platform/GUI improvement, without recurring plan confirmation.
 
 ## Current Gate
+
+Repair 1ab812b7292c21cb8775a8e63b93785cf106cc03 passes exact-SHA main CI
+34261697861: all seven required jobs, 3 x 298 Product E2E checks, all 17
+Reader journeys each, restart persistence and zero unexpected errors, external
+requests or uploaded artifacts. Remote Backend is 667 passed / 8 skipped;
+Frontend build passes. Normal-main Docker/release jobs are skipped. Current
+local corrected-build, safety and two independent review gates also pass.
+
+Implementation authority is consumed. The active gate is a separate docs-only
+closure commit, its independent final diff/consistency/safety review, non-force
+push and its own exact-SHA CI. Only terminal success and clean synchronized
+main permit final PASS / CLOSED. Until then this is a closure candidate, not
+a completed task. No self-hash receipt-commit loop or next implementation.
+
+## Historical Repair Gate
 
 Implementation f24e67beae880fccefdd398175b9bdf0862b3046 is pushed. Exact-SHA
 main CI 34252242993 fails Product E2E at desktop Dashboard heading resume;
@@ -63,7 +78,26 @@ Normal body reading must continue to advance and retreat accurately.
 8. Preserve native href/hash/query/history, Graph and focused-session origin,
    focus lifecycle, API requests, source content and Backend learning state.
 
-## Allowed Changes
+## Active Closure Scope
+
+Only these eight existing documentation files may change:
+
+- README.md
+- alignment.md
+- docs/00_PROJECT_STATE.md
+- docs/tasks/CURRENT_TASK.md
+- roadmap.md
+- docs/V1_2_ROADMAP.md
+- this task
+- docs/P3_038_READER_PROGRESS_OWNERSHIP_REPORT.md
+
+No product, tests, P3-037, workflow, dependency, source or runtime changes.
+The implementation allowlist below is historical, not active authorization.
+Keep every acceptance condition and original failed/invalidated run. The
+historical Graph visibility incident remains OPEN / UNRESOLVED, root cause
+UNKNOWN. Formal v1.1.0; candidate none.
+
+## Historical Implementation Allowlist
 
 - frontend/src/components/ArticleDetailView.tsx
 - frontend/src/lib/articleWorkspace.ts, bounded progress-ownership helpers only

@@ -1,6 +1,40 @@
 # P3-038 Reader Progress Ownership Alignment
 
 Canonical: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`.
+Status: OPEN / CLOSURE CI PENDING.
+
+Repair 1ab812b7292c21cb8775a8e63b93785cf106cc03 is pushed and passes exact-SHA
+main CI 34261697861: all seven required jobs, Product E2E 3 x 298 checks,
+all 17 Reader ownership journeys each, restart persistence and zero unexpected
+errors, external requests or uploaded artifacts. Remote Backend is 667 passed /
+8 skipped; local Backend is 671 passed / 4 skipped. The report records both.
+The original failed f24e67b CI remains failed, not waived or overwritten.
+
+Implementation authority is consumed. Active changes are docs-only, limited
+to these eight existing files: README.md, alignment.md, docs/00_PROJECT_STATE.md,
+docs/tasks/CURRENT_TASK.md, roadmap.md, docs/V1_2_ROADMAP.md,
+docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md and
+docs/P3_038_READER_PROGRESS_OWNERSHIP_REPORT.md. No product, tests, P3-037,
+Backend/M1/API/schema, data, provider, dependency or workflow changes.
+
+After independent final diff review, documentation consistency and safety
+checks, commit `docs: close P3-038 reader progress ownership`, non-force push
+main and verify that documentation commit's own exact-SHA CI. Only terminal
+success of all seven required jobs and clean synchronized main permit final
+PASS / CLOSED. At commit time this remains a closure candidate, not CI PASS.
+Do not create self-hash receipt commits; record the actual closure SHA/run in
+final delivery and a later genuine task's evidence. A failed required gate
+returns to diagnosis, never a blind rerun or assertion waiver.
+
+Historical Graph visibility incident remains OPEN / UNRESOLVED, root cause
+UNKNOWN. No next-task implementation, source/private/paid access, artifact,
+candidate, tag, Release, destructive Git or recurring plan confirmation.
+Formal version v1.1.0; candidate none. Preserve user work and stop the affected
+action on unknown drift, forbidden artifacts/secrets or necessary scope change.
+
+## Historical P3-038 Repair Alignment
+
+Canonical: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`.
 Status: OPEN / REPAIR CI PENDING.
 
 Implementation f24e67beae880fccefdd398175b9bdf0862b3046 is the pushed baseline;

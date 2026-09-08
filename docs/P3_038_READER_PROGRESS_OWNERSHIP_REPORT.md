@@ -1,10 +1,10 @@
 # P3-038 Reader Progress Ownership Report
 
-Status: OPEN / REPAIR CI PENDING
+Status: OPEN / CLOSURE CI PENDING
 Baseline: a294c8fd36beee1b79673f05150310156d0d7f7f.
 P3-037 closure CI 34225518378 is terminal PASS. This task is independent.
 
-Current evidence is the final section, Replacement Full Acceptance.
+Current evidence is the final section, Repair CI And Documentation Closure Gate.
 Earlier pending/pass paragraphs are historical local snapshots,
 not a claim that the failed implementation CI or task closure has passed.
 
@@ -614,3 +614,77 @@ docs-only closure and verify that commit's own CI. Original CI 34252242993
 remains failed; no run is relabelled or acceptance waived. Historical Graph
 incident remains OPEN / UNRESOLVED, root cause UNKNOWN. Formal v1.1.0,
 candidate none; no source, private Zotero, real Provider, tag or Release action.
+
+## Repair CI And Documentation Closure Gate
+
+Observed 2026-09-09, Asia/Shanghai. Repair
+`1ab812b7292c21cb8775a8e63b93785cf106cc03` is pushed and passes exact-SHA
+main push CI
+[34261697861](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34261697861).
+The run identity is `headBranch=main`, `event=push`, and `headSha` exactly the
+repair commit above. Run status is `completed`, conclusion `success`, created
+2026-09-08T18:12:54Z and last updated 2026-09-08T18:56:12Z. The latter is the
+run's `updatedAt`, not an independently supplied completion timestamp.
+
+| Required job | Job ID | Result | Completed at (UTC) |
+| --- | --- | --- | --- |
+| Backend pytest | 102180977554 | PASS | 2026-09-08T18:14:45Z |
+| Frontend build | 102180977230 | PASS | 2026-09-08T18:13:41Z |
+| Product E2E | 102180977030 | PASS | 2026-09-08T18:56:11Z |
+| Workflow policy | 102180977331 | PASS | 2026-09-08T18:13:01Z |
+| Dependency audit | 102180977358 | PASS | 2026-09-08T18:13:12Z |
+| Secret audit | 102180977327 | PASS | 2026-09-08T18:13:05Z |
+| SBOM validation | 102180977417 | PASS | 2026-09-08T18:13:09Z |
+
+Docker compose smoke 102180978688 and Release evidence dry-run 102195377974
+are skipped by normal-main policy; neither is claimed as executed PASS.
+The completed-run artifacts API returns `total_count=0` and an empty list.
+
+The actual remote job output, parsed independently of local evidence, records:
+
+- Backend: 667 passed, 8 skipped, 4 warnings in 94.81s. Local corrected-build
+  evidence is separately 671 passed / 4 skipped; counts are not interchanged.
+- Product E2E: 3/3 complete repeats, 298/298 true checks each and no false
+  check. All 17 Reader ownership journeys pass in every repeat, including
+  desktop/mobile body, initial clamping, protected entry, route exit, fresh
+  tools, saved hashes, short Articles and display changes.
+- Restart persistence: bookmark, completed states, ended sessions and note
+  all true; status PASS. The implementation retains the exact-25-ended-session
+  gate and every pre-existing assertion; none is waived by this document.
+- Browser: Chromium 149.0.7827.55. Per-repeat external requests, unexpected
+  console errors and page errors are zero; Next static chunk cancellations
+  are zero. Expected framework-prefetch cancellations total 1348, route
+  transition cancellations 154 and declared-read cancellations 12. The
+  existing strict cancellation policy is unchanged; these are not zero.
+- Bound transition requests: 175; transition expectations: 735; successful
+  no-content responses: 30. Declared-cancelled routes, superseded successful
+  reads and complete-precursor snapshots are zero.
+
+Before closure edits, HEAD, cached origin/main and live remote main all equal
+the repair SHA with a clean index/worktree and no untracked files. Live tag
+readback preserves v1.0.0 object ffe9e5e282962a7619fd55fec04c742c93e25f21,
+target 8e1e5bbbdebb8835c7e1b05a42f69093d43ddee6, and v1.1.0 object
+d136eb1de7217a014913f83cf6b08344a5f0d61d, target
+3efbe2a792a9853f1bac456f0287c3b5b62713ce. No tag or Release mutation occurred.
+AGENTS.md, REWORK.md and .audit are absent; no such file is regenerated.
+
+The independent closure-plan and actual eight-document diff reviews report no
+Critical/Important finding. Documentation fences, added links, current status/
+run pointers, whitespace, artifact/protected-path and secret checks PASS.
+No untracked file, forbidden tracked artifact or tracked file over 5 MiB is
+found; the secret audit reports credible=0, reported=0 and suppressed=0.
+Implementation authority is consumed. This closure only changes the eight
+existing documents listed in alignment.md and the canonical task. Recheck the
+staged allowlist and safety before `docs: close P3-038 reader progress ownership`,
+non-force push and this new documentation commit's own exact-SHA CI.
+
+Status remains OPEN / CLOSURE CI PENDING until that separate CI passes all
+seven required jobs and final main is clean and synchronized. Record its real
+SHA/run in final delivery; do not manufacture a self-referential hash or add
+repeated receipt-only commits. A later genuine task may record the closure
+receipt. Any actual required failure returns to diagnosis, not a blind rerun.
+Original CI 34252242993 remains failed and invalidated local runs remain
+invalidated. Historical Graph visibility incident is OPEN / UNRESOLVED, root
+cause UNKNOWN; this Reader PASS does not repair it. No next-task implementation,
+source/private/paid access, canonical data mutation, runtime artifact, candidate,
+tag or Release is part of this closure. Formal version v1.1.0; candidate none.
