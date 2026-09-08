@@ -3,7 +3,7 @@
 Canonical task:
 `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
 
-Status: **IMPLEMENTATION PASS / CLOSURE CI PENDING**
+Status: **REOPENED / GRAPH MAP DIAGNOSIS**
 
 BOUNDED FRONTEND FOCUS OWNERSHIP, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, TWO INDEPENDENT SUB-AGENT REVIEWS, LOCAL
@@ -84,12 +84,39 @@ No v1.2 candidate is assigned.
   `test: complete Shell and reference route evidence`
 - Follow-up P3-036.1 product lifecycle repair commit:
   `fix: preserve reference candidate filter focus`
+- Failure-only Graph evidence commit: `test: capture graph map failure evidence`;
+  not a product repair or closure claim
 - Non-force push to `main`, followed by exact-SHA implementation CI readback
 - Docs-only closure commit: `docs: close P3-036 mutation focus continuity`
 - Non-force push to `main`, followed by exact-SHA closure CI readback
 - Tag and Release operations are not authorized
 
 ## Current Gate
+
+Closure commit `d28fec6e428b6b8e0381d4afb96e988245e25ec8` is pushed, but its
+exact-SHA CI `34196981094` failed Product E2E at line 4305. After selecting an
+Article in the Graph map, details/counts update but the selected Article node
+does not become visible. Other required jobs pass. Fifteen fresh minimal
+CPU1/4/8 browser cases do not reproduce it. Replay the original prelude and
+inspect map layout/lifecycle; do not rerun CI blindly, relax assertions, infer
+a root cause, or start the Tutor follow-on. Section 17 of the report is current.
+
+The original prefix through line 4309 and two 12-case measurement-order probes
+also pass locally without reproducing the CI failure. The bounded next action
+is a reviewed evidence-only snapshot on failure of the original Graph
+assertion in the already-allowed E2E runner. Preserve its timeout, exception,
+admission rules and normal path. Capture counts/geometry/visibility only;
+no DOM body, labels, inputs, headers, URL/query, screenshot or trace. Validate
+diagnostic success/failure handling before publishing an exact-SHA evidence
+run. This does not waive any full implementation or closure gate.
+
+The sole additional test path is
+`backend/tests/test_e2e_graph_failure_diagnostics.py`, so the existing pytest
+collection runs the diagnostic regression without configuration changes.
+This explicit, reviewed test-only exception does not authorize Backend
+application, persistence, API or data changes. Other allowlist boundaries stand.
+
+Historical implementation gate:
 
 Implementation repair `472350ede8bc20651928ebbc5d88abb206ee6b47` is pushed.
 Exact-SHA CI `34194053415` completed SUCCESS: Backend, Frontend, dependency,

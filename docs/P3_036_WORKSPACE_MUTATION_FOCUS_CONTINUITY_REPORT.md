@@ -6,14 +6,14 @@
 - Current repair local gates: **PASS**, including 3 x 243 Product E2E checks
 - Current repair independent final review: **PASS**, two final and one supplementary review
 - Latest exact-SHA repair main CI: **PASS**, run `34194053415`
-- Task closure: **CLOSURE CI PENDING**
-- Docs-only closure commit and its own exact-SHA CI: **PENDING**
+- Task closure: **REOPENED / GRAPH MAP DIAGNOSIS**
+- Docs-only closure commit `d28fec6` CI: **FAIL**, run `34196981094`
 - Candidate version: not assigned
 
 Sections 2-15 preserve the chronological implementation, failure and repair
-evidence. Section 16 records the current successful implementation CI. Earlier
-closure/failure snapshots are not current status. The separate docs-only
-closure commit must pass its own exact-SHA CI before final closure reporting.
+evidence. Section 16 records the successful implementation CI. Section 17 is
+current: the later docs-only closure CI failed. Earlier closure/failure
+snapshots do not override it. No later product task has started.
 
 ## 2. Entry Evidence
 
@@ -938,3 +938,153 @@ Status is deliberately CLOSURE CI PENDING until its terminal success is read
 back. The user-authorized autonomous workflow requires no repeated plan
 confirmation. Only then stage the independently reviewed Tutor citation task;
 its live-tab scope, prototype evidence and limitations are recorded above.
+
+## 17. Closure CI Graph Map Failure
+
+Docs-only commit `d28fec6e428b6b8e0381d4afb96e988245e25ec8` was independently
+reviewed, committed and non-force pushed. Local HEAD, cached origin/main and
+remote main agreed; worktree was clean. Its diff from `472350e` contains only
+nine Markdown files. Product, Backend, runner, dependency and workflow blobs
+are unchanged. Secret/workflow/suppression and artifact checks pass.
+
+Exact-SHA run
+[`34196981094`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34196981094)
+completed with failure. Product E2E job `101966789398` fails the original
+selected-Article visibility assertion at `run_product_e2e.py:4305`, after
+keyboard selection of an Article node in the Attention concept map. The URL
+and details change; the accessibility snapshot reports 7 nodes / 6
+relationships and the selected Article details ready, but the map exposes
+only images, minimap and controls, not node buttons. Backend, Frontend,
+dependency, workflow, secret and SBOM jobs pass. Normal-main Docker/release
+jobs are skipped. This is a terminal workflow failure, not an observer timeout.
+
+The failure precedes the final request audit. No complete three-run PASS,
+restart-persistence PASS or clean final HTTP audit is inferred from this run.
+The prior successful implementation CI remains evidence for its exact run,
+not proof that this intermittent Graph failure is harmless or resolved.
+
+An isolated local replay preserves the relevant public interactions: load the
+Attention concept, open Knowledge context, focus a graph edge, open/close
+global Search with the keyboard, and select an Article with Enter. Fifteen
+fresh Chromium contexts, five each at CPU1/4/8, all render the selected Article
+within the unchanged 30-second assertion. External requests, console and page
+errors are zero. These minimal cases do not reproduce the CI failure and do
+not replace the complete gate. Temporary fixture runtime and servers are
+removed; no screenshot, HTML or raw diagnostic artifact is persisted.
+
+Next diagnosis replays the original E2E prelude through the exact failing
+assertion and captures bounded node/container geometry and visibility on
+failure. An independent read-only review examines the React Flow/map lifecycle.
+No root cause, product repair, assertion change or workflow rerun is claimed.
+P3-036 remains open; P3-036.1 implementation passed but its parent closure is
+blocked. The reviewed Tutor citation task remains unstaged.
+
+### Original Prelude And Measurement-order Probes
+
+The next local diagnostic parsed the runner with Python AST and retained every
+original statement through `_complete_expected_route_transition(page,
+graph_article_selection)` at line 4309. That prefix PASS includes the failing
+30-second selected-Article assertion and route settlement. Node wrappers have
+positive dimensions and visible styles. It does not execute later assertions,
+the final audit or restart persistence, and is not a full-suite PASS.
+
+Independent source review identifies that fresh callback identities rebuild
+controlled React Flow node objects without measured dimensions. Installed
+`@xyflow/system` discards previous measurements for those new objects; an
+ordinary re-observation can recover them. This is not yet the proven cause of
+the CI failure. Each remounted React Flow has an isolated internal provider,
+so an old instance clearing the new store is not supported without additional
+store-identity evidence. ARIA absence alone cannot distinguish hidden nodes
+from missing nodes.
+
+Two further diagnostic matrices each pass 12/12: CPU1/4/8, with the pending
+Article detail response released before, after, in a microtask, or in the next
+animation frame relative to the first new map-node ResizeObserver callback.
+The first matrix gates fetch completion, the second gates already parsed JSON.
+Response payloads are unchanged. Every case receives another seven-node
+measurement delivery and displays the selected Article. These negative
+replays do not establish root-cause resolution. All external requests and
+unexpected console/page errors are zero; temporary runtime and servers are
+removed.
+
+The next bounded action is evidence-only failure capture at the original
+Graph assertion: geometry/visibility/count metadata, no HTML, labels, body,
+input, headers, query, screenshot or trace. Capture must never replace the
+original exception or turn a failure into PASS. Independent review and
+targeted positive/negative diagnostic tests precede publication. A resulting
+exact-SHA run gathers missing CI evidence; no blind rerun, speculative Graph
+implementation change or closure claim is authorized by these results.
+
+## 18. Failure-only Graph Diagnostic
+
+The reviewed change wraps only the existing selected-Article visibility
+assertion. Its locator, 30-second timeout, following route settlement and all
+success-path statements remain unchanged. After an `AssertionError`, one
+synchronous DOM evaluation adds a bounded diagnostic note and rethrows the
+same exception. Capture, serialization, helper and annotation failures cannot
+replace that original assertion. This is evidence infrastructure, not a Graph
+product fix; P3-036 remains REOPENED / GRAPH MAP DIAGNOSIS.
+
+The note contains finite numeric geometry, fixed visibility/display/type
+enums, rendered `aria-pressed` selection booleans, handle counts, model counts
+and at most 25 node samples. It omits labels, Article content, node IDs,
+HTML, input values, headers, URLs/query strings, screenshots and traces.
+Unknown error classes are reduced to `Exception`; capture exception messages
+are not serialized. The original assertion traceback is unchanged and is
+not claimed to be content-free. Post-failure layout reads cannot reconstruct
+the preceding render interleaving; synchronous evaluation has no separate
+hard wall-clock deadline.
+
+The sole additional test file is
+`backend/tests/test_e2e_graph_failure_diagnostics.py`, explicitly added to the
+canonical allowlist. It uses the production assertion's AST, not a separately
+written imitation. Existing pytest collection covers it without configuration
+or workflow changes. Backend application, Frontend, frozen M1, APIs, data,
+dependencies and lockfiles are unchanged by this diagnostic patch.
+
+### Local Validation
+
+- Runner blob: `2e05ec856b7c1863e633427ba0d969cab4bf1d7d`.
+- Diagnostic test blob: `ca4add37633c0db2d4dc3461afe99f87c9b801ab`.
+- Diagnostic contracts: 29 PASS, including original exception identity,
+  existing notes, success-path silence, non-Assertion errors, failed capture,
+  non-finite JSON, persistent serializer failure, unknown/long exception
+  classes, failing helper and failing annotation.
+- Fresh final Backend command:
+  `uv run --offline --project backend --extra dev pytest -q`:
+  **629 passed, 4 skipped, 4 warnings in 36.51s**. The warnings concern two
+  pre-existing invalid escape sequences in the runner, surfaced by its new
+  AST/runpy tests; no unrelated escape cleanup is included.
+- Fresh Frontend suites: Articles 67, References 23, Tutor 22, Graph 29,
+  **141 PASS** total.
+- Fresh `npm run build`: PASS, Next.js 15.5.21, 11 generated routes.
+- Removing only the new helper and unwrapping only the failure-note try block
+  yields an AST identical to the HEAD runner, ignoring source positions.
+- `_verify_http_error_evidence_contract()`: PASS, unchanged admission rules.
+- Workflow policy: PASS, 19 pinned actions, full permission coverage.
+- Suppression validation: PASS, zero dependency/secret suppressions.
+- Secret audit: PASS, zero credible/reported/suppressed findings.
+- Protected implementation paths: unchanged. Runtime artifact path scan finds
+  only the unchanged, tracked `.env.example` template; no runtime/private
+  artifact is added. Final staged checks remain required before publication.
+
+Prior browser validation of the same DOM projection used isolated temporary
+fake runtime and Chromium 149.0.7827.55. Healthy three-node geometry and rendered
+selection were correct; a hidden wrapper remained distinguishable from zero
+geometry; 31 synthetic nodes produced exactly 25 samples and a truncation flag.
+Injected sensitive sentinel values did not enter the note. External requests,
+console and page errors were zero, and temporary servers/data were removed.
+Static schema tests do not substitute for this browser evidence.
+
+An additional negative replay used real Graph search typing without submitting,
+at CPU1/4/8 with three batches of 155 keystrokes each. All nine batches retained
+the selected Article. No ResizeObserver/fetch interception was used in that
+probe. Like the original prefix and measurement-order probes, this does not
+reproduce or resolve the CI failure.
+
+Independent final code review approves the exact runner and test blobs with
+no remaining Critical/Important finding. Review did not independently rerun
+the reported browser results. Publication requires final staged secret/artifact
+and diff checks, then a non-force push and
+exact-SHA CI readback. No new complete local three-run Product E2E, root-cause
+repair, closure PASS or next-task implementation is claimed by this section.

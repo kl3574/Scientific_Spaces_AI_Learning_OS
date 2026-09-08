@@ -12,8 +12,13 @@ Exact-SHA CI `34194053415` completed SUCCESS: all seven required jobs PASS,
 including three ordinary Product E2E runs with 243 checks each and restart
 persistence. External requests, unexpected console/page errors and uploaded
 artifacts: 0. Docker/release jobs are skipped by normal-main policy.
-Current action: docs-only closure commit and its exact-SHA CI. Both tasks stay
-in CLOSURE CI PENDING until that run passes. No new plan confirmation is needed.
+Closure `d28fec6` is pushed. Its exact-SHA CI `34196981094` failed Product E2E
+at the Graph map selected-Article assertion, line 4305. Other required jobs
+pass. Current action: publish the independently reviewed, failure-only Graph
+geometry diagnostic and inspect its exact-SHA CI. Local negative replays do
+not prove the Graph issue repaired. The diagnostic preserves the original
+assertion and exception; section 18 records its separate tests. No blind CI
+rerun or assertion relaxation. No new plan confirmation is needed.
 
 The next independent GUI candidate is Tutor citation continuity. A fresh
 fake-runtime browser diagnostic reproduces lost answer/quiz/context state on
@@ -84,8 +89,8 @@ create its separate canonical task after P3-036 closure CI passes.
 - P3-033: PASS / CLOSED
 - P3-034: PASS / CLOSED
 - P3-035: PASS / CLOSED
-- P3-036: IMPLEMENTATION PASS / CLOSURE CI PENDING
-- P3-036.1: IMPLEMENTATION PASS / CLOSURE CI PENDING
+- P3-036: REOPENED / GRAPH MAP DIAGNOSIS
+- P3-036.1: IMPLEMENTATION PASS / PARENT CLOSURE BLOCKED
 
 ## Authorization
 
@@ -251,12 +256,12 @@ create its separate canonical task after P3-036 closure CI passes.
 
 ## Next Gate
 
-Complete the current Shell/Reference/Reader route-evidence repair, including
-the strict Reader-to-Graph query-order certificate. The earlier Tutor repair's
-local success is historical and its CI exposed these later omissions. Require
-fresh three-run Product E2E, final independent reviews, and exact-SHA repair CI;
-only then create and verify the docs-only closure commit. No later task or
-v1.2 candidate is staged.
+Read back exact-SHA CI for the failure-only Graph diagnostic. If the selected
+Article assertion fails again, use the added bounded geometry to distinguish
+hidden, unmeasured, off-canvas and absent nodes before proposing a product
+repair. A successful run is non-reproduction, not a Graph root-cause fix or
+automatic closure. Parent P3-036 remains reopened; no later task or v1.2
+candidate is staged.
 
 ## P3-033 Local Evidence
 

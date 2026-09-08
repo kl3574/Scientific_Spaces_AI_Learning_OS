@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED; P3-036 implementation is PASS and docs-only closure CI is pending; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED; P3-036 is REOPENED / GRAPH MAP DIAGNOSIS after docs-only closure CI failed; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -996,7 +996,13 @@ with every required job passing and zero uploaded artifacts.
 
 ### P3-036 - Workspace Mutation Focus Continuity
 
-Status: **IMPLEMENTATION PASS / CLOSURE CI PENDING**.
+Status: **REOPENED / GRAPH MAP DIAGNOSIS**.
+
+Docs-only closure `d28fec6` failed exact-SHA run `34196981094` at the Graph
+map selected-Article visibility assertion. Other required jobs pass. Fifteen
+short CPU1/4/8 browser replays do not reproduce it; the original-prelude
+diagnostic and independent lifecycle review are next. No root cause or fix is
+claimed. Section 17 of the task report supersedes the snapshot below.
 
 Latest repair `472350ede8bc20651928ebbc5d88abb206ee6b47` passes exact-SHA
 main CI
@@ -1068,7 +1074,8 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-Verify P3-036's separate docs-only closure CI. Then stage the independently
+Diagnose P3-036's Graph map closure failure and verify the required repair and
+closure gates. Then stage the independently
 reviewed Tutor citation continuity task: source inspection should preserve the
 live Tutor answer/Quiz/context. Four current-tab cases lose that work; four
 temporary separate-tab prototypes preserve it. This is not yet a product fix

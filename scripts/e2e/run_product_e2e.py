@@ -4302,9 +4302,17 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
     graph_article_node.press("Enter")
     page.wait_for_function("() => new URL(location.href).searchParams.get('node_id')?.startsWith('article:')")
     _require_visible_focus(concept_context_region, "desktop Context region after map selection")
-    expect(page.get_by_role("button", name=re.compile(r"^Selected Article: ")).first).to_be_visible(
-        timeout=30_000
-    )
+    try:
+        expect(page.get_by_role("button", name=re.compile(r"^Selected Article: ")).first).to_be_visible(
+            timeout=30_000
+        )
+    except AssertionError as error:
+        try:
+            error.add_note(_graph_map_failure_note(page))
+        except Exception:
+            # Diagnostic failure must not replace the original assertion.
+            pass
+        raise
     _wait_for_page_requests_to_settle(page, console_errors)
     _complete_expected_route_transition(page, graph_article_selection)
     expect(
@@ -9615,6 +9623,79 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console_error_count": len(unexpected_console_errors),
         "page_error_count": len(page_errors),
     }
+
+
+def _graph_map_failure_note(page) -> str:
+    """Collect bounded geometry after failure without hiding the assertion."""
+    prefix = "Graph map post-assertion-failure geometry: "
+    try:
+        snapshot = page.evaluate(
+            """
+            () => {
+              const number = value => Number.isFinite(value) ? value : null;
+              const geometry = element => {
+                if (!element) return null;
+                const rect = element.getBoundingClientRect();
+                const style = getComputedStyle(element);
+                let transform = null;
+                try {
+                  const matrix = style.transform === 'none'
+                    ? new DOMMatrixReadOnly() : new DOMMatrixReadOnly(style.transform);
+                  transform = Array.from(matrix.toFloat64Array(), number);
+                } catch {}
+                return {
+                  x: number(rect.x), y: number(rect.y),
+                  width: number(rect.width), height: number(rect.height),
+                  display: ['none', 'block', 'inline', 'inline-block', 'flex', 'grid', 'contents']
+                    .includes(style.display) ? style.display : 'other',
+                  visibility: ['visible', 'hidden', 'collapse'].includes(style.visibility)
+                    ? style.visibility : 'other',
+                  transform,
+                };
+              };
+              const root = document.querySelector('[data-testid="graph-visualization"]');
+              const nodes = root ? Array.from(root.querySelectorAll('.react-flow__node')) : [];
+              const counts = root?.querySelector('[data-testid="graph-map-counts"]')
+                ?.textContent?.trim().match(/^(\\d+) nodes.*?(\\d+) relationships$/);
+              const sample = nodes.slice(0, 25).map(node => {
+                const type = node.querySelector('[data-node-type]')?.getAttribute('data-node-type');
+                const button = node.querySelector('button');
+                return {
+                  type: ['article', 'section', 'concept', 'formula', 'zotero_item']
+                    .includes(type) ? type : 'other',
+                  selected: button?.getAttribute('aria-pressed') === 'true',
+                  wrapper: geometry(node),
+                  button: geometry(button),
+                  handle_count: node.querySelectorAll('.react-flow__handle').length,
+                };
+              });
+              return {
+                document_visibility: ['visible', 'hidden'].includes(document.visibilityState)
+                  ? document.visibilityState : 'other',
+                viewport: {width: number(innerWidth), height: number(innerHeight)},
+                scroll: {x: number(scrollX), y: number(scrollY)},
+                map_present: root !== null,
+                model_node_count: counts ? number(Number(counts[1])) : null,
+                model_edge_count: counts ? number(Number(counts[2])) : null,
+                canvas: geometry(root?.querySelector('.knowledge-graph-canvas')),
+                flow_viewport: geometry(root?.querySelector('.react-flow__viewport')),
+                node_wrapper_total: nodes.length,
+                node_sample_count: sample.length,
+                node_sample_truncated: nodes.length > sample.length,
+                nodes: sample,
+              };
+            }
+            """
+        )
+        return prefix + json.dumps(snapshot, allow_nan=False, sort_keys=True)
+    except Exception as error:
+        error_type = type(error).__name__
+        if error_type not in {
+            "Error", "TimeoutError", "RuntimeError", "ValueError", "TypeError",
+            "OverflowError", "RecursionError", "MemoryError",
+        }:
+            error_type = "Exception"
+        return prefix + '{"capture_error_type": "' + error_type + '"}'
 
 
 def _verify_reference_candidate_focus_lifecycle(

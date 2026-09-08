@@ -2,7 +2,13 @@
 
 ## Status
 
-IMPLEMENTATION PASS / CLOSURE CI PENDING
+REOPENED / GRAPH MAP DIAGNOSIS
+
+Closure `d28fec6` failed exact-SHA CI `34196981094`: Product E2E line 4305
+cannot find a visible selected Article node after a Graph map selection,
+despite updated details and counts. Other required jobs pass. Section 17 of
+the evidence report supersedes the closure-pending snapshot below. Diagnose
+before changing implementation or test admission; Tutor follow-on stays unstaged.
 
 Latest implementation: `472350ede8bc20651928ebbc5d88abb206ee6b47`.
 Exact-SHA CI `34194053415`: SUCCESS, all required jobs PASS, ordinary Product
@@ -114,13 +120,17 @@ API, data or other Reference/Shell behavior.
 - `frontend/src/components/TutorView.tsx`
 - focused pure Frontend tests if a reusable state helper becomes necessary
 - `scripts/e2e/run_product_e2e.py`
+- `backend/tests/test_e2e_graph_failure_diagnostics.py`, solely for the
+  independently reviewed failure-note regression tests; no Backend product,
+  fixture corpus, pytest configuration or workflow change
 - this canonical task, `alignment.md`, `docs/tasks/CURRENT_TASK.md`,
   `docs/00_PROJECT_STATE.md`, `roadmap.md`, `docs/V1_2_ROADMAP.md`, `README.md`,
   and the P3-036 evidence report
 
 ## Prohibited Actions
 
-- Any `backend/**`, API, persistence, storage, frozen M1, source/Article record,
+- Any Backend application change (the one diagnostic test above is the only
+  `backend/**` exception), API, persistence, storage, frozen M1, source/Article record,
   corpus, Graph/Reference data, matching, provider, or derived-asset change
 - Any dependency, lockfile, framework configuration, workflow, release/version,
   candidate, tag, Release, or attestation change

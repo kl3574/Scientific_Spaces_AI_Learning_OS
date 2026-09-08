@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-036 implementation PASS; closure CI pending`
+- Status: `P3-036 reopened; Graph map rendering diagnosis`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-036.1 exact-SHA implementation CI PASS`
-- Current task: `P3-036 docs-only closure CI`
+- Latest gate: `P3-036 closure CI failed at Graph map selection`
+- Current task: `P3-036 Graph map rendering diagnosis`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -62,8 +62,8 @@ P3-034 canonical task: `docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUI
 P3-034 evidence: `docs/P3_034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY_REPORT.md` (local gates and exact-SHA implementation CI PASS).
 P3-035 canonical task: `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md` (PASS / CLOSED).
 P3-035 evidence: `docs/P3_035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY_REPORT.md` (responsive repair, local gates, and exact-SHA implementation CI PASS).
-P3-036 canonical task: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md` (implementation PASS; closure CI pending).
-P3-036 evidence: `docs/P3_036_WORKSPACE_MUTATION_FOCUS_CONTINUITY_REPORT.md` (local 3 x 243 checks and exact-SHA implementation CI PASS).
+P3-036 canonical task: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md` (reopened after closure CI failure).
+P3-036 evidence: `docs/P3_036_WORKSPACE_MUTATION_FOCUS_CONTINUITY_REPORT.md` (prior implementation CI PASS; closure failure and failure-only diagnostic evidence in sections 17-18).
 
 v1.2 planning specifications:
 
