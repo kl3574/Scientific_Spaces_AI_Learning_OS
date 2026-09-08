@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED; P3-036 is REOPENED / GRAPH MAP DIAGNOSIS after docs-only closure CI failed; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-035 are PASS / CLOSED; P3-036 is OPEN / CLOSURE CI PENDING with current complete gates passing and the historical Graph incident retained OPEN; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -996,7 +996,15 @@ with every required job passing and zero uploaded artifacts.
 
 ### P3-036 - Workspace Mutation Focus Continuity
 
-Status: **REOPENED / GRAPH MAP DIAGNOSIS**.
+Status: **OPEN / CLOSURE CI PENDING**.
+
+Current `e2ec5e8` passes complete local and exact-SHA CI `34201705175` gates:
+3 x 243 Product E2E checks locally and remotely, restart persistence, Backend
+629/4 skipped, focused Frontend 141, build and all safety jobs. Two independent
+reviews support preparing a docs-only closure candidate under unchanged
+acceptance; its own CI must pass before closure or the Tutor follow-on.
+The historical Graph rendering incident remains OPEN / UNRESOLVED, not a
+claimed repair. Report sections 19-20 supersede the snapshots below.
 
 Docs-only closure `d28fec6` failed exact-SHA run `34196981094` at the Graph
 map selected-Article visibility assertion. Other required jobs pass. Fifteen
@@ -1057,6 +1065,10 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Risks
 
+- Historical intermittent Graph selected-Article visibility failure remains OPEN,
+  root cause UNKNOWN. Preserve the failing checkpoint and failure-only diagnostic;
+  any recurrence stops its required gate. Current complete PASS is non-reproduction,
+  not proof of a fix. Owner: platform/GUI maintenance, report section 20.
 - Reference syntax is heterogeneous and may produce false matches without section-level evidence and conservative normalization.
 - DOI/arXiv normalization can merge distinct versions if identity rules are too aggressive.
 - Zotero metadata varies by item type and local library quality.
@@ -1074,8 +1086,8 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-Diagnose P3-036's Graph map closure failure and verify the required repair and
-closure gates. Then stage the independently
+Verify P3-036's reviewed docs-only closure candidate's exact-SHA CI. Retain the
+open Graph incident without claiming a root-cause fix. Then stage the independently
 reviewed Tutor citation continuity task: source inspection should preserve the
 live Tutor answer/Quiz/context. Four current-tab cases lose that work; four
 temporary separate-tab prototypes preserve it. This is not yet a product fix

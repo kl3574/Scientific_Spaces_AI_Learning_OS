@@ -5,15 +5,17 @@
 - Product implementation: **PASS**, latest repair `472350e`
 - Current repair local gates: **PASS**, including 3 x 243 Product E2E checks
 - Current repair independent final review: **PASS**, two final and one supplementary review
-- Latest exact-SHA repair main CI: **PASS**, run `34194053415`
-- Task closure: **REOPENED / GRAPH MAP DIAGNOSIS**
+- Latest cumulative exact-SHA main CI: **PASS**, `e2ec5e8`, run `34201705175`
+- Task closure: **OPEN / CLOSURE CI PENDING**
 - Docs-only closure commit `d28fec6` CI: **FAIL**, run `34196981094`
+- Historical Graph rendering incident: **OPEN / UNRESOLVED**, root cause unknown
 - Candidate version: not assigned
 
 Sections 2-15 preserve the chronological implementation, failure and repair
-evidence. Section 16 records the successful implementation CI. Section 17 is
-current: the later docs-only closure CI failed. Earlier closure/failure
-snapshots do not override it. No later product task has started.
+evidence. Sections 16-18 record implementation CI, the later closure failure
+and failure-only diagnostic. Sections 19-20 are current: complete replacement
+gates pass, and the independently reviewed closure candidate requires its own
+CI. Earlier failures remain failures. No later product task has started.
 
 ## 2. Entry Evidence
 
@@ -1088,3 +1090,113 @@ the reported browser results. Publication requires final staged secret/artifact
 and diff checks, then a non-force push and
 exact-SHA CI readback. No new complete local three-run Product E2E, root-cause
 repair, closure PASS or next-task implementation is claimed by this section.
+
+## 19. Complete Diagnostic Commit Evidence
+
+Commit `e2ec5e8f2b7682303bd1ca9f3e5ded94f3d8966b`
+(`test: capture graph map failure evidence`) was committed and non-force
+pushed after independent code/documentation review and staged safety checks.
+It changes nine Markdown files, the one failure-note wrapper/helper and its
+29 offline regression contracts. No Frontend or Backend application code,
+dependency, workflow, provider, storage or frozen M1 implementation changes.
+
+The exact committed runner then completed a fresh local invocation equivalent
+to `uv run --offline --project backend python scripts/e2e/run_product_e2e.py
+--repeat 3`, with production Next.js startup. Only final JSON presentation was
+summarized in memory; the runner, assertions and audits were unmodified:
+
+- Chromium 149.0.7827.55; 3/3 complete runs, 243 checks each, all true.
+- External requests, unexpected console errors and page errors: 0 per run.
+- Article static-chunk cancellations: 0. Declared route/prefetch cancellations
+  remain subject to the unchanged strict ledger, not treated as raw errors.
+- Restart persistence: bookmark, completed states, ended sessions and note PASS.
+- Temporary runtime and owned servers removed; no result file persisted.
+
+Exact-SHA main CI
+[`34201705175`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34201705175)
+completed with `success`. Readback confirmed the exact commit above. Backend,
+Frontend, Product E2E, workflow policy, dependency audit, secret audit and SBOM
+validation all PASS. Normal-main Docker compose and release-evidence jobs are
+skipped as designed; this is not new Docker/release evidence.
+
+Product E2E job `101981756711` JSON was parsed from completed logs in memory:
+3/3 ordinary runs, 243 checks each, restart persistence PASS, zero external
+requests or unexpected console/page errors. The artifact API reports
+`total_count=0`. Live remote main and local HEAD agreed; worktree was clean.
+Two observer invocations encountered TLS/EOF read failures; reading the same
+run confirmed it remained active. No workflow restart was used to obtain PASS.
+
+### Zero-layout Recovery A/B
+
+A separate bounded experiment compared normal Article-map mounting with
+short-lived zero layout, at CPU1/4/8. Both arms used the same observer/style
+metadata instrumentation and original public map-selection interaction. Only
+the treatment added a temporary browser-memory CSS rule hiding the newly
+selected Article canvas. It confirmed seven wrappers and zero renderer
+offsets, retained zero layout for two animation frames, then removed the rule
+before the original 30-second visibility assertion. No response, payload,
+viewport or product-source change was made.
+
+All six cases PASS. Each treatment records nine zero-size observer entries
+followed by nine positive entries for the current map generation; all seven
+wrappers become visible with one selected Article. No event-cap truncation,
+external requests or unexpected console/page errors occurred. Temporary
+runtime, styles and servers were removed. This is bounded recovery evidence
+under instrumentation, not an exact historical prelude replay or proof of the
+old CI interleaving. Zero-layout initialization alone is insufficient to
+reproduce the incident in these exercised sequences.
+
+## 20. Reviewed Closure Candidate And Open Incident
+
+Two independent read-only reviewers separately examined the unchanged
+canonical acceptance and the diagnostic implementation/test boundaries.
+Both support preparing a focused docs-only closure candidate; neither calls
+the Graph incident repaired. Their code/spec checks were independent; latest
+runtime outcomes were supplied evidence, not independently rerun by reviewers.
+The parent runner performed and read back those executions as recorded above.
+
+Canonical PASS items 8-9 still require all complete local, review and safety
+gates, plus the closure commit's own exact-SHA CI and a clean synchronized
+branch. The historical failure followed the explicit context-visible-focus
+check; it failed selected-node visibility, not that focus-owner check. No
+known required focus-owner defect is deferred by this disposition. All
+original visibility/focus assertions and HTTP/error admission remain binding.
+This decision does not alter acceptance or introduce conditional closure.
+
+Prepare `docs: close P3-036 mutation focus continuity` and verify its own CI.
+Status remains **OPEN / CLOSURE CI PENDING**, not PASS / CLOSED, until terminal
+success is read back. Any required failure stops closure and returns to
+evidence-directed diagnosis. A new failure is not addressed by selecting a
+passing unchanged-SHA rerun. No later implementation is staged before that gate.
+
+Open incident record:
+
+- Incident: intermittent selected-Article Graph map visibility failure.
+- Status: OPEN / UNRESOLVED; root cause UNKNOWN; no Graph product repair.
+- Evidence: failed `d28fec6` run `34196981094`, job `101966789398`; updated
+  Article details and seven-node counts, absent node buttons in ARIA, missing
+  contemporaneous geometry. That run remains FAILED.
+- Impact: a Graph map may fail to expose its selected node. Frequency and
+  causal trigger are not established; it is not classified as harmless.
+- Owner: the active platform/GUI maintenance workstream, beyond focused
+  mutation-focus closure. No release or universal reliability claim is made.
+- Recurrence response: retain the original failing assertion and bounded note;
+  stop the affected required gate, classify hidden/missing/off-canvas geometry,
+  and review a bounded repair only when causal evidence supports it. If the
+  snapshot is insufficient, capture generation-bound measurement history in a
+  separately reviewed probe. No speculative product fix or assertion relaxation.
+- Follow-up: inspect this checkpoint in subsequent ordinary CI. Negative local
+  and current CI runs establish non-reproduction only; closure of P3-036 does
+  not close this incident.
+
+### Next GUI Candidate Revalidated
+
+Before staging any implementation, four fresh fake-runtime browser cases at
+the current commit checked desktop 1440 and mobile 390, each with Explain and
+submitted Quiz. Article selection was made through the visible picker. In
+all four cases, clicking `Open local article` uses the same tab; Back loses
+the selected Article and answer or Quiz score. Initial generation/activity
+POST count was two per case, extra Tutor POSTs on the round trip zero;
+external requests and unexpected console/page errors were zero. Temporary
+runtime and servers were removed. This corroborates the bounded Tutor
+citation-continuity candidate in section 15, not a shipped fix.

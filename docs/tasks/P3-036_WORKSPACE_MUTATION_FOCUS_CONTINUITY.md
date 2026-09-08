@@ -2,7 +2,16 @@
 
 ## Status
 
-REOPENED / GRAPH MAP DIAGNOSIS
+OPEN / CLOSURE CI PENDING
+
+Current cumulative diagnostic commit `e2ec5e8` passes complete local and
+exact-SHA CI `34201705175` gates, with 3 x 243 Product E2E checks both locally
+and remotely. Prepare the reviewed docs-only closure candidate under the
+unchanged acceptance below; only its own exact-SHA CI permits PASS / CLOSED.
+The historical Graph rendering incident remains OPEN, root cause UNKNOWN,
+with the original assertion and failure-only diagnostic retained. This is no
+Graph repair claim or conditional closure. Report sections 19-20 are current;
+the following records earlier diagnosis.
 
 Closure `d28fec6` failed exact-SHA CI `34196981094`: Product E2E line 4305
 cannot find a visible selected Article node after a Graph map selection,

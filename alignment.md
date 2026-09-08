@@ -3,7 +3,7 @@
 Canonical task:
 `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
 
-Status: **REOPENED / GRAPH MAP DIAGNOSIS**
+Status: **OPEN / CLOSURE CI PENDING**
 
 BOUNDED FRONTEND FOCUS OWNERSHIP, PRODUCT E2E, GOVERNANCE DOCUMENTATION,
 ISOLATED LOCAL FAKE-RUNTIME VALIDATION, TWO INDEPENDENT SUB-AGENT REVIEWS, LOCAL
@@ -92,6 +92,21 @@ No v1.2 candidate is assigned.
 - Tag and Release operations are not authorized
 
 ## Current Gate
+
+Diagnostic commit `e2ec5e8f2b7682303bd1ca9f3e5ded94f3d8966b` passed
+exact-SHA CI `34201705175`, all seven required jobs. Both the fresh local and
+remote complete Product E2E runs pass 3/3 with 243 checks each, restart
+persistence and zero unexpected console/page errors or external requests.
+Backend 629/4 skipped, focused Frontend 141 and production build pass.
+Uploaded artifacts: 0. Report sections 19-20 record the reviewed disposition.
+
+Prepare a docs-only closure candidate under the existing PASS requirements;
+do not declare closure until that exact documentation commit's CI succeeds.
+This is not conditional closure or a Graph repair: the historical rendering
+incident remains OPEN, root cause UNKNOWN, with its original assertion and
+failure-only diagnostic retained. A required closure failure returns to
+diagnosis. Tutor remains unstaged until closure CI succeeds. The following
+paragraphs preserve the diagnosis that preceded this decision.
 
 Closure commit `d28fec6e428b6b8e0381d4afb96e988245e25ec8` is pushed, but its
 exact-SHA CI `34196981094` failed Product E2E at line 4305. After selecting an

@@ -7,6 +7,20 @@
 Active bounded repair:
 `docs/tasks/P3-036.1_REFERENCE_CANDIDATE_FOCUS_LIFECYCLE.md`.
 
+Current diagnostic commit `e2ec5e8f2b7682303bd1ca9f3e5ded94f3d8966b`
+passed exact-SHA CI `34201705175`, all seven required jobs. Current local and
+CI Product E2E both pass 3/3, 243 checks each, with restart persistence and
+zero unexpected errors or external requests. Backend 629/4 skipped,
+Frontend 141, build and safety gates pass; uploaded artifacts: 0.
+
+Current action: prepare and verify the independently reviewed docs-only
+closure candidate, under the unchanged canonical acceptance. Status stays
+OPEN / CLOSURE CI PENDING until that exact commit's CI succeeds. The historical
+Graph rendering incident stays OPEN, root cause UNKNOWN; this is not a Graph
+fix, harmlessness determination or test waiver. Retain its original assertion
+and failure-only diagnostic. Report sections 19-20 are current; the following
+paragraphs preserve earlier diagnosis. No new plan confirmation is required.
+
 Implementation repair `472350ede8bc20651928ebbc5d88abb206ee6b47` is pushed.
 Exact-SHA CI `34194053415` completed SUCCESS: all seven required jobs PASS,
 including three ordinary Product E2E runs with 243 checks each and restart
@@ -89,8 +103,8 @@ create its separate canonical task after P3-036 closure CI passes.
 - P3-033: PASS / CLOSED
 - P3-034: PASS / CLOSED
 - P3-035: PASS / CLOSED
-- P3-036: REOPENED / GRAPH MAP DIAGNOSIS
-- P3-036.1: IMPLEMENTATION PASS / PARENT CLOSURE BLOCKED
+- P3-036: OPEN / CLOSURE CI PENDING
+- P3-036.1: IMPLEMENTATION PASS / PARENT CLOSURE CI PENDING
 
 ## Authorization
 
@@ -256,12 +270,13 @@ create its separate canonical task after P3-036 closure CI passes.
 
 ## Next Gate
 
-Read back exact-SHA CI for the failure-only Graph diagnostic. If the selected
-Article assertion fails again, use the added bounded geometry to distinguish
-hidden, unmeasured, off-canvas and absent nodes before proposing a product
-repair. A successful run is non-reproduction, not a Graph root-cause fix or
-automatic closure. Parent P3-036 remains reopened; no later task or v1.2
-candidate is staged.
+Verify the reviewed documentation closure commit's own exact-SHA main CI.
+All existing assertions, request/error admission and local gates remain
+required. Any required failure returns to diagnosis; use the failure note if
+the selected-Article assertion recurs. Only terminal success permits focused
+task closure and staging Tutor citation continuity. The historical Graph
+incident remains open even if this focused task closes; no root-cause fix is
+claimed. No later task or v1.2 candidate is currently staged.
 
 ## P3-033 Local Evidence
 
