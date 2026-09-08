@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-038, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-039 Graph node rendering reliability is OPEN / DIAGNOSIS; the historical Graph incident remains OPEN; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-038, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-039 Graph node rendering reliability is OPEN / DEFERRED; P3-040 expanded provenance return continuity is LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; the historical Graph incident remains OPEN; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -1105,7 +1105,21 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-P3-039 Graph Node Rendering Reliability: OPEN / DIAGNOSIS.
+P3-040 Expanded Provenance Return Continuity: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
+Canonical: `docs/tasks/P3-040_EXPANDED_PROVENANCE_RETURN_CONTINUITY.md`.
+Evidence: `docs/P3_040_EXPANDED_PROVENANCE_RETURN_CONTINUITY_REPORT.md`.
+The fourth-source keyboard round trip is reproduced RED on unchanged production.
+The independently reviewed fix passes 153 Frontend tests, Backend 770 passed /
+4 skipped, production build and seven desktop/mobile browser cases. Both final
+product reviews have no Critical/Important finding. The unchanged full Product
+E2E passes 3 x 298 checks and restart persistence, with zero unexpected errors
+or external requests, stable bindings and removed runtime. Publish the reviewed
+16-path candidate and verify exact-SHA CI before closure; preserve/exclude the
+frame-oracle draft. No receipt-only commit loop or repeated user confirmation.
+
+## Deferred Graph Rendering Diagnosis
+
+P3-039 Graph Node Rendering Reliability: OPEN / DEFERRED.
 Canonical: `docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md`.
 Evidence: `docs/P3_039_GRAPH_NODE_RENDERING_RELIABILITY_REPORT.md`.
 P3-038 is PASS / CLOSED at 598c0da, exact-SHA CI 34267030994, all seven
@@ -1113,8 +1127,9 @@ required jobs, 3 x 298 E2E checks, all 17 Reader journeys each, restart PASS
 and zero unexpected errors/external requests or uploaded artifacts.
 One independently reviewed calibration passes on unchanged GraphView: 31 complete
 commits, original UI/audit PASS, no unexpected/external errors and runtime removed.
-Contracts 52 PASS, Backend 723/4 skipped, Frontend build PASS. Final diagnostic
-diff/safety review and exact-SHA main CI precede verified publication. A later
+Contracts 52 PASS, Backend 723/4 skipped, Frontend build PASS. Diagnostic d25113d
+passes exact-SHA main CI 34276540291, all seven required jobs; Docker/release
+jobs are policy-skipped. Diagnostic publication is verified. A later
 callback pilot still needs its concrete review; product edits require real causal
 RED evidence and independent review. Negative or incomplete observations do
 not close the historical Graph incident. No recurring generic confirmation.

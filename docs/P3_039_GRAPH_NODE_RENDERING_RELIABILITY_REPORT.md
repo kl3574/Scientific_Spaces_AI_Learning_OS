@@ -1,6 +1,6 @@
 # P3-039 Graph Node Rendering Reliability Report
 
-Status: OPEN / DIAGNOSIS
+Status: OPEN / DEFERRED
 Root cause: UNKNOWN
 
 ## Baseline
@@ -141,8 +141,24 @@ Calibration and local diagnostic verification pass. Final independent diagnostic
 diff review finds no Critical/Important issue and confirms the exact 13-file
 scope. Its minor historical-wording correction is applied. Documentation
 consistency, secret/artifact and protected-path audits pass. The diagnostic
-commit and its exact-SHA seven-job main CI remain the publication gate; the local
-result is not remote CI or Graph closure. Formal v1.1.0; candidate none.
+commit and its exact-SHA seven-job main CI were the publication gate at that
+snapshot. The following receipt supersedes that pending status, not the unresolved
+Graph incident. Formal v1.1.0; candidate none.
+
+## Diagnostic Publication Receipt
+
+Rechecked through GitHub Actions on 2026-09-09 (Asia/Shanghai):
+
+- Commit: `d25113d2f730e99c1e730f5649874f0cd5fc17e5`.
+- [Exact-SHA main CI](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34276540291):
+  completed, success; reported head SHA matches the diagnostic commit.
+- Backend pytest, Frontend build, Product E2E, dependency audit, workflow policy,
+  secret audit and SBOM validation: all seven jobs PASS.
+- Product E2E's three-run step: PASS. Docker compose smoke and release evidence
+  dry-run: SKIPPED under normal-main policy, not counted as PASS.
+
+This is successful publication of observation diagnostics, not reproduction,
+repair or closure of the historical missing-node incident. No product code changed.
 
 ## Result Rules
 
@@ -152,3 +168,31 @@ Actual UI failure remains FAIL even when capture fails. A calibrated healthy
 page is not proof that the historical incident is repaired. Any later matched
 pilot remains bounded and requires transfer to an uninstrumented real journey.
 No diagnostic or implementation publication is authorized before its gates.
+
+## Diagnostic Prioritization
+
+Independent review on 2026-09-09 recommends deferring the optional late-detail
+frame oracle. Its possible result concerns a different instrumented blink, not
+the historical 30-second missing-node failure. Admission of that experiment did
+not make it a prerequisite to all further platform improvement. The unfinished
+`scripts/e2e/graph_frame_oracle.js` is preserved as untracked, inactive work; no
+browser case, frame capture, product patch or publication uses it.
+
+A separate, directly observable navigation defect was identified and reproduced
+on the unchanged production build. A fixed temporary concept had four valid
+section sources referencing the three existing synthetic Articles. The test
+keyboard-expanded provenance, opened source `provenance-3`, and activated the
+Reader's `Back to concept` link. After returned details and requests settled:
+
+- Exact concept and query URL: correct.
+- Fourth source link count: 0; visible: false; exact origin focused: false.
+- Sources collapsed again: true; selected-detail region focused: true.
+- External requests, unexpected console/page errors and context pages: 0.
+- Temporary Graph fixture and product/build bindings: unchanged during the run.
+- Owned temporary runtime: removed.
+
+This is RED for expanded-provenance return continuity, not the historical map
+incident. A separate independently reviewed task will own its repair and
+regression. P3-039 remains OPEN / UNKNOWN; no assertion, threshold, frozen module
+or published release is changed. The Reader inline-image filtering observation
+is another deferred candidate, not part of either repair.

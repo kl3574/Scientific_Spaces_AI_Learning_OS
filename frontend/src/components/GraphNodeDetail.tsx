@@ -1,4 +1,3 @@
-import { useState } from "react";
 import Link from "next/link";
 
 import { ConceptStudySetPanel } from "@/components/ConceptStudySetPanel";
@@ -31,6 +30,8 @@ type GraphNodeDetailProps = {
   onShowContext: () => void;
   articleReturnTo: string;
   onOpenArticle: (articleId: string, focusTarget: string) => void;
+  sourcesExpanded: boolean;
+  onToggleSources: () => void;
 };
 
 type GraphContextListProps = {
@@ -52,6 +53,8 @@ export function GraphNodeDetail({
   onShowContext,
   articleReturnTo,
   onOpenArticle,
+  sourcesExpanded,
+  onToggleSources,
 }: Readonly<GraphNodeDetailProps>) {
   return (
     <aside className="min-w-0">
@@ -95,6 +98,8 @@ export function GraphNodeDetail({
             node={node}
             onOpenArticle={onOpenArticle}
             onShowContext={onShowContext}
+            sourcesExpanded={sourcesExpanded}
+            onToggleSources={onToggleSources}
           />
         ) : null}
       </section>
@@ -148,13 +153,16 @@ function NodeContent({
   node,
   onOpenArticle,
   onShowContext,
+  sourcesExpanded,
+  onToggleSources,
 }: Readonly<{
   articleReturnTo: string;
   node: GraphNode;
   onOpenArticle: (articleId: string, focusTarget: string) => void;
   onShowContext: () => void;
+  sourcesExpanded: boolean;
+  onToggleSources: () => void;
 }>) {
-  const [sourcesExpanded, setSourcesExpanded] = useState(false);
   const label = getSafeDisplayText(node.label) ?? "Untitled node";
   const provenance = getConceptProvenance(node);
   const sourceView = getProvenanceSourceView(provenance?.sources ?? [], sourcesExpanded);
@@ -199,7 +207,7 @@ function NodeContent({
             <button
               className="mt-3 text-xs font-medium text-slate-600 hover:text-slate-950 hover:underline"
               type="button"
-              onClick={() => setSourcesExpanded((current) => !current)}
+              onClick={onToggleSources}
             >
               {sourcesExpanded
                 ? "Show fewer returned sources"

@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-038 PASS / CLOSED; P3-039 OPEN / DIAGNOSIS`
+- Status: `P3-040 local verification PASS; publication CI pending; P3-039 OPEN / DEFERRED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-039 local observation calibration PASS; diagnostic CI pending`
-- Current task: `P3-039 Graph node rendering reliability diagnosis`
+- Latest gate: `P3-040 local Product E2E 3 x 298 PASS; Graph incident unresolved`
+- Current task: `P3-040 expanded provenance return continuity`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -70,7 +70,10 @@ P3-037 canonical task: `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md` (PASS / 
 P3-037 evidence: `docs/P3_037_TUTOR_CITATION_CONTINUITY_REPORT.md`.
 P3-038 canonical task: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md` (PASS / CLOSED).
 P3-038 evidence: `docs/P3_038_READER_PROGRESS_OWNERSHIP_REPORT.md`.
-P3-039 canonical task: `docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md` (OPEN / DIAGNOSIS).
+P3-040 canonical task: `docs/tasks/P3-040_EXPANDED_PROVENANCE_RETURN_CONTINUITY.md`.
+P3-040 evidence: `docs/P3_040_EXPANDED_PROVENANCE_RETURN_CONTINUITY_REPORT.md`.
+
+P3-039 canonical task: `docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md` (OPEN / DEFERRED).
 P3-039 evidence: `docs/P3_039_GRAPH_NODE_RENDERING_RELIABILITY_REPORT.md`.
 
 v1.2 planning specifications:

@@ -1,7 +1,40 @@
-# P3-039 Graph Node Rendering Reliability Alignment
+# P3-040 Expanded Provenance Return Continuity Alignment
+
+Canonical: docs/tasks/P3-040_EXPANDED_PROVENANCE_RETURN_CONTINUITY.md
+Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+
+The unchanged production browser reproduced loss of the fourth provenance
+origin on returning from the Reader. Independent review approves this separate
+bounded repair: consume the existing exact return marker once, reveal only the
+matching returned source, then restore focus after the expanded DOM commits.
+Preserve cold-load collapse, manual control, route identity, safe fallbacks,
+user-focus ownership and cancellation on navigation/retry/manual supersession.
+
+Product scope is GraphView.tsx, GraphNodeDetail.tsx, graphPresentation.ts and
+graph.test.ts. The dedicated fake-runtime browser regression and optional
+offline contracts, this task/report and current governance pointers are allowed.
+P3-039 task/report changes are receipt/deferral only. No Backend/M1/API/schema,
+private/source/paid access, dependency/workflow, published version or release work.
+The existing untracked frame-oracle draft is preserved but neither executed nor
+included in this repair. Existing original Product E2E assertions remain unchanged.
+
+Run focused regressions, all Frontend tests, build, ordinary Backend tests,
+bounded desktop/mobile browser checks, safety and independent final review.
+Full existing E2E and exact-SHA publication CI are required before closure.
+Do not publish partially verified work or mark P3-039 repaired. No repeated
+generic user confirmation; the broader platform/GUI objective remains active.
+
+Local gates and both independent product reviews pass: Backend 770/4 skipped,
+Frontend 153, build, seven focused browser cases, unchanged Product E2E 3 x 298,
+restart persistence, source/build/fixture stability and temporary cleanup. Safety
+and publication-scope review pass. Publish the 16 allowlisted paths, excluding
+the preserved frame-oracle draft, then verify this commit's exact-SHA main CI.
+Do not infer remote success or create a self-referential receipt-commit loop.
+
+## Historical P3-039 Alignment
 
 Canonical: docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md
-Status: OPEN / DIAGNOSIS
+Status at entry: OPEN / DIAGNOSIS; now OPEN / DEFERRED, root cause UNKNOWN.
 
 Baseline 598c0daae5eebddef75eaf29206a55b7c093d1b9 is clean and synchronized;
 P3-038 closure CI 34267030994 passes all seven required jobs, 3 x 298 E2E
@@ -32,8 +65,9 @@ OPEN / UNRESOLVED, root cause UNKNOWN. Broader platform/GUI work remains active.
 Current local diagnostic gate: one isolated calibration PASS, all 31 commits
 captured, original UI assertion/audit PASS, no external/unexpected errors and
 temporary runtime removed. Contracts 52 PASS, Backend 723/4 skipped and Frontend
-build PASS; two probe review defects are corrected. Complete final diff/safety
-review, publish the diagnostic commit and verify its exact-SHA main CI. No
+build PASS; two probe review defects are corrected. Diagnostic d25113d is
+published; exact-SHA main CI 34276540291 is completed SUCCESS with all seven
+required jobs PASS. Docker/release jobs are policy-skipped. No
 causal reproduction, callback pilot or product fix is implied by calibration.
 
 ## Historical P3-038 Closure Alignment

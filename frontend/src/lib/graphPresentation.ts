@@ -61,6 +61,25 @@ export function getProvenanceSourceView(
   };
 }
 
+export function shouldExpandProvenanceForReturn(
+  node: GraphNode | null,
+  articleId: string,
+  focusTarget: string | null,
+): boolean {
+  if (!node || !focusTarget || !/^provenance-(0|[1-9]\d*)$/.test(focusTarget)) {
+    return false;
+  }
+  const index = Number(focusTarget.slice("provenance-".length));
+  const sources = getConceptProvenance(node)?.sources;
+  return Boolean(
+    sources
+    && Number.isSafeInteger(index)
+    && index >= COLLAPSED_PROVENANCE_SOURCE_COUNT
+    && index < sources.length
+    && sources[index].articleId === articleId,
+  );
+}
+
 export function getSafeArticleId(value: unknown): string | null {
   const text = getSafeDisplayText(value);
   if (!text || text === "." || text === ".." || text.includes("/") || text.includes("\\")) {

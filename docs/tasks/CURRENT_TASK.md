@@ -2,13 +2,35 @@
 
 ## Active Task
 
+`docs/tasks/P3-040_EXPANDED_PROVENANCE_RETURN_CONTINUITY.md`
+
+Status: **LOCAL VERIFICATION PASS / PUBLICATION CI PENDING**. A real unchanged-production
+keyboard round trip loses the fourth provenance source on return to Concept.
+The independently reviewed repair reveals the exact source before restoring
+focus while preserving cold collapse, safe fallbacks and user-focus ownership.
+Local focused gates PASS: Backend 770 passed / 4 skipped, Frontend 153 passed,
+production build and seven desktop/mobile browser cases. Both independent
+product reviews have no Critical/Important finding. The unchanged Product E2E
+passes 3 x 298 checks and restart persistence with zero unexpected errors or
+external requests, stable bindings and removed runtime. Publish the reviewed
+16-path candidate, preserve/exclude the frame-oracle draft and verify exact-SHA
+main CI before closure. No receipt-only commit loop.
+
+P3-039 remains **OPEN / DEFERRED**, historical cause UNKNOWN. Its diagnostic
+d25113d passes exact-SHA CI 34276540291, all seven required jobs. The unfinished
+frame oracle is preserved, not run or published. No repeated confirmation,
+AGENTS regeneration, private/source/paid access, candidate or release work.
+
+## Deferred P3-039 Task
+
 `docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md`
 
 Status: **OPEN / DIAGNOSIS**. Independently reviewed observation calibration
 on unchanged GraphView passes: 31 complete commits, original UI/audit PASS,
 zero unexpected/external errors and runtime removed. Contracts 52 PASS, Backend
-723/4 skipped and Frontend build PASS. Final diagnostic diff/safety review and
-exact-SHA main CI precede verified publication. No product fix or callback pilot
+723/4 skipped and Frontend build PASS. Diagnostic d25113d passes exact-SHA
+main CI 34276540291, all seven required jobs; publication is verified.
+No product fix or callback pilot
 is active before its evidence gate. Graph root cause remains UNKNOWN.
 
 P3-038: **PASS / CLOSED** at 598c0daae5eebddef75eaf29206a55b7c093d1b9,

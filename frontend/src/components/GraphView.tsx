@@ -23,7 +23,7 @@ import {
   normalizeGraphNodeId,
   parseGraphSearchState,
 } from "@/lib/globalSearch";
-import { getSafeDisplayText } from "@/lib/graphPresentation";
+import { getSafeDisplayText, shouldExpandProvenanceForReturn } from "@/lib/graphPresentation";
 import {
   consumeGraphArticleReturnFocus,
   createGraphWorkspaceHref,
@@ -32,6 +32,7 @@ import {
   getGraphInitialPanel,
   getGraphSelectionHistoryAction,
   rememberGraphArticleReturnFocus,
+  type GraphArticleReturnFocusResult,
   type GraphExplorePanel,
   type GraphWorkspaceMode,
 } from "@/lib/graphWorkspace";
@@ -50,7 +51,14 @@ type GraphFocusTarget = "context" | "detail" | "results" | "results-heading" | "
 type GraphFocusRequest = Readonly<{
   onlyIfOwned: boolean;
   origin: HTMLElement | null;
+  source: "user" | "route";
   target: GraphFocusTarget;
+}>;
+
+type GraphArticleReturnRequest = Readonly<{
+  returnTo: string;
+  nodeId: string | null;
+  focus: Exclude<GraphArticleReturnFocusResult, { status: "missing" }>;
 }>;
 
 const nodeTypes: Array<{ value: GraphNodeType | ""; label: string }> = [
@@ -101,6 +109,9 @@ export function GraphView({
   const [selectionRevision, setSelectionRevision] = useState(0);
   const [selectionAnnouncement, setSelectionAnnouncement] = useState("");
   const [focusRevision, setFocusRevision] = useState(0);
+  const [expandedSourcesNodeId, setExpandedSourcesNodeId] = useState<string | null>(null);
+  const [articleReturnRequest, setArticleReturnRequest] = useState<GraphArticleReturnRequest | null>(null);
+  const articleReturnCanceledRef = useRef(false);
   const routeNodeRef = useRef(initialNodeId);
   const routeQueryRef = useRef(initialSearch.query);
   const appliedQueryRef = useRef(initialSearch.query);
@@ -155,6 +166,8 @@ export function GraphView({
       return;
     }
     routeNodeRef.current = nextNodeId;
+    setArticleReturnRequest(null);
+    setExpandedSourcesNodeId(null);
     selectionOriginRef.current = null;
     pendingDetailScrollRef.current = Boolean(nextNodeId);
     setSelectedNodeId(nextNodeId);
@@ -169,15 +182,15 @@ export function GraphView({
       if (workspaceMode === "context") {
         const contextOrigin = contextRegionRef.current;
         pendingContextFocusRef.current = { origin: contextOrigin };
-        requestFocus("context", contextOrigin);
+        requestFocus("context", contextOrigin, "route");
       } else {
-        requestFocus("detail");
+        requestFocus("detail", undefined, "route");
       }
     } else {
       setExplorePanel("results");
       setDetailStatus("idle");
       setSubgraphStatus("idle");
-      requestFocus(workspaceMode === "context" ? "context" : "results");
+      requestFocus(workspaceMode === "context" ? "context" : "results", undefined, "route");
     }
   }, [pathname, routeSearch, workspaceMode]);
 
@@ -245,7 +258,9 @@ export function GraphView({
   useEffect(() => {
     if (
       (detailStatus !== "loaded" && detailStatus !== "error")
-      || (detailStatus === "loaded" && !selectedNode)
+      || (detailStatus === "loaded" && selectedNode?.node_id !== selectedNodeId)
+      || pathname !== "/graph"
+      || `${window.location.pathname}${window.location.search}` !== articleReturnTo
     ) {
       return;
     }
@@ -256,7 +271,43 @@ export function GraphView({
     if (returnFocus.status === "missing") {
       return;
     }
+    if (articleReturnCanceledRef.current || pendingFocusRef.current?.source === "user") {
+      return;
+    }
+    pendingFocusRef.current = null;
+    pendingDetailScrollRef.current = false;
+    if (
+      returnFocus.status === "found"
+      && shouldExpandProvenanceForReturn(selectedNode, returnFocus.articleId, returnFocus.focusTarget)
+    ) {
+      setExpandedSourcesNodeId(selectedNodeId);
+    }
+    setArticleReturnRequest({ returnTo: articleReturnTo, nodeId: selectedNodeId, focus: returnFocus });
+  }, [articleReturnTo, detailStatus, pathname, routeSearch, selectedNode, selectedNodeId]);
+
+  // Run after disclosure has committed so an existing hidden source is not lost.
+  useEffect(() => {
+    if (!articleReturnRequest) {
+      return;
+    }
+    if (
+      articleReturnRequest.returnTo !== articleReturnTo
+      || articleReturnRequest.nodeId !== selectedNodeId
+      || (detailStatus !== "loaded" && detailStatus !== "error")
+    ) {
+      setArticleReturnRequest(null);
+      return;
+    }
     const frame = window.requestAnimationFrame(() => {
+      setArticleReturnRequest(null);
+      if (
+        articleReturnCanceledRef.current
+        || routeNodeRef.current !== articleReturnRequest.nodeId
+        || `${window.location.pathname}${window.location.search}` !== articleReturnRequest.returnTo
+      ) {
+        return;
+      }
+      const returnFocus = articleReturnRequest.focus;
       const articleLinks = Array.from(
         detailRegionRef.current?.querySelectorAll<HTMLElement>("[data-graph-article-id]") ?? [],
       );
@@ -287,7 +338,7 @@ export function GraphView({
       target?.scrollIntoView({ behavior: "auto", block: "nearest" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [articleReturnTo, detailStatus, pathname, routeSearch, selectedNode]);
+  }, [articleReturnRequest, articleReturnTo, detailStatus, expandedSourcesNodeId, selectedNodeId]);
 
   useEffect(() => {
     if (
@@ -415,6 +466,8 @@ export function GraphView({
     }
     const controller = new AbortController();
 
+    setArticleReturnRequest(null);
+    setExpandedSourcesNodeId(null);
     setSelectedNode(null);
     setDetailStatus("loading");
     setDetailError(null);
@@ -512,6 +565,7 @@ export function GraphView({
     if (!safeNodeId) {
       return;
     }
+    cancelArticleReturn();
     if (options.source === "results") {
       selectionOriginRef.current = safeNodeId;
       setWorkspaceMode("explore");
@@ -525,6 +579,8 @@ export function GraphView({
     if (historyAction === "none") {
       return;
     }
+    setArticleReturnRequest(null);
+    setExpandedSourcesNodeId(null);
     if (options.source === "context") {
       contextRegionRef.current?.focus({ preventScroll: true });
       const contextOrigin = contextRegionRef.current;
@@ -552,10 +608,23 @@ export function GraphView({
     );
   }
 
-  function requestFocus(target: GraphFocusTarget, origin?: HTMLElement | null) {
+  function cancelArticleReturn() {
+    articleReturnCanceledRef.current = true;
+    setArticleReturnRequest(null);
+  }
+
+  function requestFocus(
+    target: GraphFocusTarget,
+    origin?: HTMLElement | null,
+    source: "user" | "route" = "user",
+  ) {
+    if (source === "user") {
+      cancelArticleReturn();
+    }
     pendingFocusRef.current = {
       onlyIfOwned: origin !== undefined,
       origin: origin ?? null,
+      source,
       target,
     };
     setFocusRevision((current) => current + 1);
@@ -691,7 +760,10 @@ export function GraphView({
               workspaceMode === "explore" ? "bg-slate-950 text-white" : "text-slate-600 hover:bg-slate-100"
             }`}
             type="button"
-            onClick={() => setWorkspaceMode("explore")}
+            onClick={() => {
+              cancelArticleReturn();
+              setWorkspaceMode("explore");
+            }}
           >
             Explore
           </button>
@@ -830,6 +902,11 @@ export function GraphView({
               detailError={detailError}
               detailStatus={detailStatus}
               node={selectedNode}
+              sourcesExpanded={expandedSourcesNodeId !== null && expandedSourcesNodeId === selectedNodeId}
+              onToggleSources={() => {
+                cancelArticleReturn();
+                setExpandedSourcesNodeId((current) => current === selectedNodeId ? null : selectedNodeId);
+              }}
               onBackToResults={showResults}
               onOpenArticle={(articleId, focusTarget) => {
                 rememberGraphArticleReturnFocus(
@@ -840,6 +917,8 @@ export function GraphView({
                 );
               }}
               onRetry={() => {
+                setArticleReturnRequest(null);
+                setExpandedSourcesNodeId(null);
                 requestFocus("detail");
                 setSelectionRevision((current) => current + 1);
               }}

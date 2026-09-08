@@ -1,6 +1,12 @@
 # P3-039 Graph Node Rendering Reliability
 
-Status: OPEN / DIAGNOSIS
+Status: OPEN / DEFERRED; historical root cause UNKNOWN.
+
+Current execution priority is the separately reproduced P3-040 expanded-
+provenance return defect. Diagnostic publication at d25113d is verified. The
+late-detail frame-oracle draft is preserved but not executed or published;
+its admission did not make it a prerequisite to other GUI repairs. No historical
+map assertion is weakened and no Graph rendering repair or closure is claimed.
 
 ## Baseline And Authority
 
@@ -36,14 +42,17 @@ PASS. Two probe orchestration review findings were reproduced and corrected
 before browser execution. Report contains exact bindings and limitations.
 
 This is observation calibration only, not symptom reproduction or product repair.
-Diagnostic publication requires final diff/safety review and exact-SHA main CI.
+Diagnostic publication passed final review and exact-SHA main CI at d25113d,
+run 34276540291, all seven required jobs; Docker/release jobs policy-skipped.
 No callback pilot or product change is active before its own evidence gate.
 
-## Active Diagnostic Scope
+## Deferred Diagnostic Scope
 
 - scripts/e2e/probe_graph_render_lifecycle.py
 - scripts/e2e/graph_render_probe.js
 - backend/tests/test_graph_render_probe.py
+- scripts/e2e/graph_frame_oracle.js: independently reviewed diagnostic-only extension
+- backend/tests/test_graph_frame_oracle.py: offline oracle contracts
 - this task and docs/P3_039_GRAPH_NODE_RENDERING_RELIABILITY_REPORT.md
 - alignment.md, docs/tasks/CURRENT_TASK.md, docs/00_PROJECT_STATE.md,
   roadmap.md, docs/V1_2_ROADMAP.md and README.md
@@ -52,6 +61,59 @@ No callback pilot or product change is active before its own evidence gate.
 Use an owned temporary synthetic runtime and the unchanged production build.
 No diagnostic hook is installed in the application or ordinary startup.
 No product-code authority is active during diagnosis.
+
+## Deferred Post-Calibration Diagnostic Amendment
+
+Diagnostic d25113d2f730e99c1e730f5649874f0cd5fc17e5 passes exact-SHA main CI
+34276540291: all seven required jobs, 3 x 298 E2E checks, restart persistence
+and zero unexpected errors, external requests or uploaded artifacts. The
+historical Graph failure is not reproduced or repaired. The proposed pending-
+effect treatment has no qualified normal-owner trigger and is not executed.
+
+Independent review admits one different evidence-only case: late Article detail
+completion after the selected map is already visible. This does not weaken or
+replace the historical 30-second assertion or authorize a product repair.
+
+- Optional `--late-detail` only; default calibration and snapshot v1 remain
+  unchanged. Do not change graph_render_probe.js or the original E2E runner.
+- Hold exactly one selected-Article detail GET. Forward the synthetic Backend's
+  real HTTP 200 unchanged, once, without redirects; leave subgraph and every
+  other response unchanged. Missing/duplicate interception invalidates the case.
+- Preserve Enter / URL / context focus / original 30-second selected-button
+  assertion. Only afterwards, within five seconds, require committed initialized
+  state and a visible pre-release compositor baseline. No forced repaint.
+- Arm observation before response release; release before the existing global
+  request-settlement helper. Require actual detail-application evidence and
+  unchanged selection, subgraph, viewport and provider/wrapper/fiber lifetime.
+- Capture one fixed one-second post-release window, PNG and everyNthFrame=1.
+  At most 64 compressed frames, 1 MiB each and 16 MiB aggregate, including the
+  baseline. Acknowledge promptly; decode sequentially only after capture stops.
+  No silent eviction, adaptive deadline or repeat matrix.
+- Image buffers are transient in-memory diagnostic inputs only. No image file,
+  screenshot output, trace, video or protocol/debug-log serialization. Validate
+  PNG dimensions before decoding, require identity viewport/DPR mapping and
+  cap decoded pixels at two million. Use bounded-time native Chromium decoding,
+  ROI-sized detached canvases and ImageBitmap.close; dropping references is not
+  a guarantee of immediate garbage collection. Export only bounded primitives.
+- Use valid swap timestamps and conservative clock alignment with release and
+  actual detail application. Missing/ambiguous timing prevents attribution.
+- Fix pixel masks/thresholds before execution. Require unchanged same-frame
+  control/background evidence and loss of both outline and interior silhouette,
+  with canvas background visible. Text-only/border-only differences, overlays,
+  shifted/cropped mappings and generally blank/corrupt capture do not qualify.
+- A visible baseline, post-detail absence and restoration support only a
+  captured composited-blink candidate under instrumentation. Without restoration,
+  report captured disappearance only. This is not physical-screen presentation,
+  complete frame coverage or absence-of-blink evidence. Missing baseline,
+  bracketing, detail application, invariants or coverage means INCONCLUSIVE.
+- Offline pixel-array contracts prove the oracle only, not a product defect.
+  Independent concrete code review and all offline contracts must pass before
+  this single browser execution. Any positive needs a separately reviewed
+  P3-039.x layout-stability revision; no automatic repair or historical closure.
+
+Authoring is limited to the two extra diagnostic files above, the existing
+Python probe and its tests, and the already-allowlisted governance/evidence
+documents. Application, dependency, workflow and data boundaries are unchanged.
 
 ## Diagnostic Contract
 

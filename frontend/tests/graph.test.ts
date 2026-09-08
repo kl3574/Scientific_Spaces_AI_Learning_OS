@@ -12,6 +12,7 @@ import {
   getProvenanceSourceView,
   getSafeDisplayText,
   getSafeExternalUrl,
+  shouldExpandProvenanceForReturn,
 } from "../src/lib/graphPresentation";
 import {
   GRAPH_VISUAL_EDGE_LIMIT,
@@ -167,6 +168,51 @@ test("getProvenanceSourceView collapses returned sources and supports expansion"
   assert.equal(collapsed.hiddenReturnedCount, 2);
   assert.equal(expanded.sources.length, 5);
   assert.equal(expanded.hiddenReturnedCount, 0);
+});
+
+test("provenance return reveals only an exact source beyond the collapsed list", () => {
+  const node = {
+    ...graphNode("concept:attention", "concept", "Attention"),
+    metadata: { sources: Array.from({ length: 5 }, (_, i) => ({ article_id: `article-${i}` })) },
+  };
+  assert.equal(shouldExpandProvenanceForReturn(node, "article-3", "provenance-3"), true);
+  assert.equal(shouldExpandProvenanceForReturn(node, "article-4", "provenance-4"), true);
+  assert.equal(shouldExpandProvenanceForReturn(node, "article-2", "provenance-2"), false);
+  assert.equal(shouldExpandProvenanceForReturn(node, "article-0", "provenance-3"), false);
+});
+
+test("provenance return does not expand for missing or malformed origins", () => {
+  const node = {
+    ...graphNode("concept:attention", "concept", "Attention"),
+    metadata: { source_count: 10, sources: Array.from({ length: 4 }, () => ({ article_id: "a" })) },
+  };
+  for (const target of [null, "selected-node", "study-set-3", "provenance-4", "provenance-03",
+    "provenance--1", "provenance-3.0", "provenance-3e0", "provenance-9007199254740992"]) {
+    assert.equal(shouldExpandProvenanceForReturn(node, "a", target), false, String(target));
+  }
+  assert.equal(shouldExpandProvenanceForReturn(null, "a", "provenance-3"), false);
+  assert.equal(shouldExpandProvenanceForReturn({ ...node, node_type: "article" }, "a", "provenance-3"), false);
+});
+
+test("provenance return uses the same filtered source indices as rendered links", () => {
+  const node = {
+    ...graphNode("concept:attention", "concept", "Attention"),
+    metadata: { sources: [null, "invalid", { article_id: "a" }, { article_id: "b" },
+      { article_id: "c" }, { article_id: "d" }] },
+  };
+  assert.equal(shouldExpandProvenanceForReturn(node, "d", "provenance-3"), true);
+  assert.equal(shouldExpandProvenanceForReturn(node, "c", "provenance-3"), false);
+  assert.equal(shouldExpandProvenanceForReturn(node, "d", "provenance-5"), false);
+});
+
+test("provenance return cannot reveal a source with an unsafe or absent Article ID", () => {
+  for (const invalid of [undefined, null, "/home/private/article", "../private", "a/b"]) {
+    const node = {
+      ...graphNode("concept:attention", "concept", "Attention"),
+      metadata: { sources: [{}, {}, {}, { article_id: invalid }] },
+    };
+    assert.equal(shouldExpandProvenanceForReturn(node, String(invalid), "provenance-3"), false);
+  }
 });
 
 test("getSafeExternalUrl permits web URLs and rejects local paths", () => {
