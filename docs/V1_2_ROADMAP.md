@@ -1,6 +1,6 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-037, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-038 Reader progress ownership is OPEN / CLOSURE CI PENDING after repair exact-SHA CI 34261697861 passes; the historical Graph incident remains OPEN; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-038, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-039 Graph node rendering reliability is OPEN / DIAGNOSIS; the historical Graph incident remains OPEN; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -1104,6 +1104,22 @@ closure commit requires its own exact-SHA CI before final reporting.
 - Migration of local single-user private data into a hosted service.
 
 ## Next Recommended Task
+
+P3-039 Graph Node Rendering Reliability: OPEN / DIAGNOSIS.
+Canonical: `docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md`.
+Evidence: `docs/P3_039_GRAPH_NODE_RENDERING_RELIABILITY_REPORT.md`.
+P3-038 is PASS / CLOSED at 598c0da, exact-SHA CI 34267030994, all seven
+required jobs, 3 x 298 E2E checks, all 17 Reader journeys each, restart PASS
+and zero unexpected errors/external requests or uploaded artifacts.
+One independently reviewed calibration passes on unchanged GraphView: 31 complete
+commits, original UI/audit PASS, no unexpected/external errors and runtime removed.
+Contracts 52 PASS, Backend 723/4 skipped, Frontend build PASS. Final diagnostic
+diff/safety review and exact-SHA main CI precede verified publication. A later
+callback pilot still needs its concrete review; product edits require real causal
+RED evidence and independent review. Negative or incomplete observations do
+not close the historical Graph incident. No recurring generic confirmation.
+
+## Historical P3-038 Closure Candidate
 
 P3-038 Reader Progress Ownership: OPEN / CLOSURE CI PENDING.
 Canonical: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`.

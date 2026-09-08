@@ -2,6 +2,23 @@
 
 ## Active Task
 
+`docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md`
+
+Status: **OPEN / DIAGNOSIS**. Independently reviewed observation calibration
+on unchanged GraphView passes: 31 complete commits, original UI/audit PASS,
+zero unexpected/external errors and runtime removed. Contracts 52 PASS, Backend
+723/4 skipped and Frontend build PASS. Final diagnostic diff/safety review and
+exact-SHA main CI precede verified publication. No product fix or callback pilot
+is active before its evidence gate. Graph root cause remains UNKNOWN.
+
+P3-038: **PASS / CLOSED** at 598c0daae5eebddef75eaf29206a55b7c093d1b9,
+exact-SHA main CI 34267030994, all seven required jobs, 3 x 298 E2E checks,
+all 17 Reader journeys each, restart PASS, zero unexpected errors/external
+requests and uploaded artifacts. Formal v1.1.0; candidate none. No recurring
+plan confirmation, AGENTS regeneration, private/source/paid or Release work.
+
+## Historical P3-038 Closure Candidate
+
 `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`
 
 Status: **OPEN / CLOSURE CI PENDING**. Repair

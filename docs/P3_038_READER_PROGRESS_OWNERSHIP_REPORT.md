@@ -1,10 +1,10 @@
 # P3-038 Reader Progress Ownership Report
 
-Status: OPEN / CLOSURE CI PENDING
+Status: PASS / CLOSED
 Baseline: a294c8fd36beee1b79673f05150310156d0d7f7f.
 P3-037 closure CI 34225518378 is terminal PASS. This task is independent.
 
-Current evidence is the final section, Repair CI And Documentation Closure Gate.
+Current evidence is the final section, Final Closure Evidence.
 Earlier pending/pass paragraphs are historical local snapshots,
 not a claim that the failed implementation CI or task closure has passed.
 
@@ -688,3 +688,43 @@ invalidated. Historical Graph visibility incident is OPEN / UNRESOLVED, root
 cause UNKNOWN; this Reader PASS does not repair it. No next-task implementation,
 source/private/paid access, canonical data mutation, runtime artifact, candidate,
 tag or Release is part of this closure. Formal version v1.1.0; candidate none.
+
+## Final Closure Evidence
+
+Observed 2026-09-09, Asia/Shanghai. The separate eight-document closure
+`598c0daae5eebddef75eaf29206a55b7c093d1b9` passes exact-SHA main push CI
+[34267030994](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34267030994).
+Run identity is the exact SHA above, `headBranch=main`, `event=push`, terminal
+`status=completed` and `conclusion=success`.
+
+- All seven required jobs PASS: Backend pytest 102198861213, Frontend build
+  102198861491, Product E2E 102198861318, Workflow policy 102198861391,
+  Dependency audit 102198861087, Secret audit 102198861294 and SBOM validation
+  102198861277. Product E2E job completion: 2026-09-08T19:55:44Z.
+- The actual remote Backend log records 667 passed, 8 skipped, 4 warnings in
+  87.07s. This is separate from the prior local 671 passed / 4 skipped result.
+- Complete remote E2E JSON: 3/3 repeats; all 298 checks true in each, including
+  all 17 Reader ownership journeys. Restart bookmark, completed states, ended
+  sessions and note checks all true. The exactly-25-ended-session gate remains.
+- Chromium 149.0.7827.55; external requests, unexpected console errors, page
+  errors and static-chunk cancellations zero. Expected framework-prefetch,
+  route-transition and declared-read cancellations are 1182, 164 and 12;
+  their unchanged strict policy is preserved, not reported as zero.
+- Bound transition requests 185, transition expectations 735, successful
+  no-content responses 30. Declared-cancelled routes, superseded successful
+  reads and complete-precursor snapshots zero. Completed-run artifact API:
+  `total_count=0`, empty artifacts list.
+- Docker compose smoke and Release evidence dry-run are skipped by normal-main
+  policy, not executed PASS. No downloaded log or runtime artifact is retained.
+- HEAD, cached origin/main and live remote main agree at the closure SHA;
+  worktree/index clean, ahead/behind 0/0. Published v1.0.0 and v1.1.0 tag objects
+  and peeled targets remain exactly as recorded in the preceding section.
+
+P3-038: PASS / CLOSED. Implementation/repair CI and this independent docs-only
+closure CI satisfy their unchanged gates. Failed CI 34252242993 and every
+failed/invalidated local run retain their historical verdicts. No blanket
+reliability claim, test waiver, candidate, tag or Release follows from closure.
+The separate Graph visibility incident remains OPEN / UNRESOLVED, root cause
+UNKNOWN. Record this receipt with the next genuine GUI task rather than adding
+another receipt-only commit and CI loop. The broader platform/GUI goal remains
+active; closing Reader progress ownership does not complete that whole goal.

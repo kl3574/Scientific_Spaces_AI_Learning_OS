@@ -1,6 +1,6 @@
 # P3-038 Reader Progress Ownership
 
-Status: OPEN / CLOSURE CI PENDING
+Status: PASS / CLOSED
 
 ## Baseline And Authority
 
@@ -11,6 +11,17 @@ The owner authorizes independent sub-agent review followed by automatic
 platform/GUI improvement, without recurring plan confirmation.
 
 ## Current Gate
+
+Docs-only closure 598c0daae5eebddef75eaf29206a55b7c093d1b9 passes exact-SHA
+main CI 34267030994, all seven required jobs. Remote Product E2E passes 3/3,
+298 checks and all 17 Reader journeys each, restart persistence, and zero
+unexpected errors/external requests. Uploaded artifacts: 0. Final local HEAD,
+cached origin/main and live remote main agree; worktree/index were clean.
+P3-038 is PASS / CLOSED under unchanged acceptance. This receipt accompanies
+the next genuine GUI task, not a self-hash receipt-only commit. Historical
+Graph visibility incident remains OPEN / UNRESOLVED, root cause UNKNOWN.
+
+## Historical Closure Candidate
 
 Repair 1ab812b7292c21cb8775a8e63b93785cf106cc03 passes exact-SHA main CI
 34261697861: all seven required jobs, 3 x 298 Product E2E checks, all 17
@@ -78,7 +89,7 @@ Normal body reading must continue to advance and retreat accurately.
 8. Preserve native href/hash/query/history, Graph and focused-session origin,
    focus lifecycle, API requests, source content and Backend learning state.
 
-## Active Closure Scope
+## Historical Closure Scope
 
 Only these eight existing documentation files may change:
 

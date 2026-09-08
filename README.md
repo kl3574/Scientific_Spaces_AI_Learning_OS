@@ -7,11 +7,11 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-037 PASS / CLOSED; P3-038 REPAIR CI PASS / CLOSURE CI PENDING`
+- Status: `P3-038 PASS / CLOSED; P3-039 OPEN / DIAGNOSIS`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-038 repair exact-SHA CI 34261697861 PASS; separate closure CI pending`
-- Current task: `P3-038 Reader progress ownership documentation closure`
+- Latest gate: `P3-039 local observation calibration PASS; diagnostic CI pending`
+- Current task: `P3-039 Graph node rendering reliability diagnosis`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
@@ -68,8 +68,10 @@ P3-005.2 security revision: `docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENC
 P3-005.2 evidence: `docs/P3_005_2_SBOM_SCHEMA_TRANSPORT_REPORT.md`.
 P3-037 canonical task: `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md` (PASS / CLOSED).
 P3-037 evidence: `docs/P3_037_TUTOR_CITATION_CONTINUITY_REPORT.md`.
-P3-038 canonical task: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md` (OPEN / CLOSURE CI PENDING).
+P3-038 canonical task: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md` (PASS / CLOSED).
 P3-038 evidence: `docs/P3_038_READER_PROGRESS_OWNERSHIP_REPORT.md`.
+P3-039 canonical task: `docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md` (OPEN / DIAGNOSIS).
+P3-039 evidence: `docs/P3_039_GRAPH_NODE_RENDERING_RELIABILITY_REPORT.md`.
 
 v1.2 planning specifications:
 

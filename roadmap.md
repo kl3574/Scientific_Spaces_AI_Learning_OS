@@ -8,25 +8,25 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-P3-038 Reader Progress Ownership
+P3-039 Graph Node Rendering Reliability
 
 Current milestone:
-P3-038, after P3-037 PASS / CLOSED
+P3-039, after P3-038 PASS / CLOSED
 
 Status:
-P3-038 OPEN / CLOSURE CI PENDING
+P3-039 OPEN / DIAGNOSIS
 
 Next gate:
-P3-038 repair `1ab812b` passes exact-SHA CI `34261697861`: all seven required
+P3-038 closure `598c0da` passes exact-SHA CI `34267030994`, all seven required
 jobs, 3 x 298 Product E2E checks, all 17 Reader journeys each, restart PASS,
-zero unexpected errors/external requests and uploaded artifacts. Remote Backend
-667/8 skipped and Frontend build PASS; normal-main Docker/release jobs skipped.
-Current local/review/safety gates also pass. Original failed CI 34252242993 and
-invalidated runs remain historical evidence, not waived acceptance.
-Implementation authority is consumed. Independently review and submit the
-eight-file docs-only closure, then verify its own exact-SHA CI before final
-PASS / CLOSED or next-task implementation. No self-hash receipt-commit loop.
-Historical Graph incident remains OPEN, root cause UNKNOWN.
+zero unexpected errors/external requests and uploaded artifacts. It is CLOSED.
+P3-039 observation calibration on unchanged GraphView passes: 31 complete
+commits, original UI/audit PASS, no unexpected/external errors and runtime removed.
+Contracts 52 PASS, Backend 723/4 skipped, Frontend build PASS. Complete final
+diagnostic diff/safety review and exact-SHA main CI before verified publication.
+No callback pilot or product fix before its evidence gate. Historical Graph
+incident remains OPEN, root cause UNKNOWN. Canonical task:
+`docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md`.
 No repeated plan confirmation or v1.2 candidate is assigned.
 
 ## Historical Notes

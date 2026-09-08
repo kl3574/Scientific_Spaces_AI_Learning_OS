@@ -1,4 +1,42 @@
-# P3-038 Reader Progress Ownership Alignment
+# P3-039 Graph Node Rendering Reliability Alignment
+
+Canonical: docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md
+Status: OPEN / DIAGNOSIS
+
+Baseline 598c0daae5eebddef75eaf29206a55b7c093d1b9 is clean and synchronized;
+P3-038 closure CI 34267030994 passes all seven required jobs, 3 x 298 E2E
+checks and restart persistence with zero unexpected errors/external requests
+or uploaded artifacts. P3-038 is PASS / CLOSED. Formal v1.1.0; candidate none.
+
+Execute the independently reviewed diagnostic-only first phase: unchanged
+production GraphView, owned temporary fake runtime, inert bounded committed-
+fiber observation and original keyboard/URL/focus/visibility assertion order.
+The canonical task incorporates all three review requirements: work/output
+budgets and latched errors, no extra recovery time before the assertion, and
+mandatory offline output/selector/lifetime/coverage contracts. No product edit
+or forced callback pilot is active before its respective evidence gate.
+
+Active file scope: the new probe Python/JavaScript and its Backend contract
+tests; P3-039 task/report; six current governance pointers; and the P3-038
+task/report closure receipt only. Exact paths, finite budgets, exclusions,
+verification and Git gates are in the canonical task. No source/private/paid
+access, Backend/M1/API/schema/data change, dependency/workflow change, artifact,
+candidate, tag, Release or destructive Git action. Stop on unknown worktree
+drift, unsafe output, failed gates or necessary forbidden scope.
+
+The owner authorizes independent review then automatic progress. No recurring
+generic confirmation or AGENTS regeneration. Do not weaken any test or infer
+Graph repair from calibration/negative probes. Historical incident remains
+OPEN / UNRESOLVED, root cause UNKNOWN. Broader platform/GUI work remains active.
+
+Current local diagnostic gate: one isolated calibration PASS, all 31 commits
+captured, original UI assertion/audit PASS, no external/unexpected errors and
+temporary runtime removed. Contracts 52 PASS, Backend 723/4 skipped and Frontend
+build PASS; two probe review defects are corrected. Complete final diff/safety
+review, publish the diagnostic commit and verify its exact-SHA main CI. No
+causal reproduction, callback pilot or product fix is implied by calibration.
+
+## Historical P3-038 Closure Alignment
 
 Canonical: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`.
 Status: OPEN / CLOSURE CI PENDING.
