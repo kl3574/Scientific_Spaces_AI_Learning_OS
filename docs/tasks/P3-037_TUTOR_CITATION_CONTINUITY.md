@@ -1,6 +1,12 @@
 # P3-037 Tutor Citation Continuity
 
-Status: OPEN / CLOSURE CI PENDING
+Status: PASS / CLOSED
+
+Closure `a294c8fd36beee1b79673f05150310156d0d7f7f` passes exact-SHA main
+CI `34225518378`: all seven required jobs, three runs of 281 checks,
+38 Tutor citation checks per run, restart persistence, no unexpected errors
+or external requests, and zero uploaded artifacts. Verified 2026-09-08.
+The following preserves the earlier implementation/closure-pending snapshot.
 
 Implementation `37ba58c6bec7cb433a8361b939ea7f106d790d0f` passes exact-SHA
 main CI `34221048974`, all seven required jobs, Product E2E 3 x 281,

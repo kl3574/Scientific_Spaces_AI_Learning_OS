@@ -1,4 +1,40 @@
-# P3-037 Tutor Citation Continuity Alignment
+# P3-038 Reader Progress Ownership Alignment
+
+Canonical: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`.
+Status: OPEN / IMPLEMENTATION CI PENDING.
+Baseline a294c8fd36beee1b79673f05150310156d0d7f7f is clean and synchronized;
+its P3-037 closure CI 34225518378 passes all seven required jobs and 3 x 281
+E2E checks. P3-037 is PASS / CLOSED. Formal v1.1.0; candidate none.
+
+The owner authorizes independent review then automatic GUI improvement.
+Repair tool-only scrolling corrupting Reader progress and Dashboard resume,
+with the exact contract, allowlist and gates in the canonical task. Preserve
+ordinary body tracking, existing geometry, localStorage schema, native hashes,
+cold no-focus-transfer, history and Graph/session origins. Add real rendered
+regressions before product edits; no backend or source-data changes.
+
+Allowed product/test paths: ArticleDetailView.tsx, articleWorkspace.ts,
+articleWorkspace.test.ts and additive run_product_e2e.py. Documentation is
+limited to this alignment, current-task/state/roadmap/README pointers, the new
+task/report and P3-037 closure evidence. No Provider, private/source access,
+API/schema/M1 change, dependency/workflow change, runtime artifact, tag/Release
+or repeated generic plan confirmation. Preserve user changes.
+
+Run the full canonical verification and two independent final reviews, then
+commit `fix: preserve meaningful reader progress`, non-force push main and
+verify exact-SHA CI. A separate `docs: close P3-038 reader progress ownership`
+commit and its own CI precede PASS / CLOSED. Stop affected gates on unknown
+drift, required failures, forbidden artifacts/secrets or necessary scope
+expansion. The historical Graph incident remains OPEN / UNKNOWN.
+
+Current local gates pass: Backend 671/4 skipped, Frontend 149, production build,
+exclusive Product E2E 3 x 298 with 17 ownership journeys each, restart
+persistence, 13 native-input checks, four rendered viewports, safety and two
+independent reviews. The failed and invalidated full invocations stay recorded.
+Product/test bindings are in the report. Next verify implementation exact-SHA
+CI, then the separate docs-only closure and its own CI; not PASS / CLOSED yet.
+
+## Historical P3-037 Alignment
 
 Canonical: `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md`.
 Status: **OPEN / CLOSURE CI PENDING**. Implementation `37ba58c` passes exact-SHA

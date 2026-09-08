@@ -16,7 +16,7 @@ import time
 import traceback
 from typing import Iterator
 from urllib.error import URLError
-from urllib.parse import parse_qs, parse_qsl, unquote, unquote_plus, urlencode, urlparse
+from urllib.parse import parse_qs, parse_qsl, quote, unquote, unquote_plus, urlencode, urlparse
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -9568,6 +9568,16 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         )
     )
 
+    checks.update(
+        _verify_reader_progress_ownership(
+            browser,
+            iteration=iteration,
+            blocked_external=blocked_external,
+            console_errors=console_errors,
+            page_errors=page_errors,
+        )
+    )
+
     framework_prefetch_cancellations = _framework_prefetch_cancellations(console_errors)
     route_transition_cancellations = _route_transition_cancellations(console_errors)
     precursor_snapshot_route_cancellations = (
@@ -9633,6 +9643,962 @@ def _run_single_iteration(browser, *, iteration: int) -> dict[str, object]:
         "console_error_count": len(unexpected_console_errors),
         "page_error_count": len(page_errors),
     }
+
+
+def _verify_reader_progress_ownership(
+    browser,
+    *,
+    iteration: int,
+    blocked_external: list[str],
+    console_errors: list[str],
+    page_errors: list[str],
+    scenario_kind: str | None = None,
+) -> dict[str, bool]:
+    from playwright.sync_api import expect
+
+    checks: dict[str, bool] = {}
+    storage_key = "scientific-spaces-reader-progress-v1"
+    middle_id = "\u63a8\u5bfc\u6b65\u9aa4"
+    query = "?reader_probe=A%2FB&reader_probe=C%2BD&literal=%252F"
+    scenarios = [
+        ("fresh", width, height, target)
+        for width, height in ((390, 844), (320, 844), (720, 450))
+        for target in ("article-outline", "reading-tools")
+    ]
+    scenarios += [
+        (kind, 390, 844, target)
+        for kind in ("saved", "short")
+        for target in ("article-outline", "reading-tools")
+    ]
+    scenarios += [
+        (kind, width, height, "reading-tools")
+        for kind in ("display", "body")
+        for width, height in ((390, 844), (1440, 1000))
+    ]
+    scenarios.append(("clamped", 1440, 1000, "reading-tools"))
+    scenarios.append(("route-exit", 390, 844, "reading-tools"))
+    scenarios.append(("protected", 1440, 1000, "reading-tools"))
+    _require(len(scenarios) == 17, "Reader ownership matrix must include clamped-heading, outgoing-route and protected-entry regressions")
+    if scenario_kind is not None:
+        scenarios = [scenario for scenario in scenarios if scenario[0] == scenario_kind]
+        _require(bool(scenarios), "unknown focused Reader ownership scenario")
+
+    # APIRequestContext bypasses browser routes, including the read-only UI overlay.
+    auditor = browser.new_context()
+    _install_network_guard(auditor, blocked_external)
+    try:
+        for case_index, (kind, width, height, target_id) in enumerate(scenarios):
+            label = f"reader-progress-{iteration}-{kind}-{width}-{height}-{target_id}"
+            article_id = ATTENTION_ARTICLE_ID if kind in {"short", "clamped"} else CRB_ARTICLE_ID
+            title = ATTENTION_TITLE if kind in {"short", "clamped"} else CRB_TITLE
+            base_url = f"{FRONTEND_URL}/articles/{article_id}{query}"
+            if kind == "protected":
+                base_url += "&from=%2Fgraph"
+            before_sessions = _api_json(auditor, "GET", "/learning/sessions")
+            before_states = _api_json(auditor, "GET", "/learning/state")
+            short_article = (
+                {**_api_json(auditor, "GET", f"/articles/{article_id}"),
+                 "content": "## Brief section\n\nA short local reading fixture.\n"}
+                if kind == "short" else None
+            )
+            if kind == "clamped":
+                short_article = {
+                    **_api_json(auditor, "GET", f"/articles/{article_id}"),
+                    "content": "## Initial section\n\n"
+                    + "A bounded fixture paragraph explains the reading-position invariant. " * 50
+                    + "\n\n## Final section\n\nThe final heading remains the explicit destination.\n",
+                }
+            saved = {
+                "article_id": article_id,
+                "section_id": middle_id,
+                "section_title": middle_id,
+                "progress": 43,
+                "updated_at": "2026-09-08T00:00:00.000Z",
+            }
+            sessions: dict[str, dict[str, object]] = {}
+            fixture_requests: list[tuple[str, str]] = []
+            context = browser.new_context(
+                viewport={"width": width, "height": height},
+                locale="zh-CN",
+                has_touch=width < 1024,
+            )
+            _install_network_guard(context, blocked_external)
+            if kind in {"saved", "display", "protected"}:
+                context.add_init_script(
+                    f"""
+                    if (!localStorage.getItem({json.dumps(storage_key)})) {{
+                      localStorage.setItem({json.dumps(storage_key)},
+                        {json.dumps(json.dumps({'version': 1, 'items': [saved]}))});
+                    }}
+                    """
+                )
+            cors = {
+                "Access-Control-Allow-Origin": FRONTEND_URL,
+                "Access-Control-Allow-Methods": "GET, POST, PUT, OPTIONS",
+                "Access-Control-Allow-Headers": "Content-Type",
+                "Vary": "Origin",
+            }
+            unread_state = {
+                "article_id": article_id, "status": "unread", "last_read_at": None,
+                "completed_at": None, "read_count": 0, "updated_at": None,
+            }
+
+            def reject_fixture(route, reason: str) -> None:
+                route.abort("blockedbyclient")
+                raise E2EFailure(f"{label}: {reason}")
+
+            def fulfill_fixture(route, payload) -> None:
+                route.fulfill(
+                    status=200, content_type="application/json", headers=cors,
+                    body=json.dumps(payload),
+                )
+
+            def route_backend(route) -> None:
+                request = route.request
+                parsed = urlparse(request.url)
+                path, method = parsed.path, request.method
+                collection = path == "/learning/sessions"
+                session_path = path.startswith("/learning/sessions/")
+                state_path = path in {"/learning/state", f"/learning/state/{article_id}"}
+                short_path = short_article is not None and path == f"/articles/{article_id}"
+                owned = collection or session_path or state_path or short_path
+                if owned and parsed.query:
+                    reject_fixture(route, f"unexpected fixture query: {method} {path}?{parsed.query}")
+                    return
+                if method == "OPTIONS":
+                    requested = request.headers.get("access-control-request-method", "")
+                    session_id = path.split("/")[-2] if path.endswith("/end") else ""
+                    allowed = {"GET", "POST"} if collection else (
+                        {"PUT"} if session_id in sessions and path == f"/learning/sessions/{session_id}/end"
+                        else {"GET"} if not session_path else set()
+                    )
+                    if requested not in allowed:
+                        reject_fixture(route, f"unowned preflight: {requested} {path}")
+                    elif owned:
+                        fulfill_fixture(route, {})
+                    else:
+                        route.fallback()
+                    return
+                if collection:
+                    if method == "GET" and not request.post_data:
+                        rows = [*before_sessions["items"], *sessions.values()]
+                        fulfill_fixture(route, {"items": rows, "total": len(rows)})
+                    elif method == "POST":
+                        try:
+                            payload = json.loads(request.post_data or "null")
+                        except ValueError:
+                            reject_fixture(route, "Reader session payload is not JSON")
+                            return
+                        if payload != {"article_id": article_id, "source": "reader"}:
+                            reject_fixture(route, f"unowned Reader session payload: {payload}")
+                            return
+                        session_id = f"p3-038-{iteration}-{case_index}-{len(sessions)}"
+                        record = {
+                            "session_id": session_id, "article_id": article_id,
+                            "started_at": "2026-09-08T00:00:00Z", "ended_at": None,
+                            "duration_seconds": None, "source": "reader",
+                        }
+                        sessions[session_id] = record
+                        fulfill_fixture(route, record)
+                    else:
+                        reject_fixture(route, f"unexpected session collection method: {method}")
+                        return
+                elif session_path:
+                    session_id = path.split("/")[-2] if path.endswith("/end") else ""
+                    if (method != "PUT" or request.post_data or session_id not in sessions
+                            or path != f"/learning/sessions/{session_id}/end"):
+                        reject_fixture(route, f"unowned session end: {method} {path}")
+                        return
+                    record = {**sessions[session_id], "ended_at": "2026-09-08T00:00:05Z", "duration_seconds": 5}
+                    sessions[session_id] = record
+                    fulfill_fixture(route, record)
+                elif method != "GET" or request.post_data:
+                    reject_fixture(route, f"unowned backend write: {method} {path}")
+                    return
+                elif state_path:
+                    rows = [row for row in before_states["items"] if row["article_id"] != article_id]
+                    rows.append(unread_state)
+                    fulfill_fixture(route, {"items": rows, "total": len(rows)} if path == "/learning/state" else unread_state)
+                elif short_path:
+                    fulfill_fixture(route, short_article)
+                else:
+                    route.fallback()
+                    return
+                fixture_requests.append((method, path))
+
+            context.route(re.compile(r"http://(?:localhost|127\.0\.0\.1):8000/.*"), route_backend)
+            page = _new_observed_page(context, console_errors, page_errors, label=label)
+
+            def snapshot() -> dict[str, object]:
+                return page.evaluate(
+                    """
+                    ([key, articleId]) => {
+                      const root = document.querySelector('article#article-start');
+                      const markdown = root?.querySelector('.reader-markdown');
+                      const tools = document.getElementById('reading-tools');
+                      const progress = document.querySelector('[data-testid="reading-progress"]');
+                      const headings = [...markdown.querySelectorAll('h2[id], h3[id], h4[id]')]
+                        .map(node => ({id: node.id, title: node.textContent.trim(),
+                          top: node.getBoundingClientRect().top}));
+                      const readingLine = Math.min(180, Math.max(96, innerHeight * 0.2));
+                      const rect = element => {
+                        const box = element.getBoundingClientRect();
+                        return {top: box.top, bottom: box.bottom, left: box.left,
+                          right: box.right, height: box.height, scrollHeight: element.scrollHeight,
+                          clientHeight: element.clientHeight, scrollTop: element.scrollTop};
+                      };
+                      return {
+                        checkpoint: {
+                          stored: JSON.parse(localStorage.getItem(key) || '{"items":[]}')
+                            .items.find(item => item.article_id === articleId) ?? null,
+                          progress: Number(progress.getAttribute('aria-valuenow')),
+                          section: progress.firstElementChild.textContent.trim(),
+                          active: [...document.querySelectorAll(
+                            '[data-testid="article-outline"] [aria-current="location"]'
+                          )].map(node => node.getAttribute('href')),
+                        },
+                        progressText: progress.lastElementChild.textContent.trim(),
+                        headings,
+                        bodyOracle: {
+                          progress: Math.min(100, Math.max(0, Math.round(
+                            -root.getBoundingClientRect().top /
+                            Math.max(1, root.scrollHeight - innerHeight) * 100))),
+                          heading: headings.filter(heading => heading.top <= readingLine).at(-1) ?? null,
+                        },
+                        root: rect(root), markdown: rect(markdown), tools: rect(tools),
+                        scrollY, height: innerHeight, url: location.href, history: history.length,
+                        focus: {id: document.activeElement?.id, tag: document.activeElement?.tagName},
+                      };
+                    }
+                    """,
+                    [storage_key, article_id],
+                )
+
+            def preserve(expected: dict[str, object], phase: str) -> None:
+                actual = snapshot()
+                _require(
+                    actual["checkpoint"] == expected
+                    and actual["progressText"] == f"{expected['progress']}% read",
+                    f"{label}: semantic tools checkpoint changed during {phase}: "
+                    f"expected={expected}, actual={actual}",
+                )
+
+            def settle() -> None:
+                _wait_for_animation_frames(page, 5)
+                page.wait_for_timeout(400)
+
+            def reader_ready() -> None:
+                _wait_for_application_shell(page)
+                expect(page.locator("article#article-start > h1")).to_have_text(title, timeout=30_000)
+                expect(page.locator("[data-structured-references-state]")).to_have_attribute(
+                    "data-structured-references-state", re.compile(r"^(ready|empty)$"), timeout=30_000,
+                )
+                expect(page.get_by_role("button", name="End session", exact=True)).to_be_enabled(timeout=30_000)
+                _wait_for_page_requests_to_settle(page, console_errors)
+                settle()
+
+            def body_wheel(fraction: float) -> None:
+                geometry = snapshot()
+                root = geometry["root"]
+                distance = max(1, root["scrollHeight"] - geometry["height"])
+                destination = geometry["scrollY"] + root["top"] + fraction * distance
+                if fraction == 1.0:
+                    destination = geometry["scrollY"] + root["top"] + max(1, root["height"] - geometry["height"])
+                markdown = geometry["markdown"]
+                x = (markdown["left"] + markdown["right"]) / 2
+                page.mouse.move(x, min(geometry["height"] - 80, max(200, markdown["top"] + 40)))
+                page.mouse.wheel(0, destination - geometry["scrollY"])
+                settle()
+
+            meaningful_heading = (
+                {"id": saved["section_id"], "title": saved["section_title"]}
+                if kind in {"saved", "display"} else None
+            )
+
+            def body_checkpoint(
+                phase: str, *, terminal: bool | None = False,
+                explicit_section_id: str | None = None, pending: bool = False,
+            ) -> dict[str, object]:
+                nonlocal meaningful_heading
+                actual = snapshot()
+                checkpoint = actual["checkpoint"]
+                stored = checkpoint["stored"]
+                expected_progress = actual["bodyOracle"]["progress"]
+                heading = actual["bodyOracle"]["heading"]
+                if explicit_section_id is not None:
+                    targets = [item for item in actual["headings"] if item["id"] == explicit_section_id]
+                    _require(len(targets) == 1, f"{label}: {phase} has no unique rendered heading: {targets}")
+                    heading = targets[0]
+                if heading is not None:
+                    meaningful_heading = heading
+                # Expected sections come from body headings, never the active outline or store.
+                expected = {
+                    "stored": stored,
+                    "progress": expected_progress,
+                    "section": heading["title"] if heading else "Article start",
+                    "active": [f"#{quote(heading['id'], safe='')}"] if heading else [],
+                }
+                _require(
+                    stored is not None and stored["article_id"] == article_id
+                    and checkpoint == expected
+                    and actual["progressText"] == f"{expected_progress}% read"
+                    and (expected_progress == 100 if terminal is True else
+                         0 < expected_progress <= 100 if terminal is None else
+                         0 < expected_progress < 100),
+                    f"{label}: genuine {phase} did not track the unchanged root denominator: {actual}",
+                )
+                if not pending:
+                    expected_stored = {
+                        **stored, "article_id": article_id, "progress": expected_progress,
+                        "section_id": meaningful_heading["id"] if meaningful_heading else None,
+                        "section_title": meaningful_heading["title"] if meaningful_heading else None,
+                    }
+                    _require(
+                        stored == expected_stored,
+                        f"{label}: {phase} stored a different rendered body checkpoint: {actual}",
+                    )
+                    expected["stored"] = expected_stored
+                _require(
+                    96 < actual["root"]["bottom"] and actual["root"]["top"] < actual["height"],
+                    f"{label}: {phase} sampled tools instead of the Article: {actual}",
+                )
+                if terminal:
+                    _require(actual["root"]["bottom"] <= actual["height"] + 2, f"{label}: real Article end is not visible: {actual}")
+                elif terminal is False:
+                    _require(stored["section_id"] not in {None, "references"}, f"{label}: no genuine interior section: {actual}")
+                return expected
+
+            def require_pending_flush(stored, expected: dict[str, object], phase: str) -> None:
+                pending_section = unquote(expected["active"][0].lstrip("#"))
+                _require(
+                    stored is not None and stored["article_id"] == article_id
+                    and stored["progress"] == expected["progress"]
+                    and stored["section_id"] == pending_section
+                    and stored["section_title"] == expected["section"]
+                    and stored["updated_at"] > expected["stored"]["updated_at"],
+                    f"{label}: {phase} lost the legitimate pending body checkpoint: {stored}; expected={expected}",
+                )
+
+            def dashboard_round_trip(
+                expected: dict[str, object], *, immediate: bool = False, dirty: bool = False,
+                delay_reference_read: bool = False,
+            ) -> None:
+                if not immediate:
+                    _wait_for_page_requests_to_settle(page, console_errors)
+                transition = _declare_expected_route_transition(page, destination_url=FRONTEND_URL)
+                page.locator('a[aria-label="Scientific Spaces AI Learning OS home"]:visible').click()
+                dashboard = page.get_by_test_id("dashboard-command-center")
+                expect(dashboard).to_be_visible(timeout=30_000)
+                expect(dashboard).to_have_attribute("aria-busy", "false", timeout=30_000)
+                expect(dashboard.get_by_test_id("dashboard-remote-state")).to_have_count(0)
+                _wait_for_page_requests_to_settle(page, console_errors)
+                _complete_expected_route_transition(page, transition)
+                stored = page.evaluate(
+                    "([key, id]) => JSON.parse(localStorage.getItem(key) || '{\"items\":[]}').items.find(item => item.article_id === id) ?? null",
+                    [storage_key, article_id],
+                )
+                if dirty:
+                    require_pending_flush(stored, expected, "leaving Reader")
+                else:
+                    _require(stored == expected["stored"], f"{label}: leaving Reader rewrote checkpoint: {stored}; expected={expected}")
+                region = page.get_by_test_id("continue-reading")
+                expect(region).to_contain_text(f"{expected['progress']}% read")
+                section_title = expected["section"] if dirty else (expected["stored"] or {}).get("section_title") or "Article start"
+                expect(region).to_contain_text(section_title)
+                link = region.get_by_role("link", name=f"Continue learning {title}", exact=True)
+                section_id = (
+                    unquote(expected["active"][0].lstrip("#")) if dirty
+                    else (expected["stored"] or {}).get("section_id")
+                )
+                href = f"/articles/{article_id}" + (f"#{quote(section_id, safe='')}" if section_id else "")
+                expect(link).to_have_attribute("href", href)
+                transition = _declare_expected_route_transition(page, destination_url=FRONTEND_URL + href)
+                reference_route = re.compile(
+                    r"\A" + re.escape(BROWSER_API_URL)
+                    + rf"/v1\.2/articles/{re.escape(article_id)}/references(?:\?.*)?\Z"
+                )
+                delayed_heights: list[int] = []
+                delayed_reference_count = 0
+
+                def delay_incoming_references(route) -> None:
+                    nonlocal delayed_reference_count
+                    request_url = urlparse(route.request.url)
+                    api_origin = urlparse(BROWSER_API_URL)
+                    if (
+                        route.request.method != "GET"
+                        or route.request.post_data
+                        or (request_url.scheme, request_url.netloc) != (api_origin.scheme, api_origin.netloc)
+                        or request_url.path != f"/v1.2/articles/{article_id}/references"
+                        or request_url.fragment
+                        or sorted(parse_qsl(request_url.query, keep_blank_values=True))
+                        != [("page", "1"), ("page_size", "20")]
+                        or delayed_reference_count != 0
+                    ):
+                        reject_fixture(route, "unexpected delayed incoming reference read")
+                    delayed_reference_count += 1
+                    response = route.fetch(max_redirects=0)
+                    _require(
+                        response.status == 200 and response.url == route.request.url,
+                        f"{label}: incoming reference read failed or changed destination",
+                    )
+                    # Delay only this real local response; preserve its payload and headers.
+                    page.wait_for_timeout(800)
+                    delayed_heights.append(page.locator("article#article-start").evaluate("node => node.scrollHeight"))
+                    route.fulfill(response=response)
+
+                if delay_reference_read:
+                    context.route(reference_route, delay_incoming_references)
+                try:
+                    link.click()
+                    reader_ready()
+                finally:
+                    if delay_reference_read:
+                        context.unroute(reference_route, delay_incoming_references)
+                if delay_reference_read:
+                    settled_height = page.locator("article#article-start").evaluate("node => node.scrollHeight")
+                    _require(
+                        delayed_reference_count == 1 and len(delayed_heights) == 1
+                        and settled_height > delayed_heights[0],
+                        f"{label}: delayed references did not expand the incoming Article: {delayed_heights} -> {settled_height}",
+                    )
+                _complete_expected_route_transition(page, transition)
+                _require(page.url == FRONTEND_URL + href, f"{label}: Continue Learning changed the exact destination")
+                if section_id:
+                    heading = page.locator(f'[id="{section_id}"]')
+                    expect(heading).to_be_focused()
+                    _require_visible_focus(heading, f"{label}: resumed body heading")
+                    resumed = body_checkpoint(
+                        "Dashboard heading resume", terminal=None, explicit_section_id=section_id,
+                    )
+                    _require(resumed["section"] == section_title, f"{label}: resume changed its expected section title")
+                    _require(resumed["stored"]["section_id"] == section_id, f"{label}: resume lost its exact section: {resumed}")
+                else:
+                    _require(snapshot()["checkpoint"]["progress"] == 0, f"{label}: fresh Continue Learning resumed at the end")
+
+            def cold_tool_checkpoint(phase: str) -> dict[str, object]:
+                checkpoint = snapshot()["checkpoint"]
+                _wait_for_page_requests_to_settle(page, console_errors)
+                page.goto(f"{base_url}#reading-tools", wait_until="domcontentloaded")
+                _wait_for_page_requests_to_settle(page, console_errors)
+                # goto can be a same-document hash navigation; reload establishes cold BODY focus.
+                page.reload(wait_until="domcontentloaded")
+                reader_ready()
+                preserve(checkpoint, f"{phase} cold tool ownership")
+                _require(snapshot()["focus"]["tag"] == "BODY", f"{label}: {phase} cold tools stole focus")
+                return snapshot()
+
+            def prepare_tool_owned_body_input(phase: str) -> dict[str, object]:
+                checkpoint = cold_tool_checkpoint(phase)["checkpoint"]
+                # Align the viewport without a reading gesture; preservation proves it is still tool-owned.
+                fraction = 0.30 if checkpoint["progress"] >= 40 else 0.20
+                page.evaluate(
+                    """
+                    fraction => {
+                      const root = document.querySelector('article#article-start');
+                      window.scrollTo(0, scrollY + root.getBoundingClientRect().top
+                        + fraction * Math.max(1, root.scrollHeight - innerHeight));
+                    }
+                    """,
+                    fraction,
+                )
+                settle()
+                preserve(checkpoint, f"{phase} unowned body viewport alignment")
+                aligned = snapshot()
+                _require(
+                    aligned["url"] == f"{base_url}#reading-tools"
+                    and aligned["focus"]["tag"] == "BODY"
+                    and 0 < aligned["bodyOracle"]["progress"] < 100
+                    and aligned["bodyOracle"]["progress"] != checkpoint["progress"],
+                    f"{label}: {phase} did not establish a distinct tool-owned body position: {aligned}",
+                )
+                return aligned
+
+            def body_touch(phase: str) -> dict[str, object]:
+                geometry = snapshot()
+                markdown = geometry["markdown"]
+                x = (markdown["left"] + markdown["right"]) / 2
+                y = min(geometry["height"] - 100, max(300, markdown["top"] + 180))
+                _require(markdown["top"] < y - 100 < y < markdown["bottom"], f"{label}: touch gesture is not over the body")
+                _require(
+                    page.evaluate("([x,y]) => !!document.elementFromPoint(x,y)?.closest('.reader-markdown')", [x, y]),
+                    f"{label}: {phase} touch starts outside rendered Markdown",
+                )
+                cdp = context.new_cdp_session(page)
+                try:
+                    cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+                    for step in range(1, 6):
+                        cdp.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": x, "y": y - step * 20}]})
+                        page.wait_for_timeout(25)
+                    cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+                finally:
+                    cdp.detach()
+                settle()
+                _require(snapshot()["scrollY"] > geometry["scrollY"], f"{label}: browser touch input did not scroll")
+                return body_checkpoint(phase)
+
+            try:
+                cold = kind in {"saved", "display"}
+                page.goto(base_url + (f"#{target_id}" if cold else ""), wait_until="domcontentloaded")
+                reader_ready()
+                initial = snapshot()
+                if kind == "short":
+                    _require(
+                        initial["root"]["scrollHeight"] < height
+                        and initial["tools"]["scrollHeight"] > height * 2,
+                        f"{label}: short-root/tall-tools fixture is not rendered: {initial}",
+                    )
+                else:
+                    _require(initial["root"]["scrollHeight"] > height, f"{label}: CRB fixture has no readable distance: {initial}")
+
+                if cold:
+                    expected = {"stored": saved, "progress": 43, "section": middle_id, "active": [f"#{quote(middle_id, safe='')}"]}
+                    preserve(expected, "cold tool restore")
+                    _require(initial["focus"]["tag"] == "BODY", f"{label}: cold restore stole BODY focus: {initial}")
+                else:
+                    expected = initial["checkpoint"]
+                    _require(expected["progress"] == 0, f"{label}: fixture did not start at 0%: {initial}")
+
+                if kind in {"fresh", "short"}:
+                    link_name = "Outline" if target_id == "article-outline" else "Reading tools"
+                    page.get_by_role("link", name=link_name, exact=True).click()
+                    _wait_for_animation_frames(page, 5)
+                    # This is intentionally the first post-click assertion, before focus checks.
+                    preserve(expected, "immediate tool activation")
+                    expect(page.locator(f"#{target_id}")).to_be_focused()
+                    _require_visible_focus(page.locator(f"#{target_id}"), label)
+                    _require(page.url == f"{base_url}#{target_id}", f"{label}: shortcut changed raw query/hash")
+                    _require(page.evaluate("history.length") == initial["history"] + 1, f"{label}: shortcut changed native history length")
+                    if kind == "fresh" and width == 320 and target_id == "reading-tools":
+                        dashboard_round_trip(expected, immediate=True)
+                    else:
+                        settle()
+                        preserve(expected, "debounced tool activation")
+                    if kind == "fresh" and width == 390:
+                        if target_id == "article-outline":
+                            page.go_back()
+                            settle()
+                            _require(page.url == base_url, f"{label}: Back changed the original query")
+                            expect(page.locator("article#article-start")).to_be_focused()
+                            _require_visible_focus(page.locator("article#article-start"), label)
+                            at_start = snapshot()["checkpoint"]
+                            _require(at_start["progress"] == 0, f"{label}: Back did not reacquire Article start")
+                            page.go_forward()
+                            settle()
+                            preserve(at_start, "Forward to tools")
+                            expect(page.locator(f"#{target_id}")).to_be_focused()
+                            _require(page.url == f"{base_url}#{target_id}" and page.evaluate("history.length") == initial["history"] + 1, f"{label}: Back/Forward rewrote history")
+                            expected = at_start
+                        _wait_for_page_requests_to_settle(page, console_errors)
+                        page.reload(wait_until="domcontentloaded")
+                        reader_ready()
+                        preserve(expected, "reload/pagehide on tools")
+                        _require(snapshot()["focus"]["tag"] == "BODY", f"{label}: cold reload stole BODY focus")
+                        dashboard_round_trip(expected)
+                    if kind == "short":
+                        page.get_by_role("link", name="Back to article", exact=True).click()
+                        settle()
+                        expect(page.locator("article#article-start")).to_be_focused()
+                        box = page.locator(".reader-markdown").bounding_box()
+                        _require(box is not None, f"{label}: short Markdown is missing")
+                        page.mouse.move(box["x"] + box["width"] / 2, box["y"] + box["height"] / 2)
+                        page.mouse.wheel(0, 120)
+                        settle()
+                        body_checkpoint("short Article end", terminal=True)
+
+                elif kind == "saved":
+                    page.get_by_role("link", name="Outline" if target_id == "article-outline" else "Reading tools", exact=True).click()
+                    settle()
+                    preserve(expected, "tool entry after cold checkpoint restore")
+                    page.mouse.move(width / 2, height / 2)
+                    _require(page.evaluate("([x,y]) => !!document.elementFromPoint(x,y)?.closest('#reading-tools')", [width / 2, height / 2]), f"{label}: tool wheel starts outside the tools")
+                    page.mouse.wheel(0, 180)
+                    settle()
+                    preserve(expected, "cold tools scroll")
+                    dashboard_round_trip(expected)
+
+                elif kind == "display":
+                    if width < 1024:
+                        page.get_by_role("link", name="Reading tools", exact=True).click()
+                        settle()
+                        preserve(expected, "tool entry after cold checkpoint restore")
+                    tools_before = snapshot()
+                    box = page.locator("#reading-tools").bounding_box()
+                    _require(box is not None, f"{label}: tools are missing")
+                    page.mouse.move(box["x"] + box["width"] / 2, min(height - 80, box["y"] + 220))
+                    _require(page.evaluate("([x,y]) => !!document.elementFromPoint(x,y)?.closest('#reading-tools')", [box["x"] + box["width"] / 2, min(height - 80, box["y"] + 220)]), f"{label}: display wheel starts outside the tools")
+                    page.mouse.wheel(0, 300)
+                    settle()
+                    tools_after = snapshot()
+                    if width >= 1024:
+                        _require(tools_after["tools"]["scrollTop"] > tools_before["tools"]["scrollTop"] and abs(tools_after["scrollY"] - tools_before["scrollY"]) < 1, f"{label}: desktop probe did not scroll the aside independently: {tools_before}; {tools_after}")
+                    else:
+                        _require(tools_after["scrollY"] > tools_before["scrollY"], f"{label}: mobile tools did not scroll")
+                    preserve(expected, "tools wheel")
+                    if width >= 1024:
+                        # A completed nested gesture cannot authorize a later
+                        # programmatic viewport displacement with unchanged layout.
+                        page.evaluate("window.scrollBy(0, 120)")
+                        settle()
+                        preserve(expected, "unowned document scroll after nested completion")
+                        page.evaluate("y => window.scrollTo(0, y)", tools_after["scrollY"])
+                        settle()
+                        preserve(expected, "unowned viewport restoration")
+                    page.get_by_role("button", name="Large text", exact=True).click()
+                    settle()
+                    expect(page.locator("article#article-start")).to_have_attribute("data-reader-size", "large")
+                    preserve(expected, "font reflow")
+                    page.get_by_role("button", name="Wide", exact=True).click()
+                    settle()
+                    expect(page.locator("article#article-start")).to_have_attribute("data-reader-width", "wide")
+                    preserve(expected, "width reflow")
+                    page.set_viewport_size({"width": 1280 if width >= 1024 else 390, "height": 900 if width >= 1024 else 1000})
+                    settle()
+                    preserve(expected, "viewport resize")
+                    page.wait_for_timeout(600)
+                    box = page.locator("#reading-tools").bounding_box()
+                    page.mouse.move(box["x"] + box["width"] / 2, 350)
+                    page.mouse.wheel(0, 80)
+                    settle()
+                    preserve(expected, "delayed tools scroll")
+                    page.get_by_role("button", name="Compact text", exact=True).click()
+                    settle()
+                    preserve(expected, "final font reflow before reading")
+                    body_wheel(0.35)
+                    after_reflow_reading = body_checkpoint("first body wheel after font reflow")
+                    dashboard_round_trip(after_reflow_reading)
+
+                    if width >= 1024:
+                        for gesture in ("upward wheel at top", "horizontal body touch"):
+                            phase = f"no-op {gesture}"
+                            origin = cold_tool_checkpoint(phase)
+                            frozen = origin["checkpoint"]
+                            _require(
+                                origin["scrollY"] == 0 and origin["tools"]["scrollTop"] == 0,
+                                f"{label}: {phase} did not start at the document/aside top: {origin}",
+                            )
+                            page.evaluate(
+                                """
+                                () => {
+                                  const probe = {events: []};
+                                  probe.record = event => {
+                                    const touch = event.touches?.[0];
+                                    probe.events.push({type: event.type, trusted: event.isTrusted,
+                                      deltaY: event.deltaY ?? null,
+                                      x: touch?.clientX ?? null, y: touch?.clientY ?? null});
+                                  };
+                                  window.__p3038NoopInputProbe = probe;
+                                  for (const type of ['wheel', 'touchstart', 'touchmove']) {
+                                    window.addEventListener(type, probe.record, {passive: true});
+                                  }
+                                }
+                                """
+                            )
+                            try:
+                                if gesture == "upward wheel at top":
+                                    box = page.locator("#reading-tools").bounding_box()
+                                    x = box["x"] + box["width"] / 2
+                                    y = min(origin["height"] - 80, box["y"] + 220)
+                                    _require(
+                                        page.evaluate("([x,y]) => !!document.elementFromPoint(x,y)?.closest('#reading-tools')", [x, y]),
+                                        f"{label}: {phase} wheel starts outside the aside",
+                                    )
+                                    page.mouse.move(x, y)
+                                    page.mouse.wheel(0, -300)
+                                else:
+                                    markdown = origin["markdown"]
+                                    x = markdown["left"] + 40
+                                    y = max(400, markdown["top"] + 60)
+                                    _require(
+                                        x + 110 < markdown["right"] and y < min(markdown["bottom"], origin["height"] - 80)
+                                        and page.evaluate("([x,y]) => !!document.elementFromPoint(x,y)?.closest('.reader-markdown')", [x, y]),
+                                        f"{label}: {phase} does not fit the rendered body",
+                                    )
+                                    cdp = context.new_cdp_session(page)
+                                    try:
+                                        cdp.send("Input.dispatchTouchEvent", {"type": "touchStart", "touchPoints": [{"x": x, "y": y}]})
+                                        for step in range(1, 6):
+                                            cdp.send("Input.dispatchTouchEvent", {"type": "touchMove", "touchPoints": [{"x": x + step * 22, "y": y}]})
+                                            page.wait_for_timeout(25)
+                                        cdp.send("Input.dispatchTouchEvent", {"type": "touchEnd", "touchPoints": []})
+                                    finally:
+                                        cdp.detach()
+                                settle()
+                                events = page.evaluate("window.__p3038NoopInputProbe.events")
+                                if gesture == "upward wheel at top":
+                                    _require(
+                                        any(event["type"] == "wheel" and event["trusted"] and event["deltaY"] == -300 for event in events),
+                                        f"{label}: {phase} did not deliver the real wheel input: {events}",
+                                    )
+                                else:
+                                    moves = [event for event in events if event["type"] == "touchmove"]
+                                    _require(
+                                        any(event["type"] == "touchstart" and event["trusted"] for event in events)
+                                        and bool(moves) and all(event["trusted"] and abs(event["y"] - y) < 0.01 for event in moves)
+                                        and any(event["x"] > x for event in moves),
+                                        f"{label}: {phase} did not deliver a trusted horizontal-only touch: {events}",
+                                    )
+                            finally:
+                                page.evaluate(
+                                    """
+                                    () => {
+                                      const probe = window.__p3038NoopInputProbe;
+                                      for (const type of ['wheel', 'touchstart', 'touchmove']) {
+                                        window.removeEventListener(type, probe.record);
+                                      }
+                                      delete window.__p3038NoopInputProbe;
+                                    }
+                                    """
+                                )
+                            after_noop = snapshot()
+                            _require(
+                                after_noop["scrollY"] == origin["scrollY"]
+                                and after_noop["tools"]["scrollTop"] == origin["tools"]["scrollTop"],
+                                f"{label}: {phase} was not a vertical no-op: {after_noop}",
+                            )
+                            preserve(frozen, phase)
+                            page.evaluate("window.scrollBy(0, 120)")
+                            settle()
+                            displaced = snapshot()
+                            _require(
+                                abs(displaced["scrollY"] - after_noop["scrollY"] - 120) < 1
+                                and displaced["bodyOracle"]["progress"] != frozen["progress"],
+                                f"{label}: {phase} negative did not establish distinct viewport progress: {displaced}",
+                            )
+                            preserve(frozen, f"{phase} then unrelated document scroll")
+                            body_wheel(0.30 if frozen["progress"] >= 40 else 0.55)
+                            resumed = body_checkpoint(f"genuine body wheel after {phase}")
+                            _require(
+                                resumed["progress"] != frozen["progress"]
+                                and resumed["stored"]["updated_at"] > frozen["stored"]["updated_at"]
+                                and page.url == origin["url"],
+                                f"{label}: {phase} left genuine reading locked: {resumed}",
+                            )
+                            dashboard_round_trip(resumed)
+
+                elif kind == "protected":
+                    _require(expected["stored"] == saved, f"{label}: Graph entry lost its saved checkpoint")
+                    for next_height in (height - 100, height):
+                        page.set_viewport_size({"width": width, "height": next_height})
+                        settle()
+                        preserve(expected, "protected entry viewport resize without reading")
+                    _require(page.url == base_url, f"{label}: protected resize changed the entry URL")
+                    body_wheel(0.35)
+                    body_checkpoint("first genuine body reading from protected entry")
+
+                elif kind == "route-exit":
+                    page.get_by_role("link", name="Outline", exact=True).click()
+                    settle()
+                    heading_link = page.get_by_test_id("article-outline").locator(f'a[href="#{quote(middle_id, safe="")}"]')
+                    heading_link.click()
+                    settle()
+                    body_wheel(0.45)
+                    checkpoint = body_checkpoint("body before outgoing route")
+                    cdp = context.new_cdp_session(page)
+                    try:
+                        # Exercise delayed passive cleanup after native route/DOM replacement.
+                        cdp.send("Emulation.setCPUThrottlingRate", {"rate": 4})
+                        dashboard_round_trip(checkpoint, delay_reference_read=True)
+                    finally:
+                        cdp.send("Emulation.setCPUThrottlingRate", {"rate": 1})
+                        cdp.detach()
+
+                elif kind == "clamped":
+                    final_link = page.get_by_test_id("article-outline").get_by_role("link", name="Final section", exact=True)
+                    final_link.click()
+                    settle()
+                    final_heading = page.locator("#final-section")
+                    expect(final_heading).to_be_focused()
+                    _require(final_heading.bounding_box()["y"] > 180 and snapshot()["scrollY"] > 0, f"{label}: heading was not clamped by the document end")
+
+                    def require_explicit_heading() -> None:
+                        selected = body_checkpoint(
+                            "clamped explicit heading", terminal=None, explicit_section_id="final-section",
+                        )
+                        _require(
+                            selected["section"] == selected["stored"]["section_title"] == "Final section"
+                            and selected["active"] == ["#final-section"]
+                            and selected["stored"]["section_id"] == "final-section"
+                            and page.url == f"{base_url}#final-section",
+                            f"{label}: clamped explicit heading/hash was overwritten: {selected}; url={page.url}",
+                        )
+
+                    require_explicit_heading()
+                    _wait_for_page_requests_to_settle(page, console_errors)
+                    page.reload(wait_until="domcontentloaded")
+                    reader_ready()
+                    require_explicit_heading()
+                    _require(snapshot()["focus"]["tag"] == "BODY", f"{label}: cold heading restore stole focus")
+                    body_wheel(0.3)
+                    after_retreat = body_checkpoint("reading after a clamped heading")
+                    _require(after_retreat["stored"]["section_id"] == "initial-section", f"{label}: explicit heading became a permanent lock")
+                    _require(page.url == f"{base_url}#final-section", f"{label}: clamped-heading retreat rewrote the raw query/hash")
+
+                else:
+                    if width < 1024:
+                        page.get_by_role("link", name="Outline", exact=True).click()
+                        settle()
+                        preserve(expected, "positive journey tool entry")
+                    heading_link = page.get_by_test_id("article-outline").locator(f'a[href="#{quote(middle_id, safe="")}"]')
+                    heading_link.click()
+                    settle()
+                    expect(page.locator(f'[id="{middle_id}"]')).to_be_focused()
+                    _require_visible_focus(page.locator(f'[id="{middle_id}"]'), label)
+                    body_checkpoint("explicit body heading", explicit_section_id=middle_id)
+                    body_wheel(0.45)
+                    middle = body_checkpoint("body wheel")
+                    page.set_viewport_size({"width": width, "height": height - 100})
+                    settle()
+                    resized = body_checkpoint("body viewport resize")
+                    _require(resized["progress"] != middle["progress"], f"{label}: viewport resize did not change the progress denominator")
+                    page.set_viewport_size({"width": width, "height": height})
+                    settle()
+                    middle = body_checkpoint("body viewport restoration")
+                    dashboard_round_trip(middle)
+                    before_keyboard = snapshot()["scrollY"]
+                    page.keyboard.press("ArrowDown")
+                    page.keyboard.press("ArrowDown")
+                    settle()
+                    _require(snapshot()["scrollY"] > before_keyboard, f"{label}: keyboard did not scroll the body")
+                    body_checkpoint("body keyboard")
+
+                    if width < 1024:
+                        page.get_by_role("link", name="Reading tools", exact=True).click()
+                        settle()
+                        expect(page.locator("#reading-tools")).to_be_focused()
+                        tool_hash = page.url
+                        body_wheel(0.30)
+                        body_checkpoint("first body wheel after tools")
+                        # A second wheel starts over real content, with the old tool hash/focus.
+                        body_wheel(0.40)
+                        body_checkpoint("body wheel with stale tool hash and focus")
+                        _require(page.url == tool_hash and snapshot()["focus"]["id"] == "reading-tools", f"{label}: stale-hash input probe changed its precondition")
+                        body_touch("emulated body touch")
+
+                    keyboard_origin = prepare_tool_owned_body_input("first keyboard after tools")
+                    page.keyboard.press("ArrowDown")
+                    settle()
+                    _require(
+                        snapshot()["scrollY"] > keyboard_origin["scrollY"]
+                        and page.url == keyboard_origin["url"],
+                        f"{label}: first keyboard input did not move the body with the tool hash intact",
+                    )
+                    keyboard_checkpoint = body_checkpoint("first keyboard after tools")
+                    _require(
+                        keyboard_checkpoint["stored"]["updated_at"] > keyboard_origin["checkpoint"]["stored"]["updated_at"],
+                        f"{label}: first keyboard input did not persist a new reading checkpoint",
+                    )
+                    dashboard_round_trip(keyboard_checkpoint)
+
+                    if width < 1024:
+                        touch_origin = prepare_tool_owned_body_input("first touch after tools")
+                        touch_checkpoint = body_touch("first touch after tools")
+                        _require(
+                            page.url == touch_origin["url"]
+                            and touch_checkpoint["stored"]["updated_at"] > touch_origin["checkpoint"]["stored"]["updated_at"],
+                            f"{label}: first touch did not persist a new checkpoint with the tool hash intact",
+                        )
+                        dashboard_round_trip(touch_checkpoint)
+
+                    # Native scrollbar input needs a separately configured browser launch.
+                    # These journeys do not claim coverage of hidden headless scrollbars.
+
+                    body_wheel(1.0)
+                    end = body_checkpoint("real Article end", terminal=True)
+                    body_wheel(0.30)
+                    retreat = body_checkpoint("body retreat")
+                    _require(retreat["progress"] < end["progress"] and retreat["stored"]["section_id"] != end["stored"]["section_id"], f"{label}: progress became a high-water mark")
+                    if width >= 1024:
+                        _wait_for_page_requests_to_settle(page, console_errors)
+                        geometry = snapshot()
+                        markdown = geometry["markdown"]
+                        page.mouse.move((markdown["left"] + markdown["right"]) / 2, 250)
+                        page.mouse.wheel(0, 60)
+                        _wait_for_animation_frames(page, 2)
+                        pending = body_checkpoint("dirty body before direct exit", pending=True)
+                        _require(
+                            pending["stored"] == retreat["stored"]
+                            and retreat["progress"] < pending["progress"] < 100
+                            and len(pending["active"]) == 1,
+                            f"{label}: immediate-exit probe did not establish a dirty body checkpoint: {pending}",
+                        )
+                        dashboard_round_trip(pending, immediate=True, dirty=True)
+
+                        for exit_mode in ("debounced", "immediate"):
+                            phase = f"dirty body to tools/{exit_mode}"
+                            body_wheel(0.30)
+                            clean = body_checkpoint(f"{phase} baseline")
+                            _wait_for_page_requests_to_settle(page, console_errors)
+                            tool_heading = page.locator("#reading-tools").get_by_role("heading", name="Reading tools", exact=True)
+                            tool_box = tool_heading.bounding_box()
+                            _require(
+                                tool_box is not None and 0 <= tool_box["y"]
+                                and tool_box["y"] + tool_box["height"] < height,
+                                f"{label}: {phase} tool activation would require viewport scrolling",
+                            )
+                            tool_x = tool_box["x"] + tool_box["width"] / 2
+                            tool_y = tool_box["y"] + tool_box["height"] / 2
+                            markdown = snapshot()["markdown"]
+                            body_x = (markdown["left"] + markdown["right"]) / 2
+                            _require(
+                                page.evaluate("x => !!document.elementFromPoint(x,250)?.closest('.reader-markdown')", body_x),
+                                f"{label}: {phase} wheel starts outside the body",
+                            )
+                            page.mouse.move(body_x, 250)
+                            page.mouse.wheel(0, 60)
+                            _wait_for_animation_frames(page, 2)
+                            pending = body_checkpoint(phase, pending=True)
+                            _require(
+                                pending["stored"] == clean["stored"]
+                                and clean["progress"] < pending["progress"] < 100,
+                                f"{label}: {phase} did not establish a genuinely dirty body checkpoint: {pending}",
+                            )
+                            _require(
+                                page.evaluate("([x,y]) => !!document.elementFromPoint(x,y)?.closest('#reading-tools')", [tool_x, tool_y]),
+                                f"{label}: {phase} activation misses the visible tools",
+                            )
+                            # A real pointer activation in the visible aside cannot auto-scroll the body first.
+                            page.mouse.click(tool_x, tool_y)
+                            _wait_for_animation_frames(page, 2)
+                            after_tool = snapshot()["checkpoint"]
+                            preserve({**pending, "stored": after_tool["stored"]}, f"{phase} immediate tool activation")
+                            if exit_mode == "immediate":
+                                _require(
+                                    after_tool["stored"] == clean["stored"],
+                                    f"{label}: {phase} flushed before the immediate-exit precondition: {after_tool}",
+                                )
+                                dashboard_round_trip(pending, immediate=True, dirty=True)
+                            else:
+                                settle()
+                                flushed = snapshot()["checkpoint"]["stored"]
+                                require_pending_flush(flushed, pending, phase)
+                                preserved = {**pending, "stored": flushed}
+                                preserve(preserved, f"{phase} completed debounce")
+                                page.wait_for_timeout(400)
+                                preserve(preserved, f"{phase} settled recency")
+                                dashboard_round_trip(preserved)
+
+                end_session = page.get_by_role("button", name="End session", exact=True)
+                end_session.click()
+                expect(end_session).to_be_disabled(timeout=30_000)
+                _wait_for_page_requests_to_settle(page, console_errors)
+                _require(bool(sessions), f"{label}: no context-owned Reader session was created")
+                _require(("POST", "/learning/sessions") in fixture_requests, f"{label}: Reader session fixture was bypassed")
+                _require(
+                    ("GET", "/learning/sessions") in fixture_requests
+                    and any(method == "PUT" and path.endswith("/end") for method, path in fixture_requests)
+                    and any(record["ended_at"] is not None for record in sessions.values()),
+                    f"{label}: owned session readback/end was not exercised: {fixture_requests}",
+                )
+                _require(_api_json(auditor, "GET", "/learning/sessions") == before_sessions, f"{label}: canonical session store changed before teardown")
+                _require(_api_json(auditor, "GET", "/learning/state") == before_states, f"{label}: canonical learning state changed before teardown")
+            finally:
+                context.close()
+                _require(_api_json(auditor, "GET", "/learning/sessions") == before_sessions, f"{label}: canonical session store changed after teardown")
+                _require(_api_json(auditor, "GET", "/learning/state") == before_states, f"{label}: canonical learning state changed after teardown")
+            checks[f"reader_progress_ownership_{kind}_{width}_{height}_{target_id}"] = True
+    finally:
+        auditor.close()
+    return checks
 
 
 def _verify_tutor_citation_continuity(

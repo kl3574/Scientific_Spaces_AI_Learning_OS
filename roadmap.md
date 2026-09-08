@@ -8,20 +8,21 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-P3-037 Tutor Citation Continuity
+P3-038 Reader Progress Ownership
 
 Current milestone:
-P3-037, after P3-036 / P3-036.1 / P3-005.2 PASS / CLOSED
+P3-038, after P3-037 PASS / CLOSED
 
 Status:
-P3-037 OPEN / CLOSURE CI PENDING
+P3-038 OPEN / IMPLEMENTATION CI PENDING
 
 Next gate:
-Implementation `37ba58c` passes exact-SHA CI `34221048974`, all seven required
+P3-037 closure `a294c8f` passes exact-SHA CI `34225518378`, all seven required
 jobs, Product E2E 3 x 281, restart persistence and zero uploaded artifacts.
-Publish the independently reviewed docs-only closure and verify its own
-exact-SHA CI before declaring P3-037 PASS / CLOSED. Both historical
-failed closure runs remain failed; Graph incident OPEN, root cause UNKNOWN.
+P3-038 local/review/safety gates pass: Backend 671/4 skipped, Frontend 149,
+build, exclusive Product E2E 3 x 298 and restart persistence. Commit and verify
+exact-SHA implementation CI, then a separate docs-only closure and its own CI.
+Historical Graph incident remains OPEN, root cause UNKNOWN.
 No repeated plan confirmation or v1.2 candidate is assigned.
 
 ## Historical Notes

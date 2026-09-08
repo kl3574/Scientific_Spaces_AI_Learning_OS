@@ -33,8 +33,13 @@ import {
   ArticleOutlineItem,
   DEFAULT_READER_PREFERENCES,
   ReaderPreferences,
+  ReaderScrollSample,
+  canReaderToolsConsumeScroll,
+  canResumeReaderProgress,
   clampReadingProgress,
   extractArticleOutline,
+  hasReaderScrollMotion,
+  hasSameReaderLayout,
   loadReaderPreferences,
   loadReaderProgress,
   prepareArticleMarkdown,
@@ -330,7 +335,7 @@ export function ArticleDetailView({
   const fragmentVisibilityCleanupRef = useRef<(() => void) | null>(null);
   const readerInteractionVersionRef = useRef(0);
   const readerFocusClaimInteractionVersionRef = useRef<number | null>(null);
-  const explicitSectionRef = useRef<ArticleOutlineItem | null>(null);
+  const readerProgressIntentRef = useRef<((intent: "tools" | "body" | "layout", section?: ArticleOutlineItem) => void) | null>(null);
   const noteDeleteCancelRef = useRef<HTMLButtonElement | null>(null);
   const noteDeleteConfirmationRef = useRef<HTMLDivElement | null>(null);
   const noteDeleteButtonRefs = useRef(new Map<string, HTMLButtonElement>());
@@ -735,6 +740,9 @@ export function ArticleDetailView({
               return;
             }
           }
+          readerProgressIntentRef.current?.(
+            targetId === "article-outline" || targetId === "reading-tools" ? "tools" : "body",
+          );
           target.scrollIntoView({ behavior: "auto", block: "start" });
           target.focus({ preventScroll: true });
           const visibilityDeadline = window.performance.now() + 5_000;
@@ -955,6 +963,7 @@ export function ArticleDetailView({
     if (!isSameTabNavigation(event)) {
       return;
     }
+    readerProgressIntentRef.current?.(targetId === "article-start" ? "body" : "tools");
     fragmentHistoryIntentRef.current = null;
     deferredFragmentFocusCleanupRef.current?.();
     fragmentVisibilityCleanupRef.current?.();
@@ -1118,7 +1127,6 @@ export function ArticleDetailView({
     bookmarkMutationRef.current = null;
     noteMutationRef.current = null;
     learningLoadArticleRef.current = null;
-    explicitSectionRef.current = null;
     setHistory(loadReadingHistory());
     const requestedArticleId = articleId;
     const controller = new AbortController();
@@ -2404,6 +2412,10 @@ export function ArticleDetailView({
     [activeSectionId, outline],
   );
 
+  useLayoutEffect(() => {
+    readerProgressIntentRef.current?.("layout");
+  }, [readerPreferences]);
+
   useEffect(() => {
     const currentArticleId = article?.id;
     const articleRoot = articleRootRef.current;
@@ -2413,6 +2425,7 @@ export function ArticleDetailView({
 
     let restored = false;
     let positionTrackingArmed = false;
+    let bodyMeasurementAdmitted = false;
     let positionDirty = false;
     let pendingPositionPersistence = false;
     let frame = 0;
@@ -2420,6 +2433,40 @@ export function ArticleDetailView({
     let trackingArmFrame = 0;
     let trackingArmFollowupFrame = 0;
     let persistenceTimer: ReturnType<typeof setTimeout> | null = null;
+    let toolsOwnPosition = false;
+    let userScrollOrigin: ReaderScrollSample | null = null;
+    let anchoredSection: ArticleOutlineItem | null = null;
+    let observedHash = window.location.hash;
+    let previousTouchY: number | null = null;
+    let scrollbarPointerId: number | null = null;
+    let scrollbarReleaseFrame = 0;
+    const cancelScrollbarRelease = () => {
+      if (scrollbarReleaseFrame) {
+        window.cancelAnimationFrame(scrollbarReleaseFrame);
+        scrollbarReleaseFrame = 0;
+      }
+    };
+    const tools = document.getElementById("reading-tools");
+    const measureTools = () => tools ? {
+      scrollTop: tools.scrollTop,
+      scrollHeight: tools.scrollHeight,
+      clientHeight: tools.clientHeight,
+      clientWidth: tools.clientWidth,
+      independentlyScrollable: /^(auto|scroll)$/.test(window.getComputedStyle(tools).overflowY),
+    } : null;
+    let lastToolsMeasurement = measureTools();
+    const measurePosition = (): ReaderScrollSample => {
+      const bounds = articleRoot.getBoundingClientRect();
+      return {
+        scrollY: window.scrollY,
+        articleTop: window.scrollY + bounds.top,
+        articleHeight: articleRoot.scrollHeight,
+        articleWidth: bounds.width,
+        viewportHeight: window.innerHeight,
+        viewportWidth: window.innerWidth,
+      };
+    };
+    let lastMeasurement = measurePosition();
     let pendingState = {
       article_id: currentArticleId,
       section_id: null as string | null,
@@ -2427,6 +2474,9 @@ export function ArticleDetailView({
       progress: 0,
       updated_at: new Date().toISOString(),
     };
+    const ownsLiveArticle = () => getCurrentReaderArticleId() === currentArticleId
+      && articleRoot.isConnected
+      && articleRootRef.current === articleRoot;
 
     const persist = () => {
       if (!restored || !positionDirty) {
@@ -2436,13 +2486,7 @@ export function ArticleDetailView({
         clearTimeout(persistenceTimer);
         persistenceTimer = null;
       }
-      const explicitSection = explicitSectionRef.current;
-      saveReaderProgress({
-        ...pendingState,
-        section_id: explicitSection?.id ?? pendingState.section_id,
-        section_title: explicitSection?.label ?? pendingState.section_title,
-        updated_at: new Date().toISOString(),
-      });
+      saveReaderProgress(pendingState);
       positionDirty = false;
     };
 
@@ -2453,13 +2497,28 @@ export function ArticleDetailView({
       persistenceTimer = setTimeout(persist, 300);
     };
 
-    const updateReadingPosition = () => {
+    const updateReadingPosition = (explicitSection?: ArticleOutlineItem) => {
       frame = 0;
-      if (!restored) {
+      if (!restored || !ownsLiveArticle()) {
         return;
       }
       const shouldPersistPosition = pendingPositionPersistence;
       pendingPositionPersistence = false;
+      const measurement = measurePosition();
+      lastMeasurement = measurement;
+      const userMovedThroughArticle = userScrollOrigin !== null
+        && canResumeReaderProgress(userScrollOrigin, measurement);
+      if (toolsOwnPosition) {
+        if (!userMovedThroughArticle) {
+          if (userScrollOrigin && !hasSameReaderLayout(userScrollOrigin, measurement)) {
+            userScrollOrigin = null;
+          }
+          return;
+        }
+        toolsOwnPosition = false;
+        userScrollOrigin = null;
+      }
+      bodyMeasurementAdmitted = true;
 
       const readingLine = Math.min(180, Math.max(96, window.innerHeight * 0.2));
       let nextSection: ArticleOutlineItem | null = null;
@@ -2472,10 +2531,12 @@ export function ArticleDetailView({
         }
       }
 
-      const articleRect = articleRoot.getBoundingClientRect();
-      const articleTop = window.scrollY + articleRect.top;
-      const readableDistance = Math.max(1, articleRoot.scrollHeight - window.innerHeight);
-      const nextProgress = clampReadingProgress(((window.scrollY - articleTop) / readableDistance) * 100);
+      if (userMovedThroughArticle || nextSection?.id === anchoredSection?.id) {
+        anchoredSection = null;
+      }
+      nextSection = explicitSection ?? anchoredSection ?? nextSection;
+      const readableDistance = Math.max(1, measurement.articleHeight - measurement.viewportHeight);
+      const nextProgress = clampReadingProgress(((measurement.scrollY - measurement.articleTop) / readableDistance) * 100);
       setActiveSectionId(nextSection?.id ?? null);
       setReadingProgress(nextProgress);
       pendingState = updateLastMeaningfulPosition(
@@ -2485,25 +2546,238 @@ export function ArticleDetailView({
         new Date().toISOString(),
       );
       positionDirty = positionDirty || shouldPersistPosition;
-      if (explicitSectionRef.current?.id === nextSection?.id) {
-        explicitSectionRef.current = null;
-      }
       if (shouldPersistPosition) {
         schedulePersist();
       }
     };
 
     const schedulePositionUpdate = (event: Event) => {
-      if (!positionTrackingArmed) {
+      if (!positionTrackingArmed || !ownsLiveArticle()) {
         return;
       }
-      pendingPositionPersistence = pendingPositionPersistence || event.type === "scroll";
+      if (event.type === "resize") {
+        userScrollOrigin = null;
+        if (!bodyMeasurementAdmitted) {
+          lastMeasurement = measurePosition();
+          lastToolsMeasurement = measureTools();
+          return;
+        }
+      }
+      pendingPositionPersistence = pendingPositionPersistence
+        || event.type === "scroll"
+        || (event.type === "resize" && bodyMeasurementAdmitted && !toolsOwnPosition);
       if (!frame) {
-        frame = window.requestAnimationFrame(updateReadingPosition);
+        frame = window.requestAnimationFrame(() => updateReadingPosition());
       }
     };
 
+    const setPositionIntent = (intent: "tools" | "body" | "layout", section?: ArticleOutlineItem) => {
+      cancelScrollbarRelease();
+      scrollbarPointerId = null;
+      if (intent !== "layout") {
+        toolsOwnPosition = intent === "tools";
+        anchoredSection = section ?? null;
+      }
+      userScrollOrigin = null;
+      pendingPositionPersistence = false;
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+        frame = 0;
+      }
+      lastMeasurement = measurePosition();
+      lastToolsMeasurement = measureTools();
+      if (intent === "body" && restored) {
+        pendingPositionPersistence = true;
+        if (section) {
+          updateReadingPosition(section);
+          persist();
+        } else {
+          frame = window.requestAnimationFrame(() => updateReadingPosition());
+        }
+      }
+    };
+    readerProgressIntentRef.current = setPositionIntent;
+
+    const captureFragment = () => {
+      if (observedHash === window.location.hash) {
+        return;
+      }
+      observedHash = window.location.hash;
+      const targetId = getReaderFragmentTargetId(observedHash);
+      if (targetId) {
+        setPositionIntent(targetId === "article-start" ? "body" : "tools");
+      } else if (outline.some((item) => item.id === decodeHash(observedHash))) {
+        setPositionIntent("body");
+      }
+    };
+
+    const beginUserScroll = (target: EventTarget | null, direction: number | null) => {
+      if (!positionTrackingArmed) {
+        return;
+      }
+      cancelScrollbarRelease();
+      const currentTools = measureTools();
+      if (target instanceof Node && tools?.contains(target) && currentTools?.independentlyScrollable) {
+        if (
+          !lastToolsMeasurement
+          || currentTools.scrollHeight !== lastToolsMeasurement.scrollHeight
+          || currentTools.clientHeight !== lastToolsMeasurement.clientHeight
+          || currentTools.clientWidth !== lastToolsMeasurement.clientWidth
+          || currentTools.independentlyScrollable !== lastToolsMeasurement.independentlyScrollable
+        ) {
+          lastToolsMeasurement = currentTools;
+          userScrollOrigin = null;
+          return;
+        }
+        // An interior-start gesture belongs to the nested scroller. It cannot
+        // leave a document ticket for a later unrelated scroll to consume.
+        if (direction !== null && canReaderToolsConsumeScroll(lastToolsMeasurement, direction)) {
+          userScrollOrigin = null;
+          return;
+        }
+      }
+      const current = measurePosition();
+      // Compositor scrolling can precede a passive wheel callback. Retain the
+      // last sampled viewport when its document-space layout is unchanged.
+      const origin = hasSameReaderLayout(lastMeasurement, current) ? lastMeasurement : current;
+      const scroller = document.scrollingElement;
+      const range = scroller ? scroller.scrollHeight - scroller.clientHeight : 0;
+      if (
+        range <= 0
+        || (direction !== null && (
+          direction === 0
+          || (direction < 0 && origin.scrollY <= 0)
+          || (direction > 0 && origin.scrollY >= range)
+        ))
+      ) {
+        userScrollOrigin = null;
+        return;
+      }
+      userScrollOrigin ??= origin;
+      pendingPositionPersistence = pendingPositionPersistence || current.scrollY !== userScrollOrigin.scrollY;
+      if (toolsOwnPosition && !frame) {
+        frame = window.requestAnimationFrame(() => updateReadingPosition());
+      }
+    };
+    const handleWheel = (event: WheelEvent) => {
+      if (!event.defaultPrevented && !event.ctrlKey && event.deltaY !== 0) {
+        beginUserScroll(event.target, event.deltaY);
+      }
+    };
+    const handleTouchStart = (event: TouchEvent) => {
+      previousTouchY = event.touches.length === 1 ? event.touches[0].clientY : null;
+      userScrollOrigin = null;
+    };
+    const handleTouchMove = (event: TouchEvent) => {
+      if (!event.defaultPrevented && event.touches.length === 1 && previousTouchY !== null) {
+        const nextY = event.touches[0].clientY;
+        if (nextY !== previousTouchY) {
+          beginUserScroll(event.target, previousTouchY - nextY);
+        }
+        previousTouchY = nextY;
+      }
+    };
+    const handleScrollKey = (event: KeyboardEvent) => {
+      const target = event.target instanceof Element ? event.target : null;
+      if (
+        event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey
+        || !["ArrowUp", "ArrowDown", "PageUp", "PageDown", "Home", "End", " "].includes(event.key)
+        || target?.closest('input, textarea, select, [contenteditable="true"], [role="slider"], [role="combobox"], [role="listbox"], [role="menu"], [role="tablist"]')
+        || (event.key === " " && target?.closest('button, a, [role="button"]'))
+      ) {
+        return;
+      }
+      const direction = ["ArrowUp", "PageUp", "Home"].includes(event.key)
+        || (event.key === " " && event.shiftKey) ? -1 : 1;
+      beginUserScroll(event.target, direction);
+    };
+    const handlePointer = (event: PointerEvent) => {
+      cancelScrollbarRelease();
+      userScrollOrigin = null;
+      scrollbarPointerId = null;
+      if (
+        event.button === 0
+        && event.clientX >= document.documentElement.clientWidth
+        && event.clientX < window.innerWidth
+        && event.clientY < document.documentElement.clientHeight
+      ) {
+        scrollbarPointerId = event.pointerId;
+        beginUserScroll(null, null);
+      }
+    };
+    const finishScrollbarPointer = (event: PointerEvent) => {
+      if (event.pointerId !== scrollbarPointerId) {
+        return;
+      }
+      scrollbarPointerId = null;
+      if (event.type === "pointercancel") {
+        userScrollOrigin = null;
+        return;
+      }
+      const origin = userScrollOrigin;
+      // A native track click may start scrolling after pointerup. Allow its
+      // next rendering opportunity, then expire a no-motion thumb activation.
+      scrollbarReleaseFrame = window.requestAnimationFrame(() => {
+        scrollbarReleaseFrame = window.requestAnimationFrame(() => {
+          scrollbarReleaseFrame = 0;
+          if (!origin || userScrollOrigin !== origin) {
+            return;
+          }
+          if (frame) {
+            window.cancelAnimationFrame(frame);
+          }
+          updateReadingPosition();
+          if (userScrollOrigin && !hasReaderScrollMotion(userScrollOrigin, lastMeasurement)) {
+            userScrollOrigin = null;
+          }
+        });
+      });
+    };
+    const finishUserScroll = (event: Event) => {
+      if (event.target !== document && event.target !== window) {
+        return;
+      }
+      if (frame) {
+        window.cancelAnimationFrame(frame);
+        updateReadingPosition();
+      }
+      userScrollOrigin = null;
+    };
+    const recordToolScroll = (event: Event) => {
+      if (event.target === tools) {
+        lastToolsMeasurement = measureTools();
+      }
+    };
+
+    const layoutObserver = new ResizeObserver(() => {
+      if (!ownsLiveArticle()) {
+        return;
+      }
+      const current = measurePosition();
+      lastToolsMeasurement = measureTools();
+      if (!hasSameReaderLayout(lastMeasurement, current)) {
+        userScrollOrigin = null;
+        lastMeasurement = current;
+        // Refresh admitted body progress when asynchronous content changes its
+        // denominator, without acquiring tool or protected restoration ownership.
+        if (restored && positionTrackingArmed && bodyMeasurementAdmitted && !toolsOwnPosition) {
+          pendingPositionPersistence = true;
+          if (!frame) {
+            frame = window.requestAnimationFrame(() => updateReadingPosition());
+          }
+        }
+      }
+    });
+    layoutObserver.observe(articleRoot);
+    if (tools) {
+      layoutObserver.observe(tools);
+      Array.from(tools.children).forEach((child) => layoutObserver.observe(child));
+    }
+
     const restorePosition = () => {
+      if (!ownsLiveArticle()) {
+        return;
+      }
       const saved = loadReaderProgress(currentArticleId);
       const hashSection = decodeHash(window.location.hash);
       const fragmentTargetId = getReaderFragmentTargetId(window.location.hash);
@@ -2533,6 +2807,7 @@ export function ArticleDetailView({
       if (target) {
         target.scrollIntoView({ behavior: "auto", block: "start" });
         if (targetSection) {
+          anchoredSection = outline.find((item) => item.id === targetSection) ?? null;
           setActiveSectionId(targetSection);
         }
       }
@@ -2543,6 +2818,13 @@ export function ArticleDetailView({
         }
       }
       restored = true;
+      if (fragmentTargetId === "article-outline" || fragmentTargetId === "reading-tools") {
+        setPositionIntent("tools");
+        setReadingProgress(saved?.progress ?? 0);
+        setActiveSectionId(saved?.section_id ?? null);
+        positionTrackingArmed = true;
+        return;
+      }
       if (!graphOrigin && readerHeadingOwnsViewport && saved) {
         positionTrackingArmed = true;
         return;
@@ -2568,6 +2850,17 @@ export function ArticleDetailView({
 
     window.addEventListener("scroll", schedulePositionUpdate, { passive: true });
     window.addEventListener("resize", schedulePositionUpdate);
+    window.addEventListener("hashchange", captureFragment);
+    window.addEventListener("popstate", captureFragment);
+    window.addEventListener("wheel", handleWheel, { capture: true, passive: true });
+    window.addEventListener("touchstart", handleTouchStart, { capture: true, passive: true });
+    window.addEventListener("touchmove", handleTouchMove, { capture: true, passive: true });
+    window.addEventListener("keydown", handleScrollKey, true);
+    window.addEventListener("pointerdown", handlePointer, true);
+    window.addEventListener("pointerup", finishScrollbarPointer, true);
+    window.addEventListener("pointercancel", finishScrollbarPointer, true);
+    window.addEventListener("scrollend", finishUserScroll, true);
+    document.addEventListener("scroll", recordToolScroll, true);
     window.addEventListener("pagehide", persist);
     document.addEventListener("visibilitychange", handleVisibilityChange);
     restoreFrame = window.requestAnimationFrame(() => {
@@ -2575,8 +2868,24 @@ export function ArticleDetailView({
     });
 
     return () => {
+      cancelScrollbarRelease();
+      layoutObserver.disconnect();
       window.removeEventListener("scroll", schedulePositionUpdate);
       window.removeEventListener("resize", schedulePositionUpdate);
+      window.removeEventListener("hashchange", captureFragment);
+      window.removeEventListener("popstate", captureFragment);
+      window.removeEventListener("wheel", handleWheel, true);
+      window.removeEventListener("touchstart", handleTouchStart, true);
+      window.removeEventListener("touchmove", handleTouchMove, true);
+      window.removeEventListener("keydown", handleScrollKey, true);
+      window.removeEventListener("pointerdown", handlePointer, true);
+      window.removeEventListener("pointerup", finishScrollbarPointer, true);
+      window.removeEventListener("pointercancel", finishScrollbarPointer, true);
+      window.removeEventListener("scrollend", finishUserScroll, true);
+      document.removeEventListener("scroll", recordToolScroll, true);
+      if (readerProgressIntentRef.current === setPositionIntent) {
+        readerProgressIntentRef.current = null;
+      }
       window.removeEventListener("pagehide", persist);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
       if (frame) {
@@ -2619,20 +2928,14 @@ export function ArticleDetailView({
           },
         };
     window.history.replaceState(nextHistoryState, "", `#${encodeURIComponent(sectionId)}`);
-    explicitSectionRef.current = section;
+    readerProgressIntentRef.current?.("body");
     target.scrollIntoView({ behavior: "auto", block: "start" });
     target.focus({ preventScroll: true });
-    setActiveSectionId(sectionId);
-    saveReaderProgress({
-      article_id: article.id,
-      section_id: section.id,
-      section_title: section.label,
-      progress: readingProgress,
-      updated_at: new Date().toISOString(),
-    });
+    readerProgressIntentRef.current?.("body", section);
   }
 
   function handleReaderPreferences(nextPreferences: ReaderPreferences) {
+    readerProgressIntentRef.current?.("tools");
     const saved = saveReaderPreferences(nextPreferences);
     setReaderPreferences(saved);
   }
@@ -2911,6 +3214,8 @@ export function ArticleDetailView({
       <aside
         id="reading-tools"
         aria-label="Reading tools"
+        onFocusCapture={() => readerProgressIntentRef.current?.("tools")}
+        onPointerDownCapture={() => readerProgressIntentRef.current?.("tools")}
         className="min-w-0 scroll-mt-24 space-y-4 focus:outline focus:outline-2 focus:outline-offset-2 focus:outline-sky-700 lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto lg:pr-1"
         tabIndex={-1}
       >

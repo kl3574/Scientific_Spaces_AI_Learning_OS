@@ -2,6 +2,25 @@
 
 ## Active Task
 
+`docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md`
+
+Status: **OPEN / IMPLEMENTATION CI PENDING**. Local gates pass on the bounded
+Reader repair: Backend 671/4 skipped, Frontend 149, production build, exclusive
+Product E2E 3 x 298 including 17 ownership journeys each, restart persistence,
+13 native-input checks, four viewports, safety and two independent reviews.
+Tool-only movement preserves progress; ordinary body tracking, native
+navigation, origins and schema remain intact. Next: implementation commit and
+exact-SHA CI, then a separate docs-only closure with its own CI. The earlier
+failed and invalidated runs remain recorded; no borrowed acceptance evidence.
+
+P3-037: **PASS / CLOSED** at closure a294c8fd36beee1b79673f05150310156d0d7f7f,
+exact-SHA main CI 34225518378, all seven required jobs, 3 x 281 E2E checks,
+38 Tutor citation checks each, restart PASS, zero unexpected errors/external
+requests and uploaded artifacts. Formal v1.1.0; no candidate or Release work.
+No recurring plan confirmation; follow the P3-038 canonical contract.
+
+## Historical P3-037 Closure Candidate
+
 `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md`
 
 Status: **OPEN / CLOSURE CI PENDING**. Native citation links preserve

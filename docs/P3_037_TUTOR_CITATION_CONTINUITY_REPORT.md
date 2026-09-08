@@ -174,7 +174,30 @@ checks. The closure commit's own
 exact-SHA main CI must pass before PASS / CLOSED is declared. A required
 failure returns to diagnosis without assertion relaxation or blind reruns.
 
-## Boundaries And Risks
+## Final Closure Readback
+
+- Status: PASS / CLOSED, verified 2026-09-08 after terminal CI success.
+- Closure commit: `a294c8fd36beee1b79673f05150310156d0d7f7f`.
+- Exact-SHA main push run:
+  [34225518378](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34225518378).
+- Required jobs all PASS: Backend 102058559091, Frontend 102058559459,
+  Product E2E 102058559286, Workflow 102058559343, Dependency 102058559455,
+  Secret 102058559386 and SBOM 102058559370.
+- Product E2E completed at 2026-09-08T12:56:39Z. Its completed JSON log was
+  decoded in memory: Chromium 149.0.7827.55, 3/3 runs, 281/281 checks each,
+  including 38 Tutor citation checks each. All four restart checks PASS.
+  External requests, unexpected console/page errors and static-chunk
+  cancellations: 0. Completed-run artifacts API: total_count=0.
+- Docker smoke and release dry-run are skipped by normal-main policy.
+- Local gh watch hit an annotation-fetch TLS timeout. Direct polling of the
+  same run recovered terminal SUCCESS; no workflow rerun occurred.
+- Local main, cached origin/main and live remote main matched the closure SHA
+  with a clean worktree before staging the subsequent independent Reader task.
+  Published v1.0.0 and v1.1.0 object/peeled refs remain unchanged.
+- Earlier pending snapshots above are historical. The unrelated historical
+  Graph visibility incident remains OPEN / UNRESOLVED, root cause UNKNOWN.
+
+## Continuing Boundaries And Risks
 
 Native separate-tab behavior preserves a live originating tab only. Refresh,
 eviction, closing that tab and physical-mobile popup policy are not covered.

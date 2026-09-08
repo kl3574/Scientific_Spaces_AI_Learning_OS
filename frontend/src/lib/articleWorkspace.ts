@@ -121,6 +121,51 @@ export function clampReadingProgress(value: number): number {
   return Math.min(100, Math.max(0, Math.round(value)));
 }
 
+export type ReaderScrollSample = {
+  scrollY: number;
+  articleTop: number;
+  articleHeight: number;
+  articleWidth: number;
+  viewportHeight: number;
+  viewportWidth: number;
+};
+
+export function hasSameReaderLayout(left: ReaderScrollSample, right: ReaderScrollSample): boolean {
+  return [left, right].every((sample) => Object.values(sample).every(Number.isFinite))
+    && Math.abs(left.articleTop - right.articleTop) < 0.5
+    && left.articleHeight === right.articleHeight
+    && left.articleWidth === right.articleWidth
+    && left.viewportHeight === right.viewportHeight
+    && left.viewportWidth === right.viewportWidth;
+}
+
+export function hasReaderScrollMotion(origin: ReaderScrollSample, current: ReaderScrollSample): boolean {
+  return hasSameReaderLayout(origin, current)
+    && current.articleHeight > 0
+    && current.viewportHeight > 0
+    && current.scrollY !== origin.scrollY;
+}
+
+export function canResumeReaderProgress(origin: ReaderScrollSample, current: ReaderScrollSample): boolean {
+  if (!hasReaderScrollMotion(origin, current)) {
+    return false;
+  }
+  const readingLine = Math.min(180, Math.max(96, current.viewportHeight * 0.2));
+  // A real gesture may cross the article in one step; sidebar-only movement
+  // neither displaces the document nor passes its existing reading region.
+  return Math.min(origin.scrollY, current.scrollY) + readingLine
+      <= current.articleTop + current.articleHeight
+    && Math.max(origin.scrollY, current.scrollY) + current.viewportHeight >= current.articleTop;
+}
+
+export function canReaderToolsConsumeScroll(
+  tools: { scrollTop: number; scrollHeight: number; clientHeight: number },
+  direction: number,
+): boolean {
+  const range = tools.scrollHeight - tools.clientHeight;
+  return range > 0 && (direction > 0 ? tools.scrollTop < range : direction < 0 && tools.scrollTop > 0);
+}
+
 export function updateLastMeaningfulPosition(
   previous: ReaderProgressState,
   visibleSection: ArticleOutlineItem | null,
