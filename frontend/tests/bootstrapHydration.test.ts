@@ -1,4 +1,7 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { resolve } from "node:path";
 import test from "node:test";
 
 import {
@@ -7,6 +10,26 @@ import {
   SUPPORTED_BOOTSTRAP_REACT_VERSION,
   installBootstrapHydrationWorkaround,
 } from "../src/lib/bootstrapHydration";
+
+test("the reviewed bootstrap pair matches the manifest, lock and installed production runtime", () => {
+  const manifest = JSON.parse(readFileSync("package.json", "utf8"));
+  const lock = JSON.parse(readFileSync("package-lock.json", "utf8"));
+  const require = createRequire(resolve("package.json"));
+  const next = require("next/package.json") as { version: string };
+  const bundledReact = require("next/dist/compiled/react/cjs/react.production.js") as { version: string };
+
+  for (const version of [
+    manifest.dependencies.next,
+    lock.packages[""].dependencies.next,
+    lock.packages["node_modules/next"].version,
+    next.version,
+  ]) {
+    assert.equal(SUPPORTED_BOOTSTRAP_NEXT_VERSION, version,
+      "Next changed; revalidate the literal bootstrap compatibility guard");
+  }
+  assert.equal(SUPPORTED_BOOTSTRAP_REACT_VERSION, bundledReact.version,
+    "Next bundled React changed; revalidate the bootstrap compatibility guard");
+});
 
 function matchingOptions() {
   const calls: string[] = [];
@@ -80,6 +103,7 @@ test("unsupported or unsafe bootstrap contexts fail open", () => {
     { nodeEnv: "development" },
     { documentElementId: "__next_error__" },
     { pendingScriptCount: 1 },
+    { nextRuntime: { appDir: true, version: "15.5.21" } },
     { nextRuntime: { appDir: true, version: "15.5.22" } },
     { reactRuntime: { startTransition: () => undefined, version: "19.2.0" } },
   ];

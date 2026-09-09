@@ -7,14 +7,19 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-040 local verification PASS; publication CI pending; P3-039 OPEN / DEFERRED`
+- Status: `P3-005.3 integration locally verified; replacement CI pending; P3-039 OPEN / DEFERRED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-040 local Product E2E 3 x 298 PASS; Graph incident unresolved`
-- Current task: `P3-040 expanded provenance return continuity`
+- Latest gate: `1400-load stress, 7 provenance cases, 3 x 298 Product E2E and restart PASS; exact-SHA CI pending`
+- Current task: `P3-024.1 bootstrap compatibility within P3-005.3 security repair`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
+Current repair: `docs/tasks/P3-005.3_DEPENDENCY_SECURITY_REPAIR.md`.
+Repair evidence: `docs/P3_005_3_DEPENDENCY_SECURITY_REPAIR_REPORT.md`.
+Current compatibility evidence: [P3-024.1](docs/P3_024_1_BOOTSTRAP_HYDRATION_COMPATIBILITY_REPORT.md).
+The original P3-040 CI remains a failed historical run. All replacement local
+gates pass with zero security findings; exact-SHA CI still precedes closure.
 Release notes: `docs/RELEASE_NOTES_v1.1.0.md` (draft history in `docs/RELEASE_NOTES_v1.1.0_DRAFT.md`).
 
 Post-release validation: `docs/V1_1_POST_RELEASE_VALIDATION.md`.

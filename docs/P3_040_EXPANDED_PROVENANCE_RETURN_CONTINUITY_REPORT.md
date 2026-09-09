@@ -1,6 +1,15 @@
 # P3-040 Expanded Provenance Return Continuity Report
 
-Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+Status: LOCAL VERIFICATION PASS / REPLACEMENT CI PENDING
+
+Current replacement gate: the separate P3-005.3 security integration, including
+reviewed runtime isolation, npm ancestry and exact bootstrap compatibility,
+passes all local gates. Fresh provenance cases: 7/7; Product E2E: 3 x 298 and
+restart persistence; bootstrap stress: 1400/1400. Unexpected errors and external
+requests are zero. Backend 891/4 skipped, Frontend 154, two dependency audits
+with zero findings, security/SBOM and artifact checks pass. See the P3-024.1
+report for exact fresh browser evidence. The original fee813b CI failure remains
+failed, and P3-040 is not CLOSED before replacement exact-SHA main CI succeeds.
 
 ## Root Cause And RED Evidence
 
@@ -121,3 +130,34 @@ actions. The latch remains effective after a user's ordinary focus request has
 already finished, and through retry. A rebuilt seven-case execution passes every
 case with clean audit and cleanup. Both independent reviewers approve the bounded
 product amendment. This does not close P3-039 or substitute for full Product E2E.
+
+## Publication And Dependency Gate
+
+Implementation `fee813b96c6940840bfab73185e9e77e3e594e34` is published on main.
+Its exact-SHA [CI run 34290207866](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34290207866)
+is completed FAILURE, with Dependency audit job `102274840215` the sole failed
+required job. Product E2E job `102274840124` completed SUCCESS at
+2026-09-09T00:08:51Z: 3 x 298 checks, restart persistence PASS, zero unexpected
+console/page errors and external requests. All six other required jobs pass.
+Docker and release jobs are policy-skipped. Uploaded artifacts: 0. Overall CI
+is not PASS; this evidence applies to the original dependency set only.
+
+The original audit exits 1 with PyPI 40 / npm 239 packages, eight findings,
+eight blocked and zero suppressed. The unchanged lockfiles contain:
+
+| Package | Version | Scope | Scanner severity | Advisory |
+| --- | --- | --- | --- | --- |
+| httpcore2 | 2.5.0 | dev | UNKNOWN | CVE-2026-84381 |
+| httpx2 | 2.5.0 | dev | UNKNOWN | CVE-2026-84378 |
+| httpx2 | 2.5.0 | dev | UNKNOWN | CVE-2026-84379 |
+| httpx2 | 2.5.0 | dev | UNKNOWN | CVE-2026-84380 |
+| httpx2 | 2.5.0 | dev | UNKNOWN | CVE-2026-84382 |
+| next | 15.5.21 | runtime | CRITICAL | GHSA-2xp9-vwfh-vxw4 |
+| next | 15.5.21 | runtime | CRITICAL | GHSA-p293-qw3h-jr36 |
+| sharp | 0.35.0 | runtime | HIGH | GHSA-rgj7-g3m4-5g8c |
+
+This is a dependency-security finding, not a failed provenance assertion or a
+transient scanner error. P3-040 stays open. A separately reviewed dependency
+revision must remove the findings without suppressions or policy/scanner changes;
+the original failed CI remains historical evidence. No blind CI rerun, tag,
+Release, private/source access or product-scope expansion is authorized here.

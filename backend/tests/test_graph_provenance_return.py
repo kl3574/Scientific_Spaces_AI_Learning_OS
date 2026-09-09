@@ -2,10 +2,13 @@
 
 from contextlib import contextmanager
 import hashlib
+import importlib
+import inspect
 import json
 from pathlib import Path
 import runpy
 import sys
+import tempfile
 from types import SimpleNamespace
 from unittest.mock import Mock
 
@@ -20,6 +23,475 @@ SENTINEL = "PRIVATE_SENTINEL"
 @pytest.fixture
 def check():
     return runpy.run_path(str(CLI), run_name="provenance_return_contract")
+
+
+def test_isolated_runtime_configures_actual_imported_function_globals(check, tmp_path):
+    module = check["runtime_module"]()
+    configure = module.get("configure_runtime")
+    assert callable(configure), "runner needs an explicit runtime configuration boundary"
+    runtime = SimpleNamespace(
+        backend_port=18000, frontend_root=tmp_path / "frontend",
+        api_url="http://127.0.0.1:18000", browser_api_url="http://localhost:18000",
+        environment={},
+    )
+    configured = configure(runtime)
+    assert configured is inspect.unwrap(module["product_servers"]).__globals__
+    assert configured is module["verify_backend_restart_persistence"].__globals__
+    assert configured["FRONTEND_ROOT"] == runtime.frontend_root
+    assert configured["API_URL"] == runtime.api_url
+    assert configured["BROWSER_API_URL"] == runtime.browser_api_url
+    assert configured["BACKEND_PORT"] == 18000
+    for origin in (runtime.api_url, runtime.browser_api_url, "http://127.0.0.1:3000"):
+        assert configured["_is_allowed_http_url"](origin)
+    for origin in ("http://127.0.0.1:8000", "http://localhost:8000", "http://127.0.0.1:18001"):
+        assert not configured["_is_allowed_http_url"](origin)
+
+
+def test_build_bindings_follow_the_selected_temporary_build(check, monkeypatch, tmp_path):
+    root = tmp_path / "source"
+    for relative in (
+        "frontend/src/component.tsx", "backend/app/main.py",
+        "scripts/e2e/run_product_e2e.py", "scripts/e2e/check_graph_provenance_return.py",
+        "scripts/e2e/product_test_runtime.py", "frontend/package.json",
+        "frontend/package-lock.json", "backend/pyproject.toml", "backend/uv.lock",
+        "backend/tests/fixtures/evaluation/articles.json",
+    ):
+        path = root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text("synthetic input")
+    selected = tmp_path / "owned-build" / "frontend"
+    for frontend in (root / "frontend", selected):
+        for relative in ("BUILD_ID", "server/page.js", "static/chunk.js", "routes-manifest.json"):
+            path = frontend / ".next" / relative
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("synthetic build")
+    monkeypatch.setitem(check["source_bindings"].__globals__, "ROOT", root)
+    initial = check["source_bindings"](frontend_root=selected)
+    (root / "frontend/.next/server/page.js").write_text("unrelated shared build")
+    assert check["source_bindings"](frontend_root=selected) == initial
+    (selected / ".next/server/page.js").write_text("changed selected build")
+    changed = check["source_bindings"](frontend_root=selected)
+    assert changed["build"] != initial["build"]
+    assert changed["source"] == initial["source"]
+    assert changed["fixture"] == initial["fixture"]
+    (root / "scripts/e2e/product_test_runtime.py").write_text("changed execution helper")
+    assert check["source_bindings"](frontend_root=selected)["source"] != initial["source"]
+
+
+@pytest.mark.parametrize("port", [8000, 18000, 9000, 65535])
+def test_original_network_evidence_contract_remains_strict_at_each_port(check, tmp_path, port):
+    module = check["runtime_module"]()
+    configured = module["configure_runtime"](SimpleNamespace(
+        backend_port=port, frontend_root=tmp_path,
+        api_url=f"http://127.0.0.1:{port}", browser_api_url=f"http://localhost:{port}",
+        environment={},
+    ))
+    configured["_verify_http_error_evidence_contract"]()
+    for host in ("127.0.0.1", "localhost"):
+        assert configured["_is_allowed_http_url"](f"http://{host}:{port}/health")
+        for excluded in {8000, 18000, 9000, 65535} - {port}:
+            assert not configured["_is_allowed_http_url"](f"http://{host}:{excluded}/health")
+
+
+@pytest.mark.parametrize("failure", [None, "backend_spawn", "backend_ready", "frontend_spawn", "frontend_ready", "body"])
+def test_servers_use_only_configured_owned_processes_and_sanitized_environment(check, monkeypatch, tmp_path, failure):
+    module = check["runtime_module"]()
+    environment = {"HOME": str(tmp_path / "home"), "TMPDIR": str(tmp_path / "temporary"), "NEXT_TELEMETRY_DISABLED": "1"}
+    configured = module["configure_runtime"](SimpleNamespace(
+        backend_port=18000, frontend_root=tmp_path / "build",
+        api_url="http://127.0.0.1:18000", browser_api_url="http://localhost:18000",
+        environment=environment,
+    ))
+    environment["HOME"] = "modified after configuration"
+    monkeypatch.setenv("SCIENTIFIC_SPACES_PRIVATE_SENTINEL", SENTINEL)
+    calls, owned, stopped, ready = [], [], [], []
+    ports = Mock()
+    monkeypatch.setitem(configured, "_require_port_free", ports)
+    monkeypatch.setitem(configured, "_stop_process", lambda process: stopped.append(process) if process else None)
+
+    def spawn(command, **kwargs):
+        label = "backend" if len(calls) == 0 else "frontend"
+        calls.append((command, kwargs))
+        if failure == label + "_spawn":
+            raise RuntimeError("synthetic spawn failure")
+        process = SimpleNamespace(pid=100 + len(calls))
+        owned.append(process)
+        return process
+
+    def wait(url, process, path, **kwargs):
+        label = "backend" if len(ready) == 0 else "frontend"
+        ready.append(url)
+        if failure == label + "_ready":
+            raise RuntimeError("synthetic readiness failure")
+
+    monkeypatch.setattr(configured["subprocess"], "Popen", spawn)
+    monkeypatch.setitem(configured, "_wait_for_url", wait)
+    runtime = {"root": tmp_path, "environment": {"SCIENTIFIC_SPACES_ZOTERO_PROVIDER": "fake"}}
+
+    def execute():
+        with configured["product_servers"](runtime, frontend_mode="start"):
+            if failure == "body":
+                raise RuntimeError("synthetic suite failure")
+
+    if failure:
+        with pytest.raises(RuntimeError, match="synthetic"):
+            execute()
+    else:
+        execute()
+    assert [call.args[0] for call in ports.call_args_list] == [18000, 3000]
+    assert stopped == list(reversed(owned))
+    for command, kwargs in calls:
+        assert kwargs["start_new_session"] is True
+        assert "SCIENTIFIC_SPACES_PRIVATE_SENTINEL" not in kwargs["env"]
+        assert kwargs["env"]["SCIENTIFIC_SPACES_ZOTERO_PROVIDER"] == "fake"
+        assert kwargs["env"]["NEXT_TELEMETRY_DISABLED"] == "1"
+        assert kwargs["env"]["HOME"] == str(tmp_path / "home")
+        assert kwargs["env"]["TMPDIR"] == str(tmp_path / "temporary")
+        assert command[command.index("--port") + 1] == ("18000" if "uvicorn" in command else "3000")
+    assert all(url in {"http://127.0.0.1:18000/health", "http://127.0.0.1:3000"} for url in ready)
+
+
+@pytest.mark.parametrize("failure", [None, "spawn", "ready", "read", "validation"])
+def test_restart_owns_its_group_and_never_uses_the_shared_backend(check, monkeypatch, tmp_path, failure):
+    module = check["runtime_module"]()
+    configured = module["configure_runtime"](SimpleNamespace(
+        backend_port=18000, frontend_root=tmp_path,
+        api_url="http://127.0.0.1:18000", browser_api_url="http://localhost:18000",
+        environment={"HOME": str(tmp_path / "home"), "TMPDIR": str(tmp_path / "temporary")},
+    ))
+    process = SimpleNamespace(pid=12345)
+    stopped, requests, calls = [], [], []
+    monkeypatch.setitem(configured, "_require_port_free", lambda port: requests.append(port))
+    monkeypatch.setitem(configured, "_stop_process", lambda owned: stopped.append(owned))
+
+    def spawn(command, **kwargs):
+        calls.append((command, kwargs))
+        if failure == "spawn":
+            raise RuntimeError("synthetic spawn failure")
+        return process
+
+    def wait(url, owned, path):
+        requests.append(url)
+        assert owned is process
+        if failure == "ready":
+            raise RuntimeError("synthetic readiness failure")
+
+    def read(url):
+        requests.append(url)
+        if failure == "read":
+            raise RuntimeError("synthetic read failure")
+        if url.endswith("stats"):
+            return {"completed_count": 0 if failure == "validation" else 2, "bookmark_count": 1, "note_count": 1}
+        return {"total": 25, "items": [{"ended_at": "synthetic"}] * 25}
+
+    monkeypatch.setattr(configured["subprocess"], "Popen", spawn)
+    monkeypatch.setitem(configured, "_wait_for_url", wait)
+    monkeypatch.setitem(configured, "_read_json_url", read)
+    runtime = {"root": tmp_path, "environment": {}}
+    if failure:
+        with pytest.raises((RuntimeError, configured["E2EFailure"])):
+            configured["verify_backend_restart_persistence"](runtime)
+    else:
+        assert configured["verify_backend_restart_persistence"](runtime)["status"] == "PASS"
+    assert stopped == [None if failure == "spawn" else process]
+    assert requests[0] == 18000
+    assert all(str(value).startswith("http://127.0.0.1:18000/") for value in requests[1:])
+    command, kwargs = calls[0]
+    assert command[command.index("--port") + 1] == "18000"
+    assert kwargs["start_new_session"] is True
+    assert kwargs["env"]["HOME"] == str(tmp_path / "home")
+    assert kwargs["env"]["TMPDIR"] == str(tmp_path / "temporary")
+
+
+def test_frontend_teardown_failure_still_attempts_owned_backend_cleanup(check, monkeypatch, tmp_path):
+    module = check["runtime_module"]()
+    globals_ = inspect.unwrap(module["product_servers"]).__globals__
+    processes = [SimpleNamespace(pid=101), SimpleNamespace(pid=102)]
+    stopped = []
+    monkeypatch.setattr(module["subprocess"], "Popen", Mock(side_effect=processes))
+    monkeypatch.setitem(globals_, "_require_port_free", lambda port: None)
+    monkeypatch.setitem(globals_, "_wait_for_url", lambda *args, **kwargs: None)
+
+    def stop(process):
+        stopped.append(process)
+        if process is processes[1]:
+            raise RuntimeError("synthetic frontend teardown failure")
+
+    monkeypatch.setitem(globals_, "_stop_process", stop)
+    with pytest.raises(RuntimeError, match="synthetic frontend teardown failure"):
+        with module["product_servers"]({"root": tmp_path, "environment": {}}, frontend_mode="start"):
+            pass
+    assert stopped == [processes[1], processes[0]]
+
+
+def test_process_group_cleanup_retires_descendants_after_leader_exit(check, monkeypatch):
+    module = check["runtime_module"]()
+    process = Mock(pid=12345)
+    process.wait.return_value = 0
+    process.poll.return_value = 0
+    kill = Mock()
+    monkeypatch.setattr(module["os"], "killpg", kill)
+    module["_stop_process"](process)
+    assert [(call.args[0], call.args[1]) for call in kill.call_args_list] == [
+        (12345, module["signal"].SIGTERM), (12345, module["signal"].SIGKILL),
+    ]
+    process.wait.assert_called_once_with(timeout=10)
+
+
+@pytest.fixture
+def cli_lifetime(check, monkeypatch, tmp_path):
+    """Real CLI/suite orchestration; only resource boundaries are synthetic."""
+    def arrange(port, outcome="success"):
+        full = check["runtime_module"]()["main"].__globals__
+        dedicated = check["main"].__globals__
+        helper = importlib.import_module("product_test_runtime")
+        private_keys = ("SCIENTIFIC_SPACES_PRIVATE_SENTINEL", "SCIENTIFIC_SPACES_TUTOR_LLM_PROVIDER",
+                        "SCIENTIFIC_SPACES_ZOTERO_PROVIDER", "OPENAI_API_KEY", "NODE_OPTIONS", "PYTHONPATH",
+                        "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
+                        "http_proxy", "https_proxy", "all_proxy", "no_proxy")
+        for key in private_keys:
+            monkeypatch.setenv(key, SENTINEL)
+        monkeypatch.setenv(helper.PORT_ENV, str(port))
+        previous_environment = dict(helper.os.environ)
+        environment = {"PATH": helper.os.defpath, "HOME": str(tmp_path / "configured-home"),
+                       "TMPDIR": str(tmp_path / "configured-tmp"), "XDG_CACHE_HOME": str(tmp_path / "configured-cache"),
+                       "PLAYWRIGHT_BROWSERS_PATH": str(tmp_path / "existing-browser-cache"),
+                       "PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD": "1", "NEXT_TELEMETRY_DISABLED": "1",
+                       helper.PORT_ENV: str(port), "NEXT_PUBLIC_API_BASE_URL": f"http://localhost:{port}"}
+        for key in ("HOME", "TMPDIR", "XDG_CACHE_HOME", "PLAYWRIGHT_BROWSERS_PATH"):
+            Path(environment[key]).mkdir()
+        source = tmp_path / "source"
+        shared = source / "frontend"
+        (shared / ".next").mkdir(parents=True)
+        (shared / ".next/BUILD_ID").write_text("synthetic-default-build")
+        events, observations, paths = [], [], []
+        resources = set()
+        scope_depth = 0
+        real_environment = helper.process_environment
+
+        @contextmanager
+        def process_environment(configured):
+            nonlocal scope_depth
+            with real_environment(configured):
+                scope_depth += 1
+                try:
+                    yield
+                finally:
+                    scope_depth -= 1
+
+        def observe(stage):
+            events.append(stage)
+            observations.append({"stage": stage, "private_absent": not any(key in helper.os.environ for key in private_keys),
+                                 "configured_retained": all(helper.os.environ.get(key) == value for key, value in environment.items()),
+                                 "scope_active": scope_depth > 0})
+
+        build_enter = Mock()
+
+        @contextmanager
+        def frontend_runtime(root, *, backend_port=None, frontend_mode="start"):
+            assert root == source and backend_port == port and frontend_mode == "start"
+            with tempfile.TemporaryDirectory(prefix="owned-frontend-", dir=tmp_path) as temporary:
+                path = Path(temporary)
+                paths.append(path)
+                (path / "BUILD_ID").write_text("synthetic-owned-build")
+                events.append("frontend_enter")
+                try:
+                    build_enter()
+                    yield helper.FrontendRuntime(path, port, dict(environment), {"isolated": port != 8000})
+                finally:
+                    events.append("frontend_teardown")
+
+        def prepare(root):
+            paths.append(root)
+            for name in ("articles", "graph"):
+                (root / (name + ".json")).write_text("{}")
+            return {"root": root, "articles": root / "articles.json", "graph": root / "graph.json", "environment": {}}
+
+        @contextmanager
+        def servers(runtime, **kwargs):
+            resources.add("servers")
+            try:
+                yield {"backend": Path(runtime["root"]) / "backend.log", "frontend": Path(runtime["root"]) / "frontend.log"}
+            finally:
+                resources.remove("servers")
+                events.append("server_teardown")
+
+        class Browser:
+            version = "synthetic"
+
+            def close(self):
+                if "browser" in resources:
+                    observe("browser_teardown")
+                    resources.remove("browser")
+
+        browser = Browser()
+
+        def launch(**kwargs):
+            observe("browser_launch")
+            if outcome == "startup_error":
+                raise RuntimeError("synthetic_browser_startup")
+            resources.add("browser")
+            return browser
+
+        @contextmanager
+        def sync_playwright():
+            observe("driver_enter")
+            resources.add("driver")
+            try:
+                yield SimpleNamespace(chromium=SimpleNamespace(launch=launch))
+            finally:
+                observe("driver_teardown")
+                # Stopping the driver also retires browsers not explicitly closed.
+                browser.close()
+                resources.remove("driver")
+
+        def iteration(*args, **kwargs):
+            observe("suite_body")
+            if outcome == "interrupt":
+                raise KeyboardInterrupt
+            return {"status": "PASS", "checks": {"synthetic": True}, **dict.fromkeys((
+                "external_network_request_count", "framework_prefetch_cancellation_count", "route_transition_cancellation_count",
+                "route_with_complete_precursor_snapshot_count", "declared_cancelled_route_request_count",
+                "declared_route_read_cancellation_count", "route_transition_expectation_count", "bound_route_transition_request_count",
+                "superseded_successful_read_count", "next_static_chunk_cancellation_count", "successful_no_content_response_count"), 0)}
+
+        def run_cases(result, *args):
+            iteration()
+            result["cases"] = [{"status": "PASS", "fixture_unchanged": True} for _ in range(7)]
+
+        prior_handler = Mock(name="prior_SIGTERM_handler")
+        handler = {"current": prior_handler}
+
+        def install(signum, replacement):
+            assert signum == full["signal"].SIGTERM
+            previous = handler["current"]
+            handler["current"] = replacement
+            return previous
+
+        monkeypatch.setattr(full["signal"], "getsignal", lambda signum: handler["current"])
+        monkeypatch.setattr(full["signal"], "signal", install)
+        monkeypatch.setattr(helper, "frontend_runtime", frontend_runtime)
+        monkeypatch.setattr(helper, "sanitized_environment", lambda: dict(environment))
+        monkeypatch.setattr(helper, "process_environment", process_environment)
+        monkeypatch.setitem(sys.modules, "playwright.sync_api", SimpleNamespace(sync_playwright=sync_playwright, expect=object()))
+        monkeypatch.setattr(sys, "argv", ["run_product_e2e.py"])
+        for globals_ in (full, dedicated):
+            monkeypatch.setitem(globals_, "ROOT", source)
+            monkeypatch.setitem(globals_, "process_environment", process_environment)
+        for name, value in {"FRONTEND_ROOT": shared, "prepare_runtime": prepare, "product_servers": servers,
+                            "_verify_http_error_evidence_contract": lambda: None, "_reset_mutable_runtime": lambda runtime: None,
+                            "_run_single_iteration": iteration, "_bounded_log_summary": lambda path: [],
+                            "verify_backend_restart_persistence": lambda runtime: {"status": "PASS"}}.items():
+            monkeypatch.setitem(full, name, value)
+        monkeypatch.setitem(dedicated, "runtime_module", lambda: full)
+        monkeypatch.setitem(dedicated, "source_bindings", lambda **kwargs: {"source": "synthetic", "build": "synthetic"})
+        monkeypatch.setitem(dedicated, "seed_graph", lambda *args: None)
+        monkeypatch.setitem(dedicated, "run_cases", run_cases)
+
+        def invoke(entry):
+            try:
+                return full["main"]() if entry == "full" else dedicated["main"]([])
+            except KeyboardInterrupt:
+                return 130
+
+        return SimpleNamespace(full=full, dedicated=dedicated, helper=helper, environment=environment,
+                               events=events, observations=observations, paths=paths, resources=resources,
+                               invoke=invoke, observe=observe, build_enter=build_enter, handler=handler,
+                               prior_handler=prior_handler,
+                               parent_restored=lambda: dict(helper.os.environ) == previous_environment)
+    return arrange
+
+
+@pytest.mark.parametrize("entry", ["full", "dedicated"])
+@pytest.mark.parametrize("port", [8000, 18000])
+@pytest.mark.parametrize("outcome", ["success", "startup_error", "interrupt"])
+def test_cli_driver_browser_environment_lifetime(cli_lifetime, capsys, entry, port, outcome):
+    harness = cli_lifetime(port, outcome)
+    code = harness.invoke(entry)
+    output = capsys.readouterr()
+    result = json.loads(output.out) if output.out else None
+    assert SENTINEL not in output.out + output.err
+    assert not output.err
+    assert harness.parent_restored(), "CLI did not restore the exact parent environment"
+    assert harness.handler["current"] is harness.prior_handler
+    assert not harness.resources and all(not path.exists() for path in harness.paths)
+    assert {"driver_enter", "browser_launch", "driver_teardown"} <= set(harness.events)
+    if outcome != "startup_error":
+        assert {"suite_body", "browser_teardown"} <= set(harness.events)
+    failures = [(item["stage"], key) for item in harness.observations
+                for key in ("private_absent", "configured_retained", "scope_active") if not item[key]]
+    assert not failures, f"CLI environment lifetime failed: {failures}"
+    if outcome == "success":
+        assert code == 0 and result["status"] == "PASS"
+    else:
+        assert code != 0 and (result is None or result["status"] != "PASS")
+
+
+@pytest.mark.parametrize("phase", ["frontend_build", "suite_body"])
+def test_full_cli_sigterm_cleans_owned_build_and_suite_scopes(cli_lifetime, monkeypatch, tmp_path, capsys, phase):
+    harness = cli_lifetime(18000)
+    continued = []
+
+    def terminate():
+        harness.events.append("term_requested")
+        harness.handler["current"](harness.full["signal"].SIGTERM, None)
+        continued.append("continued_after_sigterm")
+
+    if phase == "frontend_build":
+        harness.build_enter.side_effect = terminate
+
+    def suite(args):
+        with tempfile.TemporaryDirectory(prefix="owned-suite-", dir=tmp_path) as temporary:
+            harness.paths.append(Path(temporary))
+            (Path(temporary) / "resource").write_text("synthetic")
+            harness.observe("suite_body")
+            if phase == "suite_body":
+                terminate()
+            return {"status": "PASS"}
+
+    monkeypatch.setitem(harness.full, "_run_configured_suite", suite)
+    code = harness.invoke("full")
+    output = capsys.readouterr()
+    result = json.loads(output.out) if output.out else None
+    assert harness.parent_restored(), "SIGTERM path did not restore the exact environment"
+    assert harness.handler["current"] is harness.prior_handler
+    assert harness.paths and all(not path.exists() for path in harness.paths)
+    assert not harness.resources and "frontend_teardown" in harness.events
+    assert "term_requested" in harness.events
+    assert not continued, "SIGTERM did not interrupt the owned CLI scope"
+    harness.prior_handler.assert_not_called()
+    assert code != 0 and (result is None or result["status"] != "PASS")
+    assert SENTINEL not in output.out + output.err and not output.err
+    assert all(item["private_absent"] and item["configured_retained"] and item["scope_active"]
+               for item in harness.observations)
+
+
+@pytest.mark.parametrize("timeout", [False, True])
+def test_missing_process_group_still_reaps_owned_leader(check, monkeypatch, timeout):
+    module = check["runtime_module"]()
+    process = Mock(pid=12345)
+    process.wait.side_effect = [module["subprocess"].TimeoutExpired("synthetic", 10), 0] if timeout else [0]
+    process.poll.return_value = None if timeout else 0
+    kill = Mock(side_effect=ProcessLookupError)
+    monkeypatch.setattr(module["os"], "killpg", kill)
+    module["_stop_process"](process)
+    assert [call.kwargs["timeout"] for call in process.wait.call_args_list] == ([10, 5] if timeout else [10])
+    assert [call.args for call in kill.call_args_list] == [
+        (12345, module["signal"].SIGTERM), (12345, module["signal"].SIGKILL)]
+
+
+def test_process_cleanup_timeout_after_kill_is_not_suppressed(check, monkeypatch):
+    module = check["runtime_module"]()
+    process = Mock(pid=12345)
+    process.wait.side_effect = module["subprocess"].TimeoutExpired("synthetic", 10)
+    process.poll.return_value = None
+    kill = Mock()
+    monkeypatch.setattr(module["os"], "killpg", kill)
+    with pytest.raises(module["subprocess"].TimeoutExpired):
+        module["_stop_process"](process)
+    assert [call.kwargs["timeout"] for call in process.wait.call_args_list] == [10, 5]
+    assert [call.args for call in kill.call_args_list] == [
+        (12345, module["signal"].SIGTERM), (12345, module["signal"].SIGKILL)]
 
 
 def test_seed_is_four_sections_over_three_existing_articles_and_only_owned_graph_changes(check, tmp_path):

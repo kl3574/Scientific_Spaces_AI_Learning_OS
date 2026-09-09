@@ -55,15 +55,45 @@ def _application_component(metadata: dict[str, Any], source_lock: str) -> dict[s
     }
 
 
+def _components(packages: Iterable[LockedPackage]) -> list[dict[str, Any]]:
+    components: dict[str, dict[str, Any]] = {}
+    identities: dict[str, tuple[str, str, str]] = {}
+    hashes: dict[str, dict[str, str]] = {}
+    for package in packages:
+        ref = package.bom_ref
+        identity = (package.ecosystem, package.name, package.version)
+        if ref in identities and identities[ref] != identity:
+            raise SecurityToolError(f"conflicting package identity for SBOM bom-ref: {ref}")
+        identities[ref] = identity
+        component = components.setdefault(ref, _component(package))
+        if package.scope == "runtime":
+            component["scope"] = "required"
+            component["properties"][0]["value"] = "runtime"
+        available_hashes = hashes.setdefault(ref, {})
+        if package.digest_algorithm and package.digest:
+            algorithm = package.digest_algorithm
+            if algorithm in available_hashes and available_hashes[algorithm] != package.digest:
+                raise SecurityToolError(f"conflicting {algorithm} hash for SBOM bom-ref: {ref}")
+            available_hashes[algorithm] = package.digest
+    for ref, component in components.items():
+        if hashes[ref]:
+            component["hashes"] = [
+                {"alg": algorithm, "content": digest}
+                for algorithm, digest in sorted(hashes[ref].items())
+            ]
+    return [components[ref] for ref in sorted(components)]
+
+
 def _dependencies(
     packages: Iterable[LockedPackage], root_ref: str, direct: list[str]
 ) -> list[dict[str, Any]]:
-    entries = [{"ref": root_ref, "dependsOn": sorted(set(direct))}]
-    entries.extend(
-        {"ref": package.bom_ref, "dependsOn": sorted(set(package.dependencies))}
-        for package in packages
-    )
-    return sorted(entries, key=lambda item: item["ref"])
+    entries: dict[str, set[str]] = {root_ref: set(direct)}
+    for package in packages:
+        entries.setdefault(package.bom_ref, set()).update(package.dependencies)
+    return [
+        {"ref": ref, "dependsOn": sorted(dependencies)}
+        for ref, dependencies in sorted(entries.items())
+    ]
 
 
 def _serial(identity: str) -> str:
@@ -79,7 +109,7 @@ def build_ecosystem_bom(
     commit: str,
     timestamp: str,
 ) -> dict[str, Any]:
-    components = sorted((_component(package) for package in packages), key=lambda item: item["bom-ref"])
+    components = _components(packages)
     identity = sha256_bytes(
         canonical_json_bytes(
             {

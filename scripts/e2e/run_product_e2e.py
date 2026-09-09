@@ -20,12 +20,15 @@ from urllib.parse import parse_qs, parse_qsl, quote, unquote, unquote_plus, urle
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[2]
+E2E_ROOT = Path(__file__).resolve().parent
 BACKEND_ROOT = ROOT / "backend"
 FRONTEND_ROOT = ROOT / "frontend"
 ARTICLE_FIXTURE = BACKEND_ROOT / "tests" / "fixtures" / "evaluation" / "articles.json"
 
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
+if str(E2E_ROOT) not in sys.path:
+    sys.path.insert(0, str(E2E_ROOT))
 
 from app.graph.builder import KnowledgeGraphBuilder
 from app.graph.store import GraphStore
@@ -37,11 +40,13 @@ from app.references.store import install_reference_store
 from app.storage.article_store import StoredArticle
 
 
-API_URL = "http://127.0.0.1:8000"
+BACKEND_PORT = 8000
+API_URL = f"http://127.0.0.1:{BACKEND_PORT}"
 FRONTEND_URL = "http://127.0.0.1:3000"
 # NEXT_PUBLIC_API_BASE_URL is compiled into the checked production build.
-BROWSER_API_URL = "http://localhost:8000"
+BROWSER_API_URL = f"http://localhost:{BACKEND_PORT}"
 ACTIVE_FRONTEND_MODE = "start"
+RUNTIME_ENVIRONMENT: dict[str, str] | None = None
 CRB_ARTICLE_ID = "crb-formula"
 CRB_TITLE = "CRB公式与估计下界"
 ATTENTION_ARTICLE_ID = "attention-basics"
@@ -57,11 +62,26 @@ POST_TERMINAL_DESTINATION_COMMIT_MAX_SECONDS = 0.25
 ALLOWED_HTTP_ORIGINS = frozenset(
     {
         ("http", "127.0.0.1", 3000),
-        ("http", "127.0.0.1", 8000),
-        ("http", "localhost", 8000),
+        ("http", "127.0.0.1", BACKEND_PORT),
+        ("http", "localhost", BACKEND_PORT),
     }
 )
 ALLOWED_WEBSOCKET_ORIGINS = frozenset({("ws", "127.0.0.1", 3000)})
+
+
+def configure_runtime(configuration) -> dict[str, object]:
+    global BACKEND_PORT, API_URL, BROWSER_API_URL, FRONTEND_ROOT, ALLOWED_HTTP_ORIGINS, RUNTIME_ENVIRONMENT
+    BACKEND_PORT = configuration.backend_port
+    API_URL = configuration.api_url
+    BROWSER_API_URL = configuration.browser_api_url
+    FRONTEND_ROOT = configuration.frontend_root
+    RUNTIME_ENVIRONMENT = dict(configuration.environment)
+    ALLOWED_HTTP_ORIGINS = frozenset({
+        ("http", "127.0.0.1", 3000),
+        ("http", "127.0.0.1", BACKEND_PORT),
+        ("http", "localhost", BACKEND_PORT),
+    })
+    return globals()
 
 
 class E2EFailure(AssertionError):
@@ -442,7 +462,7 @@ class ConsoleErrorLog(list[str]):
         _require(
             len(cancelled_read_keys) == len(set(cancelled_read_keys))
             and all(
-                _is_allowed_http_url(url) and urlparse(url).port == 8000
+                _is_allowed_http_url(url) and urlparse(url).port == BACKEND_PORT
                 for url in cancelled_read_urls
             ),
             f"route transition declared invalid cancelled read URLs: {cancelled_read_urls}",
@@ -1217,7 +1237,8 @@ class ConsoleErrorLog(list[str]):
         )
 
 def main() -> int:
-    global ACTIVE_FRONTEND_MODE, BROWSER_API_URL
+    from product_test_runtime import frontend_runtime, get_backend_port, process_environment
+
     parser = argparse.ArgumentParser(description="Run the local-only Scientific Spaces product E2E suite.")
     parser.add_argument("--repeat", type=int, default=1, help="Number of complete desktop/mobile passes.")
     parser.add_argument(
@@ -1230,13 +1251,45 @@ def main() -> int:
     args = parser.parse_args()
     if args.repeat < 1:
         parser.error("--repeat must be at least 1")
-    if args.frontend_mode == "start" and not (
+    try:
+        backend_port = get_backend_port()
+    except ValueError as exc:
+        parser.error(str(exc))
+    if backend_port == 8000 and args.frontend_mode == "start" and not (
         FRONTEND_ROOT / ".next" / "BUILD_ID"
     ).is_file():
         parser.error(
             "frontend/.next/BUILD_ID is absent; run npm run build before "
             "--frontend-mode start"
         )
+    previous_handler = signal.getsignal(signal.SIGTERM)
+
+    def terminate(_signum, _frame):
+        raise KeyboardInterrupt
+
+    try:
+        signal.signal(signal.SIGTERM, terminate)
+        with frontend_runtime(ROOT, backend_port=backend_port, frontend_mode=args.frontend_mode) as configuration:
+            with process_environment(configuration.environment):
+                configure_runtime(configuration)
+                result = _run_configured_suite(args)
+        if backend_port != 8000:
+            result["runtime_isolation"] = dict(configuration.evidence)
+    except (Exception, KeyboardInterrupt) as exc:
+        result = {"status": "BLOCKED", "error": f"{type(exc).__name__}: {exc}"}
+    finally:
+        signal.signal(signal.SIGTERM, previous_handler)
+
+    serialized = json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)
+    print(serialized)
+    if args.output:
+        args.output.parent.mkdir(parents=True, exist_ok=True)
+        args.output.write_text(serialized + "\n", encoding="utf-8")
+    return 0 if result.get("status") == "PASS" else 1
+
+
+def _run_configured_suite(args: argparse.Namespace) -> dict[str, object]:
+    global ACTIVE_FRONTEND_MODE, BROWSER_API_URL
     if args.frontend_mode == "dev":
         BROWSER_API_URL = API_URL
     ACTIVE_FRONTEND_MODE = args.frontend_mode
@@ -1270,12 +1323,7 @@ def main() -> int:
                 "frontend": _bounded_log_summary(frontend_log),
             }
 
-    serialized = json.dumps(result, ensure_ascii=False, indent=2, sort_keys=True)
-    print(serialized)
-    if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(serialized + "\n", encoding="utf-8")
-    return 0 if result.get("status") == "PASS" else 1
+    return result
 
 
 def prepare_runtime(runtime_root: Path) -> dict[str, Path | dict[str, str]]:
@@ -1304,7 +1352,7 @@ def prepare_runtime(runtime_root: Path) -> dict[str, Path | dict[str, str]]:
         "SCIENTIFIC_SPACES_REFERENCE_STORE": str(reference_store),
         "SCIENTIFIC_SPACES_ZOTERO_PROVIDER": "fake",
         "SCIENTIFIC_SPACES_TUTOR_LLM_PROVIDER": "fake",
-        "NEXT_PUBLIC_API_BASE_URL": API_URL,
+        "NEXT_PUBLIC_API_BASE_URL": BROWSER_API_URL,
     }
 
     with temporary_environment(environment):
@@ -1405,13 +1453,15 @@ def product_servers(
     *,
     frontend_mode: str,
 ) -> Iterator[dict[str, Path]]:
-    environment = os.environ.copy()
+    from product_test_runtime import sanitized_environment
+
+    environment = dict(RUNTIME_ENVIRONMENT) if RUNTIME_ENVIRONMENT is not None else sanitized_environment()
     environment.update(runtime["environment"])
     backend_log = Path(runtime["root"]) / "backend.log"
     frontend_log = Path(runtime["root"]) / "frontend.log"
     backend_process: subprocess.Popen[str] | None = None
     frontend_process: subprocess.Popen[str] | None = None
-    _require_port_free(8000)
+    _require_port_free(BACKEND_PORT)
     _require_port_free(3000)
     try:
         with backend_log.open("w", encoding="utf-8") as backend_handle:
@@ -1426,7 +1476,7 @@ def product_servers(
                     "--host",
                     "127.0.0.1",
                     "--port",
-                    "8000",
+                    str(BACKEND_PORT),
                 ],
                 cwd=ROOT,
                 env=environment,
@@ -1461,8 +1511,10 @@ def product_servers(
 
         yield {"backend": backend_log, "frontend": frontend_log}
     finally:
-        _stop_process(frontend_process)
-        _stop_process(backend_process)
+        try:
+            _stop_process(frontend_process)
+        finally:
+            _stop_process(backend_process)
 
 
 def run_browser_suite(
@@ -9826,7 +9878,7 @@ def _verify_reader_progress_ownership(
                     return
                 fixture_requests.append((method, path))
 
-            context.route(re.compile(r"http://(?:localhost|127\.0\.0\.1):8000/.*"), route_backend)
+            context.route(re.compile(rf"http://(?:localhost|127\.0\.0\.1):{BACKEND_PORT}/.*"), route_backend)
             page = _new_observed_page(context, console_errors, page_errors, label=label)
 
             def snapshot() -> dict[str, object]:
@@ -11853,7 +11905,7 @@ def _verify_structured_reference_review_round_trip(
             if (
               delayPageTwo
               && ['127.0.0.1', 'localhost'].includes(url.hostname)
-              && url.port === '8000'
+              && url.port === '{BACKEND_PORT}'
               && url.pathname === '/v1.2/articles/{CRB_ARTICLE_ID}/references'
               && url.searchParams.get('page') === '2'
             ) {{
@@ -11976,7 +12028,7 @@ def _verify_structured_reference_review_round_trip(
             const rawUrl = typeof input === 'string' ? input : input.url;
             const url = new URL(rawUrl, location.href);
             const localApi = ['127.0.0.1', 'localhost'].includes(url.hostname)
-              && url.port === '8000';
+              && url.port === '{BACKEND_PORT}';
             if (
               localApi
               && delayArticle
@@ -12054,7 +12106,7 @@ def _verify_structured_reference_review_round_trip(
             if (
               delayArticle
               && ['127.0.0.1', 'localhost'].includes(url.hostname)
-              && url.port === '8000'
+              && url.port === '{BACKEND_PORT}'
               && url.pathname === '/articles/{CRB_ARTICLE_ID}'
             ) {{
               delayArticle = false;
@@ -12062,7 +12114,7 @@ def _verify_structured_reference_review_round_trip(
             }} else if (
               delayReferences
               && ['127.0.0.1', 'localhost'].includes(url.hostname)
-              && url.port === '8000'
+              && url.port === '{BACKEND_PORT}'
               && url.pathname === '/v1.2/articles/{CRB_ARTICLE_ID}/references'
             ) {{
               delayReferences = false;
@@ -12182,7 +12234,7 @@ def _verify_structured_reference_review_round_trip(
             const url = new URL(rawUrl, location.href);
             if (
               ['127.0.0.1', 'localhost'].includes(url.hostname)
-              && url.port === '8000'
+              && url.port === '{BACKEND_PORT}'
               && url.pathname === '/v1.2/articles/{CRB_ARTICLE_ID}/references'
               && url.searchParams.get('page') === '2'
             ) {{
@@ -12643,7 +12695,7 @@ def _verify_structured_reference_review_round_trip(
           };
         }
         """,
-        "http://localhost:8000",
+        BROWSER_API_URL,
     )
     review_workspace.get_by_label("Search references", exact=True).fill("p3-033-slow-list")
     slow_list_url = f"{FRONTEND_URL}/zotero?q=p3-033-slow-list"
@@ -16512,11 +16564,13 @@ def _unexpected_context_pages(blocked_external: list[str]) -> list[dict[str, obj
 def verify_backend_restart_persistence(
     runtime: dict[str, Path | dict[str, str]],
 ) -> dict[str, object]:
-    environment = os.environ.copy()
+    from product_test_runtime import sanitized_environment
+
+    environment = dict(RUNTIME_ENVIRONMENT) if RUNTIME_ENVIRONMENT is not None else sanitized_environment()
     environment.update(runtime["environment"])
     log_path = Path(runtime["root"]) / "restart-backend.log"
     process: subprocess.Popen[str] | None = None
-    _require_port_free(8000)
+    _require_port_free(BACKEND_PORT)
     try:
         with log_path.open("w", encoding="utf-8") as handle:
             process = subprocess.Popen(
@@ -16530,12 +16584,13 @@ def verify_backend_restart_persistence(
                     "--host",
                     "127.0.0.1",
                     "--port",
-                    "8000",
+                    str(BACKEND_PORT),
                 ],
                 cwd=ROOT,
                 env=environment,
                 stdout=handle,
                 stderr=subprocess.STDOUT,
+                start_new_session=True,
                 text=True,
             )
             _wait_for_url(f"{API_URL}/health", process, log_path)
@@ -17858,7 +17913,7 @@ def _route_transition_request_kind(
     ):
         return None
     parsed_source = urlparse(source_url)
-    if parsed_source.port == 8000:
+    if parsed_source.port == BACKEND_PORT:
         if evidence.get("resource_type") not in {"fetch", "xhr"}:
             return None
         declared_read_keys = {
@@ -18970,7 +19025,7 @@ def _verify_reader_fragment_focus_ownership(
             const rawUrl = typeof input === 'string' ? input : input.url;
             const url = new URL(rawUrl, location.href);
             const localApi = ['127.0.0.1', 'localhost'].includes(url.hostname)
-              && url.port === '8000';
+              && url.port === '{BACKEND_PORT}';
             if (
               window.__p3034DelayNextArticle
               && localApi
@@ -21466,7 +21521,7 @@ def _unexpected_console_errors(messages: list[str]) -> list[object]:
             and all(count == 1 for count in cancelled_route_binding_counts.values())
             and len(cancelled_read_keys) == len(set(cancelled_read_keys))
             and all(
-                _is_allowed_http_url(str(url)) and urlparse(str(url)).port == 8000
+                _is_allowed_http_url(str(url)) and urlparse(str(url)).port == BACKEND_PORT
                 for url in cancelled_read_urls
             )
             and all(count == 1 for count in cancelled_read_binding_counts.values())
@@ -24722,7 +24777,7 @@ def _verify_http_error_evidence_contract() -> None:
             not _is_allowed_http_url(url)
             for url in (
                 "https://spaces.ac.cn/",
-                "http://127.0.0.1:9000/",
+                f"http://127.0.0.1:{9000 if BACKEND_PORT != 9000 else 9001}/",
                 "http://localhost/articles",
                 "http://localhost:3000/articles",
                 "https://127.0.0.1:3000/articles",
@@ -24818,12 +24873,12 @@ def _require(condition: bool, message: str) -> None:
 
 
 def _require_port_free(port: int) -> None:
-    import socket
+    from product_test_runtime import require_port_free
 
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
-        probe.settimeout(0.2)
-        if probe.connect_ex(("127.0.0.1", port)) == 0:
-            raise E2EFailure(f"required local port {port} is already in use")
+    try:
+        require_port_free(port)
+    except ValueError as exc:
+        raise E2EFailure(f"required local port {port} is unavailable") from exc
 
 
 def _wait_for_url(
@@ -24853,12 +24908,16 @@ def _stop_process(process: subprocess.Popen[str] | None) -> None:
     if process is None:
         return
     try:
-        os.killpg(process.pid, signal.SIGTERM)
-    except ProcessLookupError:
-        return
-    try:
-        process.wait(timeout=10)
-    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGTERM)
+        except ProcessLookupError:
+            pass
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            pass
+    finally:
+        # The session leader may exit before its owned descendants.
         try:
             os.killpg(process.pid, signal.SIGKILL)
         except ProcessLookupError:

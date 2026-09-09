@@ -2,10 +2,10 @@ export const BOOTSTRAP_HYDRATION_PATCH_KEY = Symbol.for(
   "scientific-spaces.bootstrap-hydration-workaround",
 );
 
-export const SUPPORTED_BOOTSTRAP_NEXT_VERSION = "15.5.21";
+export const SUPPORTED_BOOTSTRAP_NEXT_VERSION = "15.5.24";
 export const SUPPORTED_BOOTSTRAP_REACT_VERSION = "19.2.0-canary-0bdb9206-20250818";
 
-// Next 15.5.21 starts App Router hydration inside a transition. Its bundled
+// Next 15.5.24 starts App Router hydration inside a transition. Its bundled
 // React canary can yield with a stale hydration cursor, so only that exact
 // bootstrap call is taken out of transition context; every later call delegates.
 

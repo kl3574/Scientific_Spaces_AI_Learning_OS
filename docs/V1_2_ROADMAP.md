@@ -1,5 +1,20 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
+Current security gate: P3-005.3 Dependency Security Repair, LOCAL VERIFICATION
+PASS / REPLACEMENT CI PENDING.
+P3-040 fee813b is published, but exact-SHA CI 34290207866 fails Dependency audit
+with eight findings. The following prior snapshot does not supersede this gate.
+No closure or candidate version is implied.
+
+Current local prerequisite: P3-024.1 Bootstrap Hydration Compatibility, LOCAL
+VERIFICATION PASS. The exact Next 15.5.24 rebind passes the matched prefix with
+zero unexpected errors and complete cleanup. Backend 891/4, Frontend 154,
+security tests 30 and full SBOM validation pass. Independently reviewed P3-005.4
+isolation and P3-005.5 npm ancestry corrections are part of the 28-path integration
+candidate. Stress 1400/1400, original provenance 7/7, full E2E 3 x 298 and restart
+persistence pass. Final receipt review and replacement exact-SHA CI are still
+required. Evidence: `docs/P3_024_1_BOOTSTRAP_HYDRATION_COMPATIBILITY_REPORT.md`.
+
 Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-038, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-039 Graph node rendering reliability is OPEN / DEFERRED; P3-040 expanded provenance return continuity is LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; the historical Graph incident remains OPEN; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
@@ -1104,6 +1119,14 @@ closure commit requires its own exact-SHA CI before final reporting.
 - Migration of local single-user private data into a hosted service.
 
 ## Next Recommended Task
+
+P3-005.3 Dependency Security Repair: OPEN / REPAIR.
+Canonical: `docs/tasks/P3-005.3_DEPENDENCY_SECURITY_REPAIR.md`.
+Evidence: `docs/P3_005_3_DEPENDENCY_SECURITY_REPAIR_REPORT.md`.
+Apply only independently reviewed minimum fixed versions, then prove full
+verification, unsuppressed audits and replacement exact-SHA CI.
+
+### Suspended P3-040 Implementation
 
 P3-040 Expanded Provenance Return Continuity: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
 Canonical: `docs/tasks/P3-040_EXPANDED_PROVENANCE_RETURN_CONTINUITY.md`.

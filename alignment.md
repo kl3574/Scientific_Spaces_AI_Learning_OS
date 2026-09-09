@@ -1,4 +1,64 @@
-# P3-040 Expanded Provenance Return Continuity Alignment
+# P3-005.3 Dependency Security Repair Alignment
+
+Active bounded compatibility revision:
+docs/tasks/P3-024.1_BOOTSTRAP_HYDRATION_COMPATIBILITY.md. Qualified prefix RED
+and independent review permit an exact Next-literal/comment rebind and its
+version-binding tests, not a wider product change. Two code/test and two document
+paths extend the preserved 24-path integration candidate to exactly 28. Matched
+counterpart and all predefined stress/original gates precede publication.
+
+Additional reviewed prerequisite: docs/tasks/P3-005.5_NPM_DEPENDENCY_ANCESTRY.md.
+Its npm-only resolver and two task/report paths extend the preserved 21-path
+candidate to exactly 24. Correct nearest-ancestor edges without dropping any
+inventory or changing audit policy. Independent scope review approves execution;
+all original browser, security, final review and exact-SHA CI gates still apply.
+The original React 418 diagnosis is separate. The later P3-024.1 exception above
+permits only the independently reviewed exact-version guard rebind.
+
+Active prerequisite: `docs/tasks/P3-005.4_PRODUCT_TEST_RUNTIME_ISOLATION.md`.
+Independent review accepts backend-port-only isolation, frontend fixed at 3000,
+an owned temporary production build and strict shared-state/process safety.
+Its five executable paths plus task/report extend the preserved security
+candidate to exactly 21 integration paths. No product/backend/CORS change or
+assertion waiver. Offline contracts and independent review precede browser
+execution; all original gates precede the combined commit and exact-SHA CI.
+Do not stop/reuse the user's backend, modify shared .next, or repeat generic
+plan confirmation. The earlier port-wait entry below remains historical evidence.
+
+Canonical: docs/tasks/P3-005.3_DEPENDENCY_SECURITY_REPAIR.md
+Status: LOCAL VERIFICATION PASS / REPLACEMENT CI PENDING
+
+P3-040 exact-SHA CI 34290207866 at fee813b fails the unchanged dependency audit
+with eight findings. Independently reviewed separate repair: Next 15.5.24, Sharp
+0.35.4 and HTTPX2/HTTPCore2 2.12.0, minimum necessary lock delta only. The new
+canonical task defines the exact 14-path scope and full verification. The reviewed
+SBOM amendment adds only its generator/test to repair duplicate package identities
+without dropping hashes, edges or audit records. No product,
+M1/API/schema, source/private/paid, workflow/scanner/policy/suppression, tag/Release
+or destructive Git change. Preserve/exclude the known frame-oracle draft.
+
+Local original audit reproduces the eight findings. Verify registry provenance
+and lock delta, locked installs, full tests/build, in-memory Sharp/Next, unchanged
+seven-case and repeat-three browser gates, two post-update audits and safety/SBOM.
+Independent final review precedes non-force publication; replacement exact-SHA
+CI precedes closure. No repeated confirmation or receipt-only commit loop.
+P3-040 remains open; P3-039 remains OPEN / DEFERRED, root cause UNKNOWN.
+
+Current local gate: Backend 891/4 skipped and helper/caller 168 PASS. The initial
+seven-case gate passes, while full repeat-three fails on React 418. A qualified
+exact-prefix reproduction subsequently permits P3-024.1's bounded rebind; its
+matched counterpart now passes with complete audit, stable bindings and cleanup.
+Graph unit tests pass 34. Predefined stress passes 1400/1400; the original seven
+cases pass 7/7; complete repeat-three passes 3 x 298 and restart persistence,
+with zero unexpected errors or external requests. Owned builds/runtimes and
+completed diagnostic scripts are removed. Exact-SHA CI remains pending. P3-005.5's independently
+reviewed npm ancestry repair passes full security/SBOM and two dependency audits.
+Do not stop/reuse the existing backend or waive tests. Final receipt review and
+safety precede commit/push; all seven exact-SHA CI jobs precede closure.
+The earlier 14/21/24-path scopes describe successive historical stages;
+the current explicitly reviewed combined candidate contains 28 paths.
+
+## Historical P3-040 Implementation Alignment
 
 Canonical: docs/tasks/P3-040_EXPANDED_PROVENANCE_RETURN_CONTINUITY.md
 Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING

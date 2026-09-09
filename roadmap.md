@@ -8,15 +8,29 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-P3-040 Expanded Provenance Return Continuity
+P3-024.1 Bootstrap Hydration Compatibility within P3-005.3 Dependency Security Repair
 
 Current milestone:
-P3-040; P3-039 rendering incident remains unresolved
+P3-040 security-gate repair; P3-039 rendering incident remains unresolved
 
 Status:
-P3-040 LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+P3-024.1 LOCAL VERIFICATION PASS; P3-005.3 REPLACEMENT CI PENDING; P3-040 OPEN
 
 Next gate:
+Publish the independently reviewed 28-path integration after final receipt and
+safety checks, then verify its exact-SHA main CI. The P3-024.1 matched prefix,
+1400-load stress, original 7/7 provenance cases, complete 3 x 298 Product E2E
+and restart persistence pass with zero unexpected errors or external requests.
+The security task and separate isolation/ancestry/compatibility revisions define
+the integration scope; remote CI success is not inferred from local results.
+No suppression, policy weakening or repeated plan confirmation.
+
+The reviewed test isolation uses backend 18000 and frontend 3000; port 8000
+need not be freed. Preserve the existing user-terminal backend. Backend 891/4,
+Frontend 154, security tests 30 and full SBOM validation pass. Publication and
+CI gates remain; historical browser failures are preserved in the reports.
+
+Historical P3-040 pre-publication gate:
 Publish the reviewed 16-path candidate, then verify exact-SHA main CI. Frontend
 153, Backend 770 passed / 4 skipped, build, seven desktop/mobile cases, both
 independent product reviews and full Product E2E 3 x 298 with restart persistence

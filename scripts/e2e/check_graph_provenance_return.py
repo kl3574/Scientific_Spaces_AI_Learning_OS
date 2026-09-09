@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Owned synthetic Graph return-focus regression against an existing start build.
+"""Owned synthetic Graph return-focus regression against a production build.
 
 CLI: no arguments; stdout is one JSON object, exit 0 PASS, 1 UI FAIL, 2 BLOCKED.
 Schema v1 exports fixed status/error/stage enums, booleans, counts and seven case
 summaries only. FAIL requires clean strict audit, stable source/build/fixture
 bindings and removed temporary runtime. It is not historical Graph-blink proof.
-No build, canonical-data mutation, external services or image/log export. Build
-bindings prove stability within this run, not build-to-checkout correspondence.
+Default port 8000 uses the existing build; an explicit alternate backend port
+uses an owned source-verified temporary build. No canonical-data mutation,
+external services or image/log export. Per-run bindings prove stability; the
+alternate-port helper separately verifies copied inputs and shared-state safety.
 """
 
 from __future__ import annotations
@@ -47,18 +49,18 @@ STAGES = frozenset({"setup", "bindings", "runtime_setup", "runtime_teardown", "s
                     "audit", "final_bindings", "complete"})
 
 
-def digest_paths(paths):
+def digest_paths(paths, *, relative_root=None):
     digest = hashlib.sha256()
     for path in sorted(paths):
-        digest.update(str(path.relative_to(ROOT)).encode("utf-8") + b"\0")
+        digest.update(str(path.relative_to(relative_root or ROOT)).encode("utf-8") + b"\0")
         with path.open("rb") as handle:
             file_digest = hashlib.file_digest(handle, "sha256").digest()
         digest.update(file_digest)
     return digest.hexdigest()
 
 
-def source_bindings():
-    build = ROOT / "frontend/.next"
+def source_bindings(*, frontend_root=None):
+    build = (frontend_root or ROOT / "frontend") / ".next"
     if not (build / "BUILD_ID").is_file() or not (build / "BUILD_ID").read_bytes().strip():
         raise ValueError("execution_failed")
     build_files = [build / "BUILD_ID"]
@@ -72,9 +74,10 @@ def source_bindings():
     sources.extend((ROOT / "backend/app").rglob("*.py"))
     sources.extend(ROOT / path for path in (
         "scripts/e2e/run_product_e2e.py", "scripts/e2e/check_graph_provenance_return.py",
-        "frontend/package.json", "frontend/package-lock.json", "backend/pyproject.toml",
+        "scripts/e2e/product_test_runtime.py", "frontend/package.json",
+        "frontend/package-lock.json", "backend/pyproject.toml", "backend/uv.lock",
     ))
-    return {"source": digest_paths(sources), "build": digest_paths(build_files),
+    return {"source": digest_paths(sources), "build": digest_paths(build_files, relative_root=frontend_root),
             "fixture": digest_paths([ROOT / "backend/tests/fixtures/evaluation/articles.json"])}
 
 
@@ -474,10 +477,13 @@ def browser_driver():
     return sync_playwright, expect
 
 
-def execute(result):
+def execute(result, configuration=None):
     result["stage"] = "bindings"
-    before = source_bindings()
+    bindings = source_bindings if configuration is None else lambda: source_bindings(frontend_root=configuration.frontend_root)
+    before = bindings()
     module = runtime_module()
+    if configuration is not None:
+        module = module["configure_runtime"](configuration)
     blocked, errors, page_errors = module["NetworkGuardLog"](), module["ConsoleErrorLog"](), []
     path = runtime = expected_fixture = None
     try:
@@ -514,7 +520,7 @@ def execute(result):
             fail(result, "audit_failed")
         result["stage"] = "final_bindings"
         try:
-            result["bindings_equal"] = source_bindings() == before
+            result["bindings_equal"] = bindings() == before
         except Exception:
             fail(result, "binding_changed")
 
@@ -552,7 +558,21 @@ def main(argv=None):
             if list(sys.argv[1:] if argv is None else argv):
                 fail(result, "invalid_arguments")
             else:
-                execute(result)
+                e2e_root = str(ROOT / "scripts/e2e")
+                if e2e_root not in sys.path:
+                    sys.path.insert(0, e2e_root)
+                from product_test_runtime import (
+                    frontend_runtime, get_backend_port, process_environment, sanitized_environment,
+                )
+
+                backend_port = get_backend_port()
+                if backend_port == 8000:
+                    with process_environment(sanitized_environment()):
+                        execute(result)
+                else:
+                    with frontend_runtime(ROOT, backend_port=backend_port) as configuration:
+                        with process_environment(configuration.environment):
+                            execute(result, configuration)
     except (Exception, KeyboardInterrupt):
         fail(result, "execution_failed")
     finally:

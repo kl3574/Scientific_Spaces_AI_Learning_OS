@@ -2,6 +2,55 @@
 
 ## Active Task
 
+Compatibility revision: `docs/tasks/P3-024.1_BOOTSTRAP_HYDRATION_COMPATIBILITY.md`,
+LOCAL VERIFICATION PASS / INTEGRATION CI PENDING after independent scope and code review. The exact Next
+guard rebind passes the unchanged matched prefix with zero unexpected errors,
+stable bindings and cleanup. The predefined 1400-load stress passes, as do the
+original seven provenance cases, three complete 298-check E2E runs and restart
+persistence. Unexpected errors and external requests are zero; owned builds,
+runtimes and completed diagnostic scripts are removed. Exact-SHA CI remains.
+No AppShell/Reader/Graph logic changes. Four
+new paths extend the preserved integration candidate from 24 to exactly 28.
+
+Security prerequisite: `docs/tasks/P3-005.5_NPM_DEPENDENCY_ANCESTRY.md`,
+LOCAL VERIFICATION PASS / INTEGRATION CI PENDING. Fix nearest legal npm
+ancestor resolution; no inventory/policy/product change. Its resolver and two
+task/report paths extend the integration candidate from 21 to exactly 24 paths.
+All 30 security tests, Backend 891/4, full SBOM validation and two dependency
+audits pass; independent review has Critical 0 / Important 0. Publication still
+depends on final receipt review and replacement exact-SHA CI.
+
+Test-only prerequisite:
+`docs/tasks/P3-005.4_PRODUCT_TEST_RUNTIME_ISOLATION.md`, LOCAL VERIFICATION PASS / INTEGRATION CI PENDING.
+Independently reviewed backend-port isolation with owned temporary frontend
+build; frontend stays 3000 for unchanged CORS. No existing service reuse/stop,
+shared-build mutation, assertion waiver or product change. Preserve the
+P3-005.3 candidate; original browser/security and exact-SHA CI gates still apply.
+
+`docs/tasks/P3-005.3_DEPENDENCY_SECURITY_REPAIR.md`
+
+Status: **LOCAL VERIFICATION PASS / REPLACEMENT CI PENDING**. P3-040 exact-SHA CI 34290207866 at fee813b fails
+Dependency audit with eight unsuppressed findings. Independently reviewed scope
+is the smallest officially fixed dependency update, unchanged policy and full
+replacement verification. No generic confirmation, unrelated product work,
+source/private/paid access or Release action. Preserve the excluded oracle.
+
+Current combined gates: Backend 891/4 skipped and helper/caller 168 PASS. Before
+the compatibility rebind, isolated seven-case browser 7/7 passes, but the full
+repeat-three fails on React 418 before restart. The corrected exact-prefix
+diagnostic then reproduces Dashboard 418 before Reader entry; the exact-version
+rebind's matched counterpart completes with zero unexpected errors. Frontend
+Graph tests now pass 34 including explicit version drift. The replacement full
+stress, seven-case and repeat-three/restart gates now pass. Integration CI remains pending.
+The separately reviewed npm ancestry repair is locally verified without dropping
+inventory. Shared bindings and cleanup pass; the existing backend on 8000 is
+untouched. After final receipt/safety review, publish exactly 28 allowlisted paths
+with `fix: update vulnerable dependency versions` and verify all seven required
+exact-SHA main CI jobs. The untracked frame oracle is excluded. No closure is
+claimed from local results; no receipt-only self-hash commit loop.
+
+## Suspended P3-040 Task
+
 `docs/tasks/P3-040_EXPANDED_PROVENANCE_RETURN_CONTINUITY.md`
 
 Status: **LOCAL VERIFICATION PASS / PUBLICATION CI PENDING**. A real unchanged-production
@@ -14,7 +63,9 @@ product reviews have no Critical/Important finding. The unchanged Product E2E
 passes 3 x 298 checks and restart persistence with zero unexpected errors or
 external requests, stable bindings and removed runtime. Publish the reviewed
 16-path candidate, preserve/exclude the frame-oracle draft and verify exact-SHA
-main CI before closure. No receipt-only commit loop.
+main CI before closure. No receipt-only commit loop. This records the earlier
+publication candidate; the report now records the failed dependency CI. P3-040
+remains open pending the separate P3-005.3 repair and replacement verification.
 
 P3-039 remains **OPEN / DEFERRED**, historical cause UNKNOWN. Its diagnostic
 d25113d passes exact-SHA CI 34276540291, all seven required jobs. The unfinished

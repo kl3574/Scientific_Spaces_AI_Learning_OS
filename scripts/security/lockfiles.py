@@ -5,7 +5,7 @@ import json
 import re
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 from urllib.parse import quote
 
@@ -215,18 +215,22 @@ def parse_package_lock(path: Path) -> tuple[list[LockedPackage], dict[str, Any]]
         for key, value in data["packages"].items()
         if key and key.startswith("node_modules/") and isinstance(value, dict)
     }
-    name_to_paths: dict[str, list[str]] = defaultdict(list)
-    for package_path in raw_packages:
-        name_to_paths[_npm_name_from_path(package_path)].append(package_path)
-
-    def resolve_dependency(parent_path: str, dependency_name: str) -> str:
-        candidate = f"{parent_path}/node_modules/{dependency_name}"
-        if candidate in raw_packages:
-            return candidate
-        candidates = name_to_paths.get(dependency_name, [])
-        if not candidates:
-            raise SecurityToolError(f"unresolved npm dependency: {dependency_name}")
-        return sorted(candidates, key=lambda item: (item.count("node_modules/"), len(item)))[0]
+    def resolve_dependency(
+        parent_path: str, dependency_name: str, *, allow_missing: bool = False
+    ) -> str | None:
+        ancestor = PurePosixPath(parent_path)
+        while True:
+            # Node skips node_modules/node_modules, but includes scope directories.
+            if ancestor.name != "node_modules":
+                candidate = (ancestor / "node_modules" / dependency_name).as_posix()
+                if candidate in raw_packages:
+                    return candidate
+            if ancestor == PurePosixPath("."):
+                break
+            ancestor = ancestor.parent
+        if allow_missing:
+            return None
+        raise SecurityToolError(f"unresolved npm dependency: {dependency_name}")
 
     path_to_ref: dict[str, str] = {}
     for package_path, package in raw_packages.items():
@@ -244,17 +248,15 @@ def parse_package_lock(path: Path) -> tuple[list[LockedPackage], dict[str, Any]]
         optional_names = set((package.get("optionalDependencies") or {}).keys())
         dependency_refs = []
         for dependency_name in sorted(dependency_names):
-            if package.get("optional") is True and dependency_name not in name_to_paths:
-                continue
-            dependency_refs.append(
-                path_to_ref[resolve_dependency(package_path, dependency_name)]
+            resolved = resolve_dependency(
+                package_path, dependency_name, allow_missing=package.get("optional") is True
             )
+            if resolved is not None:
+                dependency_refs.append(path_to_ref[resolved])
         for dependency_name in sorted(optional_names):
-            if dependency_name not in name_to_paths:
-                continue
-            dependency_refs.append(
-                path_to_ref[resolve_dependency(package_path, dependency_name)]
-            )
+            resolved = resolve_dependency(package_path, dependency_name, allow_missing=True)
+            if resolved is not None:
+                dependency_refs.append(path_to_ref[resolved])
         algorithm, digest = _npm_digest(package.get("integrity"))
         packages.append(
             LockedPackage(
