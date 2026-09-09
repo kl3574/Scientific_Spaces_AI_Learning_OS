@@ -2,14 +2,35 @@
 
 ## Active Task
 
+`docs/tasks/P3-034.1_GUIDED_READER_HISTORY_FOCUS_DIAGNOSTICS.md`
+
+Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING. Independently reviewed diagnostics-only
+revision: annotate only the original failed Reader focus assertion, preserving
+its identity, timeout, normal path and all gates. The canonical enumerates twelve
+paths. Backend 1184/4 skipped, Frontend 179, focused contracts 37, owned build,
+original 3 x 298/restart/image and native36/component6 profiles pass. Audits,
+bindings and cleanup pass. Final receipt/safety reviews precede the substantive
+diagnostic commit/non-force push and all seven required exact-SHA CI jobs.
+No product repair or P3-042 closure is implied. Reader cause remains UNKNOWN;
+P3-039 stays deferred. No generic confirmation, private/source/paid or release work.
+
+## Parent CI Blocker
+
 `docs/tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md`
 
-Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING. Backend 1147/4 skipped,
+Status: OPEN / CI BLOCKED. Published 8e38d035 is synchronized. Exact-SHA CI
+34354525791 fails the existing hashless guided Reader Back focus assertion;
+six other required jobs pass. Diagnose that precise journey with owned synthetic
+runtime, unchanged assertions and strict audits. Reader/Shell product repair
+requires a separate reviewed revision. Graph replay remains deferred. No blind
+CI rerun or closure. The following local evidence remains valid for its run.
+
+Backend 1147/4 skipped,
 Frontend 179, owned build, original 3 x 298/restart/image and corrected
 native36/component6 gates pass. Final counterpart stderr/audits are zero;
 bindings and cleanup pass. Security/SBOM and independent code/scope reviews
-pass. Publish the exact 18 canonical paths after final receipt/safety review,
-then verify all seven required exact-SHA main CI jobs before closure. Preserve
+pass. The exact 18 canonical paths were published; all seven required exact-SHA
+main CI jobs must pass before closure. Preserve
 the excluded oracle. No recurring user confirmation or AGENTS regeneration.
 
 P3-041 is PASS / CLOSED at dc7411c73802df1255376996c6daf5810f2a87a9,

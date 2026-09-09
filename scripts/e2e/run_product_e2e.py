@@ -7,6 +7,7 @@ from contextlib import closing, contextmanager
 from dataclasses import replace
 import hashlib
 import json
+import math
 import os
 from pathlib import Path
 import re
@@ -11282,6 +11283,76 @@ def _verify_tutor_citation_continuity(
 
 
 
+def _reader_history_focus_failure_note(page) -> str:
+    """Read bounded focus metadata only after the original Reader assertion fails."""
+    prefix = "Guided Reader history focus failure: "
+    try:
+        snapshot = page.evaluate(
+            """
+            () => {
+              const reader = document.querySelector('article#article-start');
+              const heading = reader?.querySelector(':scope > h1');
+              const outline = document.querySelector('#article-outline');
+              const main = document.querySelector('#main-content');
+              const modal = document.querySelector('[role="dialog"][aria-modal="true"]');
+              const active = document.activeElement;
+              const owner = !active ? 'unavailable'
+                : active === heading ? 'heading'
+                : active === outline ? 'outline_target'
+                : active.matches?.('a[href="#article-outline"]') ? 'outline_link'
+                : active === document.body ? 'body'
+                : active === main ? 'main'
+                : modal?.contains(active) ? 'dialog' : 'other';
+              const rect = heading?.getBoundingClientRect();
+              const number = value => Number.isFinite(value) ? value : null;
+              return {
+                owner,
+                document_focused: document.hasFocus(),
+                document_visibility: ['visible', 'hidden'].includes(document.visibilityState)
+                  ? document.visibilityState : 'other',
+                reader_present: Boolean(reader),
+                heading_connected: Boolean(heading?.isConnected),
+                heading_active: Boolean(heading && active === heading),
+                owner_pending: Boolean(document.querySelector('article#article-start[data-shell-focus-owner="pending"]')),
+                modal_present: Boolean(modal),
+                guided_session: new URLSearchParams(location.search).get('from') === '/session',
+                hash_kind: location.hash === '' ? 'none'
+                  : location.hash === '#article-outline' ? 'outline'
+                  : location.hash === '#reading-tools' ? 'tools' : 'other',
+                heading_box: rect ? [rect.x, rect.y, rect.width, rect.height].map(number) : null,
+              };
+            }
+            """
+        )
+        booleans = {
+            "document_focused", "reader_present", "heading_connected", "heading_active",
+            "owner_pending", "modal_present", "guided_session",
+        }
+        enums = {
+            "owner": {"heading", "outline_link", "outline_target", "body", "main", "dialog", "other", "unavailable"},
+            "document_visibility": {"visible", "hidden", "other"},
+            "hash_kind": {"none", "outline", "tools", "other"},
+        }
+        if type(snapshot) is not dict or set(snapshot) != booleans | set(enums) | {"heading_box"}:
+            raise ValueError("invalid_focus_snapshot")
+        if any(type(snapshot[key]) is not bool for key in booleans):
+            raise ValueError("invalid_focus_snapshot")
+        if any(type(snapshot[key]) is not str or snapshot[key] not in values for key, values in enums.items()):
+            raise ValueError("invalid_focus_snapshot")
+        box = snapshot["heading_box"]
+        if box is not None and (
+            type(box) is not list or len(box) != 4
+            or any(value is not None and (type(value) not in (int, float) or not math.isfinite(value)) for value in box)
+        ):
+            raise ValueError("invalid_focus_snapshot")
+        note = prefix + json.dumps(snapshot, allow_nan=False, sort_keys=True)
+        if len(note.encode("utf-8")) > 1536:
+            raise ValueError("focus_snapshot_budget")
+        return note
+    except Exception:
+        return prefix + '{"capture_status":"UNAVAILABLE"}'
+
+
 def _graph_map_failure_note(page) -> str:
     """Collect bounded geometry after failure without hiding the assertion."""
     prefix = "Graph map post-assertion-failure geometry: "
@@ -19477,7 +19548,14 @@ def _verify_reader_fragment_focus_ownership(
         expect(page.locator("#article-outline")).to_be_focused(timeout=30_000)
         page.go_back()
         expect(page).to_have_url(guided_base_reader_url, timeout=30_000)
-        expect(guided_heading).to_be_focused(timeout=30_000)
+        try:
+            expect(guided_heading).to_be_focused(timeout=30_000)
+        except AssertionError as error:
+            try:
+                error.add_note(_reader_history_focus_failure_note(page))
+            except Exception:
+                pass
+            raise
         _require_visible_focus(guided_heading, "hashless guided Reader history target")
         _require(
             int(page.evaluate("history.length")) == guided_history_length + 1,

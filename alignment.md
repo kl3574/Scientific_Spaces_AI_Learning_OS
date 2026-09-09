@@ -1,7 +1,45 @@
-# P3-042 Article List Route State Continuity Alignment
+# P3-034.1 Guided Reader History Focus Diagnostics Alignment
+
+Canonical: docs/tasks/P3-034.1_GUIDED_READER_HISTORY_FOCUS_DIAGNOSTICS.md
+Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+
+Backend 1184/4 skipped, Frontend 179, focused contracts 37, owned production
+build, original 3 x 298/restart/image and native36/component6 profiles pass.
+Audits, bindings and cleanup pass. Final receipt/safety reviews precede the
+canonical substantive diagnostic commit/push and all seven exact-SHA CI jobs.
+Reader remains UNKNOWN; no parent closure is inferred from this local PASS.
+
+Independent prospective review authorizes the exact twelve canonical paths:
+failure-only E2E evidence, its offline contracts, canonical/report, six governance
+pointers and parent P3-042 status/evidence. Preserve the exact guided-heading
+assertion, order and 30000-ms timeout. Never capture on success or replace the
+original exception. Bounded enums/booleans/geometry only, with a fixed unavailable
+fallback and note budget; no product, provider, API/data or policy change.
+
+P3-042 CI 34354525791 at synchronized 8e38d035 is terminal FAILURE, six other
+required jobs PASS. Two valid unchanged-product prefix replays do not reproduce
+the failure. Do not repeat them or infer a fix. Add evidence to the actual failed
+checkpoint, complete focused/full tests, owned build and original repeat-three
+E2E, safety and independent final reviews, then one substantive diagnostic commit
+and non-force main push. Verify all seven exact-SHA CI jobs after publication.
+No self-hash receipt loop, generic confirmation or Graph replay. Reader remains
+OPEN / UNKNOWN and P3-042 is not automatically closed by diagnostic PASS.
+Preserve the excluded oracle, shared build and user backend. Formal v1.1.0;
+candidate None. No source/private/paid/Provider/tag/Release operation.
+
+## Parent P3-042 Article List Route State Continuity Alignment
 
 Canonical: docs/tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md
-Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+Status: OPEN / CI BLOCKED
+
+Current action: diagnose the original hashless guided Reader Back focus failure
+in exact-SHA CI 34354525791 at published 8e38d035. Six required jobs pass;
+Product E2E fails at run_product_e2e.py:19480. Local main and cached origin/main
+are synchronized. Preserve the failed receipt and original assertion. An owned
+synthetic diagnostic is permitted; Reader/Shell product changes need a separate
+concrete sub-agent review and bounded revision, not generic owner confirmation.
+Do not close P3-042, rerun CI blindly or execute the deferred Graph replay.
+The following records the preceding publication plan and local acceptance.
 
 Local Backend 1147/4 skipped, Frontend 179, owned production build, original
 3 x 298/restart/image and corrected native36/component6 gates pass. Final

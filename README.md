@@ -7,16 +7,17 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-042 local verification PASS / publication CI pending; P3-041 PASS / CLOSED; P3-039 OPEN / DEFERRED`
+- Status: `P3-034.1 diagnostics locally verified; publication CI pending; P3-042 OPEN / CI BLOCKED; P3-039 OPEN / DEFERRED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-042 local tests/build/browser/security PASS; exact-SHA publication CI pending`
-- Current task: `P3-042 Article List route state continuity`
+- Latest gate: `CI 34354525791: six required jobs PASS; Product E2E FAIL at guided Reader Back focus`
+- Current task: `P3-034.1 guided Reader history focus diagnostics`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
-Current repair: [P3-042 canonical task](docs/tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md).
-Current evidence: [P3-042 report](docs/P3_042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY_REPORT.md).
+Current diagnostic: [P3-034.1 task](docs/tasks/P3-034.1_GUIDED_READER_HISTORY_FOCUS_DIAGNOSTICS.md).
+Current evidence: [P3-034.1 report](docs/P3_034_1_GUIDED_READER_HISTORY_FOCUS_REPORT.md).
+Parent blocker: [P3-042 report](docs/P3_042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY_REPORT.md).
 P3-041 is PASS / CLOSED at dc7411c73802df1255376996c6daf5810f2a87a9,
 verified by [main CI 34332407397](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34332407397).
 P3-005.3, P3-005.4, P3-005.5, P3-024.1 and P3-040 are PASS / CLOSED at
@@ -26,7 +27,9 @@ The original P3-040 CI remains a failed historical run. P3-039 remains deferred
 with historical cause UNKNOWN. P3-042 passes Backend 1147/4 skipped, Frontend
 179, owned build and browser/security gates. The report distinguishes the
 original 3 x 298/restart/image result from the corrected native36/component6
-counterpart with zero stderr/audit failures. Publication CI precedes closure.
+counterpart with zero stderr/audit failures. Publication 8e38d035 is synchronized,
+but exact-SHA CI fails the existing guided Reader Back focus assertion. Diagnosis
+precedes any repair or closure; no blind CI rerun or assertion waiver.
 Release notes: `docs/RELEASE_NOTES_v1.1.0.md` (draft history in `docs/RELEASE_NOTES_v1.1.0_DRAFT.md`).
 
 Post-release validation: `docs/V1_1_POST_RELEASE_VALIDATION.md`.

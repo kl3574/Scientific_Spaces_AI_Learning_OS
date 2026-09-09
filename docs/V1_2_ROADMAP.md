@@ -1,7 +1,14 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Current task: [P3-042 Article List Route State Continuity](tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md),
-LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
+Current task: [P3-034.1 Guided Reader History Focus Diagnostics](tasks/P3-034.1_GUIDED_READER_HISTORY_FOCUS_DIAGNOSTICS.md),
+LOCAL VERIFICATION PASS / PUBLICATION CI PENDING. The canonical twelve-path
+diagnostic passes local tests, owned build/original E2E and additive profiles.
+Final receipt/safety reviews precede one substantive publication and exact-SHA
+CI. No product fix or parent closure is implied. P3-042 remains OPEN / CI BLOCKED.
+Publication 8e38d035 is synchronized. CI 34354525791 fails
+the existing hashless guided Reader Back focus assertion; six other required
+jobs pass. Diagnose that exact journey before repair or closure, with unchanged
+assertions and owned synthetic runtime. No blind CI rerun or Graph replay.
 [Current evidence](P3_042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY_REPORT.md) records
 Backend 1147/4 skipped, Frontend 179, owned build, original 3 x 298/restart/image
 and corrected native36/component6 PASS. Final counterpart stderr/audits are zero;
@@ -28,7 +35,7 @@ integration. Stress 1400/1400, original provenance 7/7, full E2E 3 x 298 and res
 persistence pass. Final review and replacement exact-SHA CI now pass.
 Evidence: `docs/P3_024_1_BOOTSTRAP_HYDRATION_COMPATIBILITY_REPORT.md`.
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-038, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-005.3/.4/.5, P3-024.1 and P3-040 are PASS / CLOSED; P3-039 Graph node rendering reliability is OPEN / DEFERRED, historical cause UNKNOWN; P3-041 Reader inline image rendering is PASS / CLOSED; P3-042 Article List route state continuity is LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-038, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-005.3/.4/.5, P3-024.1 and P3-040 are PASS / CLOSED; P3-039 Graph node rendering reliability is OPEN / DEFERRED, historical cause UNKNOWN; P3-041 Reader inline image rendering is PASS / CLOSED; P3-042 Article List route state continuity is OPEN / CI BLOCKED; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -1133,11 +1140,18 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-P3-042 Article List Route State Continuity: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
+P3-034.1 Guided Reader History Focus Diagnostics: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
+Canonical: [P3-034.1 task](tasks/P3-034.1_GUIDED_READER_HISTORY_FOCUS_DIAGNOSTICS.md).
+Evidence: [P3-034.1 report](P3_034_1_GUIDED_READER_HISTORY_FOCUS_REPORT.md).
+Local acceptance passes. Complete final receipt/safety and independent reviews
+before substantive diagnostic publication and exact-SHA CI. Reader cause stays UNKNOWN.
+
+Parent P3-042 Article List Route State Continuity: OPEN / CI BLOCKED.
 Canonical: [P3-042 task](tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md).
 Evidence: [P3-042 report](P3_042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY_REPORT.md).
-Publish the reviewed 18-path candidate after final receipt/safety checks, then
-verify all seven required exact-SHA main CI jobs before closure. Local gates pass.
+Published 8e38d035 fails exact-SHA CI 34354525791 at the existing hashless guided
+Reader Back focus assertion. Six other required jobs pass. Diagnose the precise
+journey with unchanged gates; do not infer closure from preceding local PASS.
 P3-041 and earlier gates are closed by the receipts above; P3-039 stays deferred.
 
 ### Historical P3-040 Pre-Closure Snapshot

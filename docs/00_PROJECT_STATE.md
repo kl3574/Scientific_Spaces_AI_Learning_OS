@@ -14,7 +14,7 @@ v1.2 Product Convergence
 
 Status:
 
-P3-042 Article List Route State Continuity: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; P3-041 AND PREDECESSORS PASS / CLOSED; P3-039 OPEN / DEFERRED, historical cause UNKNOWN
+P3-034.1 Guided Reader History Focus Diagnostics: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; P3-042 OPEN / CI BLOCKED; P3-041 AND PREDECESSORS PASS / CLOSED; P3-039 OPEN / DEFERRED, historical cause UNKNOWN
 
 Release Readiness:
 
@@ -128,11 +128,19 @@ PASS
 
 Current Task:
 
-P3-042 Article List Route State Continuity
+P3-034.1 Guided Reader History Focus Diagnostics
 
 Current Task Status:
 
-P3-042 LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; P3-041 AND PREDECESSORS PASS / CLOSED; P3-039 OPEN / DEFERRED, historical cause UNKNOWN
+P3-034.1 LOCAL VERIFICATION PASS / PUBLICATION CI PENDING. Backend 1184/4 skipped, Frontend 179, focused contracts 37, owned build, original 3 x 298/restart/image and native36/component6 pass; audits/bindings/cleanup pass. Final receipt/safety review and exact-SHA CI remain. P3-042 stays OPEN / CI BLOCKED at 8e38d035 / CI 34354525791. Reader cause UNKNOWN; P3-039 deferred.
+
+P3-034.1 Canonical Task:
+
+[docs/tasks/P3-034.1_GUIDED_READER_HISTORY_FOCUS_DIAGNOSTICS.md](tasks/P3-034.1_GUIDED_READER_HISTORY_FOCUS_DIAGNOSTICS.md)
+
+P3-034.1 Evidence:
+
+[docs/P3_034_1_GUIDED_READER_HISTORY_FOCUS_REPORT.md](P3_034_1_GUIDED_READER_HISTORY_FOCUS_REPORT.md)
 
 P3-042 Canonical Task:
 
@@ -149,7 +157,8 @@ Original E2E 3 x 298, four restart checks and separate image 3 x 8 PASS. The
 corrected complete native36/component6 counterpart has zero stderr through
 interpreter exit, zero audit failures, stable bindings and complete cleanup.
 Its report preserves the initial SDK diagnostics and exact verification scope.
-Security/SBOM and independent code/scope reviews PASS. Exact-SHA main CI remains.
+Security/SBOM and independent code/scope reviews PASS. Exact-SHA CI now fails at
+the guided Reader Back focus assertion as recorded in Current Task Status.
 
 P3-041 Closure:
 
@@ -1071,7 +1080,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-PUBLISH THE REVIEWED 18-PATH P3-042 CANDIDATE AFTER FINAL RECEIPT/SAFETY CHECKS, THEN VERIFY ALL SEVEN REQUIRED EXACT-SHA MAIN CI JOBS BEFORE CLOSURE. P3-041 IS CLOSED BY dc7411c / CI 34332407397. PRESERVE ORIGINAL FIXTURES/GATES, USER BACKEND, SHARED BUILD AND EXCLUDED FRAME ORACLE. P3-039 REMAINS OPEN / DEFERRED, UNKNOWN ROOT CAUSE. NO REPEATED CONFIRMATION, RECEIPT-ONLY COMMIT LOOP OR v1.2 CANDIDATE.
+COMPLETE P3-034.1 FINAL RECEIPT REVIEW AND SAFETY CHECKS, THEN ONE SUBSTANTIVE DIAGNOSTIC COMMIT/PUSH AND ALL SEVEN REQUIRED EXACT-SHA CI JOBS. LOCAL FULL ACCEPTANCE PASSES BUT DOES NOT REPAIR THE HISTORICAL 34354525791 FAILURE. PRESERVE ORIGINAL ASSERTIONS, FIXTURES, USER BACKEND, SHARED BUILD AND EXCLUDED ORACLE. NO BLIND RERUN, P3-042 CLOSURE OR GRAPH REPLAY. READER CAUSE UNKNOWN. NO GENERIC CONFIRMATION, RECEIPT-ONLY COMMIT LOOP OR v1.2 CANDIDATE.
 
 Post-freeze Change Rule:
 

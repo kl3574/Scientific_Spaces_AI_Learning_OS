@@ -1,14 +1,23 @@
 # P3-042 Article List Route State Continuity
 
-Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+Status: OPEN / CI BLOCKED
+
+Publication 8e38d0359df84e67af76541195ebeda99226e1df is synchronized.
+Exact-SHA CI 34354525791 fails Product E2E at the existing hashless guided
+Reader Back focus assertion (run_product_e2e.py:19480). Six other required jobs
+pass. Diagnose that precise failure on an owned synthetic runtime; do not rerun
+CI blindly, relax the assertion, close this task or start the Graph replay.
+Reader/Shell product edits remain outside this task and require a separately
+reviewed bounded revision. The local acceptance below remains historical evidence.
 
 Local product and regression gates pass: Backend 1147/4 skipped, Frontend 179,
 owned build, unchanged original E2E 3 x 298/restart/image and the corrected
 native36/component6 counterpart. The latter has zero stderr through process
 exit; the report preserves its SDK diagnostic RED and exact scope of evidence.
-Security/SBOM and two independent implementation/scope reviews pass. After
-final receipt/safety review, publish only the paths below and verify exact-SHA
-main CI before closure. No further generic user confirmation is required.
+Security/SBOM and two independent implementation/scope reviews pass. These local
+gates preceded publication; failed exact-SHA CI now holds closure. Preserve the
+published implementation during diagnosis. No further generic user confirmation
+is required.
 
 ## Objective And Evidence
 

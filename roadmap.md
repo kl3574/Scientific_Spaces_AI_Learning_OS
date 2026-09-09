@@ -8,18 +8,21 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-[P3-042 Article List Route State Continuity](docs/tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md)
+[P3-034.1 Guided Reader History Focus Diagnostics](docs/tasks/P3-034.1_GUIDED_READER_HISTORY_FOCUS_DIAGNOSTICS.md)
 
 Current milestone:
-Article List navigation continuity; P3-039 rendering incident remains unresolved
+Failure-only Reader focus evidence; parent P3-042 CI held and P3-039 deferred
 
 Status:
-P3-042 LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; P3-041 AND PREDECESSORS PASS / CLOSED
+P3-034.1 LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; P3-042 OPEN / CI BLOCKED
 
 Next gate:
-Publish the independently reviewed 18-path Article List candidate after final
-receipt/safety checks. Local tests/build/browser/security pass; verify all seven
-required exact-SHA main CI jobs before closure. Evidence:
+P3-034.1 local tests, owned build/original E2E and additive profiles pass.
+Complete final receipt/safety reviews, then one substantive diagnostic
+commit/push and exact-SHA CI. Its PASS qualifies diagnostics, not a Reader fix
+or parent closure.
+Published 8e38d035 CI 34354525791 fails guided Reader Back focus; six other jobs
+pass. Two valid local prefix replays are NOT_REPRODUCED. Parent evidence:
 [P3-042 report](docs/P3_042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY_REPORT.md).
 P3-041 closes at dc7411c / exact-SHA CI 34332407397, all seven required jobs,
 original 3 x 298/restart and separate 3 x 8 image checks PASS; artifacts zero.

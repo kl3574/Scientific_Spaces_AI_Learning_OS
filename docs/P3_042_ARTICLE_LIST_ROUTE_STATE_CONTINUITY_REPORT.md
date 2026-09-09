@@ -1,11 +1,41 @@
 # P3-042 Article List Route State Continuity Report
 
-Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+Status: OPEN / CI BLOCKED
 
 The current candidate passes the required local product, regression and safety
 gates with two independent C0 / I0 implementation/scope reviews. The final
 SDK-call correction and diagnostic-free counterpart are recorded at the end.
-No exact-SHA publication CI or P3-042 closure is claimed yet.
+Exact-SHA publication CI now fails as recorded below; no P3-042 closure is claimed.
+
+## Exact-SHA Publication Failure
+
+On 2026-09-09, local main and cached origin/main both resolve to published
+8e38d0359df84e67af76541195ebeda99226e1df. Tracked worktree/index are clean;
+the previously excluded graph_frame_oracle.js remains untracked and unchanged.
+
+[CI 34354525791](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34354525791)
+terminates with FAILURE. Backend pytest, Frontend build, secret audit, workflow
+policy, dependency audit and SBOM validation pass. Backend log: 1143 passed,
+8 skipped, 588 warnings in 163.38 seconds. This is distinct from local 1147/4.
+Docker compose smoke is policy-skipped, not PASS. Uploaded artifacts: zero.
+
+Product E2E job 102475712920 fails the existing
+_verify_reader_fragment_focus_ownership assertion at run_product_e2e.py:19480,
+called from _run_single_iteration:1972. On the guided Reader route with
+from=/session, the test clicks Outline, confirms its focus, then uses native
+Back to the hashless URL. URL recovery succeeds. The CRB heading exists, but
+64 samples do not satisfy the unchanged 30000-ms focus assertion. The actual
+active element and document focus state are UNKNOWN; this assertion requires
+both element identity and document focus. The log does not prove a root cause.
+
+The failure is not the Graph selected-node assertion. No complete remote
+3 x 298, restart, image, Article navigation or component-profile acceptance is
+inferred from this aborted run. Local evidence is retained, not substituted
+for failed CI. The originally planned Graph replay is not executed. Next:
+one bounded exact-journey diagnostic with owned build, synthetic fixtures,
+strict request/error audits and cleanup, followed by independent causal review.
+No assertion waiver, blind workflow rerun, Reader/Shell product change or
+task closure is authorized by this failure record.
 
 ## Entry And Prior Closure
 
@@ -508,3 +538,76 @@ recorded. Final documentation/safety readback precedes the exact 18-path commit
 and all seven exact-SHA CI jobs still precede closure. No tag/Release, source,
 private/paid/provider operation or broader platform completion is authorized
 or claimed. Preserve the excluded frame oracle; P3-039 remains OPEN / DEFERRED.
+
+## Guided Reader Failure: First Local Diagnostic
+
+The failed CI above is retained. Independent reviewers admit one unchanged-
+production Reader-helper prefix and, only if negative, one original outer-prefix
+replay to assess prelude dependence. No product repair, CI rerun, timeout change,
+Graph replay or closure follows from a negative diagnostic.
+
+One temporary parent-owned script retains the original
+_verify_reader_fragment_focus_ownership preamble and try-body through the unique
+hashless guided Reader history-length assertion. The 2500-ms Article and
+1200-ms reference delays, synthetic session response, hard loads, Outline click,
+native Back, 30000-ms focus assertion and original context cleanup are unchanged.
+An added finally callback reads only bounded terminal DOM metadata and audits.
+Source/AST binding and missing/duplicate-anchor checks pass before execution.
+Independent code review found two cleanup-admission defects in the diagnostic;
+both were corrected before its first invocation, including bounded preservation
+of the original assertion when teardown throws. Final review: C0 / I0.
+
+Invocation: uv run --offline --project backend python -B, with a parent subprocess
+capturing the entire temporary script stdout/stderr through interpreter exit.
+The owned production frontend uses backend 18000 and frontend 3000; the user
+backend and shared frontend/.next are not reused or modified.
+
+Result: child exit 0; diagnostic valid; prefix PASS, therefore NOT_REPRODUCED.
+At the terminal snapshot, guided/hashless are true; heading is connected and
+focused; active owner is heading, box [37, 96, 316, 30]; pending owner and modal
+are false. All five pre-close/post-browser/post-driver/post-server/post-runtime
+audit stages have zero external requests, unexpected console/page errors or
+unexpected context pages. Whole-process stderr bytes and unretrieved tasks: 0.
+Immutable fixtures and source/shared/build bindings are stable. Browser,
+temporary fixture runtime and owned build are removed. Chromium 149.0.7827.55.
+
+Bindings:
+
+- Script: a416162df328680fcfca659bcf3bffc766e0b68833b0ff00a557071c0a02c746.
+- Inner prefix AST: 7643088d15645050d7939e47bf915fd908faa4985221d5fd40dff84eb67ce1db.
+- Reader: 28c9b2db61dba36ff9ffd4083c1643d3a0a221731c9a85948e052f15d11c1dff.
+- Shell: 22578f4a44a9f49cdabd9d705530580a11d26a7d2080f1d14fd3aa94e3bd3dc6.
+- Navigation: 9ac14e4e360689b3c1bc5d9c31200da530ebfa688123c1a0a92fc192dfc8cc28.
+- Original runner: 5f412533d10346977794914adba9da9679ca536269718839d8692955bca44827.
+- Owned build: c97fa31235123d4a5c401840dc0aa7d4d9b195116b8479918fc90b3a00b784db.
+- Fixture Articles: 5feac41d4647ab13cf381031568904c574c04c6501a7ae63a8c84acfd600c5ac.
+
+This terminal-state check cannot prove whether H1 might focus transiently then
+lose focus in the failing CI environment. The actual CI focus owner and cause
+remain UNKNOWN. The first negative does not satisfy P3-042's exact-SHA gate.
+
+### Conditional Outer-Prefix Result
+
+After independent concrete review (C0 / I0), one --outer-prefix invocation
+retains the exact _run_single_iteration prelude through its unique Reader-helper
+call, bound to the already-qualified inner prefix. It uses the actual shared
+outer ledgers, retains original helper order/state transitions, closes the outer
+context independently and audits before/after that closure as well.
+
+Result: child exit 0; diagnostic valid; prefix PASS / NOT_REPRODUCED. All seven
+audit stages are zero; complete stderr bytes and unretrieved tasks are zero.
+Guided/hashless/H1-connected/H1-focused are true; owner is heading, rectangle
+[37, 96, 316, 30]; modal/pending-owner are false. Immutable fixtures are stable
+within this fresh runtime. Source/input/shared/dependency bindings are unchanged;
+browser, servers, temporary fixture runtime and owned build are removed.
+
+- Script: b0b04fae128f6d14f7c2f0d54fd692e3391bf0e869b15817d01d4c710b33935c.
+- Outer prefix AST: 8b186e91bfe82598ccaec2a4e4b772119f42d3ec57c84dcaa594d35c4f6e90b1.
+- Inner prefix AST and Reader/Shell/navigation/original-runner hashes: unchanged
+  from the first diagnostic above.
+- Owned build: afb82068d100cc4cc3dc07805bf0e8cb821b96c45fda997d3d09221067556ef3.
+
+No additional local replay is claimed. The temporary diagnostic script is
+removed after these two admitted invocations. Neither negative repairs or
+closes the failed CI. The independently reviewed next action is P3-034.1
+failure-only evidence at the actual CI checkpoint, not a Reader/Shell patch.
