@@ -8,21 +8,22 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-[P3-041 Reader Inline Image Rendering](docs/tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md)
+[P3-042 Article List Route State Continuity](docs/tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md)
 
 Current milestone:
-Reader inline-image repair; P3-039 rendering incident remains unresolved
+Article List navigation continuity; P3-039 rendering incident remains unresolved
 
 Status:
-P3-041 LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; P3-005.3/.4/.5, P3-024.1 AND P3-040 PASS / CLOSED
+P3-042 LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; P3-041 AND PREDECESSORS PASS / CLOSED
 
 Next gate:
-Publish the 24-path P3-041 candidate after final receipt/safety review, then
-verify its own exact-SHA CI. Backend 929/4 skipped, Frontend 169, contracts 121,
-owned build, original E2E 3 x 298/restart and separate image profile 3 x 8 pass.
-Audits, bindings, cleanup and independent code/scope reviews pass.
-Evidence: [P3-041 report](docs/P3_041_READER_INLINE_IMAGE_RENDERING_REPORT.md).
-No P3-041 closure is claimed. No suppression, policy weakening or repeated plan confirmation.
+Publish the independently reviewed 18-path Article List candidate after final
+receipt/safety checks. Local tests/build/browser/security pass; verify all seven
+required exact-SHA main CI jobs before closure. Evidence:
+[P3-042 report](docs/P3_042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY_REPORT.md).
+P3-041 closes at dc7411c / exact-SHA CI 34332407397, all seven required jobs,
+original 3 x 298/restart and separate 3 x 8 image checks PASS; artifacts zero.
+No suppression, policy weakening or repeated plan confirmation.
 
 Prior integration closure:
 [0a203bae2f99e3c2b3223823e7d91437bc27e96a](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/commit/0a203bae2f99e3c2b3223823e7d91437bc27e96a)

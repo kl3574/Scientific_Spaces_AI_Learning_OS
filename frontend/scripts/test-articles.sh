@@ -12,6 +12,7 @@ trap 'rm -rf "$test_dir"' EXIT
   --skipLibCheck \
   --outDir "$test_dir" \
   tests/articles.test.ts \
+  tests/articleListNavigation.test.ts \
   tests/articleSessionPlanning.test.ts \
   tests/articlePresentation.test.ts \
   tests/articleWorkspace.test.ts \
@@ -20,6 +21,7 @@ trap 'rm -rf "$test_dir"' EXIT
   tests/navigation.test.ts \
   tests/readerLearningMutations.test.ts \
   src/lib/articles.ts \
+  src/lib/articleListNavigation.ts \
   src/lib/articleSessionPlanning.ts \
   src/lib/articlePresentation.ts \
   src/lib/articleWorkspace.ts \
@@ -30,6 +32,7 @@ trap 'rm -rf "$test_dir"' EXIT
 
 node --test \
   "$test_dir/tests/articles.test.js" \
+  "$test_dir/tests/articleListNavigation.test.js" \
   "$test_dir/tests/articleSessionPlanning.test.js" \
   "$test_dir/tests/articlePresentation.test.js" \
   "$test_dir/tests/articleWorkspace.test.js" \

@@ -1,13 +1,15 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Current task: [P3-041 Reader Inline Image Rendering](tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md),
+Current task: [P3-042 Article List Route State Continuity](tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md),
 LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
-[Current evidence](P3_041_READER_INLINE_IMAGE_RENDERING_REPORT.md) records qualified
-RED, the initial full failure and replacement PASS: Backend 929/4 skipped,
-Frontend 169, contracts 121, owned build, original 3 x 298 E2E/restart and separate
-3 x 8 image checks. Audits, bindings, cleanup and independent reviews pass.
-Publish only the 24-path candidate after final receipt/safety review; exact-SHA
-CI remains required before closure.
+[Current evidence](P3_042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY_REPORT.md) records
+Backend 1147/4 skipped, Frontend 179, owned build, original 3 x 298/restart/image
+and corrected native36/component6 PASS. Final counterpart stderr/audits are zero;
+bindings, cleanup, security/SBOM and independent code/scope reviews pass.
+P3-041 is PASS / CLOSED at dc7411c, exact-SHA CI 34332407397 completed SUCCESS
+at 2026-09-09T09:50:41Z: seven required jobs, original 3 x 298/restart and separate
+3 x 8 image checks PASS, clean audits and zero uploaded artifacts.
+No P3-042 verification is inferred from those preceding results.
 
 Prior integration: P3-005.3, P3-005.4, P3-005.5, P3-024.1 and P3-040 PASS / CLOSED
 at [0a203bae2f99e3c2b3223823e7d91437bc27e96a](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/commit/0a203bae2f99e3c2b3223823e7d91437bc27e96a).
@@ -26,7 +28,7 @@ integration. Stress 1400/1400, original provenance 7/7, full E2E 3 x 298 and res
 persistence pass. Final review and replacement exact-SHA CI now pass.
 Evidence: `docs/P3_024_1_BOOTSTRAP_HYDRATION_COMPATIBILITY_REPORT.md`.
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-038, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-005.3/.4/.5, P3-024.1 and P3-040 are PASS / CLOSED; P3-039 Graph node rendering reliability is OPEN / DEFERRED, historical cause UNKNOWN; P3-041 Reader inline image rendering is LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-038, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-005.3/.4/.5, P3-024.1 and P3-040 are PASS / CLOSED; P3-039 Graph node rendering reliability is OPEN / DEFERRED, historical cause UNKNOWN; P3-041 Reader inline image rendering is PASS / CLOSED; P3-042 Article List route state continuity is LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -1131,12 +1133,12 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-P3-041 Reader Inline Image Rendering: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
-Canonical: [P3-041 task](tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md).
-Evidence: [P3-041 report](P3_041_READER_INLINE_IMAGE_RENDERING_REPORT.md).
-Local gates pass. Publish only that reviewed 24-path scope after final
-receipt/safety review, then verify all required exact-SHA CI jobs before closure.
-Prior P3-005.3/.4/.5, P3-024.1 and P3-040 gates are closed by the receipt above.
+P3-042 Article List Route State Continuity: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
+Canonical: [P3-042 task](tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md).
+Evidence: [P3-042 report](P3_042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY_REPORT.md).
+Publish the reviewed 18-path candidate after final receipt/safety checks, then
+verify all seven required exact-SHA main CI jobs before closure. Local gates pass.
+P3-041 and earlier gates are closed by the receipts above; P3-039 stays deferred.
 
 ### Historical P3-040 Pre-Closure Snapshot
 

@@ -1,6 +1,12 @@
 # P3-041 Reader Inline Image Rendering
 
-Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+Status: PASS / CLOSED
+
+Closure: dc7411c73802df1255376996c6daf5810f2a87a9, exact-SHA main CI
+34332407397 completed SUCCESS at 2026-09-09T09:50:41Z. All seven required
+jobs pass; original 3 x 298/restart and separate image 3 x 8 PASS, clean audits
+and zero uploaded artifacts. Docker/release jobs are skipped. The publication
+pending statements below are historical checkpoints, not current status.
 
 ## Objective And Entry Evidence
 

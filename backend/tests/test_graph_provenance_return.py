@@ -246,10 +246,12 @@ def test_process_group_cleanup_retires_descendants_after_leader_exit(check, monk
 @pytest.fixture
 def cli_lifetime(check, monkeypatch, tmp_path):
     """Real CLI/suite orchestration; only resource boundaries are synthetic."""
-    def arrange(port, outcome="success", *, image_failure=None, original_cleanup_failure=False):
+    def arrange(port, outcome="success", *, image_failure=None, original_cleanup_failure=False, navigation_failure=None,
+                component_failure=None):
         full = check["runtime_module"]()["main"].__globals__
         dedicated = check["main"].__globals__
         helper = importlib.import_module("product_test_runtime")
+        navigation = importlib.import_module("check_article_list_navigation")
         private_keys = ("SCIENTIFIC_SPACES_PRIVATE_SENTINEL", "SCIENTIFIC_SPACES_TUTOR_LLM_PROVIDER",
                         "SCIENTIFIC_SPACES_ZOTERO_PROVIDER", "OPENAI_API_KEY", "NODE_OPTIONS", "PYTHONPATH",
                         "HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "NO_PROXY",
@@ -326,14 +328,17 @@ def cli_lifetime(check, monkeypatch, tmp_path):
                         image_calls[-1]["console_errors"].append("synthetic_late_console_error")
                     raise RuntimeError(f"synthetic_{phase}_temp_teardown")
 
-        def prepare(root, *, reader_inline_images=False):
+        def prepare(root, *, reader_inline_images=False, fixture_articles=None):
             assert isinstance(reader_inline_images, bool)
             assert reader_inline_images == ("reader-image" in root.name)
             phase = "image" if reader_inline_images else "original"
+            if "article-navigation" in root.name:
+                phase = "navigation22" if fixture_articles is not None else "navigation3"
             events.append(f"{phase}_prepare")
             paths.append(root)
-            articles = [article.to_dict() for article in full["_load_fixture_articles"]()]
-            assert len(articles) == 3
+            articles = [article.to_dict() for article in (
+                full["_load_fixture_articles"]() if fixture_articles is None else fixture_articles)]
+            assert len(articles) == (22 if phase == "navigation22" else 3)
             if reader_inline_images and image_failure != "wrong_fixture":
                 for article in articles:
                     if article["id"] == full["CRB_ARTICLE_ID"]:
@@ -387,13 +392,14 @@ def cli_lifetime(check, monkeypatch, tmp_path):
         class Context:
             pages = []
 
-            def __init__(self):
+            def __init__(self, phase="image"):
+                self.phase = phase
                 resources.add(self)
 
             def close(self):
                 if self in resources:
                     resources.remove(self)
-                    observe("image_context_teardown")
+                    observe(f"{self.phase}_context_teardown")
                     if image_failure == "context_teardown":
                         image_calls[-1]["console_errors"].append("synthetic_late_console_error")
                         raise RuntimeError("synthetic_image_context_teardown")
@@ -406,13 +412,15 @@ def cli_lifetime(check, monkeypatch, tmp_path):
                 self.contexts = []
                 if phase == "image" and image_failure == "browser_mismatch":
                     self.version = "synthetic-other"
+                if phase.startswith("navigation") and navigation_failure == "browser_mismatch":
+                    self.version = "synthetic-navigation"
 
             def new_context(self, **options):
                 assert options["service_workers"] == "block"
-                assert self.phase == "image"
-                context = Context()
+                assert self.phase == "image" or self.phase.startswith("navigation")
+                context = Context(self.phase)
                 self.contexts.append(context)
-                observe("image_context_enter")
+                observe(f"{self.phase}_context_enter")
                 return context
 
             def close(self):
@@ -505,6 +513,19 @@ def cli_lifetime(check, monkeypatch, tmp_path):
             events.append("original_restart")
             return {"status": "PASS"}
 
+        def navigation_case(page, suite, case_id, errors, expect, row, deadline):
+            observe("navigation_body")
+            if navigation_failure == "body":
+                raise RuntimeError("synthetic_navigation_body")
+            checks = dict.fromkeys(navigation.expected_checks(case_id), True)
+            if navigation_failure == "incomplete":
+                checks.pop(next(iter(checks)))
+            if navigation_failure == "extra":
+                checks["synthetic_extra"] = True
+            if navigation_failure == "nontrue":
+                checks[next(iter(checks))] = 1
+            return checks
+
         def run_cases(result, *args):
             iteration()
             result["cases"] = [{"status": "PASS", "fixture_unchanged": True} for _ in range(7)]
@@ -539,6 +560,14 @@ def cli_lifetime(check, monkeypatch, tmp_path):
         monkeypatch.setitem(dedicated, "source_bindings", lambda **kwargs: {"source": "synthetic", "build": "synthetic"})
         monkeypatch.setitem(dedicated, "seed_graph", lambda *args: None)
         monkeypatch.setitem(dedicated, "run_cases", run_cases)
+        monkeypatch.setattr(navigation, "source_bindings", lambda suite: {"source": "synthetic", "build": "synthetic"})
+        monkeypatch.setattr(navigation, "run_case", navigation_case)
+        monkeypatch.setitem(full, "_install_network_guard", lambda *args: None)
+        monkeypatch.setitem(full, "_new_observed_page", lambda *args, **kwargs: SimpleNamespace(
+            set_default_timeout=lambda value: None, set_default_navigation_timeout=lambda value: None))
+        component_tests = importlib.import_module("test_article_list_navigation")
+        component = component_tests.install_component_runtime(
+            navigation, full, monkeypatch, tmp_path, component_failure, observe=observe)
 
         def invoke(entry):
             try:
@@ -549,6 +578,7 @@ def cli_lifetime(check, monkeypatch, tmp_path):
         return SimpleNamespace(full=full, dedicated=dedicated, helper=helper, environment=environment,
                                events=events, observations=observations, paths=paths, resources=resources,
                                runtimes=runtimes, resets=resets, image_calls=image_calls,
+                               component=component,
                                invoke=invoke, observe=observe, build_enter=build_enter, handler=handler,
                                prior_handler=prior_handler,
                                parent_restored=lambda: dict(helper.os.environ) == previous_environment)
@@ -589,6 +619,7 @@ def run_full_image_contract(harness, monkeypatch, capsys):
     assert harness.handler["current"] is harness.prior_handler
     harness.prior_handler.assert_not_called()
     assert not harness.resources and all(not path.exists() for path in harness.paths)
+    assert not harness.component.resources and all(not path.exists() for path in harness.component.paths)
     assert all(item["private_absent"] and item["configured_retained"] and item["scope_active"]
                for item in harness.observations)
     result = json.loads(output.out)
@@ -609,8 +640,8 @@ def test_image_profile_follows_original_cleanup_with_three_independent_repeats(c
               "frontend_teardown"]
     positions = [harness.events.index(phase) for phase in phases]
     assert positions == sorted(positions), "image profile started before original cleanup completed"
-    assert [phase for phase, _ in harness.runtimes] == ["original", "image"]
-    assert [phase for phase, _ in harness.resets] == ["original"] * 3 + ["image"] * 3
+    assert [phase for phase, _ in harness.runtimes if not phase.startswith("navigation")] == ["original", "image"]
+    assert [phase for phase, _ in harness.resets if not phase.startswith("navigation")] == ["original"] * 3 + ["image"] * 3
     assert [call["iteration"] for call in harness.image_calls] == [1, 2, 3]
     for key in ("blocked_external", "console_errors", "page_errors"):
         assert len({id(call[key]) for call in harness.image_calls}) == 3
@@ -691,6 +722,47 @@ def test_original_temp_cleanup_failure_prevents_image_phase_and_preserves_result
     assert not harness.image_calls and "image_prepare" not in harness.events
     assert "reader_inline_image_profile" not in result
     assert [phase for phase, _ in harness.runtimes] == ["original"]
+
+
+@pytest.mark.parametrize("port", [8000, 18000])
+@pytest.mark.parametrize("failure", [None, "body", "incomplete", "extra", "nontrue", "browser_mismatch"])
+def test_navigation_profile_is_additive_and_fail_closed_in_full_cli(cli_lifetime, monkeypatch, capsys, port, failure):
+    harness = cli_lifetime(port, navigation_failure=failure)
+    code, result = run_full_image_contract(harness, monkeypatch, capsys)
+    assert result["reader_inline_image_profile"]["status"] == "PASS"
+    assert len(result["reader_inline_image_profile"]["runs"]) == 3
+    navigation = result["article_list_navigation_profile"]
+    assert navigation["runtime_removed"]
+    assert harness.events.index("image_server_teardown") < harness.events.index("navigation3_prepare")
+    assert "navigation_body" in harness.events
+    if failure is None:
+        assert code == 0 and result["status"] == navigation["status"] == "PASS"
+        assert len(navigation["cases"]) == 10
+    else:
+        assert code != 0 and result["status"] == "BLOCKED"
+        assert not harness.component.calls and "article_list_component_contract" not in result
+
+
+@pytest.mark.parametrize("port", [8000, 18000])
+@pytest.mark.parametrize("failure", [None, "build", "body", "interrupt", "prefix", "browser_version", "late_audit", "context_cleanup"])
+def test_full_component_phase_preserves_prior_results_and_environment(cli_lifetime, monkeypatch, capsys, port, failure):
+    harness = cli_lifetime(port, component_failure=failure)
+    code, result = run_full_image_contract(harness, monkeypatch, capsys)
+    assert result["reader_inline_image_profile"]["status"] == "PASS"
+    assert len(result["reader_inline_image_profile"]["runs"]) == 3
+    assert result["article_list_navigation_profile"]["status"] == "PASS"
+    assert len(result["article_list_navigation_profile"]["cases"]) == 10
+    component = result["article_list_component_contract"]
+    assert component["runtime_removed"]
+    assert harness.events.index("navigation22_server_teardown") < harness.events.index("component_build")
+    assert harness.events.index("component_temp_cleanup") < harness.events.index("frontend_teardown")
+    if failure is None:
+        assert code == 0 and result["status"] == component["status"] == "PASS"
+        assert len(component["cases"]) == 6
+    else:
+        assert code != 0 and result["status"] == "BLOCKED"
+        assert result["error"] == "article_component_contract_failed"
+        assert component["status"] == ("PASS" if failure == "browser_version" else "BLOCKED")
 
 
 @pytest.mark.parametrize("phase", ["frontend_build", "suite_body"])

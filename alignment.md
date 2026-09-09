@@ -1,4 +1,42 @@
-# P3-041 Reader Inline Image Rendering Alignment
+# P3-042 Article List Route State Continuity Alignment
+
+Canonical: docs/tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md
+Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+
+Local Backend 1147/4 skipped, Frontend 179, owned production build, original
+3 x 298/restart/image and corrected native36/component6 gates pass. Final
+counterpart stderr and audit counts are zero; bindings and cleanup pass.
+Security/SBOM and two independent code/scope reviews pass. Publish the exact
+18-path candidate after final receipt/safety checks, then verify all seven
+required exact-SHA main CI jobs before closure. No receipt-only commit loop.
+
+The owner's standing direction and two independent prospective reviews authorize
+the exact 18-path maximum scope and acceptance in the canonical task. No new
+generic confirmation is required. Entry dc7411c is synchronized; its exact-SHA
+CI 34332407397 passes all seven required jobs, original 3 x 298/restart and
+separate 3 x 8 image checks with zero uploaded artifacts. P3-041 is PASS / CLOSED.
+
+The Article List has a qualified native-navigation RED: bare URL and main focus
+commit, but old filters/results persist across 117 samples over 30.94 seconds;
+reload of that URL is correct. Audits/bindings/cleanup pass. Test the initial-only
+state hypothesis through actual component wiring, not a helper-only claim.
+
+Implement guarded URL/local-echo ownership in ArticleList only. Preserve drafts,
+atomic q/sort/page adoption, immediate generation/selection invalidation,
+local replace versus Shell push, Back/Forward, focus and persistence behavior.
+Keep original three-Article/298-check and image gates unchanged; use a separate
+22-Article runtime for added native pagination cases. Required exact coverage,
+late audits and cleanup failures must propagate to overall non-PASS.
+
+Full local tests/build/browser/security and two final reviews precede
+`fix: synchronize article list navigation state` and non-force publication;
+new exact-SHA CI precedes closure. Prior P3-041 receipts may accompany the genuine
+implementation, not a self-hash documentation loop. Preserve the excluded oracle,
+shared build and user backend. No protected product/API/M1/data/dependency,
+workflow/private/source/paid/provider/candidate/tag/Release change. P3-039 remains
+OPEN / DEFERRED; the full platform/GUI objective remains active.
+
+## Historical P3-041 Reader Inline Image Rendering Alignment
 
 Canonical: docs/tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md
 Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING

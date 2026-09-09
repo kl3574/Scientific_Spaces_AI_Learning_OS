@@ -1344,12 +1344,39 @@ def _run_configured_suite(args: argparse.Namespace) -> dict[str, object]:
                 result.update({"status": "BLOCKED", "error": "Reader image-profile browser version mismatch"})
         except (Exception, KeyboardInterrupt) as exc:
             result.update({"status": "BLOCKED", "error": f"{type(exc).__name__}: {exc}"})
+    if result["status"] == "PASS":
+        try:
+            from check_article_list_navigation import run_article_list_navigation_profile, profile_passes
+
+            navigation = run_article_list_navigation_profile(globals(), frontend_mode=args.frontend_mode)
+            result["article_list_navigation_profile"] = navigation
+            if not profile_passes(navigation) or navigation.get("browser_version") != result.get("browser_version"):
+                result.update({"status": "BLOCKED", "error": "article_navigation_profile_failed"})
+        except (Exception, KeyboardInterrupt):
+            result.update({"status": "BLOCKED", "error": "article_navigation_profile_failed"})
+    if result["status"] == "PASS":
+        try:
+            from check_article_list_navigation import run_article_list_component_contract, component_contract_passes
+
+            contract = run_article_list_component_contract(globals())
+            result["article_list_component_contract"] = contract
+            if not component_contract_passes(contract) or contract.get("browser_version") != result.get("browser_version"):
+                result.update({"status": "BLOCKED", "error": "article_component_contract_failed"})
+        except (Exception, KeyboardInterrupt):
+            result.update({"status": "BLOCKED", "error": "article_component_contract_failed"})
     return result
 
 
 def prepare_runtime(
     runtime_root: Path, *, reader_inline_images: bool = False,
+    fixture_articles: list[StoredArticle] | None = None,
 ) -> dict[str, Path | dict[str, str]]:
+    if fixture_articles is not None:
+        if reader_inline_images:
+            raise ValueError("ambiguous_fixture")
+        if (len(fixture_articles) != 22 or not all(isinstance(item, StoredArticle) for item in fixture_articles)
+                or len({item.id for item in fixture_articles}) != 22):
+            raise ValueError("invalid_fixture_override")
     data_root = runtime_root / ".local_data" / "scientific_spaces"
     articles_path = data_root / "articles.json"
     graph_path = data_root / "knowledge_graph.json"
@@ -1359,7 +1386,7 @@ def prepare_runtime(
     reference_store = data_root / "references" / "full-corpus" / "current"
     data_root.mkdir(parents=True, exist_ok=True)
 
-    articles = _load_fixture_articles()
+    articles = _load_fixture_articles() if fixture_articles is None else list(fixture_articles)
     if reader_inline_images:
         articles = [
             replace(article, content=article.content + READER_INLINE_IMAGE_MARKDOWN)

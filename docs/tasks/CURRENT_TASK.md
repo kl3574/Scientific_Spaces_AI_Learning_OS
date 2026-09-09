@@ -2,6 +2,23 @@
 
 ## Active Task
 
+`docs/tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md`
+
+Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING. Backend 1147/4 skipped,
+Frontend 179, owned build, original 3 x 298/restart/image and corrected
+native36/component6 gates pass. Final counterpart stderr/audits are zero;
+bindings and cleanup pass. Security/SBOM and independent code/scope reviews
+pass. Publish the exact 18 canonical paths after final receipt/safety review,
+then verify all seven required exact-SHA main CI jobs before closure. Preserve
+the excluded oracle. No recurring user confirmation or AGENTS regeneration.
+
+P3-041 is PASS / CLOSED at dc7411c73802df1255376996c6daf5810f2a87a9,
+exact-SHA main CI 34332407397: seven required jobs, original 3 x 298/restart,
+separate 3 x 8 image checks and zero uploaded artifacts. P3-039 stays deferred,
+cause UNKNOWN. Formal v1.1.0; candidate none. No source/private/paid access.
+
+## Historical P3-041 Publication Candidate
+
 `docs/tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md`
 
 Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING. The bounded Reader

@@ -1,6 +1,24 @@
 # P3-041 Reader Inline Image Rendering Report
 
-Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+Status: PASS / CLOSED
+
+## Publication And Closure
+
+Implementation dc7411c73802df1255376996c6daf5810f2a87a9 is verified on local
+main, cached origin/main and live remote main. [Exact-SHA main CI 34332407397](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34332407397)
+completed SUCCESS at 2026-09-09T09:50:41Z. All seven required jobs pass.
+Product log readback confirms 3 x 298 original checks, no failed checks,
+zero console/page/external errors and four true restart checks. The separate
+image profile passes 3 x 8 exact named checks, with matching Chromium
+149.0.7827.55, zero console/page/external/unexpected-page counts, no errors,
+stable fixtures and removed runtime. Uploaded artifacts: zero.
+Docker and release evidence are policy-skipped, not PASS.
+
+A local monitoring connection ended on TLS handshake timeout; a read of the
+same run established SUCCESS. No rerun, moved tag, Release or artifact upload
+was performed. P3-041 is closed; P3-039 remains OPEN / DEFERRED and UNKNOWN.
+The pending statements below preserve earlier checkpoints. This receipt is
+carried with the genuine P3-042 implementation, not a receipt-only commit loop.
 
 ## Prior Gate
 

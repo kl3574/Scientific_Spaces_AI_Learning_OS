@@ -7,22 +7,26 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-041 locally verified; publication CI pending; P3-039 OPEN / DEFERRED`
+- Status: `P3-042 local verification PASS / publication CI pending; P3-041 PASS / CLOSED; P3-039 OPEN / DEFERRED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `P3-041 local tests, original 3 x 298 E2E, restart and separate 3 x 8 image checks PASS; exact-SHA CI pending`
-- Current task: `P3-041 Reader inline image rendering`
+- Latest gate: `P3-042 local tests/build/browser/security PASS; exact-SHA publication CI pending`
+- Current task: `P3-042 Article List route state continuity`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
-Current repair: [P3-041 canonical task](docs/tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md).
-Current evidence: [P3-041 report](docs/P3_041_READER_INLINE_IMAGE_RENDERING_REPORT.md).
+Current repair: [P3-042 canonical task](docs/tasks/P3-042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY.md).
+Current evidence: [P3-042 report](docs/P3_042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY_REPORT.md).
+P3-041 is PASS / CLOSED at dc7411c73802df1255376996c6daf5810f2a87a9,
+verified by [main CI 34332407397](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34332407397).
 P3-005.3, P3-005.4, P3-005.5, P3-024.1 and P3-040 are PASS / CLOSED at
 [0a203bae2f99e3c2b3223823e7d91437bc27e96a](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/commit/0a203bae2f99e3c2b3223823e7d91437bc27e96a),
 verified by [main CI 34314910981](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34314910981).
-The original P3-040 CI remains a failed historical run. P3-041 is locally
-verified but not closed before its own exact-SHA CI; P3-039 remains deferred
-with historical cause UNKNOWN.
+The original P3-040 CI remains a failed historical run. P3-039 remains deferred
+with historical cause UNKNOWN. P3-042 passes Backend 1147/4 skipped, Frontend
+179, owned build and browser/security gates. The report distinguishes the
+original 3 x 298/restart/image result from the corrected native36/component6
+counterpart with zero stderr/audit failures. Publication CI precedes closure.
 Release notes: `docs/RELEASE_NOTES_v1.1.0.md` (draft history in `docs/RELEASE_NOTES_v1.1.0_DRAFT.md`).
 
 Post-release validation: `docs/V1_1_POST_RELEASE_VALIDATION.md`.

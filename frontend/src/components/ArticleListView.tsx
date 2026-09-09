@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname, useSearchParams } from "next/navigation";
 import {
   FormEvent,
   useCallback,
@@ -13,6 +14,7 @@ import {
 
 import { WorkspaceState } from "@/components/WorkspaceState";
 import { toPlainTextPreview } from "@/lib/articlePresentation";
+import { getArticleListRoutePlan } from "@/lib/articleListNavigation";
 import {
   createArticleSessionCapturePlan,
   formatArticleSessionCaptureOutcome,
@@ -34,6 +36,7 @@ import {
   ArticleListState,
   createArticleDetailHref,
   createArticleListHref,
+  parseArticleListState,
 } from "@/lib/learningWorkflow";
 import {
   STUDY_SESSION_CHANGE_EVENT,
@@ -82,10 +85,14 @@ export function ArticleListView({
 }: Readonly<{
   initialState: ArticleListState;
 }>) {
+  const pathname = usePathname();
+  const routeSearch = useSearchParams().toString();
   const [query, setQuery] = useState(initialState.q);
-  const [appliedQuery, setAppliedQuery] = useState(initialState.q);
-  const [sort, setSort] = useState<ArticleListSort>(initialState.sort);
-  const [page, setPage] = useState(initialState.page);
+  const [listState, setListState] = useState({ filters: initialState, revision: 0 });
+  const { q: appliedQuery, sort, page } = listState.filters;
+  const committedListRef = useRef(initialState);
+  const listRevisionRef = useRef(0);
+  const knownRouteHrefRef = useRef(createArticleListHref(initialState));
   const [articlePage, setArticlePage] = useState<ArticlePageSnapshot>(() =>
     emptyArticlePage("", "idle"),
   );
@@ -116,11 +123,11 @@ export function ArticleListView({
   const feedbackFocusFrame = useRef<number | null>(null);
 
   const requestKey = useMemo(
-    () => JSON.stringify([appliedQuery, sort, page]),
-    [appliedQuery, page, sort],
+    () => JSON.stringify([appliedQuery, sort, page, listState.revision]),
+    [appliedQuery, page, sort, listState.revision],
   );
 
-  const clearCaptureFeedback = useCallback(() => {
+  const clearCaptureFeedback = useCallback((restoreFocus = true) => {
     const feedbackWasFocused =
       typeof document !== "undefined" && document.activeElement === feedbackRef.current;
     if (feedbackFocusFrame.current !== null) {
@@ -128,13 +135,30 @@ export function ArticleListView({
       feedbackFocusFrame.current = null;
     }
     setCaptureFeedback(null);
-    if (feedbackWasFocused) {
+    if (restoreFocus && feedbackWasFocused) {
       feedbackFocusFrame.current = window.requestAnimationFrame(() => {
         feedbackFocusFrame.current = null;
         captureRegionRef.current?.focus({ preventScroll: true });
       });
     }
   }, []);
+
+  const acceptListState = useCallback((next: ArticleListState, resetDraft = false) => {
+    if (resetDraft) {
+      setQuery(next.q);
+    }
+    if (createArticleListHref(committedListRef.current) === createArticleListHref(next)) {
+      return false;
+    }
+    committedListRef.current = next;
+    // Invalidate before the next effect, including batched A -> B -> A changes.
+    articleRequestId.current += 1;
+    listRevisionRef.current += 1;
+    setSelectedArticleIds([]);
+    clearCaptureFeedback(!resetDraft);
+    setListState({ filters: next, revision: listRevisionRef.current });
+    return true;
+  }, [clearCaptureFeedback]);
 
   const focusBadgeAvailability = useCallback((onlyIfOwned = false) => {
     if (badgeFocusFrame.current !== null) {
@@ -153,11 +177,16 @@ export function ArticleListView({
     });
   }, []);
 
-  const loadArticles = useCallback(async () => {
+  const loadArticles = useCallback(async (resetFeedback = true) => {
+    if (listState.revision !== listRevisionRef.current) {
+      return;
+    }
     const requestId = articleRequestId.current + 1;
     articleRequestId.current = requestId;
     setSelectedArticleIds([]);
-    clearCaptureFeedback();
+    if (resetFeedback) {
+      clearCaptureFeedback();
+    }
     setArticlePage(emptyArticlePage(requestKey, "loading"));
 
     try {
@@ -190,7 +219,7 @@ export function ArticleListView({
         error: reason instanceof Error ? reason.message : "Failed to load articles",
       });
     }
-  }, [appliedQuery, clearCaptureFeedback, page, requestKey, sort]);
+  }, [appliedQuery, clearCaptureFeedback, listState.revision, page, requestKey, sort]);
 
   const loadLearningBadges = useCallback(async (isRetry = false) => {
     const requestId = learningRequestId.current + 1;
@@ -263,13 +292,29 @@ export function ArticleListView({
   }, [focusBadgeAvailability]);
 
   useEffect(() => {
-    void loadArticles();
-  }, [loadArticles]);
+    const plan = getArticleListRoutePlan({
+      pathname,
+      search: routeSearch,
+      browserPathname: window.location.pathname,
+      browserSearch: window.location.search,
+      knownHref: knownRouteHrefRef.current,
+    });
+    if (!plan) {
+      return;
+    }
+    knownRouteHrefRef.current = plan.href;
+    if (plan.action === "navigate") {
+      acceptListState(plan.state, true);
+    }
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== plan.href) {
+      window.history.replaceState(null, "", plan.href);
+    }
+  }, [acceptListState, pathname, routeSearch]);
 
   useEffect(() => {
-    const href = createArticleListHref({ q: appliedQuery, sort, page });
-    window.history.replaceState(null, "", href);
-  }, [appliedQuery, page, sort]);
+    // Accepted transitions already clear feedback with their own focus policy.
+    void loadArticles(false);
+  }, [loadArticles]);
 
   useEffect(() => {
     void loadLearningBadges();
@@ -326,24 +371,35 @@ export function ArticleListView({
   );
   const listHref = createArticleListHref({ q: appliedQuery, sort, page });
 
+  function replaceListState(update: (current: ArticleListState) => ArticleListState) {
+    if (window.location.pathname !== "/articles") {
+      return;
+    }
+    const updated = update(parseArticleListState(new URLSearchParams(window.location.search)));
+    const next = parseArticleListState({ q: updated.q, sort: updated.sort, page: String(updated.page) });
+    const href = createArticleListHref(next);
+    knownRouteHrefRef.current = href;
+    const changed = acceptListState(next);
+    if (`${window.location.pathname}${window.location.search}${window.location.hash}` !== href) {
+      window.history.replaceState(null, "", href);
+    }
+    return changed;
+  }
+
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const nextQuery = query.trim();
-    if (nextQuery === appliedQuery && page === 1) {
+    const changed = replaceListState((current) => ({ ...current, q: nextQuery, page: 1 }));
+    if (changed === false) {
       void loadArticles();
-      return;
     }
-    setPage(1);
-    setAppliedQuery(nextQuery);
   }
 
   function clearSearch(origin: HTMLButtonElement) {
     setQuery("");
-    if (!appliedQuery && page === 1) {
+    const changed = replaceListState((current) => ({ ...current, q: "", page: 1 }));
+    if (changed === false) {
       void loadArticles();
-    } else {
-      setAppliedQuery("");
-      setPage(1);
     }
     focusAfterArticleListMutation(searchInputRef.current, origin);
   }
@@ -526,8 +582,8 @@ export function ArticleListView({
               className="rounded border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus:border-slate-950"
               value={sort}
               onChange={(event) => {
-                setSort(event.target.value as ArticleListSort);
-                setPage(1);
+                const nextSort = event.target.value as ArticleListSort;
+                replaceListState((current) => ({ ...current, sort: nextSort, page: 1 }));
               }}
             >
               <option value="date_desc">Newest date</option>
@@ -714,7 +770,7 @@ export function ArticleListView({
               className="min-h-10 rounded border border-slate-300 px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
               disabled={!articlePage.hasPrevious}
               type="button"
-              onClick={() => setPage((current) => Math.max(1, current - 1))}
+              onClick={() => replaceListState((current) => ({ ...current, page: Math.max(1, current.page - 1) }))}
             >
               Previous
             </button>
@@ -722,7 +778,7 @@ export function ArticleListView({
               className="min-h-10 rounded border border-slate-300 px-3 py-1.5 text-xs font-medium disabled:cursor-not-allowed disabled:border-slate-200 disabled:text-slate-400"
               disabled={!articlePage.hasNext}
               type="button"
-              onClick={() => setPage((current) => current + 1)}
+              onClick={() => replaceListState((current) => ({ ...current, page: current.page + 1 }))}
             >
               Next
             </button>
