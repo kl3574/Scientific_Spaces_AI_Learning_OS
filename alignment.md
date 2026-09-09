@@ -1,4 +1,38 @@
-# P3-005.3 Dependency Security Repair Alignment
+# P3-041 Reader Inline Image Rendering Alignment
+
+Canonical: docs/tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md
+Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING
+
+The owner authorizes independent review and automatic bounded execution. Prior
+0a203bae2f99e3c2b3223823e7d91437bc27e96a exact-SHA CI 34314910981 completes
+SUCCESS: all seven required jobs, 3 x 298 Product E2E, restart persistence and
+zero uploaded artifacts. P3-005.3/P3-005.4/P3-005.5/P3-024.1 and P3-040 may close.
+The failed historical runs remain recorded. P3-039 remains OPEN / DEFERRED.
+
+The next user-visible defect is independently qualified on unchanged desktop
+and mobile Reader: valid inline PNG source is filtered to empty before rendering.
+Implement only the six reviewed code/test paths, with strict img.src-only
+admission, shared validation, safe default delegation and existing remote-image
+placeholders. The canonical enumerates all fourteen base and ten status-only
+closure paths; no blanket documentation or product expansion is authorized.
+
+Run real Markdown-chain RED/GREEN, owned browser verification, all existing
+Backend/Frontend/build/E2E/security gates and independent final review before
+`fix: render safe inline reader images` and non-force main publication. Exact-SHA
+CI precedes closure. No repeated confirmation or receipt-only commit loop.
+Preserve/exclude the known frame-oracle draft, private data, shared build and
+user backend. No Backend product/M1/API/schema, source/private/paid, dependency/workflow,
+tag or Release change. Formal v1.1.0; candidate none. Full platform/GUI work
+continues beyond this task.
+
+All local gates now pass: Backend 929/4 skipped, Frontend 169, focused contracts
+121, owned production build, original E2E 3 x 298 with four restart checks, and
+separate image profile 3 x 8. Unexpected errors/external requests are zero;
+bindings and cleanup pass. Security/SBOM and independent code/scope reviews pass.
+Publish only the 24 canonical paths after final receipt/safety review, then verify
+all seven required exact-SHA CI jobs before closure. Historical failures remain.
+
+## Historical P3-005.3 Dependency Security Repair Alignment
 
 Active bounded compatibility revision:
 docs/tasks/P3-024.1_BOOTSTRAP_HYDRATION_COMPATIBILITY.md. Qualified prefix RED

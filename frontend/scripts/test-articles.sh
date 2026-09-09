@@ -37,3 +37,19 @@ node --test \
   "$test_dir/tests/learningWorkflow.test.js" \
   "$test_dir/tests/navigation.test.js" \
   "$test_dir/tests/readerLearningMutations.test.js"
+
+# ReactMarkdown is ESM; keep its real rendering contract out of the CommonJS suite.
+mkdir -p "$test_dir/esm/tests"
+printf '{"type":"module"}\n' > "$test_dir/esm/package.json"
+ln -s "$(pwd -P)/node_modules" "$test_dir/esm/node_modules"
+./node_modules/.bin/tsc \
+  --module es2022 \
+  --target es2022 \
+  --moduleResolution node \
+  --esModuleInterop \
+  --skipLibCheck \
+  --rootDir . \
+  --outDir "$test_dir/esm" \
+  src/lib/readerImagePolicy.ts
+cp tests/readerImagePolicy.test.mjs "$test_dir/esm/tests/readerImagePolicy.test.mjs"
+node --test "$test_dir/esm/tests/readerImagePolicy.test.mjs"

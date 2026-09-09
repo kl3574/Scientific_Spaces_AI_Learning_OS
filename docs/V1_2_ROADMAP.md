@@ -1,21 +1,32 @@
 # Scientific Spaces AI Learning OS v1.2 Roadmap
 
-Current security gate: P3-005.3 Dependency Security Repair, LOCAL VERIFICATION
-PASS / REPLACEMENT CI PENDING.
-P3-040 fee813b is published, but exact-SHA CI 34290207866 fails Dependency audit
-with eight findings. The following prior snapshot does not supersede this gate.
-No closure or candidate version is implied.
+Current task: [P3-041 Reader Inline Image Rendering](tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md),
+LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
+[Current evidence](P3_041_READER_INLINE_IMAGE_RENDERING_REPORT.md) records qualified
+RED, the initial full failure and replacement PASS: Backend 929/4 skipped,
+Frontend 169, contracts 121, owned build, original 3 x 298 E2E/restart and separate
+3 x 8 image checks. Audits, bindings, cleanup and independent reviews pass.
+Publish only the 24-path candidate after final receipt/safety review; exact-SHA
+CI remains required before closure.
 
-Current local prerequisite: P3-024.1 Bootstrap Hydration Compatibility, LOCAL
-VERIFICATION PASS. The exact Next 15.5.24 rebind passes the matched prefix with
+Prior integration: P3-005.3, P3-005.4, P3-005.5, P3-024.1 and P3-040 PASS / CLOSED
+at [0a203bae2f99e3c2b3223823e7d91437bc27e96a](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/commit/0a203bae2f99e3c2b3223823e7d91437bc27e96a).
+[Exact-SHA main CI 34314910981](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34314910981)
+completed SUCCESS at 2026-09-09T06:14:45Z: all seven required jobs PASS,
+Product E2E 3 x 298 and restart persistence PASS, zero unexpected console/page
+errors, external requests or uploaded artifacts. Docker/release jobs are
+policy-skipped, not PASS. Original fee813b CI 34290207866 remains failed.
+Formal version v1.1.0; candidate None. P3-039 remains OPEN / DEFERRED, cause UNKNOWN.
+
+Prior local evidence: the exact Next 15.5.24 rebind passes the matched prefix with
 zero unexpected errors and complete cleanup. Backend 891/4, Frontend 154,
 security tests 30 and full SBOM validation pass. Independently reviewed P3-005.4
-isolation and P3-005.5 npm ancestry corrections are part of the 28-path integration
-candidate. Stress 1400/1400, original provenance 7/7, full E2E 3 x 298 and restart
-persistence pass. Final receipt review and replacement exact-SHA CI are still
-required. Evidence: `docs/P3_024_1_BOOTSTRAP_HYDRATION_COMPATIBILITY_REPORT.md`.
+isolation and P3-005.5 npm ancestry corrections are part of the published 28-path
+integration. Stress 1400/1400, original provenance 7/7, full E2E 3 x 298 and restart
+persistence pass. Final review and replacement exact-SHA CI now pass.
+Evidence: `docs/P3_024_1_BOOTSTRAP_HYDRATION_COMPATIBILITY_REPORT.md`.
 
-Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-038, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-039 Graph node rendering reliability is OPEN / DEFERRED; P3-040 expanded provenance return continuity is LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; the historical Graph incident remains OPEN; no candidate version is assigned.
+Status: P3-004 and P3-005 are PASS / CLOSED; P3-006 is CONDITIONAL / RISK ACCEPTED / CLOSED with all machine gates passing and its dependency-audit repair PASS / CLOSED; P3-006.1's remaining 61 cases are WAIVED / PAUSED; P3-006.2 and P3-006.3 are PASS / CLOSED; P3-007 is CONDITIONAL / RISK ACCEPTED / CLOSED with exact-implementation main and manual Docker CI passing; P3-009 is PASS / CLOSED for the canonical 1,311-Article corpus and private Zotero PDF synchronization; M1.4 incremental Article/PDF/Zotero synchronization is PASS / CLOSED at 1,314 Articles; P3-010 derived asset refresh is PASS / CLOSED at the same 1,314-Article fingerprint; P3-011 through P3-038, P3-036.1 and P3-005.2 are PASS / CLOSED; P3-005.3/.4/.5, P3-024.1 and P3-040 are PASS / CLOSED; P3-039 Graph node rendering reliability is OPEN / DEFERRED, historical cause UNKNOWN; P3-041 Reader inline image rendering is LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; no candidate version is assigned.
 
 Scope Decision: **A - Structured References, opt-in Real Provider Evaluation, and CI Security/Release Provenance**
 
@@ -1120,13 +1131,16 @@ closure commit requires its own exact-SHA CI before final reporting.
 
 ## Next Recommended Task
 
-P3-005.3 Dependency Security Repair: OPEN / REPAIR.
-Canonical: `docs/tasks/P3-005.3_DEPENDENCY_SECURITY_REPAIR.md`.
-Evidence: `docs/P3_005_3_DEPENDENCY_SECURITY_REPAIR_REPORT.md`.
-Apply only independently reviewed minimum fixed versions, then prove full
-verification, unsuppressed audits and replacement exact-SHA CI.
+P3-041 Reader Inline Image Rendering: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
+Canonical: [P3-041 task](tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md).
+Evidence: [P3-041 report](P3_041_READER_INLINE_IMAGE_RENDERING_REPORT.md).
+Local gates pass. Publish only that reviewed 24-path scope after final
+receipt/safety review, then verify all required exact-SHA CI jobs before closure.
+Prior P3-005.3/.4/.5, P3-024.1 and P3-040 gates are closed by the receipt above.
 
-### Suspended P3-040 Implementation
+### Historical P3-040 Pre-Closure Snapshot
+
+The following pending statements record the earlier checkpoint, not current status.
 
 P3-040 Expanded Provenance Return Continuity: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING.
 Canonical: `docs/tasks/P3-040_EXPANDED_PROVENANCE_RETURN_CONTINUITY.md`.

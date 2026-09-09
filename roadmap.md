@@ -8,27 +8,35 @@ Canonical roadmap:
 `docs/V1_2_ROADMAP.md`
 
 Current task:
-P3-024.1 Bootstrap Hydration Compatibility within P3-005.3 Dependency Security Repair
+[P3-041 Reader Inline Image Rendering](docs/tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md)
 
 Current milestone:
-P3-040 security-gate repair; P3-039 rendering incident remains unresolved
+Reader inline-image repair; P3-039 rendering incident remains unresolved
 
 Status:
-P3-024.1 LOCAL VERIFICATION PASS; P3-005.3 REPLACEMENT CI PENDING; P3-040 OPEN
+P3-041 LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; P3-005.3/.4/.5, P3-024.1 AND P3-040 PASS / CLOSED
 
 Next gate:
-Publish the independently reviewed 28-path integration after final receipt and
-safety checks, then verify its exact-SHA main CI. The P3-024.1 matched prefix,
-1400-load stress, original 7/7 provenance cases, complete 3 x 298 Product E2E
-and restart persistence pass with zero unexpected errors or external requests.
-The security task and separate isolation/ancestry/compatibility revisions define
-the integration scope; remote CI success is not inferred from local results.
-No suppression, policy weakening or repeated plan confirmation.
+Publish the 24-path P3-041 candidate after final receipt/safety review, then
+verify its own exact-SHA CI. Backend 929/4 skipped, Frontend 169, contracts 121,
+owned build, original E2E 3 x 298/restart and separate image profile 3 x 8 pass.
+Audits, bindings, cleanup and independent code/scope reviews pass.
+Evidence: [P3-041 report](docs/P3_041_READER_INLINE_IMAGE_RENDERING_REPORT.md).
+No P3-041 closure is claimed. No suppression, policy weakening or repeated plan confirmation.
+
+Prior integration closure:
+[0a203bae2f99e3c2b3223823e7d91437bc27e96a](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/commit/0a203bae2f99e3c2b3223823e7d91437bc27e96a)
+passes [exact-SHA main CI 34314910981](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34314910981),
+completed SUCCESS at 2026-09-09T06:14:45Z. Seven required jobs PASS, Product E2E
+3 x 298 and restart persistence PASS, zero unexpected console/page errors,
+external requests or uploaded artifacts. Docker/release jobs are policy-skipped.
+P3-005.3/.4/.5, P3-024.1 and P3-040 are closed; original failures stay historical.
 
 The reviewed test isolation uses backend 18000 and frontend 3000; port 8000
 need not be freed. Preserve the existing user-terminal backend. Backend 891/4,
-Frontend 154, security tests 30 and full SBOM validation pass. Publication and
-CI gates remain; historical browser failures are preserved in the reports.
+Frontend 154, security tests 30 and full SBOM validation are prior integration
+evidence, not P3-041 verification. P3-039 remains OPEN / DEFERRED, cause UNKNOWN.
+Formal version v1.1.0; candidate None.
 
 Historical P3-040 pre-publication gate:
 Publish the reviewed 16-path candidate, then verify exact-SHA main CI. Frontend

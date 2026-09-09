@@ -7,19 +7,22 @@ Scientific Spaces AI Learning OS is a local-first learning system for Scientific
 - Version: `v1.1.0`
 - Formal Version: `v1.1.0`
 - Phase: `v1.2 Product Convergence`
-- Status: `P3-005.3 integration locally verified; replacement CI pending; P3-039 OPEN / DEFERRED`
+- Status: `P3-041 locally verified; publication CI pending; P3-039 OPEN / DEFERRED`
 - Candidate: `None`
 - Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `1400-load stress, 7 provenance cases, 3 x 298 Product E2E and restart PASS; exact-SHA CI pending`
-- Current task: `P3-024.1 bootstrap compatibility within P3-005.3 security repair`
+- Latest gate: `P3-041 local tests, original 3 x 298 E2E, restart and separate 3 x 8 image checks PASS; exact-SHA CI pending`
+- Current task: `P3-041 Reader inline image rendering`
 - Current version: `v1.1.0`
 
 Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
-Current repair: `docs/tasks/P3-005.3_DEPENDENCY_SECURITY_REPAIR.md`.
-Repair evidence: `docs/P3_005_3_DEPENDENCY_SECURITY_REPAIR_REPORT.md`.
-Current compatibility evidence: [P3-024.1](docs/P3_024_1_BOOTSTRAP_HYDRATION_COMPATIBILITY_REPORT.md).
-The original P3-040 CI remains a failed historical run. All replacement local
-gates pass with zero security findings; exact-SHA CI still precedes closure.
+Current repair: [P3-041 canonical task](docs/tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md).
+Current evidence: [P3-041 report](docs/P3_041_READER_INLINE_IMAGE_RENDERING_REPORT.md).
+P3-005.3, P3-005.4, P3-005.5, P3-024.1 and P3-040 are PASS / CLOSED at
+[0a203bae2f99e3c2b3223823e7d91437bc27e96a](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/commit/0a203bae2f99e3c2b3223823e7d91437bc27e96a),
+verified by [main CI 34314910981](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34314910981).
+The original P3-040 CI remains a failed historical run. P3-041 is locally
+verified but not closed before its own exact-SHA CI; P3-039 remains deferred
+with historical cause UNKNOWN.
 Release notes: `docs/RELEASE_NOTES_v1.1.0.md` (draft history in `docs/RELEASE_NOTES_v1.1.0_DRAFT.md`).
 
 Post-release validation: `docs/V1_1_POST_RELEASE_VALIDATION.md`.

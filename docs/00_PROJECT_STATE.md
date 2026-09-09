@@ -14,7 +14,7 @@ v1.2 Product Convergence
 
 Status:
 
-P3-024.1 Browser Compatibility: LOCAL VERIFICATION PASS; P3-005.3 REPLACEMENT CI PENDING; P3-040 OPEN; P3-039 OPEN / DEFERRED; P3-038 PASS / CLOSED
+P3-041 Reader Inline Image Rendering: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; P3-005.3, P3-005.4, P3-005.5, P3-024.1 AND P3-040 PASS / CLOSED; P3-039 OPEN / DEFERRED, historical cause UNKNOWN; P3-038 PASS / CLOSED
 
 Release Readiness:
 
@@ -128,15 +128,31 @@ PASS
 
 Current Task:
 
-P3-024.1 Bootstrap Hydration Compatibility within P3-005.3 Dependency Security Repair
+P3-041 Reader Inline Image Rendering
 
 Current Task Status:
 
-P3-024.1 LOCAL VERIFICATION PASS; P3-005.3 REPLACEMENT CI PENDING; P3-040 OPEN; P3-039 OPEN / DEFERRED; P3-038 AND PREDECESSORS PASS / CLOSED
+P3-041 LOCAL VERIFICATION PASS / PUBLICATION CI PENDING; P3-005.3, P3-005.4, P3-005.5, P3-024.1 AND P3-040 PASS / CLOSED; P3-039 OPEN / DEFERRED, historical cause UNKNOWN; P3-038 AND PREDECESSORS PASS / CLOSED
+
+P3-041 Canonical Task:
+
+[docs/tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md](tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md)
+
+P3-041 Evidence:
+
+[docs/P3_041_READER_INLINE_IMAGE_RENDERING_REPORT.md](P3_041_READER_INLINE_IMAGE_RENDERING_REPORT.md)
 
 Current Local Evidence:
 
-P3-024.1 matched prefix, 1400-load stress, original 7/7 provenance cases, complete 3 x 298 Product E2E checks and restart persistence PASS with zero unexpected errors or external requests. Owned frontend input/shared-build/dependency bindings and cleanup PASS. Backend 891 passed / 4 skipped; Frontend 154 passed; security tests 30 passed / 29 subtests; two dependency audits with zero findings and full SBOM validation PASS. Independent final integration and receipt review PASS with Critical 0 / Important 0; exact-SHA CI remains pending. Reports preserve the prior failures; no closure or candidate version is claimed.
+Backend 929 passed / 4 skipped; Frontend 169 passed; focused lifecycle contracts 121 passed. Owned production build, original Product E2E 3 x 298 checks and four restart checks PASS, followed by separate image-profile 3 x 8 PASS. Unexpected errors/external requests are zero; fixture/shared bindings and cleanup PASS. Security/SBOM checks and independent code/scope reviews PASS. Historical failed invocations remain in the report. Current exact-SHA publication CI is pending, not inferred from the preceding integration's CI.
+
+Prior Integration Closure:
+
+PASS / CLOSED at [0a203bae2f99e3c2b3223823e7d91437bc27e96a](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/commit/0a203bae2f99e3c2b3223823e7d91437bc27e96a), exact-SHA [main CI 34314910981](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34314910981), completed SUCCESS at 2026-09-09T06:14:45Z. All seven required jobs PASS; Product E2E 3 x 298, restart persistence four checks true, zero unexpected console/page errors, external requests or uploaded artifacts. Docker/release jobs are policy-skipped. This closes P3-005.3/.4/.5, P3-024.1 and P3-040, not P3-041 or P3-039.
+
+Prior Integration Local Evidence:
+
+P3-024.1 matched prefix, 1400-load stress, original 7/7 provenance cases, complete 3 x 298 Product E2E checks and restart persistence PASS with zero unexpected errors or external requests. Owned frontend input/shared-build/dependency bindings and cleanup PASS. Backend 891 passed / 4 skipped; Frontend 154 passed; security tests 30 passed / 29 subtests; two dependency audits with zero findings and full SBOM validation PASS. Independent final integration and receipt review PASS with Critical 0 / Important 0; replacement exact-SHA CI now passes as recorded above. Reports preserve prior failures and mark earlier pending snapshots as historical. No P3-041 PASS or candidate version is claimed.
 
 P3-024.1 Evidence:
 
@@ -1034,7 +1050,7 @@ No v1.1.1 required
 
 Next Targeted Task:
 
-PUBLISH THE REVIEWED 28-PATH P3-005.3 INTEGRATION AFTER FINAL RECEIPT AND SAFETY REVIEW, THEN VERIFY ALL SEVEN REQUIRED EXACT-SHA MAIN CI JOBS. ALL LOCAL SECURITY, STRESS, ORIGINAL BROWSER AND RESTART GATES PASS; THE ORIGINAL FAILED CI IS NOT REPLACED AND P3-040 IS NOT CLOSED BEFORE REMOTE SUCCESS. PRESERVE/EXCLUDE THE FRAME-ORACLE DRAFT. P3-039 REMAINS OPEN / DEFERRED, UNKNOWN ROOT CAUSE. NO POLICY WEAKENING, RECEIPT-ONLY COMMIT LOOP, REPEATED CONFIRMATION OR v1.2 CANDIDATE
+PUBLISH THE REVIEWED 24-PATH P3-041 READER IMAGE REPAIR AFTER FINAL RECEIPT AND SAFETY REVIEW, THEN VERIFY ALL SEVEN REQUIRED EXACT-SHA MAIN CI JOBS. ALL LOCAL TESTS, ORIGINAL BROWSER/RESTART AND SEPARATE IMAGE GATES PASS; P3-041 REMAINS OPEN UNTIL ITS OWN CI PASSES. PRIOR INTEGRATION 0a203ba / CI 34314910981 CLOSES P3-005.3/.4/.5, P3-024.1 AND P3-040. PRESERVE/EXCLUDE THE FRAME-ORACLE DRAFT. P3-039 REMAINS OPEN / DEFERRED, UNKNOWN ROOT CAUSE. NO POLICY WEAKENING, RECEIPT-ONLY COMMIT LOOP, REPEATED CONFIRMATION OR v1.2 CANDIDATE
 
 Post-freeze Change Rule:
 

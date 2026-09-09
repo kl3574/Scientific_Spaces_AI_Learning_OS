@@ -2,6 +2,26 @@
 
 ## Active Task
 
+`docs/tasks/P3-041_READER_INLINE_IMAGE_RENDERING.md`
+
+Status: LOCAL VERIFICATION PASS / PUBLICATION CI PENDING. The bounded Reader
+image repair passes Backend 929/4 skipped, Frontend 169, focused contracts 121,
+owned production build, original E2E 3 x 298 with four restart checks and a
+separate image profile 3 x 8. Audits, bindings and cleanup pass. Independent
+code/scope reviews have no Critical/Important finding. After final receipt/safety
+review publish the 24 canonical paths, then verify exact-SHA CI before closure.
+The canonical lists six code/test paths, eight current task/report and governance
+paths, and ten preceding status-only closure documents.
+
+Entry 0a203ba is synchronized. CI 34314910981 is completed SUCCESS with all
+seven required jobs, Product E2E 3 x 298, restart PASS and zero uploaded
+artifacts. P3-005.3/P3-005.4/P3-005.5/P3-024.1 and P3-040 are PASS / CLOSED.
+P3-039 remains OPEN / DEFERRED, root cause UNKNOWN; its draft stays excluded.
+No generic confirmation, AGENTS regeneration, source/private/paid access,
+dependency/workflow change, candidate, tag or Release action.
+
+## Historical P3-005.3 Integration Candidate
+
 Compatibility revision: `docs/tasks/P3-024.1_BOOTSTRAP_HYDRATION_COMPATIBILITY.md`,
 LOCAL VERIFICATION PASS / INTEGRATION CI PENDING after independent scope and code review. The exact Next
 guard rebind passes the unchanged matched prefix with zero unexpected errors,

@@ -1,6 +1,6 @@
 """Offline contracts only: temporary fixture/store and mocked browser lifecycle."""
 
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
 import hashlib
 import importlib
 import inspect
@@ -18,6 +18,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[2]
 CLI = ROOT / "scripts/e2e/check_graph_provenance_return.py"
 SENTINEL = "PRIVATE_SENTINEL"
+IMAGE_CHECKS = {
+    f"reader_inline_image_{viewport}_{check}": True
+    for viewport in ("desktop", "mobile")
+    for check in ("exact_source", "visible_decoded", "non_raster_rejected", "remote_placeholder")
+}
 
 
 @pytest.fixture
@@ -241,7 +246,7 @@ def test_process_group_cleanup_retires_descendants_after_leader_exit(check, monk
 @pytest.fixture
 def cli_lifetime(check, monkeypatch, tmp_path):
     """Real CLI/suite orchestration; only resource boundaries are synthetic."""
-    def arrange(port, outcome="success"):
+    def arrange(port, outcome="success", *, image_failure=None, original_cleanup_failure=False):
         full = check["runtime_module"]()["main"].__globals__
         dedicated = check["main"].__globals__
         helper = importlib.import_module("product_test_runtime")
@@ -265,6 +270,8 @@ def cli_lifetime(check, monkeypatch, tmp_path):
         (shared / ".next").mkdir(parents=True)
         (shared / ".next/BUILD_ID").write_text("synthetic-default-build")
         events, observations, paths = [], [], []
+        runtimes, resets, image_calls = [], [], []
+        active_runtime = None
         resources = set()
         scope_depth = 0
         real_environment = helper.process_environment
@@ -301,36 +308,136 @@ def cli_lifetime(check, monkeypatch, tmp_path):
                 finally:
                     events.append("frontend_teardown")
 
-        def prepare(root):
+        @contextmanager
+        def owned_temporary_directory(*, prefix):
+            phase = "image" if "reader-image" in prefix else "original"
+            try:
+                with tempfile.TemporaryDirectory(prefix=prefix, dir=tmp_path) as temporary:
+                    path = Path(temporary)
+                    paths.append(path)
+                    events.append(f"{phase}_temp_enter")
+                    yield temporary
+            finally:
+                events.append(f"{phase}_temp_teardown")
+                if (phase == "image" and image_failure == "temp_teardown") or (
+                    phase == "original" and original_cleanup_failure
+                ):
+                    if phase == "image" and image_calls:
+                        image_calls[-1]["console_errors"].append("synthetic_late_console_error")
+                    raise RuntimeError(f"synthetic_{phase}_temp_teardown")
+
+        def prepare(root, *, reader_inline_images=False):
+            assert isinstance(reader_inline_images, bool)
+            assert reader_inline_images == ("reader-image" in root.name)
+            phase = "image" if reader_inline_images else "original"
+            events.append(f"{phase}_prepare")
             paths.append(root)
-            for name in ("articles", "graph"):
+            articles = [article.to_dict() for article in full["_load_fixture_articles"]()]
+            assert len(articles) == 3
+            if reader_inline_images and image_failure != "wrong_fixture":
+                for article in articles:
+                    if article["id"] == full["CRB_ARTICLE_ID"]:
+                        article["content"] += (
+                            f"\n![Synthetic inline PNG]({full['READER_INLINE_PNG']})\n"
+                            "\n![Rejected inline SVG](data:image/svg+xml;base64,PHN2Zy8+)\n"
+                        )
+            (root / "articles.json").write_text(json.dumps(articles))
+            for name in ("graph", "learning", "tutor", "zotero"):
                 (root / (name + ".json")).write_text("{}")
-            return {"root": root, "articles": root / "articles.json", "graph": root / "graph.json", "environment": {}}
+            references = root / "references"
+            references.mkdir()
+            (references / "records.json").write_text("[]")
+            runtime = {"root": root, "references": references, "environment": {},
+                       **{name: root / (name + ".json")
+                          for name in ("articles", "graph", "learning", "tutor", "zotero")}}
+            runtimes.append((phase, runtime))
+            return runtime
+
+        real_reset = full["_reset_mutable_runtime"]
+
+        def reset(runtime):
+            phase = next(phase for phase, item in runtimes if item is runtime)
+            events.append(f"{phase}_reset")
+            resets.append((phase, runtime["root"]))
+            real_reset(runtime)
+
+        def phase_now():
+            return next(phase for phase, item in runtimes if item is active_runtime)
 
         @contextmanager
         def servers(runtime, **kwargs):
+            nonlocal active_runtime
+            assert "servers" not in resources
+            active_runtime = runtime
+            phase = phase_now()
+            observe(f"{phase}_server_enter")
             resources.add("servers")
             try:
+                if phase == "image" and image_failure == "server_startup":
+                    raise RuntimeError("synthetic_image_server_startup")
                 yield {"backend": Path(runtime["root"]) / "backend.log", "frontend": Path(runtime["root"]) / "frontend.log"}
             finally:
                 resources.remove("servers")
                 events.append("server_teardown")
+                observe(f"{phase}_server_teardown")
+                if phase == "image" and image_failure == "server_teardown":
+                    image_calls[-1]["console_errors"].append("synthetic_late_console_error")
+                    raise RuntimeError("synthetic_image_server_teardown")
+
+        class Context:
+            pages = []
+
+            def __init__(self):
+                resources.add(self)
+
+            def close(self):
+                if self in resources:
+                    resources.remove(self)
+                    observe("image_context_teardown")
+                    if image_failure == "context_teardown":
+                        image_calls[-1]["console_errors"].append("synthetic_late_console_error")
+                        raise RuntimeError("synthetic_image_context_teardown")
 
         class Browser:
             version = "synthetic"
+
+            def __init__(self, phase):
+                self.phase = phase
+                self.contexts = []
+                if phase == "image" and image_failure == "browser_mismatch":
+                    self.version = "synthetic-other"
+
+            def new_context(self, **options):
+                assert options["service_workers"] == "block"
+                assert self.phase == "image"
+                context = Context()
+                self.contexts.append(context)
+                observe("image_context_enter")
+                return context
 
             def close(self):
                 if "browser" in resources:
                     observe("browser_teardown")
                     resources.remove("browser")
+                    for context in self.contexts:
+                        context.close()
+                    if self.phase == "image":
+                        observe("image_browser_teardown")
+                        if image_failure in {"late_audit", "body_late_audit", "browser_teardown"}:
+                            image_calls[-1]["console_errors"].append("synthetic_late_console_error")
+                        if image_failure in {"browser_teardown", "body_late_audit"}:
+                            raise RuntimeError("synthetic_image_browser_teardown")
 
-        browser = Browser()
+        browsers = []
 
         def launch(**kwargs):
             observe("browser_launch")
-            if outcome == "startup_error":
+            phase = phase_now()
+            if outcome == "startup_error" or (phase == "image" and image_failure == "startup"):
                 raise RuntimeError("synthetic_browser_startup")
             resources.add("browser")
+            browser = Browser(phase)
+            browsers.append(browser)
             return browser
 
         @contextmanager
@@ -342,8 +449,12 @@ def cli_lifetime(check, monkeypatch, tmp_path):
             finally:
                 observe("driver_teardown")
                 # Stopping the driver also retires browsers not explicitly closed.
-                browser.close()
-                resources.remove("driver")
+                try:
+                    for browser in browsers:
+                        if browser.phase == phase_now():
+                            browser.close()
+                finally:
+                    resources.remove("driver")
 
         def iteration(*args, **kwargs):
             observe("suite_body")
@@ -354,6 +465,45 @@ def cli_lifetime(check, monkeypatch, tmp_path):
                 "route_with_complete_precursor_snapshot_count", "declared_cancelled_route_request_count",
                 "declared_route_read_cancellation_count", "route_transition_expectation_count", "bound_route_transition_request_count",
                 "superseded_successful_read_count", "next_static_chunk_cancellation_count", "successful_no_content_response_count"), 0)}
+
+        def image_iteration(browser, *, iteration, blocked_external, console_errors, page_errors):
+            observe("image_body")
+            assert phase_now() == "image"
+            assert isinstance(blocked_external, full["NetworkGuardLog"])
+            assert isinstance(console_errors, full["ConsoleErrorLog"])
+            assert isinstance(page_errors, list)
+            image_calls.append({"iteration": iteration, "blocked_external": blocked_external,
+                                "console_errors": console_errors, "page_errors": page_errors})
+            for name in ("learning", "tutor"):
+                assert not active_runtime[name].exists(), "image mutable state was not reset"
+                active_runtime[name].write_text("synthetic mutation")
+            for width, height in ((1440, 1000), (390, 844)):
+                with closing(browser.new_context(viewport={"width": width, "height": height})):
+                    if iteration == 2:
+                        if image_failure in {"body", "body_late_audit"}:
+                            raise RuntimeError("synthetic_image_body")
+                        if image_failure == "interrupt":
+                            raise KeyboardInterrupt
+                        if image_failure == "sigterm":
+                            events.append("image_sigterm")
+                            handler["current"](full["signal"].SIGTERM, None)
+                            pytest.fail("SIGTERM did not interrupt the image body")
+                    if image_failure == "fixture_drift":
+                        (active_runtime["references"] / "records.json").write_text("[{}]")
+            checks = dict(IMAGE_CHECKS)
+            if image_failure in {"incomplete", "wrong_checks"}:
+                checks.pop("reader_inline_image_mobile_visible_decoded")
+            if image_failure == "wrong_checks":
+                checks["synthetic_unrelated_check"] = True
+            if image_failure == "non_boolean":
+                checks["reader_inline_image_mobile_visible_decoded"] = 1
+            return checks
+
+        def restart(runtime):
+            assert phase_now() == "original" and "servers" not in resources
+            assert runtime["root"].exists()
+            events.append("original_restart")
+            return {"status": "PASS"}
 
         def run_cases(result, *args):
             iteration()
@@ -379,9 +529,11 @@ def cli_lifetime(check, monkeypatch, tmp_path):
             monkeypatch.setitem(globals_, "ROOT", source)
             monkeypatch.setitem(globals_, "process_environment", process_environment)
         for name, value in {"FRONTEND_ROOT": shared, "prepare_runtime": prepare, "product_servers": servers,
-                            "_verify_http_error_evidence_contract": lambda: None, "_reset_mutable_runtime": lambda runtime: None,
+                            "tempfile": SimpleNamespace(TemporaryDirectory=owned_temporary_directory),
+                            "_verify_http_error_evidence_contract": lambda: None, "_reset_mutable_runtime": reset,
                             "_run_single_iteration": iteration, "_bounded_log_summary": lambda path: [],
-                            "verify_backend_restart_persistence": lambda runtime: {"status": "PASS"}}.items():
+                            "_run_reader_inline_image_iteration": image_iteration,
+                            "verify_backend_restart_persistence": restart}.items():
             monkeypatch.setitem(full, name, value)
         monkeypatch.setitem(dedicated, "runtime_module", lambda: full)
         monkeypatch.setitem(dedicated, "source_bindings", lambda **kwargs: {"source": "synthetic", "build": "synthetic"})
@@ -396,6 +548,7 @@ def cli_lifetime(check, monkeypatch, tmp_path):
 
         return SimpleNamespace(full=full, dedicated=dedicated, helper=helper, environment=environment,
                                events=events, observations=observations, paths=paths, resources=resources,
+                               runtimes=runtimes, resets=resets, image_calls=image_calls,
                                invoke=invoke, observe=observe, build_enter=build_enter, handler=handler,
                                prior_handler=prior_handler,
                                parent_restored=lambda: dict(helper.os.environ) == previous_environment)
@@ -425,6 +578,119 @@ def test_cli_driver_browser_environment_lifetime(cli_lifetime, capsys, entry, po
         assert code == 0 and result["status"] == "PASS"
     else:
         assert code != 0 and (result is None or result["status"] != "PASS")
+
+
+def run_full_image_contract(harness, monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["run_product_e2e.py", "--repeat", "3"])
+    code = harness.invoke("full")
+    output = capsys.readouterr()
+    assert SENTINEL not in output.out + output.err and not output.err
+    assert harness.parent_restored(), "image phase did not restore the exact parent environment"
+    assert harness.handler["current"] is harness.prior_handler
+    harness.prior_handler.assert_not_called()
+    assert not harness.resources and all(not path.exists() for path in harness.paths)
+    assert all(item["private_absent"] and item["configured_retained"] and item["scope_active"]
+               for item in harness.observations)
+    result = json.loads(output.out)
+    assert len(result["runs"]) == 3, "image or cleanup failure discarded the original runs"
+    assert all(row["status"] == "PASS" and row["checks"] == {"synthetic": True} for row in result["runs"])
+    assert result["restart_persistence"] == {"status": "PASS"}
+    return code, result
+
+
+@pytest.mark.parametrize("port", [8000, 18000])
+def test_image_profile_follows_original_cleanup_with_three_independent_repeats(cli_lifetime, monkeypatch, capsys, port):
+    harness = cli_lifetime(port)
+    code, result = run_full_image_contract(harness, monkeypatch, capsys)
+    assert code == 0 and result["status"] == "PASS"
+    phases = ["original_prepare", "original_server_enter", "suite_body", "original_server_teardown",
+              "original_restart", "original_temp_teardown", "image_prepare", "image_server_enter",
+              "image_body", "image_browser_teardown", "image_server_teardown", "image_temp_teardown",
+              "frontend_teardown"]
+    positions = [harness.events.index(phase) for phase in phases]
+    assert positions == sorted(positions), "image profile started before original cleanup completed"
+    assert [phase for phase, _ in harness.runtimes] == ["original", "image"]
+    assert [phase for phase, _ in harness.resets] == ["original"] * 3 + ["image"] * 3
+    assert [call["iteration"] for call in harness.image_calls] == [1, 2, 3]
+    for key in ("blocked_external", "console_errors", "page_errors"):
+        assert len({id(call[key]) for call in harness.image_calls}) == 3
+    assert harness.events.count("image_context_enter") == 6
+    assert harness.events.count("image_context_teardown") == 6
+    profile = result["reader_inline_image_profile"]
+    assert profile["status"] == "PASS" and profile["repeat_count"] == 3
+    assert profile["errors"] == []
+    assert profile["fixture_stable"] and profile["runtime_removed"]
+    assert profile["browser_version"] == result["browser_version"] == "synthetic"
+    assert [row["iteration"] for row in profile["runs"]] == [1, 2, 3]
+    for row in profile["runs"]:
+        assert row["status"] == "PASS" and row["checks"] == IMAGE_CHECKS
+        assert all(row[key] == 0 for key in ("external_network_request_count", "console_error_count",
+                                            "page_error_count", "unexpected_page_count"))
+
+
+@pytest.mark.parametrize("port", [8000, 18000])
+@pytest.mark.parametrize("failure", [
+    "server_startup", "startup", "wrong_fixture", "body", "incomplete", "wrong_checks", "non_boolean", "browser_mismatch",
+    "fixture_drift", "late_audit", "body_late_audit", "context_teardown", "browser_teardown",
+    "server_teardown", "temp_teardown", "interrupt", "sigterm",
+])
+def test_image_profile_failures_never_pass_or_erase_original_evidence(cli_lifetime, monkeypatch, capsys, port, failure):
+    harness = cli_lifetime(port, image_failure=failure)
+    code, result = run_full_image_contract(harness, monkeypatch, capsys)
+    assert code != 0 and result["status"] == "BLOCKED", failure
+    profile = result["reader_inline_image_profile"]
+    assert profile["runtime_removed"]
+    assert profile["status"] == ("PASS" if failure == "browser_mismatch" else "BLOCKED")
+    errors = "\n".join(profile["errors"])
+    if failure == "browser_mismatch":
+        assert "browser version mismatch" in result["error"]
+    else:
+        expected_error = {
+            "server_startup": "synthetic_image_server_startup", "startup": "synthetic_browser_startup",
+            "wrong_fixture": "fixture mismatch", "body": "synthetic_image_body",
+            "incomplete": "incomplete Reader image-profile coverage",
+            "wrong_checks": "incomplete Reader image-profile coverage",
+            "non_boolean": "incomplete Reader image-profile coverage",
+            "fixture_drift": "immutable fixture", "late_audit": "post-cleanup audit failed",
+            "body_late_audit": "synthetic_image_body", "context_teardown": "synthetic_image_context_teardown",
+            "browser_teardown": "synthetic_image_browser_teardown", "server_teardown": "synthetic_image_server_teardown",
+            "temp_teardown": "synthetic_image_temp_teardown", "interrupt": "KeyboardInterrupt", "sigterm": "KeyboardInterrupt",
+        }[failure]
+        assert expected_error in errors, "failure was blocked for an unrelated reason"
+    if failure in {"startup", "server_startup", "wrong_fixture"}:
+        assert not harness.image_calls
+        if failure == "wrong_fixture":
+            assert "image_server_enter" not in harness.events
+    else:
+        assert 1 <= len(harness.image_calls) <= 3
+    if failure in {"body", "body_late_audit", "interrupt", "sigterm"}:
+        assert [call["iteration"] for call in harness.image_calls] == [1, 2]
+        assert profile["runs"][0]["status"] == "CHECKS_PASSED"
+        assert profile["runs"][0]["checks"] == IMAGE_CHECKS
+        assert profile["runs"][-1]["iteration"] == 2
+        assert profile["runs"][-1]["status"] == "BLOCKED"
+    if failure in {"late_audit", "body_late_audit", "context_teardown", "browser_teardown",
+                   "server_teardown", "temp_teardown"}:
+        last = profile["runs"][-1]
+        assert last["status"] == "BLOCKED"
+        assert last["console_error_count"] == len(harness.image_calls[-1]["console_errors"]) > 0
+    if failure == "body_late_audit":
+        assert "synthetic_image_browser_teardown" in errors
+        assert "post-cleanup audit failed" in errors
+    if failure == "fixture_drift":
+        assert profile["fixture_stable"] is False
+    if failure == "sigterm":
+        assert "image_sigterm" in harness.events
+
+
+@pytest.mark.parametrize("port", [8000, 18000])
+def test_original_temp_cleanup_failure_prevents_image_phase_and_preserves_results(cli_lifetime, monkeypatch, capsys, port):
+    harness = cli_lifetime(port, original_cleanup_failure=True)
+    code, result = run_full_image_contract(harness, monkeypatch, capsys)
+    assert code != 0 and result["status"] == "BLOCKED"
+    assert not harness.image_calls and "image_prepare" not in harness.events
+    assert "reader_inline_image_profile" not in result
+    assert [phase for phase, _ in harness.runtimes] == ["original"]
 
 
 @pytest.mark.parametrize("phase", ["frontend_build", "suite_body"])

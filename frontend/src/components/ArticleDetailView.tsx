@@ -68,6 +68,10 @@ import {
 } from "@/lib/learning";
 import { ReadingHistoryItem, loadReadingHistory, recordReading } from "@/lib/readingHistory";
 import {
+  isAllowedReaderInlineImageUrl,
+  readerMarkdownUrlTransform,
+} from "@/lib/readerImagePolicy";
+import {
   getGraphSessionStorage,
   isSameTabNavigation,
   rememberGraphArticleReturnFocus,
@@ -3206,6 +3210,7 @@ export function ArticleDetailView({
               remarkPlugins={[remarkGfm, remarkMath]}
               rehypePlugins={[[rehypeKatex, { strict: false, throwOnError: false }]]}
               components={markdownComponents}
+              urlTransform={readerMarkdownUrlTransform}
             >
               {renderedContent}
             </ReactMarkdown>
@@ -3851,8 +3856,9 @@ function headingIdForNode(node: unknown, headingIdsByLine: Map<number, string>):
 function MarkdownImage({ node: _node, src: rawSrc, alt: rawAlt, ...props }: ComponentPropsWithoutRef<"img"> & { node?: unknown }) {
   const src = normalizeContentUrl(typeof rawSrc === "string" ? rawSrc : "") ?? "";
   const alt = typeof rawAlt === "string" && rawAlt.trim() ? rawAlt : "Article image";
+  const inlineAllowed = isAllowedReaderInlineImageUrl(src);
 
-  if (!src) {
+  if (!src || (/^(?:data|blob):/i.test(src) && !inlineAllowed)) {
     return (
       <span className="mt-1 inline-flex items-center gap-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700">
         <span>{`${alt} unavailable`}</span>
@@ -3860,7 +3866,7 @@ function MarkdownImage({ node: _node, src: rawSrc, alt: rawAlt, ...props }: Comp
     );
   }
 
-  if (!isInlineImageUrl(src)) {
+  if (!inlineAllowed) {
     return (
       <span className="my-2 block border-l-2 border-amber-500 bg-amber-50 px-3 py-2 text-sm text-amber-900">
         <span className="font-medium">{alt}</span>
@@ -3881,10 +3887,6 @@ function MarkdownImage({ node: _node, src: rawSrc, alt: rawAlt, ...props }: Comp
       loading="lazy"
     />
   );
-}
-
-function isInlineImageUrl(value: string): boolean {
-  return value.startsWith("data:") || value.startsWith("blob:");
 }
 
 function normalizeContentUrl(value: string | undefined): string | undefined {

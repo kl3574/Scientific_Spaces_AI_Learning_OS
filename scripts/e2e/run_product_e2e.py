@@ -3,7 +3,9 @@ from __future__ import annotations
 
 import argparse
 from collections import Counter
-from contextlib import contextmanager
+from contextlib import closing, contextmanager
+from dataclasses import replace
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -49,6 +51,15 @@ ACTIVE_FRONTEND_MODE = "start"
 RUNTIME_ENVIRONMENT: dict[str, str] | None = None
 CRB_ARTICLE_ID = "crb-formula"
 CRB_TITLE = "CRB公式与估计下界"
+READER_INLINE_PNG = (
+    "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0k"
+    "AAAACXBIWXMAAAPoAAAD6AG1e1JrAAAAEUlEQVQImWPgmXDnPwgzwBgAUoQJ3bE27EY"
+    "AAAAASUVORK5CYII="
+)
+READER_INLINE_IMAGE_MARKDOWN = (
+    f"\n![Synthetic inline PNG]({READER_INLINE_PNG})\n"
+    "\n![Rejected inline SVG](data:image/svg+xml;base64,PHN2Zy8+)\n"
+)
 ATTENTION_ARTICLE_ID = "attention-basics"
 ATTENTION_TITLE = "Attention机制入门"
 RESEARCH_ARTICLE_ID = "local-research-map"
@@ -1294,39 +1305,51 @@ def _run_configured_suite(args: argparse.Namespace) -> dict[str, object]:
         BROWSER_API_URL = API_URL
     ACTIVE_FRONTEND_MODE = args.frontend_mode
 
-    result: dict[str, object]
-    with tempfile.TemporaryDirectory(prefix="scientific-spaces-p3-011-e2e-") as temporary:
-        runtime_root = Path(temporary)
+    result: dict[str, object] = {"status": "BLOCKED"}
+    try:
+        with tempfile.TemporaryDirectory(prefix="scientific-spaces-p3-011-e2e-") as temporary:
+            runtime_root = Path(temporary)
+            try:
+                runtime = prepare_runtime(runtime_root)
+                with product_servers(runtime, frontend_mode=args.frontend_mode) as logs:
+                    result = run_browser_suite(runtime, repeat=args.repeat)
+                restart_result = verify_backend_restart_persistence(runtime)
+                result["restart_persistence"] = restart_result
+                if restart_result["status"] != "PASS":
+                    result["status"] = "BLOCKED"
+                result["server_logs"] = {
+                    "backend": _bounded_log_summary(logs["backend"]),
+                    "frontend": _bounded_log_summary(logs["frontend"]),
+                    "restart_backend": _bounded_log_summary(Path(runtime["root"]) / "restart-backend.log"),
+                }
+            except Exception as exc:
+                result.update({
+                    "status": "BLOCKED", "error": f"{type(exc).__name__}: {exc}",
+                    "traceback": traceback.format_exc(limit=12),
+                    "server_logs": {
+                        "backend": _bounded_log_summary(runtime_root / "backend.log"),
+                        "frontend": _bounded_log_summary(runtime_root / "frontend.log"),
+                    },
+                })
+        _require(not runtime_root.exists(), "original E2E runtime cleanup incomplete")
+    except (Exception, KeyboardInterrupt) as exc:
+        result.update({"status": "BLOCKED", "error": f"{type(exc).__name__}: {exc}"})
+    if result["status"] == "PASS":
         try:
-            runtime = prepare_runtime(runtime_root)
-            with product_servers(runtime, frontend_mode=args.frontend_mode) as logs:
-                result = run_browser_suite(runtime, repeat=args.repeat)
-            restart_result = verify_backend_restart_persistence(runtime)
-            result["restart_persistence"] = restart_result
-            if restart_result["status"] != "PASS":
+            image_profile = _run_reader_inline_image_profile(args)
+            result["reader_inline_image_profile"] = image_profile
+            if image_profile["status"] != "PASS":
                 result["status"] = "BLOCKED"
-            result["server_logs"] = {
-                "backend": _bounded_log_summary(logs["backend"]),
-                "frontend": _bounded_log_summary(logs["frontend"]),
-                "restart_backend": _bounded_log_summary(Path(runtime["root"]) / "restart-backend.log"),
-            }
-        except Exception as exc:
-            result = {
-                "status": "BLOCKED",
-                "error": f"{type(exc).__name__}: {exc}",
-                "traceback": traceback.format_exc(limit=12),
-            }
-            backend_log = runtime_root / "backend.log"
-            frontend_log = runtime_root / "frontend.log"
-            result["server_logs"] = {
-                "backend": _bounded_log_summary(backend_log),
-                "frontend": _bounded_log_summary(frontend_log),
-            }
-
+            elif image_profile.get("browser_version") != result.get("browser_version"):
+                result.update({"status": "BLOCKED", "error": "Reader image-profile browser version mismatch"})
+        except (Exception, KeyboardInterrupt) as exc:
+            result.update({"status": "BLOCKED", "error": f"{type(exc).__name__}: {exc}"})
     return result
 
 
-def prepare_runtime(runtime_root: Path) -> dict[str, Path | dict[str, str]]:
+def prepare_runtime(
+    runtime_root: Path, *, reader_inline_images: bool = False,
+) -> dict[str, Path | dict[str, str]]:
     data_root = runtime_root / ".local_data" / "scientific_spaces"
     articles_path = data_root / "articles.json"
     graph_path = data_root / "knowledge_graph.json"
@@ -1337,6 +1360,12 @@ def prepare_runtime(runtime_root: Path) -> dict[str, Path | dict[str, str]]:
     data_root.mkdir(parents=True, exist_ok=True)
 
     articles = _load_fixture_articles()
+    if reader_inline_images:
+        articles = [
+            replace(article, content=article.content + READER_INLINE_IMAGE_MARKDOWN)
+            if article.id == CRB_ARTICLE_ID else article
+            for article in articles
+        ]
     articles_path.write_text(
         json.dumps([article.to_dict() for article in articles], ensure_ascii=False, indent=2) + "\n",
         encoding="utf-8",
@@ -1515,6 +1544,164 @@ def product_servers(
             _stop_process(frontend_process)
         finally:
             _stop_process(backend_process)
+
+
+def _run_reader_inline_image_profile(args: argparse.Namespace) -> dict[str, object]:
+    from playwright.sync_api import sync_playwright
+
+    result: dict[str, object] = {
+        "status": "BLOCKED", "repeat_count": args.repeat, "runs": [],
+        "fixture_stable": False, "runtime_removed": False, "errors": [],
+    }
+    root = None
+    observations = []
+
+    def record_failure(exc):
+        chain, seen = [], set()
+        while exc is not None and id(exc) not in seen and len(chain) < 8:
+            seen.add(id(exc))
+            chain.append(f"{type(exc).__name__}: {str(exc)[:512]}")
+            exc = exc.__cause__ or exc.__context__
+        result["errors"].extend(reversed(chain))
+        if exc is not None:
+            result["errors"].append("incomplete_error_context")
+
+    try:
+        with tempfile.TemporaryDirectory(prefix="scientific-spaces-reader-image-e2e-") as temporary:
+            root = Path(temporary)
+            runtime = prepare_runtime(root, reader_inline_images=True)
+            expected_articles = [
+                {**article.to_dict(), "content": article.content + (
+                    READER_INLINE_IMAGE_MARKDOWN if article.id == CRB_ARTICLE_ID else ""
+                )} for article in _load_fixture_articles()
+            ]
+            _require(json.loads(Path(runtime["articles"]).read_text(encoding="utf-8")) == expected_articles,
+                     "Reader image-profile fixture mismatch")
+
+            def immutable_inputs():
+                paths = [Path(runtime["articles"]), Path(runtime["graph"])]
+                paths.extend(path for path in Path(runtime["references"]).rglob("*") if path.is_file())
+                return {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest()
+                        for path in paths}
+
+            before = immutable_inputs()
+            try:
+                with product_servers(runtime, frontend_mode=args.frontend_mode):
+                    with sync_playwright() as playwright:
+                        with closing(LocalOnlyBrowser(playwright.chromium.launch(headless=True))) as browser:
+                            result["browser_version"] = browser.version
+                            for iteration in range(1, args.repeat + 1):
+                                _reset_mutable_runtime(runtime)
+                                blocked, errors, page_errors = NetworkGuardLog(), ConsoleErrorLog(), []
+                                row = {"iteration": iteration, "status": "BLOCKED", "checks": {}}
+                                result["runs"].append(row)
+                                observations.append((row, blocked, errors, page_errors))
+                                row["checks"] = _run_reader_inline_image_iteration(
+                                    browser, iteration=iteration, blocked_external=blocked,
+                                    console_errors=errors, page_errors=page_errors,
+                                )
+                                expected_checks = {
+                                    f"reader_inline_image_{viewport}_{check}"
+                                    for viewport in ("desktop", "mobile")
+                                    for check in ("exact_source", "visible_decoded", "non_raster_rejected", "remote_placeholder")
+                                }
+                                _require(set(row["checks"]) == expected_checks
+                                         and all(value is True for value in row["checks"].values()),
+                                         "incomplete Reader image-profile coverage")
+                                _require(not blocked and not _unexpected_console_errors(errors)
+                                         and not page_errors and not _unexpected_context_pages(blocked),
+                                         "Reader image-profile network/console/page audit failed")
+                                row["status"] = "CHECKS_PASSED"
+            finally:
+                result["fixture_stable"] = immutable_inputs() == before
+    except (Exception, KeyboardInterrupt) as exc:
+        record_failure(exc)
+    finally:
+        result["runtime_removed"] = root is not None and not root.exists()
+        for row, blocked, errors, page_errors in observations:
+            try:
+                final_audit = {
+                    "external_network_request_count": len(blocked),
+                    "console_error_count": len(_unexpected_console_errors(errors)),
+                    "page_error_count": len(page_errors),
+                    "unexpected_page_count": len(_unexpected_context_pages(blocked)),
+                }
+                row.update(final_audit)
+                if any(final_audit.values()):
+                    row["status"] = "BLOCKED"
+                    result["errors"].append("Reader image-profile post-cleanup audit failed")
+            except Exception as exc:
+                row["status"] = "BLOCKED"
+                record_failure(exc)
+    if not result["fixture_stable"]:
+        result["errors"].append("Reader image-profile immutable fixture unavailable or changed")
+    if not result["runtime_removed"]:
+        result["errors"].append("Reader image-profile runtime cleanup incomplete")
+    if (not result["errors"] and len(result["runs"]) == args.repeat
+            and all(row["status"] == "CHECKS_PASSED" for row in result["runs"])):
+        result["status"] = "PASS"
+        for row in result["runs"]:
+            row["status"] = "PASS"
+    return result
+
+
+def _run_reader_inline_image_iteration(
+    browser, *, iteration: int, blocked_external, console_errors, page_errors,
+):
+    from playwright.sync_api import expect
+
+    checks: dict[str, bool] = {}
+    for label, width, height in (("desktop", 1440, 1000), ("mobile", 390, 844)):
+        with closing(browser.new_context(
+            viewport={"width": width, "height": height},
+            locale="zh-CN", reduced_motion="reduce",
+        )) as context:
+            _install_network_guard(context, blocked_external)
+            page = _new_observed_page(
+                context, console_errors, page_errors, label=f"reader-image-{iteration}-{label}",
+            )
+            page.goto(f"{FRONTEND_URL}/articles/{CRB_ARTICLE_ID}", wait_until="domcontentloaded")
+            expect(page.locator("article#article-start > h1")).to_have_text(CRB_TITLE)
+            expect(page.locator(".reader-markdown .katex").first).to_be_visible()
+            checks.update(_verify_reader_inline_images(page, viewport=label))
+            _wait_for_page_requests_to_settle(page, console_errors)
+    return checks
+
+
+def _verify_reader_inline_images(page, *, viewport: str) -> dict[str, bool]:
+    from playwright.sync_api import expect
+
+    body = page.locator(".reader-markdown")
+    image = body.get_by_role("img", name="Synthetic inline PNG", exact=True)
+    expect(image).to_have_count(1)
+    expect(image).to_have_attribute("src", READER_INLINE_PNG)
+    image.scroll_into_view_if_needed()
+    expect(image).to_be_visible()
+    decoded = image.evaluate(
+        """img => Promise.race([
+          img.decode().then(() => img.complete && img.naturalWidth === 2 &&
+            img.naturalHeight === 2).catch(() => false),
+          new Promise(resolve => setTimeout(() => resolve(false), 3000))
+        ])"""
+    )
+    _require(decoded, f"{viewport}: inline PNG did not decode to 2x2 pixels")
+    expect(body.get_by_text("Synthetic inline PNG unavailable", exact=True)).to_have_count(0)
+    expect(body.get_by_role("img", name="Rejected inline SVG", exact=True)).to_have_count(0)
+    rejected = body.get_by_text("Rejected inline SVG unavailable", exact=True)
+    expect(rejected).to_be_visible()
+    expect(rejected.locator("xpath=ancestor::a")).to_have_count(0)
+    expect(body.locator('a[href^="data:"], a[href^="blob:"]')).to_have_count(0)
+    expect(body.get_by_role("img", name="External payment image", exact=True)).to_have_count(0)
+    expect(body.get_by_text("External image not loaded automatically.", exact=True)).to_be_visible()
+    expect(body.get_by_role("link", name="Open image at source", exact=True)).to_have_attribute(
+        "href", "https://spaces.ac.cn/usr/themes/geekg/payment/wx.png"
+    )
+    return {
+        f"reader_inline_image_{viewport}_exact_source": True,
+        f"reader_inline_image_{viewport}_visible_decoded": True,
+        f"reader_inline_image_{viewport}_non_raster_rejected": True,
+        f"reader_inline_image_{viewport}_remote_placeholder": True,
+    }
 
 
 def run_browser_suite(
