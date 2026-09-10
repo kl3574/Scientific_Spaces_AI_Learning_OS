@@ -1,0 +1,87 @@
+{
+  "schema_version": "p3-044-human-content-decision/v1",
+  "status": "APPROVED_CONTENT",
+  "candidate_version": "p3-044-affine-review/v3",
+  "candidate_digest": "52656b4933d23dd1aa20c575a77c5ab318116720e60e995661264e51fd69295e",
+  "candidate_path": "backend/tests/fixtures/evaluation/tutor_generation/review_candidate_v3",
+  "recorded_at": "2026-09-10T13:19:58+00:00",
+  "approved_at": null,
+  "approved_at_note": "The exact timestamp of the user statement was not supplied; recorded_at is the record creation time only.",
+  "reviewer": "user in the current conversation",
+  "decision_source": {
+    "kind": "direct_user_statement",
+    "statement": "全部同意",
+    "context": "The user agreed after the current v3 Articles and all 12 cases were displayed for read-only human content review.",
+    "scope": "All AFF-01 through AFF-12 reference judgments, derivations, evidence boundaries and teaching content in the displayed v3 candidate."
+  },
+  "decisions": [
+    {
+      "case_id": "AFF-01",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-02",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-03",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-04",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-05",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-06",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-07",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-08",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-09",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-10",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-11",
+      "decision": "AGREE",
+      "comment": null
+    },
+    {
+      "case_id": "AFF-12",
+      "decision": "AGREE",
+      "comment": null
+    }
+  ],
+  "data_role": "development/regression",
+  "unseen_holdout": false,
+  "model_answer_quality": "NOT_RUN",
+  "limitations": [
+    "This records human approval of the candidate reference content; it does not certify actual model answers, retrieval quality or release readiness.",
+    "The approved v3 snapshot remains byte-for-byte unchanged. Its PENDING fields describe preparation-time state; this separate record captures the subsequent human decision.",
+    "This documentation record is not a cryptographic signature or a runtime approval mechanism."
+  ]
+}

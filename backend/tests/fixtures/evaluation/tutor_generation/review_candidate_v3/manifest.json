@@ -1,0 +1,41 @@
+{
+  "candidate_digest": "52656b4933d23dd1aa20c575a77c5ab318116720e60e995661264e51fd69295e",
+  "candidate_version": "p3-044-affine-review/v3",
+  "data_role": "development/regression",
+  "files": {
+    "articles.json": {
+      "canonical_sha256": "c2dc5d5650cc19c26922ed6c625cd1e47229fbed8fc9dad5ad98245ec43cf20a",
+      "sha256": "e30232053dd49fd5ef9bdb268dfe8ca863d28d4d0a44a062a57d4dac1de48238",
+      "version": "p3-044-affine-articles/v1"
+    },
+    "cases.json": {
+      "canonical_sha256": "c3fa930f5f38d5ebbb462280d4120be6bd268486a193669630074bc41afed885",
+      "sha256": "dc020bb383cb22b46439ff9219a9e5d4c244e329f69d436985f32d216eff36d5",
+      "version": "p3-044-affine-review-cases/v1"
+    },
+    "review_package.md": {
+      "canonical_sha256": "e0c6d2c29f3bbebc17945cb8878ea5e1f7ab18e09a1509d889c6a0245c5638c9",
+      "sha256": "e0c6d2c29f3bbebc17945cb8878ea5e1f7ab18e09a1509d889c6a0245c5638c9",
+      "version": "p3-044-affine-review-package/v1"
+    },
+    "rubric.json": {
+      "canonical_sha256": "1d65ff28d54ddb2dbc7009e8b856845a6c9f0a410610798b1de6bc97e7b55bc5",
+      "sha256": "b40e33b04589e00bb89d40a082eee5d5ff6029490f68948f3b7fe2b55486db8e",
+      "version": "p3-044-affine-review-rubric/v1"
+    }
+  },
+  "human_review": {
+    "approved_at": null,
+    "reviewer": null,
+    "status": "PENDING"
+  },
+  "model_review": {
+    "blind": false,
+    "independent_reviewer": "/root/independent_review",
+    "kind": "model_review",
+    "status": "COMPLETED"
+  },
+  "schema_version": "p3-044-affine-review-manifest/v1",
+  "status": "PREPARED_PENDING_HUMAN_REVIEW",
+  "unseen_holdout": false
+}

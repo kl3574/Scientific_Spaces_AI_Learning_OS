@@ -1,0 +1,7 @@
+{
+  "synthetic": true,
+  "source_ids": ["synthetic-affine-inverse:0", "synthetic-affine-validation:0"],
+  "a": 2,
+  "b": 1,
+  "y": 7
+}

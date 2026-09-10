@@ -1,0 +1,16 @@
+[
+  {
+    "id": "synthetic-affine-inverse",
+    "title": "Synthetic affine calibration inverse",
+    "url": "https://example.test/articles/synthetic-affine-inverse",
+    "content": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+    "metadata": {"date": "2026-01-01", "category": "Synthetic calibration", "references": [], "images": []}
+  },
+  {
+    "id": "synthetic-affine-validation",
+    "title": "Synthetic affine calibration validation",
+    "url": "https://example.test/articles/synthetic-affine-validation",
+    "content": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+    "metadata": {"date": "2026-01-02", "category": "Synthetic calibration", "references": [], "images": []}
+  }
+]

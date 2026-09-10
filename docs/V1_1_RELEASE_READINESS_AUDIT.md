@@ -232,7 +232,7 @@ Artifact/secret result: **PASS**.
 - README documents legacy/versioned APIs and explicit Learning migration/rollback.
 - `docs/API_COMPATIBILITY_MIGRATION_REVISION.md` records P2-008 evidence.
 - ADR 0005 records M1 freeze governance.
-- `CHANGELOG.md` and `docs/RELEASE_NOTES_v1.1.0_DRAFT.md` remain candidate documents.
+- At this audit's baseline, `CHANGELOG.md` and the [release draft](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/blob/893197bf9ca8555078eddfc85225ff0428a436ad/docs/RELEASE_NOTES_v1.1.0_DRAFT.md) were candidate documents. The redundant draft was subsequently removed after publication; the current notes are [RELEASE_NOTES_v1.1.0.md](RELEASE_NOTES_v1.1.0.md).
 - `docs/V1_1_RELEASE_CHECKLIST.md` tracks remaining release actions.
 - Historical reports retain historical statuses and should be read with their later revisions.
 - Missing historical boundary documents and numbering drift remain documentation hygiene issues, not release blockers.

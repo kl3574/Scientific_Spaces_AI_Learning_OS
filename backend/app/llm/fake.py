@@ -2,8 +2,14 @@ from __future__ import annotations
 
 from typing import Mapping
 
+from app.llm.provider import ChatRequest
+
 
 class FakeLLMProvider:
+    def chat_request(self, request: ChatRequest) -> str:
+        # Deterministic plumbing fixture, not a simulation of teaching quality.
+        return self.chat(question=request.question, contexts=list(request.contexts))
+
     def chat(self, *, question: str, contexts: list[Mapping[str, str]]) -> str:
         if not contexts:
             return "无法基于当前资料回答。"

@@ -1,0 +1,1823 @@
+{
+  "candidate_version": "p3-044-affine-review/v3",
+  "cases": [
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "answer_behavior": "ANSWER",
+      "assumptions": [
+        "x、y、a、b 属于实数域。",
+        "原文基线：a 已知且 a≠0，b 已知；y 是满足精确关系 y=ax+b 的给定观测。",
+        "没有噪声分布、校准误差分布或真实模型回答质量的前提。"
+      ],
+      "boundaries": [
+        "a=0 时原非零斜率逆定理不适用；这不是对原定理的反例。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-01",
+      "counterexamples": [],
+      "derivation": [
+        "由精确观测关系 y=ax+b，两边减去 b 得 y-b=ax（等式变换）。",
+        "因为 a≠0，两边同除以 a，得到 x=(y-b)/a；除以零不被允许。",
+        "反代 a((y-b)/a)+b=y，证明候选值存在。",
+        "若 x₁、x₂ 均为解，则 a(x₁-x₂)=0；a≠0 蕴含 x₁=x₂，证明唯一性。",
+        "代入 a=2,b=1,y=7 得 (7-1)/2=3。比例和平移的类比只是直觉说明。"
+      ],
+      "equivalent_answers": [
+        "先撤销平移再撤销非零缩放",
+        "(y-b)a⁻¹，明确 a≠0"
+      ],
+      "finding": "AMBIGUOUS",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "acceptance-explain"
+      ],
+      "mode": "explain",
+      "must_include": [
+        "定义与符号",
+        "a≠0、已知系数和精确观测",
+        "逆式与支持的简例",
+        "常见误解：不能除零；类比不是证明"
+      ],
+      "must_not_claim": [
+        "任意 a 都可取倒数",
+        "类比已证明一般结论",
+        "合成例子证明真实教学效果"
+      ],
+      "original_expectation": {
+        "legacy_value": {
+          "reference_answer": null,
+          "request_task_transferred": true,
+          "response_fields_compatible": true,
+          "semantic_label": null
+        },
+        "question": "Affine calibration inverse conditions and example",
+        "scope": "acceptance-explain 原为请求/字段契约，不是有数学 gold 的题目；宽泛主题缺少可单独判真的目标。",
+        "source": "backend/app/evaluation/tutor_generation.py::load_fixture_groups/observe_modes/run_evaluation"
+      },
+      "proposed_change": "旧题主题宽泛但未有错误数学标签；新增精确任务与待真人确认的参考答案。",
+      "proposed_relation": "SUPPORTED",
+      "quantifiers": [
+        "对每组已知实数 a≠0、b 及给定实数 y，结论成立；不外推到 a=0 或随机误差模型。"
+      ],
+      "question": "Affine calibration inverse conditions and example. Under the stated real, known nonzero a and known b assumptions, explain why the inverse exists, give the numerical example, and distinguish intuition from proof.",
+      "question_zh": "在原实数域、已知非零 a 与已知 b 的条件下，解释逆关系、给出数值例，区分类比与证明。",
+      "reference_answer": "仿射观测先将 x 乘以已知非零 a，再加已知 b。逆操作先减 b，再除以 a，故 x=(y-b)/a；例如 (7-1)/2=3。该解释的代数依据是等式变换；类比不是证明。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 92,
+          "locator_id": "AFF-01.A.S1",
+          "quote": "Affine calibration is defined by real variables x, y, a and b.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 30
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 139,
+          "locator_id": "AFF-01.A.S2",
+          "quote": "Assume a is nonzero and known, and b is known.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 93
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-01.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 224,
+          "locator_id": "AFF-01.A.S4",
+          "quote": "Subtracting b from both sides gives $$y-b = ax$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 175
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 269,
+          "locator_id": "AFF-01.A.S5",
+          "quote": "Division by nonzero a gives $$x = (y-b)/a$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 225
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 296,
+          "locator_id": "AFF-01.A.S6",
+          "quote": "For a=2, b=1 and y=7, x=3.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 270
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "locator_id": "AFF-01.A.S8",
+          "quote": "A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 333
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "在原文条件下，每个给定 y 对应唯一 x=(y-b)/a。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "answer_behavior": "ANSWER",
+      "assumptions": [
+        "x、y、a、b 属于实数域。",
+        "原文基线：a 已知且 a≠0，b 已知；y 是满足精确关系 y=ax+b 的给定观测。",
+        "没有噪声分布、校准误差分布或真实模型回答质量的前提。"
+      ],
+      "boundaries": [
+        "a=0 时原非零斜率逆定理不适用；这不是对原定理的反例。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-02",
+      "counterexamples": [],
+      "derivation": [
+        "由精确观测关系 y=ax+b，两边减去 b 得 y-b=ax（等式变换）。",
+        "因为 a≠0，两边同除以 a，得到 x=(y-b)/a；除以零不被允许。",
+        "反代 a((y-b)/a)+b=y，证明候选值存在。",
+        "若 x₁、x₂ 均为解，则 a(x₁-x₂)=0；a≠0 蕴含 x₁=x₂，证明唯一性。"
+      ],
+      "equivalent_answers": [
+        "通过非零线性映射为双射证明唯一性，但必须解释依据",
+        "先证明单射，再给出显式解"
+      ],
+      "finding": "AMBIGUOUS",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "acceptance-derive"
+      ],
+      "mode": "derive",
+      "must_include": [
+        "变量域与 a≠0",
+        "逐步等式变换及其规则",
+        "反代与唯一性依据"
+      ],
+      "must_not_claim": [
+        "省略除法非零条件",
+        "只凭几个数值例证明全部实数情形",
+        "要求或披露模型私有思考"
+      ],
+      "original_expectation": {
+        "legacy_value": {
+          "reference_answer": null,
+          "request_task_transferred": true,
+          "response_fields_compatible": true,
+          "semantic_label": null
+        },
+        "question": "Affine calibration inverse conditions and example",
+        "scope": "acceptance-derive 原为请求/字段契约，不是有数学 gold 的题目；宽泛主题缺少可单独判真的目标。",
+        "source": "backend/app/evaluation/tutor_generation.py::load_fixture_groups/observe_modes/run_evaluation"
+      },
+      "proposed_change": "明确语义审核对象；不更改旧契约断言，不把未审核参考答案记为 gold。",
+      "proposed_relation": "SUPPORTED",
+      "quantifiers": [
+        "对每组已知实数 a≠0、b 及给定实数 y，结论成立；不外推到 a=0 或随机误差模型。"
+      ],
+      "question": "Affine calibration inverse conditions and example. For real known a != 0 and b and an exact observation y=ax+b, derive the inverse and prove that the solution exists and is unique.",
+      "question_zh": "由精确 y=ax+b，在实数且 a≠0、系数已知条件下推导逆式，并证明存在和唯一。",
+      "reference_answer": "假设 a,b,y 为给定实数且 a≠0。由 y=ax+b 得 y-b=ax，除以 a 得 x=(y-b)/a。反代满足原式；任意两解之差满足 a(x₁-x₂)=0，因此两解相等。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 92,
+          "locator_id": "AFF-02.A.S1",
+          "quote": "Affine calibration is defined by real variables x, y, a and b.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 30
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 139,
+          "locator_id": "AFF-02.A.S2",
+          "quote": "Assume a is nonzero and known, and b is known.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 93
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-02.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 224,
+          "locator_id": "AFF-02.A.S4",
+          "quote": "Subtracting b from both sides gives $$y-b = ax$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 175
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 269,
+          "locator_id": "AFF-02.A.S5",
+          "quote": "Division by nonzero a gives $$x = (y-b)/a$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 225
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 189,
+          "locator_id": "AFF-02.B.S2",
+          "quote": "The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 116
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "∀a∈R\\{0}, b,y∈R，方程 y=ax+b 存在唯一实数解 (y-b)/a。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "answer_behavior": "ANSWER",
+      "assumptions": [
+        "x、y、a、b 属于实数域。",
+        "原文基线：a 已知且 a≠0，b 已知；y 是满足精确关系 y=ax+b 的给定观测。",
+        "没有噪声分布、校准误差分布或真实模型回答质量的前提。"
+      ],
+      "boundaries": [
+        "a=0 时原非零斜率逆定理不适用；这不是对原定理的反例。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-03",
+      "counterexamples": [],
+      "derivation": [
+        "2≠0，可用原逆式。",
+        "以有理数精确计算 (7-1)/2=6/2=3。",
+        "反代 2·3+1=7，与给定观测相等。"
+      ],
+      "equivalent_answers": [
+        "3、3.0 或 6/2 均可，但含义须为同一精确实数",
+        "直接解 7=2x+1"
+      ],
+      "finding": "AMBIGUOUS",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "acceptance-qa"
+      ],
+      "mode": "qa",
+      "must_include": [
+        "先给 3",
+        "显示代入或反代依据",
+        "限定精确观测模型"
+      ],
+      "must_not_claim": [
+        "仅因引用 ID 合法就判回答正确",
+        "由这个例子推出噪声误差保证"
+      ],
+      "original_expectation": {
+        "legacy_value": {
+          "reference_answer": null,
+          "request_task_transferred": true,
+          "response_fields_compatible": true,
+          "semantic_label": null
+        },
+        "prepared_v2_quantifier": [
+          "对每组已知实数 a≠0、b 及给定实数 y，结论成立；不外推到 a=0 或随机误差模型。"
+        ],
+        "question": "Affine calibration inverse conditions and example",
+        "scope": "acceptance-qa 原为请求/字段契约，不是有数学 gold 的题目；宽泛主题缺少可单独判真的目标。",
+        "source": "backend/app/evaluation/tutor_generation.py::load_fixture_groups/observe_modes/run_evaluation"
+      },
+      "proposed_change": "明确语义审核对象；不更改旧契约断言，不把未审核参考答案记为 gold。 v3 修正 v2 的通用量词模板为本题固定数值范围。",
+      "proposed_relation": "SUPPORTED",
+      "quantifiers": [
+        "仅固定 a=2、b=1、y=7 的精确数值模型；对本题目标判真，不声称其他参数下 x 也等于本题数值。"
+      ],
+      "question": "Affine calibration inverse conditions and example. In the exact model with a=2, b=1 and y=7, what is x? Answer directly and check the result.",
+      "question_zh": "精确模型中 a=2、b=1、y=7，x 是多少？先直接回答，再检验。",
+      "reference_answer": "x=3。由 x=(y-b)/a=(7-1)/2=3，且 2×3+1=7。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 139,
+          "locator_id": "AFF-03.A.S2",
+          "quote": "Assume a is nonzero and known, and b is known.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 93
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-03.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 296,
+          "locator_id": "AFF-03.A.S6",
+          "quote": "For a=2, b=1 and y=7, x=3.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 270
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 189,
+          "locator_id": "AFF-03.B.S2",
+          "quote": "The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 116
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 229,
+          "locator_id": "AFF-03.B.S3",
+          "quote": "The example a=2, b=1 and y=7 gives x=3.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 190
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "给定 a=2,b=1,y=7 时唯一解为 x=3。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "answer_behavior": "ANSWER",
+      "assumptions": [
+        "x、y、a、b 属于实数域。",
+        "原文基线：a 已知且 a≠0，b 已知；y 是满足精确关系 y=ax+b 的给定观测。",
+        "没有噪声分布、校准误差分布或真实模型回答质量的前提。"
+      ],
+      "boundaries": [
+        "a=0 时原非零斜率逆定理不适用；这不是对原定理的反例。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-04",
+      "counterexamples": [],
+      "derivation": [
+        "考点限定为识记/理解逆关系，保持选择题题型。",
+        "题干给出 a=2,b=1,y=7 及求解任务，不预先宣布 x=3。",
+        "分列选项与答案。参考选项为 A:2，B:3，C:4；仅 B 满足 2x+1=7。",
+        "答案依据使用 (7-1)/2=3 与反代，不以选项字母代替数学说明。"
+      ],
+      "equivalent_answers": [
+        "选项可换序或使用等价数值，只有一个正确选项",
+        "可改为辨认 (y-b)/a，但题干须清楚且答案另列"
+      ],
+      "finding": "AMBIGUOUS",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "acceptance-quiz"
+      ],
+      "mode": "quiz",
+      "must_include": [
+        "考点与层次",
+        "一道明确选择题",
+        "答案与理由独立呈现",
+        "正确选项符合精确关系"
+      ],
+      "must_not_claim": [
+        "题干直接给出完整答案句 x=3 后让用户复述",
+        "把来源辨认正确率称为自由作答或应用能力测量",
+        "把所有模型出题方式判为已审核"
+      ],
+      "original_expectation": {
+        "legacy_value": {
+          "reference_answer": null,
+          "request_task_transferred": true,
+          "response_fields_compatible": true,
+          "semantic_label": null
+        },
+        "prepared_v2_quantifier": [
+          "对每组已知实数 a≠0、b 及给定实数 y，结论成立；不外推到 a=0 或随机误差模型。"
+        ],
+        "question": "Affine calibration inverse conditions and example",
+        "scope": "acceptance-quiz 原为请求/字段契约，不是有数学 gold 的题目；宽泛主题缺少可单独判真的目标。",
+        "source": "backend/app/evaluation/tutor_generation.py::load_fixture_groups/observe_modes/run_evaluation"
+      },
+      "proposed_change": "明确语义审核对象；不更改旧契约断言，不把未审核参考答案记为 gold。 v3 修正 v2 的通用量词模板为本题固定数值范围。",
+      "proposed_relation": "SUPPORTED",
+      "quantifiers": [
+        "仅固定 a=2、b=1、y=7 的精确数值模型；对本题目标判真，不声称其他参数下 x 也等于本题数值。"
+      ],
+      "question": "Affine calibration inverse conditions and example. Create one evidence-recognition multiple-choice item about the inverse for a=2, b=1, y=7. State the objective and level, then put the answer and rationale in a separate section.",
+      "question_zh": "围绕给定例子的逆关系制作一道来源辨认选择题，写明考点和层次，将答案及依据单列。",
+      "reference_answer": "考点：辨认仿射逆关系；层次：理解。题目：a=2、b=1、y=7 时，哪一项是 x？A.2 B.3 C.4。\n答案与依据（独立部分）：B；x=(7-1)/2=3，反代为7。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 139,
+          "locator_id": "AFF-04.A.S2",
+          "quote": "Assume a is nonzero and known, and b is known.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 93
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-04.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 269,
+          "locator_id": "AFF-04.A.S5",
+          "quote": "Division by nonzero a gives $$x = (y-b)/a$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 225
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 296,
+          "locator_id": "AFF-04.A.S6",
+          "quote": "For a=2, b=1 and y=7, x=3.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 270
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 229,
+          "locator_id": "AFF-04.B.S3",
+          "quote": "The example a=2, b=1 and y=7 gives x=3.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 190
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "选择题答案可依据原逆式与数值例得到 x=3；教学格式本身不作为数学真值。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5",
+        "R6"
+      ],
+      "answer_behavior": "CONDITIONAL_ANSWER",
+      "assumptions": [
+        "x=3、a=2、b=1 是已知实数；原文的精确关系只用于无扰动基准 y=7。",
+        "Y=2x+1+ε 与 x_hat=(Y-1)/2 是本题明确增加的假设/定义，不是原文已建立的噪声模型。",
+        "ε∈R 的本次实际取值未知，没有大小约束；不引入随机分布或无偏性假设。"
+      ],
+      "boundaries": [
+        "ε=±2时误差恰等于1；界限为闭区间。",
+        "没有给随机机制，不能谈统计无偏性；AFF-12另判固定文档的证据充足性。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-05",
+      "counterexamples": [
+        "允许实例ε=0使目标为真，ε=4使目标为假；反例满足本题新增方程，不冒充原无噪声定理的内部反例。"
+      ],
+      "derivation": [
+        "由题目新增定义，Y=2×3+1+ε=7+ε。",
+        "代入 x_hat=(Y-1)/2，得到 x_hat=3+ε/2，所以 |x_hat-x|=|ε|/2。",
+        "2>0，因此误差≤1 当且仅当 |ε|≤2；此条件尚未给定。",
+        "ε=0 时 Y=7、x_hat=3、误差0；ε=4 时 Y=11、x_hat=5、误差2。两种实例都满足本题全部前提，却使目标一真一假。",
+        "因此实际目标不能决定，可给条件答案；若改为所有ε均满足的全称保证，上述ε=4反例会反驳它。"
+      ],
+      "equivalent_answers": [
+        "误差为 |Y-7|/2；界限成立当且仅当 Y∈[5,9]",
+        "条件分支：|ε|≤2时成立，|ε|>2时不成立；当前取值未知"
+      ],
+      "finding": "AMBIGUOUS",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "acceptance-research"
+      ],
+      "mode": "research",
+      "must_include": [
+        "区分原精确y与本题带扰动Y",
+        "说明扰动方程是额外题设而非来源事实",
+        "条件 |ε|≤2 与误差关系",
+        "一真一假实例均满足新前提",
+        "实际命题未知与全称保证为假的区别"
+      ],
+      "must_not_claim": [
+        "原文已经给出噪声模型或误差保证",
+        "因无法确定所以实际误差必定超过1",
+        "对所有实数ε误差均≤1",
+        "由这两个数值实例证明一般误差公式",
+        "从本单次实数题推断无偏性或真实模型教学质量"
+      ],
+      "original_expectation": {
+        "legacy_value": {
+          "reference_answer": null,
+          "request_task_transferred": true,
+          "response_fields_compatible": true,
+          "semantic_label": null
+        },
+        "prepared_v2_value": {
+          "answer_behavior": "ABSTAIN",
+          "proposed_relation": "INSUFFICIENT",
+          "quantifiers": [
+            "对每组已知实数 a≠0、b 及给定实数 y，结论成立；不外推到 a=0 或随机误差模型。"
+          ],
+          "target_claim": "仅凭两篇资料可确定某个数值噪声误差界或无偏性保证。"
+        },
+        "question": "Affine calibration inverse conditions and example",
+        "scope": "acceptance-research 原为请求/字段契约，不是有数学 gold 的题目；宽泛主题缺少可单独判真的目标。",
+        "source": "backend/app/evaluation/tutor_generation.py::load_fixture_groups/observe_modes/run_evaluation"
+      },
+      "proposed_change": "v2误把“资料足以确定保证”的元主张标成INSUFFICIENT。v3明确改为本次实际误差命题，并在题目中显式加入扰动定义；保留INSUFFICIENT，行为由ABSTAIN修订为CONDITIONAL_ANSWER。不是为匹配产品输出而修改。",
+      "proposed_relation": "INSUFFICIENT",
+      "quantifiers": [
+        "判断对象是本次未知 ε 对应的实际误差，不是“对所有 ε 误差均≤1”的全称保证，也不是“资料已证明保证”的元主张。"
+      ],
+      "question": "Affine calibration inverse conditions and example. Explicit hypothetical extension, not a source claim: let true x=3, a=2, b=1, and observe Y=2x+1+epsilon for one unknown real epsilon. Define x_hat=(Y-1)/2. Can it be decided whether the actual error |x_hat-x| is at most 1? Give the conditional relationship and compatible examples.",
+      "question_zh": "显式题外扩展：真实 x=3，a=2，b=1；本次观测 Y=2x+1+ε，ε 是一个未知实数。令 x_hat=(Y-1)/2。能否判定本次实际误差 |x_hat-x|≤1？给出条件关系及符合前提的实例。",
+      "reference_answer": "当前不能确定本次实际误差是否≤1。由本题明确增加的扰动方程，x_hat-x=ε/2，因此该界当且仅当 |ε|≤2 成立。ε=0 和 ε=4 都符合已知条件，分别给出误差0和2。需知道或约束本次ε后才能判定；这些推导不代表原文建立了真实噪声性能。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-05.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 269,
+          "locator_id": "AFF-05.A.S5",
+          "quote": "Division by nonzero a gives $$x = (y-b)/a$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 225
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 296,
+          "locator_id": "AFF-05.A.S6",
+          "quote": "For a=2, b=1 and y=7, x=3.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 270
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 339,
+          "locator_id": "AFF-05.B.S4",
+          "quote": "These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 230
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 408,
+          "locator_id": "AFF-05.B.S5",
+          "quote": "Missing evidence includes a noise model and calibration uncertainty.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 340
+        }
+      ],
+      "symbols": {
+        "Y": "本次带扰动观测7+ε",
+        "a": "已知比例系数2",
+        "b": "已知平移系数1",
+        "x": "本题已固定的真实输入3",
+        "x_hat": "将原代数逆作用于Y所得的估计值",
+        "y": "原精确模型的无扰动基准7",
+        "ε": "本次未知实数扰动；未给范围或概率分布"
+      },
+      "target_claim": "对本次实际但未知的 ε，|x_hat-x|≤1。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "answer_behavior": "ANSWER",
+      "assumptions": [
+        "x、y、a、b 属于实数域。",
+        "原文基线：a 已知且 a≠0，b 已知；y 是满足精确关系 y=ax+b 的给定观测。",
+        "没有噪声分布、校准误差分布或真实模型回答质量的前提。"
+      ],
+      "boundaries": [
+        "a=0 时原非零斜率逆定理不适用；这不是对原定理的反例。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-06",
+      "counterexamples": [],
+      "derivation": [
+        "先由原式独立求解：(7-1)/2=3。",
+        "再代入待核对值：2×3+1=7。",
+        "与给定 y=7 相等。"
+      ],
+      "equivalent_answers": [
+        "精确整数/有理数计算或直接代入原式",
+        "等价说明 2x=6，因此 x=3"
+      ],
+      "finding": "CORRECT",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "supported-arithmetic"
+      ],
+      "mode": "qa",
+      "must_include": [
+        "明确关系标签",
+        "算术依据与原观测比较",
+        "不以来源 ID 代替真值判断"
+      ],
+      "must_not_claim": [
+        "合法 ID 保证数学正确",
+        "把受控 spy 输出当真实模型质量证据"
+      ],
+      "original_expectation": {
+        "legacy_value": {
+          "expected_x": 3,
+          "fixture_arithmetic_relation": "supported",
+          "observed_x": 3,
+          "semantic_correctness": null
+        },
+        "prepared_v2_quantifier": [
+          "对每组已知实数 a≠0、b 及给定实数 y，结论成立；不外推到 a=0 或随机误差模型。"
+        ],
+        "scope": "旧程序从受控 spy 返回中解析算术；这不是盲测，也不是模型真实回答。",
+        "source": "backend/app/evaluation/tutor_generation.py::_boundary_checks; arithmetic_truth.json"
+      },
+      "proposed_change": "保留旧 supported/contradicted 标签；新增可人工核对的独立推导，不修改标准以匹配产品输出。 v3 修正 v2 的通用量词模板为本题固定数值范围。",
+      "proposed_relation": "SUPPORTED",
+      "quantifiers": [
+        "仅固定 a=2、b=1、y=7 的精确数值模型；对本题目标判真，不声称其他参数下 x 也等于本题数值。"
+      ],
+      "question": "Affine calibration inverse conditions and example. Assess this claim under the exact model a=2, b=1, y=7: x=3. State whether it is supported and correct it if necessary.",
+      "question_zh": "核对精确模型 a=2、b=1、y=7 下的主张 x=3，必要时纠正。",
+      "reference_answer": "主张正确：x=3，反代2×3+1=7。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 139,
+          "locator_id": "AFF-06.A.S2",
+          "quote": "Assume a is nonzero and known, and b is known.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 93
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-06.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 296,
+          "locator_id": "AFF-06.A.S6",
+          "quote": "For a=2, b=1 and y=7, x=3.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 270
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 229,
+          "locator_id": "AFF-06.B.S3",
+          "quote": "The example a=2, b=1 and y=7 gives x=3.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 190
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "该给定模型的解为 x=3。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R3",
+        "R4"
+      ],
+      "answer_behavior": "CORRECT_PREMISE",
+      "assumptions": [
+        "x、y、a、b 属于实数域。",
+        "原文基线：a 已知且 a≠0，b 已知；y 是满足精确关系 y=ax+b 的给定观测。",
+        "没有噪声分布、校准误差分布或真实模型回答质量的前提。"
+      ],
+      "boundaries": [
+        "a=0 时原非零斜率逆定理不适用；这不是对原定理的反例。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-07",
+      "counterexamples": [],
+      "derivation": [
+        "先由原式独立求解：(7-1)/2=3。",
+        "再代入待核对值：2×99+1=199。",
+        "199≠7，所以 x=99 不满足同一假设；引用合法不改变此矛盾。"
+      ],
+      "equivalent_answers": [
+        "精确整数/有理数计算或直接代入原式",
+        "等价说明 2x=6，因此 x=3"
+      ],
+      "finding": "CORRECT",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "wrong-claim-valid-source"
+      ],
+      "mode": "qa",
+      "must_include": [
+        "明确关系标签",
+        "算术依据与原观测比较",
+        "不以来源 ID 代替真值判断"
+      ],
+      "must_not_claim": [
+        "合法 ID 保证数学正确",
+        "把受控 spy 输出当真实模型质量证据"
+      ],
+      "original_expectation": {
+        "legacy_value": {
+          "expected_x": 3,
+          "fixture_arithmetic_relation": "contradicted",
+          "observed_x": 99,
+          "semantic_correctness": null
+        },
+        "prepared_v2_quantifier": [
+          "对每组已知实数 a≠0、b 及给定实数 y，结论成立；不外推到 a=0 或随机误差模型。"
+        ],
+        "scope": "旧程序从受控 spy 返回中解析算术；这不是盲测，也不是模型真实回答。",
+        "source": "backend/app/evaluation/tutor_generation.py::_boundary_checks; arithmetic_truth.json"
+      },
+      "proposed_change": "保留旧 supported/contradicted 标签；新增可人工核对的独立推导，不修改标准以匹配产品输出。 v3 修正 v2 的通用量词模板为本题固定数值范围。",
+      "proposed_relation": "CONTRADICTED",
+      "quantifiers": [
+        "仅固定 a=2、b=1、y=7 的精确数值模型；对本题目标判真，不声称其他参数下 x 也等于本题数值。"
+      ],
+      "question": "Affine calibration inverse conditions and example. Assess this claim under the exact model a=2, b=1, y=7: x=99. State whether it is supported and correct it if necessary.",
+      "question_zh": "核对精确模型 a=2、b=1、y=7 下的主张 x=99，必要时纠正。",
+      "reference_answer": "主张错误：2×99+1=199≠7；正确解为 x=(7-1)/2=3。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 139,
+          "locator_id": "AFF-07.A.S2",
+          "quote": "Assume a is nonzero and known, and b is known.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 93
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-07.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 296,
+          "locator_id": "AFF-07.A.S6",
+          "quote": "For a=2, b=1 and y=7, x=3.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 270
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 229,
+          "locator_id": "AFF-07.B.S3",
+          "quote": "The example a=2, b=1 and y=7 gives x=3.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 190
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "该给定模型的解为 x=99。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R4",
+        "R5"
+      ],
+      "answer_behavior": "CORRECT_PREMISE",
+      "assumptions": [
+        "x,y,a,b∈R；本题显式将原 a≠0 改为 a=0。",
+        "仅采用前向等式 y=ax+b；y=b。"
+      ],
+      "boundaries": [
+        "y=b 与 y≠b 是互斥且穷尽的分支。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-08",
+      "counterexamples": [
+        "x=0 与 x=1 均满足，否定唯一性。"
+      ],
+      "derivation": [
+        "本题显式改变斜率条件，不能冒充原 a≠0 定理内部的反例。",
+        "代入 a=0，右边恒为 b。",
+        "若 y=b，所有实数 x 都满足；x=0、x=1 是两个不同解，因此不唯一。"
+      ],
+      "equivalent_answers": [
+        "解集 R"
+      ],
+      "finding": "MISSING_CONDITIONS",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "automatic-necessary-condition-validation"
+      ],
+      "mode": "derive",
+      "must_include": [
+        "明确替换原非零假设",
+        "把无穷多解和无解分开",
+        "不作除零运算"
+      ],
+      "must_not_claim": [
+        "a=0 总是无解",
+        "a=0,y≠b 仍有唯一逆",
+        "本反例满足原文全部 a≠0 前提"
+      ],
+      "original_expectation": {
+        "legacy_value": "NOT_IMPLEMENTED",
+        "scope": "旧项报告自动必要条件识别未实现，没有逐题数学标签。本题是显式补充边界。",
+        "source": "backend/app/evaluation/tutor_generation.py::_boundary_checks; report section 3"
+      },
+      "proposed_change": "明确语义审核对象；不更改旧契约断言，不把未审核参考答案记为 gold。",
+      "proposed_relation": "CONTRADICTED",
+      "quantifiers": [
+        "固定任意实数 b，考察所有实数 x。"
+      ],
+      "question": "Affine calibration inverse conditions and example. Explicitly replace the original a!=0 assumption with a=0, keep only the real forward equation y=ax+b, and set y=b. Is there a unique inverse x?",
+      "question_zh": "明确将 a≠0 替换为 a=0，仅保留实数前向方程。若 y=b，是否有唯一逆？",
+      "reference_answer": "没有唯一逆。a=0 且 y=b 时任意实数 x 都是解，不能说无解。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 92,
+          "locator_id": "AFF-08.A.S1",
+          "quote": "Affine calibration is defined by real variables x, y, a and b.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 30
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 139,
+          "locator_id": "AFF-08.A.S2",
+          "quote": "Assume a is nonzero and known, and b is known.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 93
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-08.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 332,
+          "locator_id": "AFF-08.A.S7",
+          "quote": "If a=0 this inverse is unavailable.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 297
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "a=0,y=b 时存在唯一逆。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R4",
+        "R5"
+      ],
+      "answer_behavior": "CORRECT_PREMISE",
+      "assumptions": [
+        "x,y,a,b∈R；本题显式将原 a≠0 改为 a=0。",
+        "仅采用前向等式 y=ax+b；y≠b。"
+      ],
+      "boundaries": [
+        "y=b 与 y≠b 是互斥且穷尽的分支。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-09",
+      "counterexamples": [],
+      "derivation": [
+        "本题显式改变斜率条件，不能冒充原 a≠0 定理内部的反例。",
+        "代入 a=0，右边恒为 b。",
+        "若 y≠b，等式要求 y=b，与本题前提矛盾，所以没有解。"
+      ],
+      "equivalent_answers": [
+        "解集为空集"
+      ],
+      "finding": "MISSING_CONDITIONS",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "automatic-necessary-condition-validation"
+      ],
+      "mode": "derive",
+      "must_include": [
+        "明确替换原非零假设",
+        "把无穷多解和无解分开",
+        "不作除零运算"
+      ],
+      "must_not_claim": [
+        "a=0 总是无解",
+        "a=0,y≠b 仍有唯一逆",
+        "本反例满足原文全部 a≠0 前提"
+      ],
+      "original_expectation": {
+        "legacy_value": "NOT_IMPLEMENTED",
+        "scope": "旧项报告自动必要条件识别未实现，没有逐题数学标签。本题是显式补充边界。",
+        "source": "backend/app/evaluation/tutor_generation.py::_boundary_checks; report section 3"
+      },
+      "proposed_change": "明确语义审核对象；不更改旧契约断言，不把未审核参考答案记为 gold。",
+      "proposed_relation": "CONTRADICTED",
+      "quantifiers": [
+        "固定任意实数 b，考察所有实数 x。"
+      ],
+      "question": "Affine calibration inverse conditions and example. Explicitly replace the original a!=0 assumption with a=0, keep only the real forward equation y=ax+b, and set y!=b. Does any real solution x exist?",
+      "question_zh": "明确将 a≠0 替换为 a=0，仅保留实数前向方程。若 y≠b，是否有实数解？",
+      "reference_answer": "不存在解：a=0 时 ax+b=b，而题设 y≠b。该观测与零斜率前向方程不一致。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 92,
+          "locator_id": "AFF-09.A.S1",
+          "quote": "Affine calibration is defined by real variables x, y, a and b.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 30
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 139,
+          "locator_id": "AFF-09.A.S2",
+          "quote": "Assume a is nonzero and known, and b is known.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 93
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-09.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 332,
+          "locator_id": "AFF-09.A.S7",
+          "quote": "If a=0 this inverse is unavailable.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 297
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "a=0,y≠b 时存在实数解。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5"
+      ],
+      "answer_behavior": "CONDITIONAL_ANSWER",
+      "assumptions": [
+        "x,y,a,b∈R，保留精确 y=ax+b。",
+        "a≠0但未知，b=1，y=7。"
+      ],
+      "boundaries": [
+        "若改为 y=b 且 a≠0，即使 a 未知仍有 x=0；不能从本数值例推广为所有情况不可识别。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-10",
+      "counterexamples": [
+        "(a,x)=(2,3),(3,2)，均有 ax+b=7。"
+      ],
+      "derivation": [
+        "保留前向方程及 a≠0，得到 ax=6，因此 x=6/a。",
+        "(a,x)=(2,3) 与 (3,2) 均满足 a≠0 及 7=ax+1。",
+        "一组允许模型使 x=3 为真，另一组使其为假，故不能决定实际 x=3；可以给条件式。"
+      ],
+      "equivalent_answers": [
+        "无法唯一确定数值，但可参数化解集",
+        "按参数取值作分情况回答"
+      ],
+      "finding": "MISSING_CONDITIONS",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "automatic-necessary-condition-validation"
+      ],
+      "mode": "qa",
+      "must_include": [
+        "已知性改变须明确",
+        "给出可支持的条件式",
+        "满足新前提的一真一假两个实例",
+        "不足而非无条件反驳实际值"
+      ],
+      "must_not_claim": [
+        "原文没确定实际值，所以实际值必非3",
+        "缺一个已知参数必然要求完全拒答",
+        "未知非零a时任何y都不能确定x"
+      ],
+      "original_expectation": {
+        "legacy_value": "NOT_IMPLEMENTED",
+        "scope": "原项未给缺已知性时的数值 oracle；本题显式补充，不能要求程序已能识别。",
+        "source": "backend/app/evaluation/tutor_generation.py::_boundary_checks; original Article known-parameter assumptions"
+      },
+      "proposed_change": "明确语义审核对象；不更改旧契约断言，不把未审核参考答案记为 gold。",
+      "proposed_relation": "INSUFFICIENT",
+      "quantifiers": [
+        "目标是未知参数实际取值对应的 x；不把“无法推出 x=3”与“已推出 x≠3”混淆。"
+      ],
+      "question": "Affine calibration inverse conditions and example. Explicitly remove only knowledge of a, keep a real and nonzero, and keep b=1,y=7 in y=ax+b. Can the actual value of x be determined to equal 3 or a different value? Give the conditional expression and compatible examples.",
+      "question_zh": "明确撤去“a已知”，保留 a≠0、b=1、y=7；能否确定实际 x=3 还是其他值？",
+      "reference_answer": "不能确定实际 x 必为3。条件式为 x=6/a；a=2 时 x=3，a=3 时 x=2，两者均满足本题前提。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 92,
+          "locator_id": "AFF-10.A.S1",
+          "quote": "Affine calibration is defined by real variables x, y, a and b.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 30
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 139,
+          "locator_id": "AFF-10.A.S2",
+          "quote": "Assume a is nonzero and known, and b is known.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 93
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-10.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 269,
+          "locator_id": "AFF-10.A.S5",
+          "quote": "Division by nonzero a gives $$x = (y-b)/a$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 225
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "在这组部分已知前提下，真实 x=3。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R2",
+        "R3",
+        "R4",
+        "R5"
+      ],
+      "answer_behavior": "CONDITIONAL_ANSWER",
+      "assumptions": [
+        "x,y,a,b∈R，保留精确 y=ax+b。",
+        "a=2，y=7，b未知。"
+      ],
+      "boundaries": [
+        "若另提供 b，就可按原非零a逆式求唯一数值。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-11",
+      "counterexamples": [
+        "(b,x)=(1,3),(3,2)，均有 ax+b=7。"
+      ],
+      "derivation": [
+        "保留前向方程及 a=2，得到 x=(7-b)/2。",
+        "(b,x)=(1,3) 与 (3,2) 均满足 7=2x+b。",
+        "两组允许模型对 x=3 给出不同真值，故信息不足；可以给条件式。"
+      ],
+      "equivalent_answers": [
+        "无法唯一确定数值，但可参数化解集",
+        "按参数取值作分情况回答"
+      ],
+      "finding": "MISSING_CONDITIONS",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "automatic-necessary-condition-validation"
+      ],
+      "mode": "qa",
+      "must_include": [
+        "已知性改变须明确",
+        "给出可支持的条件式",
+        "满足新前提的一真一假两个实例",
+        "不足而非无条件反驳实际值"
+      ],
+      "must_not_claim": [
+        "原文没确定实际值，所以实际值必非3",
+        "缺一个已知参数必然要求完全拒答",
+        "未知非零a时任何y都不能确定x"
+      ],
+      "original_expectation": {
+        "legacy_value": "NOT_IMPLEMENTED",
+        "scope": "原项未给缺已知性时的数值 oracle；本题显式补充，不能要求程序已能识别。",
+        "source": "backend/app/evaluation/tutor_generation.py::_boundary_checks; original Article known-parameter assumptions"
+      },
+      "proposed_change": "明确语义审核对象；不更改旧契约断言，不把未审核参考答案记为 gold。",
+      "proposed_relation": "INSUFFICIENT",
+      "quantifiers": [
+        "目标是未知参数实际取值对应的 x；不把“无法推出 x=3”与“已推出 x≠3”混淆。"
+      ],
+      "question": "Affine calibration inverse conditions and example. Explicitly remove only knowledge of b, keep b real and keep a=2,y=7 in y=ax+b. Can the actual value of x be determined to equal 3 or a different value? Give the conditional expression and compatible examples.",
+      "question_zh": "明确撤去“b已知”，保留 a=2、y=7；能否确定实际 x=3 还是其他值？",
+      "reference_answer": "不能确定实际 x 必为3。条件式为 x=(7-b)/2；b=1 时 x=3，b=3 时 x=2。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 92,
+          "locator_id": "AFF-11.A.S1",
+          "quote": "Affine calibration is defined by real variables x, y, a and b.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 30
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 139,
+          "locator_id": "AFF-11.A.S2",
+          "quote": "Assume a is nonzero and known, and b is known.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 93
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 174,
+          "locator_id": "AFF-11.A.S3",
+          "quote": "The observation is $$y = ax + b$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 140
+        },
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 269,
+          "locator_id": "AFF-11.A.S5",
+          "quote": "Division by nonzero a gives $$x = (y-b)/a$$.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 225
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "在这组部分已知前提下，真实 x=3。"
+    },
+    {
+      "adjudication": [],
+      "allowed_evidence": [
+        {
+          "article_id": "synthetic-affine-inverse",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 385,
+          "quote": "# Affine calibration inverse\n\nAffine calibration is defined by real variables x, y, a and b. Assume a is nonzero and known, and b is known. The observation is $$y = ax + b$$. Subtracting b from both sides gives $$y-b = ax$$. Division by nonzero a gives $$x = (y-b)/a$$. For a=2, b=1 and y=7, x=3. If a=0 this inverse is unavailable. A scale-and-shift analogy is intuition, not a proof.",
+          "source_id": "synthetic-affine-inverse:0",
+          "start": 0
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "quote": "# Affine calibration validation\n\nAffine calibration here uses real x, y, a and b, with known a nonzero and known b. The inverse $$x=(y-b)/a$$ can be checked by substitution into $$y=ax+b$$. The example a=2, b=1 and y=7 gives x=3. These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review. Missing evidence includes a noise model and calibration uncertainty. A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 0
+        }
+      ],
+      "allowed_inference_rule_ids": [
+        "R1",
+        "R6"
+      ],
+      "answer_behavior": "CORRECT_PREMISE",
+      "assumptions": [
+        "x、y、a、b 属于实数域。",
+        "原文基线：a 已知且 a≠0，b 已知；y 是满足精确关系 y=ax+b 的给定观测。",
+        "没有噪声分布、校准误差分布或真实模型回答质量的前提。"
+      ],
+      "boundaries": [
+        "若题目改问未确定的本次实际误差，则按 AFF-05 的条件判断，不能沿用本题对证据充足性主张的反驳标签。"
+      ],
+      "candidate_version": "p3-044-affine-review/v3",
+      "case_id": "AFF-12",
+      "counterexamples": [],
+      "derivation": [
+        "主张的对象是这两篇资料已经建立了什么，不是估计器实际准确程度。",
+        "B.S4 明文说明两篇笔记没有建立 noisy-observation accuracy 或综述完整性。",
+        "因此“已经建立”的证据充足性主张与原文明确否认冲突，应纠正；不能由此推出真实估计一定差。"
+      ],
+      "equivalent_answers": [
+        "这两篇资料不构成所声称的证明或完整综述"
+      ],
+      "finding": "AMBIGUOUS",
+      "human_decision": {
+        "comment": null,
+        "decision": null
+      },
+      "legacy_case_ids": [
+        "acceptance-research"
+      ],
+      "mode": "research",
+      "must_include": [
+        "引用原文明示否认",
+        "限定反驳对象为证据充足性",
+        "区分 AFF-05 的未知实际性能"
+      ],
+      "must_not_claim": [
+        "资料未建立精度，所以真实精度一定差",
+        "所有未提及主张均为 CONTRADICTED"
+      ],
+      "original_expectation": {
+        "legacy_value": {
+          "semantic_label": null
+        },
+        "prepared_v2_quantifier": [
+          "对每组已知实数 a≠0、b 及给定实数 y，结论成立；不外推到 a=0 或随机误差模型。"
+        ],
+        "scope": "从旧混合 research 任务拆出的证据充足性子主张；不同于 AFF-05 的实际性能量。",
+        "source": "backend/app/evaluation/tutor_generation.py::observe_modes; validation Article sentence 4"
+      },
+      "proposed_change": "明确语义审核对象；不更改旧契约断言，不把未审核参考答案记为 gold。 v3 将量词限定到固定两篇文档的证据充足性主张。",
+      "proposed_relation": "CONTRADICTED",
+      "quantifiers": [
+        "仅判断这两篇固定版本文档已经建立了什么，不对任意 a、b、y 或真实估计器性能作全称断言。"
+      ],
+      "question": "Affine calibration inverse conditions and example. Assess the evidence claim: these two notes themselves have established noisy-observation accuracy and the completeness of a literature review. Distinguish this claim about the notes from actual estimator performance.",
+      "question_zh": "核对“这两篇资料自身已经建立带噪精度和文献综述完整性”这一证据充足性主张，并与真实性能区分。",
+      "reference_answer": "该证据充足性主张不成立：第二篇明确说明这两篇笔记没有建立带噪精度或综述完整性，并列出噪声模型与校准不确定性缺口。这不等于证明真实估计器不准确。",
+      "required_source_ids": [
+        "synthetic-affine-inverse:0",
+        "synthetic-affine-validation:0"
+      ],
+      "supporting_locators": [
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 339,
+          "locator_id": "AFF-12.B.S4",
+          "quote": "These two synthetic notes do not establish noisy-observation accuracy or completeness of a literature review.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 230
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 408,
+          "locator_id": "AFF-12.B.S5",
+          "quote": "Missing evidence includes a noise model and calibration uncertainty.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 340
+        },
+        {
+          "article_id": "synthetic-affine-validation",
+          "article_version": "p3-044-affine-articles/v1",
+          "end": 491,
+          "locator_id": "AFF-12.B.S6",
+          "quote": "A validation suggestion is to test a held-out measurement under stated conditions.",
+          "source_id": "synthetic-affine-validation:0",
+          "start": 409
+        }
+      ],
+      "symbols": {
+        "a": "仿射斜率/比例系数",
+        "b": "平移系数",
+        "x": "待求标量输入",
+        "y": "给定标量观测"
+      },
+      "target_claim": "两篇资料自身已经建立带噪精度及综述完整性。"
+    }
+  ],
+  "data_role": "development/regression",
+  "legacy_contract_inventory": [
+    {
+      "adjudication": [
+        "原问题含混；若将来指定明确目标与空允许集，再审核 INSUFFICIENT/ABSTAIN。"
+      ],
+      "answer_behavior": null,
+      "case_id": "no-source",
+      "original_value": "no_sources",
+      "proposed_relation": null,
+      "reason": "原输入为空 Article 集且问题只有主题词；这是来源门禁，不是两篇原文上的明确数学题。不能把原文已有证据改成不存在。",
+      "review_status": "NOT_APPLICABLE"
+    },
+    {
+      "adjudication": [
+        "缺少明确待判断命题；原文没有地学内容不等于反驳某个地学命题。"
+      ],
+      "answer_behavior": null,
+      "case_id": "low-relevance",
+      "original_value": "no_sources",
+      "proposed_relation": null,
+      "reason": "原问题 volcanic obsidian petrology 是无谓词主题串；测试低相关检索/拒答，不是仿射真值题。",
+      "review_status": "NOT_APPLICABLE"
+    },
+    {
+      "adjudication": [
+        "旧题 Affine calibration 没有具体问题对象，暂不分配数学三分类或全面 ABSTAIN。"
+      ],
+      "answer_behavior": null,
+      "case_id": "derive-no-formula",
+      "original_value": "insufficient_formula_sources",
+      "proposed_relation": null,
+      "reason": "旧代码受控替换第一篇正文却复用 Article ID；不是原两篇资料缺公式，也不是检索漏召回。scale and shift mapping 仍有数学含义，不能把无公式排版等同于语义无证据。",
+      "review_status": "NOT_APPLICABLE",
+      "variant": {
+        "article_id": "synthetic-affine-inverse",
+        "content": "# Affine calibration\n\nAffine calibration is a scale and shift mapping. The defining equation is unavailable.",
+        "content_sha256": "b35e04a89b7f2724f3dfb9e6038186b9a87aa6f8615f5f6daae0c4b4d4f64054",
+        "variant_id": "legacy-affine-no-formula/v1"
+      }
+    },
+    {
+      "answer_behavior": null,
+      "case_id": "automatic-necessary-condition-validation",
+      "original_value": "NOT_IMPLEMENTED",
+      "proposed_relation": null,
+      "reason": "产品没有通用必要条件语义验证器；AFF-08至11是待人工确认的oracle，不能冒充产品实现。",
+      "review_status": "NOT_IMPLEMENTED"
+    },
+    {
+      "answer_behavior": null,
+      "case_id": "public-character-span-scoring",
+      "original_value": "NOT_APPLICABLE",
+      "proposed_relation": null,
+      "reason": "产品不返回验证后的字符span。审核包offset只定位已固定的原文，不扩大公开接口。",
+      "review_status": "NOT_APPLICABLE"
+    },
+    {
+      "adjudication": [
+        "若将来明确所有实数，则x=0处未定义；若请求合法域则可CONDITIONAL_ANSWER。"
+      ],
+      "answer_behavior": null,
+      "case_id": "test_derivation_with_missing_conditions_transmits_gap_requirement_without_semantic_certification",
+      "original_value": "instruction-transfer-only",
+      "proposed_relation": null,
+      "reason": "test_tutor_generation.py 的 x/x=1 使用另一合成主题，不是这两篇仿射Article。未声明域时需澄清；x≠0域可条件性回答，不能把原测试当自动数学判定。",
+      "review_status": "NOT_APPLICABLE"
+    },
+    {
+      "answer_behavior": null,
+      "case_id": "provider-TimeoutError",
+      "original_value": "PASS",
+      "proposed_relation": null,
+      "reason": "协议/默认值/网络或限定算术观察契约，不是另一个需要数学gold的生成题；继续保留原回归。",
+      "review_status": "NOT_APPLICABLE"
+    },
+    {
+      "answer_behavior": null,
+      "case_id": "provider-RuntimeError",
+      "original_value": "PASS",
+      "proposed_relation": null,
+      "reason": "协议/默认值/网络或限定算术观察契约，不是另一个需要数学gold的生成题；继续保留原回归。",
+      "review_status": "NOT_APPLICABLE"
+    },
+    {
+      "answer_behavior": null,
+      "case_id": "fake-default",
+      "original_value": "PASS",
+      "proposed_relation": null,
+      "reason": "协议/默认值/网络或限定算术观察契约，不是另一个需要数学gold的生成题；继续保留原回归。",
+      "review_status": "NOT_APPLICABLE"
+    },
+    {
+      "answer_behavior": null,
+      "case_id": "network-denied-zero-attempts",
+      "original_value": "PASS",
+      "proposed_relation": null,
+      "reason": "协议/默认值/网络或限定算术观察契约，不是另一个需要数学gold的生成题；继续保留原回归。",
+      "review_status": "NOT_APPLICABLE"
+    },
+    {
+      "answer_behavior": null,
+      "case_id": "valid-id-does-not-prove-semantic-correctness",
+      "original_value": "PASS",
+      "proposed_relation": null,
+      "reason": "协议/默认值/网络或限定算术观察契约，不是另一个需要数学gold的生成题；继续保留原回归。",
+      "review_status": "NOT_APPLICABLE"
+    },
+    {
+      "answer_behavior": null,
+      "case_id": "synthetic-arithmetic-contrast-detected",
+      "original_value": "PASS",
+      "proposed_relation": null,
+      "reason": "协议/默认值/网络或限定算术观察契约，不是另一个需要数学gold的生成题；继续保留原回归。",
+      "review_status": "NOT_APPLICABLE"
+    }
+  ],
+  "prior_exposure": {
+    "evidence": "P3-044 report sections 1/3/5; original focused tests and before/after captures",
+    "labels_seen_before_review": true,
+    "program_results_seen_before_review": true,
+    "used_for_development_debugging_and_implementation_selection": true
+  },
+  "schema_version": "p3-044-affine-review-cases/v1",
+  "unseen_holdout": false
+}

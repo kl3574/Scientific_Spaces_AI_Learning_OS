@@ -77,7 +77,7 @@ The prior Article/Graph compatibility and Learning migration blockers are resolv
 ## Documentation
 
 - [x] README documents setup, full-corpus use, local-data operations, risks, and verification entry points.
-- [x] `docs/RELEASE_NOTES_v1.1.0_DRAFT.md` exists and remains marked Draft.
+- [x] At this checklist's baseline, the [release draft](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/blob/893197bf9ca8555078eddfc85225ff0428a436ad/docs/RELEASE_NOTES_v1.1.0_DRAFT.md) existed and was marked Draft. The redundant draft was subsequently replaced by the published [release notes](RELEASE_NOTES_v1.1.0.md); the original remains in Git history.
 - [x] `CHANGELOG.md` records `1.1.0` as Unreleased.
 - [x] Security/privacy baseline and verification are present.
 - [x] Deployment profile and verification are present.

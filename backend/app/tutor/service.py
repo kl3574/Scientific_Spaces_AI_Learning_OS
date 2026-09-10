@@ -8,7 +8,8 @@ from typing import Any
 from app.graph.service import GraphService
 from app.learning.store import LearningStore, learning_store_path
 from app.llm.fake import FakeLLMProvider
-from app.llm.provider import LLMProvider, OpenAICompatibleLLMProvider
+from app.llm.provider import ChatRequest, LLMProvider, OpenAICompatibleLLMProvider, invoke_chat_request
+from app.tutor.generation import GenerationInputLimit, build_generation_request
 from app.tutor.graph_context import GraphContextResult, collect_graph_context
 from app.tutor.models import (
     EvidenceSummary,
@@ -106,7 +107,29 @@ class TutorService:
                 evidence_summary=evidence_summary,
             )
 
-        answer = self._mode_answer(request, context)
+        try:
+            generation_request = build_generation_request(
+                mode=request.mode,
+                question=request.question,
+                contexts=context.rag_contexts,
+                sources=context.article_sources,
+                max_input_chars=self.source_selection_policy.max_context_chars,
+            )
+        except GenerationInputLimit:
+            # Keep the existing public refusal contract. Evidence may be valid
+            # yet too large to send together with the complete trusted task.
+            return TutorResponse(
+                answer="当前问题与证据超出生成输入上限，请缩短问题或减少来源。",
+                mode=request.mode,
+                sources=[],
+                graph_context=context.graph_context,
+                zotero_context=context.zotero_context,
+                follow_up_questions=[],
+                refusal_reason="no_sources",
+                selection_summary=context.selection_summary,
+                evidence_summary=evidence_summary,
+            )
+        answer = self._mode_answer(request, context, generation_request=generation_request)
         sources = context.article_sources + context.graph_sources + context.zotero_sources
         answer, refusal = enforce_grounding(mode=request.mode, answer=answer, sources=sources)
         refusal = _to_m7_refusal(refusal)
@@ -175,8 +198,13 @@ class TutorService:
             seen_evidence_units.add(evidence_key)
             section = source.section_title or source.title
             focus = _quiz_evidence_focus(evidence_unit)
-            task = f"围绕“{normalized_topic}”，该证据说明了什么？" if normalized_topic else "该证据的核心观点是什么？"
-            question_text = f"根据「{section}」中的证据“{focus}”，{task}"
+            level, task = (
+                ("识记", "哪一项准确复述该来源中的核心信息？"),
+                ("理解", "哪一项是该来源直接支持的陈述？"),
+                ("辨析", "比较候选陈述，哪一项与该来源内容一致？"),
+            )[len(questions) % 3]
+            topic_text = f"；主题：{normalized_topic}" if normalized_topic else ""
+            question_text = f"考点：{section}{topic_text}；层次：{level}。依据来源 {source.source_id}，{task}"
             if question_text in seen_questions:
                 continue
             seen_questions.add(question_text)
@@ -185,7 +213,7 @@ class TutorService:
                     question=question_text,
                     options=None,
                     correct_answer=f"{focus}（依据《{source.title}》中的“{section}”章节。）",
-                    explanation="该题只基于已选文章片段生成，答案必须对应来源内容。",
+                    explanation="本题检验证据辨认，正确选项摘自已选片段；不代表已掌握完整推导或资料外条件。",
                     sources=[source],
                 )
             )
@@ -336,8 +364,10 @@ class TutorService:
             sources.append(source)
         return context, sources, omitted_count
 
-    def _mode_answer(self, request: TutorRequest, context: TutorContext) -> str:
-        base = self.llm_provider.chat(question=request.question, contexts=context.rag_contexts)
+    def _mode_answer(
+        self, request: TutorRequest, context: TutorContext, *, generation_request: ChatRequest
+    ) -> str:
+        base = invoke_chat_request(self.llm_provider, generation_request)
         if request.mode == "explain":
             return f"解释：{base}\n\n要点：\n- 回到引用章节核对定义。\n- 结合图谱邻居查看相关概念。"
         if request.mode == "derive":

@@ -1,331 +1,18 @@
 # Scientific Spaces AI Learning OS
 
-Scientific Spaces AI Learning OS is a local-first learning system for Scientific Spaces articles. The MVP combines a source pipeline, reader, grounded RAG assistant, learning state, Zotero metadata links, a knowledge graph, and a citation-grounded AI research tutor.
+Scientific Spaces AI Learning OS is a local-first learning system for Scientific Spaces articles, combining a source pipeline, Reader, grounded RAG/Tutor, learning state, Zotero metadata links and a provenance-bearing knowledge graph.
 
 ## Current Status
 
-- Version: `v1.1.0`
-- Formal Version: `v1.1.0`
-- Phase: `v1.2 Product Convergence`
-- Status: `P3-034.1 diagnostics locally verified; publication CI pending; P3-042 OPEN / CI BLOCKED; P3-039 OPEN / DEFERRED`
-- Candidate: `None`
-- Release Readiness: `v1.1.0 PASS; v1.2 candidate not assigned`
-- Latest gate: `CI 34354525791: six required jobs PASS; Product E2E FAIL at guided Reader Back focus`
-- Current task: `P3-034.1 guided Reader history focus diagnostics`
-- Current version: `v1.1.0`
+Formal release: **v1.1.0**; v1.2 has no assigned release candidate.
+P3-044 mode policy and offline regression are locally complete. The owner approved
+all 12 items in the v3 affine reference packet; this approves reference content,
+while real-model answer quality remains **NOT_RUN**.
 
-Current release evidence: `docs/RELEASE_CI_EVIDENCE_v1.1.0.md`.
-Current diagnostic: [P3-034.1 task](docs/tasks/P3-034.1_GUIDED_READER_HISTORY_FOCUS_DIAGNOSTICS.md).
-Current evidence: [P3-034.1 report](docs/P3_034_1_GUIDED_READER_HISTORY_FOCUS_REPORT.md).
-Parent blocker: [P3-042 report](docs/P3_042_ARTICLE_LIST_ROUTE_STATE_CONTINUITY_REPORT.md).
-P3-041 is PASS / CLOSED at dc7411c73802df1255376996c6daf5810f2a87a9,
-verified by [main CI 34332407397](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34332407397).
-P3-005.3, P3-005.4, P3-005.5, P3-024.1 and P3-040 are PASS / CLOSED at
-[0a203bae2f99e3c2b3223823e7d91437bc27e96a](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/commit/0a203bae2f99e3c2b3223823e7d91437bc27e96a),
-verified by [main CI 34314910981](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/34314910981).
-The original P3-040 CI remains a failed historical run. P3-039 remains deferred
-with historical cause UNKNOWN. P3-042 passes Backend 1147/4 skipped, Frontend
-179, owned build and browser/security gates. The report distinguishes the
-original 3 x 298/restart/image result from the corrected native36/component6
-counterpart with zero stderr/audit failures. Publication 8e38d035 is synchronized,
-but exact-SHA CI fails the existing guided Reader Back focus assertion. Diagnosis
-precedes any repair or closure; no blind CI rerun or assertion waiver.
-Release notes: `docs/RELEASE_NOTES_v1.1.0.md` (draft history in `docs/RELEASE_NOTES_v1.1.0_DRAFT.md`).
-
-Post-release validation: `docs/V1_1_POST_RELEASE_VALIDATION.md`.
-
-Approved v1.2 planning scope and priorities: `docs/V1_2_ROADMAP.md`.
-P3-007 evidence: `docs/P3_007_V1_2_RELEASE_READINESS_REPORT.md`.
-P3-009 throughput evidence: `docs/P3_009_THROUGHPUT_PROBE_REPORT.md`.
-P3-009 full-run status: `docs/P3_009_FULL_CORPUS_RUN_REPORT.md`.
-M1.4 incremental sync evidence: `docs/M1_4_INCREMENTAL_SOURCE_ZOTERO_SYNC_REPORT.md`.
-P3-010 derived refresh evidence: `docs/P3_010_INCREMENTAL_DERIVED_ASSET_REFRESH_REPORT.md`.
-P3-011 product convergence evidence: `docs/P3_011_END_TO_END_PRODUCT_CONVERGENCE_REPORT.md`.
-P3-012 learning experience and GUI evidence: `docs/P3_012_LEARNING_EXPERIENCE_GUI_REFINEMENT_REPORT.md`.
-P3-013 reader workspace evidence: `docs/P3_013_READER_WORKSPACE_REPORT.md` (PASS / CLOSED).
-P3-014 integrated workflow evidence: `docs/P3_014_INTEGRATED_LEARNING_WORKFLOW_REPORT.md` (PASS / CLOSED).
-P3-015 visual knowledge explorer evidence: `docs/P3_015_VISUAL_KNOWLEDGE_EXPLORER_REPORT.md` (PASS / CLOSED).
-P3-016 learning Dashboard evidence: `docs/P3_016_LEARNING_DASHBOARD_COMMAND_CENTER_REPORT.md` (PASS / CLOSED).
-P3-017 guided Tutor evidence: `docs/P3_017_GUIDED_TUTOR_STUDY_WORKSPACE_REPORT.md` (PASS / CLOSED).
-P3-018 unified Application Shell evidence: `docs/P3_018_UNIFIED_APPLICATION_SHELL_AND_NAVIGATION_REPORT.md` (PASS / CLOSED).
-P3-019 global search evidence: `docs/P3_019_GLOBAL_SEARCH_AND_QUICK_NAVIGATION_REPORT.md` (PASS / CLOSED).
-P3-020 saved learning evidence: `docs/P3_020_SAVED_LEARNING_LIBRARY_REPORT.md` (PASS / CLOSED).
-P3-021 focused study session evidence: `docs/P3_021_FOCUSED_STUDY_SESSION_REPORT.md` (PASS / CLOSED).
-P3-022 session-aware Dashboard evidence: `docs/P3_022_IMPLEMENTATION_REPORT.md` (PASS / CLOSED).
-P3-023 concept study set evidence: `docs/P3_023_CONCEPT_STUDY_SET_REPORT.md` (PASS / CLOSED).
-P3-024 Graph workspace evidence: `docs/P3_024_GRAPH_MASTER_DETAIL_NAVIGATION_REPORT.md` (PASS / CLOSED).
-P3-024 canonical task: `docs/tasks/P3-024_GRAPH_MASTER_DETAIL_NAVIGATION.md` (PASS / CLOSED).
-P3-025 focused completion evidence: `docs/P3_025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE_REPORT.md` (PASS / CLOSED).
-P3-025 canonical task: `docs/tasks/P3-025_FOCUSED_SESSION_COMPLETION_AND_GUIDED_ADVANCE.md` (PASS / CLOSED).
-P3-026 evidence: `docs/P3_026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION_REPORT.md` (PASS / CLOSED).
-P3-026 canonical task: `docs/tasks/P3-026_ARTICLE_DISCOVERY_TO_FOCUSED_SESSION.md` (PASS / CLOSED).
-P3-027 evidence: `docs/P3_027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_REPORT.md` (PASS / CLOSED).
-P3-027 canonical task: `docs/tasks/P3-027_TUTOR_REQUEST_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md` (PASS / CLOSED).
-P3-028 evidence: `docs/P3_028_GRAPH_READER_ROUND_TRIP_RELIABILITY_REPORT.md` (PASS / CLOSED).
-P3-028 canonical task: `docs/tasks/P3-028_GRAPH_READER_ROUND_TRIP_RELIABILITY.md` (PASS / CLOSED).
-P3-029 evidence: `docs/P3_029_READER_LEARNING_MUTATION_INTEGRITY_REPORT.md` (PASS / CLOSED).
-P3-029 canonical task: `docs/tasks/P3-029_READER_LEARNING_MUTATION_INTEGRITY.md` (PASS / CLOSED).
-P3-030 evidence: `docs/P3_030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY_REPORT.md` (PASS / CLOSED).
-P3-030 canonical task: `docs/tasks/P3-030_SHELL_MODAL_ORIGIN_ROUTE_FOCUS_CONTINUITY.md` (PASS / CLOSED).
-P3-031 evidence: `docs/P3_031_READER_NOTE_DELETION_SAFETY_REPORT.md` (PASS / CLOSED).
-P3-031 canonical task: `docs/tasks/P3-031_READER_NOTE_DELETION_SAFETY.md` (PASS / CLOSED).
-P3-032 canonical task: `docs/tasks/P3-032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK.md` (PASS / CLOSED).
-P3-032 evidence: `docs/P3_032_RELATED_PAPER_CONTEXT_OWNERSHIP_AND_ACCESSIBLE_FEEDBACK_REPORT.md` (PASS / CLOSED).
-P3-033 canonical task: `docs/tasks/P3-033_STRUCTURED_REFERENCE_REVIEW_ROUND_TRIP.md` (PASS / CLOSED).
-P3-033 evidence: `docs/P3_033_STRUCTURED_REFERENCE_REVIEW_ROUND_TRIP_REPORT.md` (PASS / CLOSED).
-P3-034 canonical task: `docs/tasks/P3-034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY.md` (PASS / CLOSED).
-P3-034 evidence: `docs/P3_034_ORDINARY_ROUTE_AND_HASH_FOCUS_CONTINUITY_REPORT.md` (local gates and exact-SHA implementation CI PASS).
-P3-035 canonical task: `docs/tasks/P3-035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY.md` (PASS / CLOSED).
-P3-035 evidence: `docs/P3_035_MOBILE_ARTICLE_DISCOVERY_RESULT_VISIBILITY_REPORT.md` (responsive repair, local gates, and exact-SHA implementation CI PASS).
-P3-036 canonical task: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md` (PASS / CLOSED).
-P3-036 evidence: `docs/P3_036_WORKSPACE_MUTATION_FOCUS_CONTINUITY_REPORT.md` (section 23 records closure CI PASS; the historical Graph incident remains open).
-P3-005.2 security revision: `docs/tasks/P3-005.2_SBOM_SCHEMA_TRANSPORT_RESILIENCE.md`.
-P3-005.2 evidence: `docs/P3_005_2_SBOM_SCHEMA_TRANSPORT_REPORT.md`.
-P3-037 canonical task: `docs/tasks/P3-037_TUTOR_CITATION_CONTINUITY.md` (PASS / CLOSED).
-P3-037 evidence: `docs/P3_037_TUTOR_CITATION_CONTINUITY_REPORT.md`.
-P3-038 canonical task: `docs/tasks/P3-038_READER_PROGRESS_OWNERSHIP.md` (PASS / CLOSED).
-P3-038 evidence: `docs/P3_038_READER_PROGRESS_OWNERSHIP_REPORT.md`.
-P3-040 canonical task: `docs/tasks/P3-040_EXPANDED_PROVENANCE_RETURN_CONTINUITY.md`.
-P3-040 evidence: `docs/P3_040_EXPANDED_PROVENANCE_RETURN_CONTINUITY_REPORT.md`.
-
-P3-039 canonical task: `docs/tasks/P3-039_GRAPH_NODE_RENDERING_RELIABILITY.md` (OPEN / DEFERRED).
-P3-039 evidence: `docs/P3_039_GRAPH_NODE_RENDERING_RELIABILITY_REPORT.md`.
-
-v1.2 planning specifications:
-
-- Product requirements: `docs/V1_2_PRD.md`
-- Architecture: `docs/V1_2_ARCHITECTURE.md`
-- Data model: `docs/V1_2_DATA_MODEL.md`
-- Threat model: `docs/V1_2_THREAT_MODEL.md`
-- Evaluation plan: `docs/V1_2_EVALUATION_PLAN.md`
-- Acceptance gates: `docs/V1_2_ACCEPTANCE.md`
-- Execution plan: `docs/V1_2_EXECUTION_PLAN.md`
-- Architecture decisions: `docs/ADR/0006-derived-reference-store.md`, `docs/ADR/0007-real-provider-evaluation-boundary.md`, `docs/ADR/0008-ci-security-and-release-provenance.md`, and `docs/ADR/0009-p3-007-review-risk-and-zotero-pdf-policy.md`
-
-The formal version remains `v1.1.0`; no v1.2 candidate, tag, or Release is assigned by these planning documents.
-
-## Provider Evaluation Safety Harness
-
-P3-004 provides an offline fake/dry-run harness for validating provider consent, budgets, bounded request envelopes, terminal errors, redaction, retention, and artifact safety:
-
-```bash
-uv run --project backend python scripts/eval/run_real_provider_eval.py \
-  --provider fake \
-  --case-set backend/tests/fixtures/evaluation/provider_cases.json \
-  --dry-run \
-  --output-dir .local_data/scientific_spaces/evaluation/real_provider/dry-run
-```
-
-Generated output remains under ignored `.local_data/`. Audit it with `scripts/eval/audit_real_provider_eval.py`; cleanup is dry-run by default through `scripts/eval/cleanup_real_provider_eval.py`. The harness does not authorize a real request, read credentials, or change fake product defaults. Evidence is recorded in `docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md`.
-
-## Structured Reference Pilot
-
-Run the bounded, deterministic 75-Article pilot against the existing ignored local Article store:
-
-```bash
-uv run --project backend python scripts/references/run_reference_pilot.py \
-  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
-  --sample-size 75 \
-  --output-dir .local_data/scientific_spaces/references/pilot \
-  --no-network
-```
-
-The command is offline, accepts only 50-100 Articles, leaves the Article store unchanged, and writes its derived store under ignored `.local_data/`. It does not authorize a full-corpus build or private Zotero access.
-
-## Structured Reference Full Corpus
-
-P3-006 processed the exact approved 1,311-Article local corpus with checkpoint/resume, atomic installation, deterministic IDs and deduplication, complete provenance, and zero network requests:
-
-```bash
-UV_OFFLINE=1 uv run --project backend python \
-  scripts/references/build_full_corpus_references.py \
-  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
-  --output-dir .local_data/scientific_spaces/references/full-corpus \
-  --expected-article-count 1311 \
-  --expected-article-store-sha256 \
-    3b91f22db548373a6c91bb11a5188fb3e388ab9e19c4429e8e8fac918609a505 \
-  --expected-corpus-fingerprint \
-    cc8717db54615bfcc426b64826c8b38565ddba901707582657331ae9772cdf5d \
-  --checkpoint-every 50 \
-  --no-network
-```
-
-Runtime output remains under ignored `.local_data/` and is never committed.
-Only fake-curated and unavailable Zotero modes were used for the full-corpus
-machine run. The product owner later reviewed and approved exactly three
-Zotero pilot cases and accepted the risk of waiving the remaining 61 formal
-review cases. P3-006 is therefore `CONDITIONAL / RISK ACCEPTED`, not 64/64
-complete, and no human-review precision is claimed. See
-`docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md` and
-`docs/ADR/0009-p3-007-review-risk-and-zotero-pdf-policy.md`.
-
-Scientific Spaces full-text attachments synchronized to the private
-`苏剑林博客` collection use browser-printed PDFs. HTML snapshots are not an
-accepted final live attachment representation. PDFs and private Zotero
-identifiers remain local runtime data.
-
-## Structured Reference API
-
-P3-007 serves the validated derived store through additive, bounded, read-only
-endpoints:
-
-- `GET /v1.2/references`
-- `GET /v1.2/references/{reference_id}`
-- `GET /v1.2/articles/{article_id}/references`
-- `GET /v1.2/references/{reference_id}/zotero-candidates`
-- `GET /v1.2/reference-summary`
-
-The API never rebuilds on request. Missing, stale, or corrupt stores return a
-bounded HTTP 503 state. Existing `/articles` and `/v1.1` contracts are
-unchanged.
-
-## Incremental Blog PDF Sync
-
-Preview the latest official RSS delta without fetching Articles or writing
-Zotero:
-
-```bash
-uv run --project backend python \
-  scripts/zotero/update_latest_blog_pdfs.py
-```
-
-After Zotero Desktop and the validated WebBridge session are connected, apply
-the delta explicitly:
-
-```bash
-uv run --project backend python \
-  scripts/zotero/update_latest_blog_pdfs.py --write
-```
-
-The command fetches only canonical RSS URLs absent from the Article Store,
-validates content before an atomic append, prints A4 PDFs after MathJax
-settles, and synchronizes one PDF/zero HTML children into `苏剑林博客`.
-Runtime checkpoints, backups, summaries, and temporary PDFs remain under
-ignored `.local_data/`. RAG, Graph, and Reference Store artifacts are not
-rebuilt implicitly; they require a separate derived-asset refresh.
-
-## Incremental Derived Asset Refresh
-
-Preview whether RAG, Graph, and Reference assets match the exact local Article
-Store without writing:
-
-```bash
-UV_OFFLINE=1 uv run --project backend python \
-  scripts/ops/refresh_derived_assets.py \
-  --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
-  --data-root .local_data/scientific_spaces \
-  --expected-article-count 1314 \
-  --expected-article-store-sha256 \
-    852ea18fd0f01781d0f8fdb7a4cf5d0ba5c4b9fb161e680a0f56455c03f11846 \
-  --expected-corpus-fingerprint \
-    ff2824ca675ee0f7b6d82d8a3c63a08c5d3f6df99f5b79495c896367c8afbce6
-```
-
-Add `--execute` to build all three assets offline in staging, validate them,
-create a recoverable ignored backup, and perform a coordinated transactional
-install. The command uses fake deterministic providers, preserves the Article
-Store, never accesses Scientific Spaces or private Zotero, and returns
-`no_op` when the installed bundle already matches.
-
-## Current Development Task
-
-- Current task: `docs/tasks/CURRENT_TASK.md`
-- Active task: `P3-037 Tutor citation continuity`
-- Staged task: `None`
-- Status: `Local gates and implementation CI PASS; separate closure CI pending`
-- Last closed task: `docs/tasks/P3-036_WORKSPACE_MUTATION_FOCUS_CONTINUITY.md`
-- Task specifications: `docs/tasks/`
-- v1.2 roadmap: `docs/V1_2_ROADMAP.md`
-- Project state: `docs/00_PROJECT_STATE.md`
-
-### Historical Development Evidence
-
-The following retains earlier implementation and closure snapshots; the active
-task and next action are defined above, not by these historical gate notes.
-
-P3-018 is `PASS / CLOSED`. One responsive Application
-Shell now provides direct Dashboard, Articles, References, Graph, and Tutor
-navigation, active workspace feedback, ID-free contextual trails, accessible
-mobile drawer behavior, and consistent bounded states while preserving the
-existing integrated Workflow. Initial implementation CI passed every job
-except Product E2E; the bounded readiness/hydration repair passed 10 stress
-runs and 3 formal runs locally, then passed exact-SHA repair CI run
-`33373397693`, including Product E2E. The docs-only closure commit must pass
-exact-SHA main CI before final reporting. No v1.2 candidate is assigned.
-
-P3-019 is `PASS / CLOSED`. It adds an accessible
-global search and quick-navigation interaction to the shared Shell by
-aggregating existing local Article, structured Reference, and Graph search
-APIs. Local functional, real-data, visual, security, artifact, and boundary
-gates pass. Implementation commit
-`c92b08990490b1d55296eaafbd829462394a2f21` passed exact-SHA main CI run
-[`33389364565`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33389364565)
-with zero uploaded artifacts. Backend, data, dependencies, workflows, private
-Zotero, external search, real Providers, and release actions remained outside
-the task boundary.
-
-P3-020 is `PASS / CLOSED`. The Saved Learning
-Library joins existing Learning State, Bookmark, Reading History, Reader
-Progress, and recent summary records in a bounded Frontend workspace. It adds
-continue, saved, and recent sections, deterministic filtering and sorting,
-canonical Reader return paths, complete failure states, and desktop/mobile
-navigation. Local gates include 600 Backend tests, 70 focused Frontend tests,
-13 consecutive production E2E runs, and a real local 1,314-Article visual
-probe with zero external requests or unexpected console/page errors.
-Implementation commit `c3baf32151bd0db5937df29de4419c8c77630851`
-passed exact-SHA main CI run
-[`33460687127`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33460687127)
-with zero uploaded artifacts. No v1.2 candidate is assigned.
-
-P3-021 is `PASS / CLOSED`. The Focused Study Session
-turns Saved Learning records into one bounded, resumable browser-local queue.
-It adds deterministic queue controls, refresh recovery, Reader previous/next
-navigation, complete storage failure states, and desktop/mobile/quick
-navigation without adding a Backend entity or changing Article contracts.
-Local gates include 600 Backend tests, 77 focused Frontend tests, three Product
-E2E runs with 48 checks each, and a real local 1,314-Article visual probe with
-zero external requests or unexpected console/page errors. Implementation
-commit `df4500c17b2456aedde36a039a60a92f631e6ea9` passed exact-SHA main CI run
-[`33489296319`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33489296319)
-with zero uploaded artifacts. No v1.2 candidate is assigned.
-
-P3-022 is `PASS / CLOSED`. The existing Dashboard
-now reads the bounded P3-021 queue and exposes the current Article, position,
-next Article, Reader progress, exact `/session` return path, and dynamic
-session resume action. Empty, recovered, unavailable-storage, same-tab, and
-cross-tab states are controlled without adding a second store or changing a
-Backend interface. Local gates include 600 Backend tests, 80 focused Frontend
-tests, three production Product E2E runs with 51 checks each, three additional
-single-core UTC stress runs, and a real local
-1,314-Article desktop/mobile visual probe with zero external requests or
-unexpected console/page errors. Initial implementation CI exposed a
-low-resource repeated-hard-navigation test-harness race; isolation repair
-commit `eeef48fbd982621da1e02553f34edefe8f53f8c5` passed exact-SHA main CI run
-[`33590335784`](https://github.com/kl3574/Scientific_Spaces_AI_Learning_OS/actions/runs/33590335784),
-including three-run Product E2E, with zero uploaded artifacts. No v1.2
-candidate is assigned.
-
-Codex attachment paths are transport-only. After alignment approval, the canonical task definition is persisted under `docs/tasks/`.
-
-Post-MVP corpus processing planning is recorded in `docs/FULL_CORPUS_PROCESSING_PLAN.md`.
-
-Bounded full-corpus pilot evidence is recorded in `docs/FULL_CORPUS_PILOT_REPORT.md`.
-
-Medium-batch 100-article planning is recorded in `docs/MEDIUM_BATCH_100_ARTICLES_PLAN.md`.
-
-Full corpus execution planning is recorded in `docs/FULL_CORPUS_EXECUTION_PLAN.md`.
-
-Cumulative 200-article batch evidence is recorded in `docs/CUMULATIVE_200_ARTICLES_REPORT.md`.
-
-Seed year metadata enrichment evidence is recorded in `docs/SEED_YEAR_METADATA_ENRICHMENT_REPORT.md`.
-
-Year metadata source decision is recorded in `docs/P1_010_YEAR_METADATA_SOURCE_DECISION.md`.
-
-Cumulative 1000-article batch evidence is recorded in `docs/CUMULATIVE_1000_ARTICLES_REPORT.md`.
-
-Full corpus final batch planning is recorded in `docs/FULL_CORPUS_FINAL_BATCH_PLAN.md`.
-
-Full corpus completion evidence is recorded in `docs/FULL_CORPUS_COMPLETION_REPORT.md`.
+- [Project state and verification boundaries](docs/00_PROJECT_STATE.md)
+- [Current canonical task](docs/tasks/CURRENT_TASK.md)
+- [v1.2 priorities and deferred work](docs/V1_2_ROADMAP.md)
+- [v1.1.0 release evidence](docs/RELEASE_CI_EVIDENCE_v1.1.0.md) and [release notes](docs/RELEASE_NOTES_v1.1.0.md)
 
 ## MVP Capabilities
 
@@ -354,95 +41,48 @@ Backend code is under `backend/app/`. Frontend code is under `frontend/src/`. Pr
 
 ## Backend Setup
 
-Requirements:
-
-- Python `3.11`
-- `uv`
-
-Install and test:
+Requirements: Python `3.11` and `uv`. From the repository root:
 
 ```bash
 uv run --project backend --extra dev pytest -q
+uv run --project backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Run the backend:
-
-```bash
-uv run --project backend uvicorn app.main:app --reload
-```
-
-Default backend URL:
-
-```text
-http://localhost:8000
-```
-
-Useful endpoints:
+The API listens at `http://localhost:8000`. Useful routes include:
 
 - `GET /health`
-- `GET /articles` (v1.0-compatible unbounded list; optional `q` only)
-- `GET /v1.1/articles` (bounded pagination, filters, and sorting)
-- `POST /rag/query`
-- `GET /learning/stats`
-- `GET /zotero/status`
-- `GET /graph`
-- `GET /graph/nodes` (v1.0-compatible bounded search)
-- `GET /v1.1/graph/nodes` (full-corpus pagination and filters)
-- `POST /tutor/ask`
+- `GET /articles`: legacy unbounded list with optional `q`; original store order.
+- `GET /v1.1/articles`: pagination, `q`, `category` and deterministic sorting; `page_size` defaults to 20 and is capped at 100.
+- `GET /articles/{id}`: full Markdown; list endpoints return summaries.
+- `POST /rag/query`, `GET /learning/stats`, `GET /zotero/status`
+- `GET /graph`, `GET /graph/nodes` and bounded `GET /v1.1/graph/nodes`
+- `POST /tutor/ask`, `POST /tutor/quiz`
+
+Legacy, `/v1.1` and additive `/v1.2` contracts are described in
+[API compatibility](docs/API_COMPATIBILITY_MIGRATION_REVISION.md).
 
 ## Frontend Setup
 
-Requirements:
-
-- Node.js `22`
-- npm
-
-Install dependencies:
+Requirements: Node.js `22` and npm. From the repository root:
 
 ```bash
-cd frontend
-npm install
+npm --prefix frontend ci
+npm --prefix frontend run dev
 ```
 
-Build:
+The frontend listens at `http://localhost:3000`. Main routes are `/`,
+`/library`, `/session`, `/articles`, `/articles/[id]`, `/references`,
+`/zotero`, `/graph` and `/tutor`.
+
+For a local production build:
 
 ```bash
-npm run build
+npm --prefix frontend run build
+npm --prefix frontend run start -- --hostname 127.0.0.1 --port 3000
 ```
 
-Run the local-only product E2E suite after the production build:
-
-```bash
-cd ..
-uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3
-```
-
-The E2E command uses temporary fixture stores, fake providers, real local
-FastAPI/Next.js processes, and Chromium. It blocks non-loopback requests and
-removes the temporary runtime after completion.
-
-Run the frontend:
-
-```bash
-npm run dev
-```
-
-Default frontend URL:
-
-```text
-http://localhost:3000
-```
-
-Main routes:
-
-- `/`
-- `/library`
-- `/session`
-- `/articles`
-- `/articles/[id]`
-- `/zotero`
-- `/graph`
-- `/tutor`
+See [deployment profiles](docs/PRODUCTION_DEPLOYMENT_PROFILE.md) for runtime
+configuration and smoke checks. Public multi-user deployment is not implemented.
 
 ## Environment Variables
 
@@ -475,7 +115,7 @@ Important variables:
 - `SCIENTIFIC_SPACES_TUTOR_MAX_CHUNKS`: maximum selected Article chunks, default `10`.
 - `SCIENTIFIC_SPACES_TUTOR_MAX_GRAPH_NODES`: maximum explicit Graph nodes, hard-capped at `20`.
 - `SCIENTIFIC_SPACES_TUTOR_MAX_GRAPH_EDGES`: maximum explicit Graph edges, hard-capped at `30`.
-- `SCIENTIFIC_SPACES_TUTOR_MAX_CONTEXT_CHARS`: selected generation-context ceiling, default `24000`.
+- `SCIENTIFIC_SPACES_TUTOR_MAX_CONTEXT_CHARS`: complete generation-input character ceiling, including task, question, evidence and JSON escaping; default `24000`.
 - `OPENAI_API_KEY`: optional, only needed for OpenAI-compatible providers.
 - `OPENAI_BASE_URL`: optional OpenAI-compatible base URL.
 - `OPENAI_CHAT_MODEL`: optional chat model override.
@@ -493,53 +133,6 @@ SCIENTIFIC_SPACES_REFERENCE_STORE=.local_data/scientific_spaces/references/full-
 ```
 
 The Article API reads that local store through two explicit contracts. Legacy `GET /articles` preserves the v1.0 response (`items`, `total`, `query`), original store order, and all matches. The Reader uses `GET /v1.1/articles`, where `page_size` defaults to `20` and is capped at `100`; this endpoint also supports `q`, `category`, and deterministic sorting. Both list endpoints return summaries only, and full Markdown content remains on `GET /articles/{id}`. The legacy `SCIENTIFIC_SPACES_ARTICLES_FILE` override remains supported and takes precedence when both variables are set.
-
-## Deployment Profiles
-
-Deployment profile details are recorded in `docs/PRODUCTION_DEPLOYMENT_PROFILE.md`.
-
-Local development:
-
-```bash
-uv run --project backend uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
-cd frontend
-npm run dev -- --hostname 127.0.0.1 --port 3000
-```
-
-Local production-like run:
-
-```bash
-uv run --project backend uvicorn app.main:app --host 127.0.0.1 --port 8000
-cd frontend
-npm run build
-npm run start -- --hostname 127.0.0.1 --port 3000
-```
-
-Smoke checklist:
-
-```bash
-curl http://127.0.0.1:8000/health
-curl http://127.0.0.1:3000/
-uv run --project backend python scripts/eval/run_rag_tutor_eval.py
-```
-
-Seed year metadata enrichment defaults to no live fetch and writes ignored runtime output:
-
-```bash
-uv run --project backend python scripts/corpus/run_seed_year_enrichment.py \
-  --seed-file /path/to/article_list.json \
-  --archive-url https://spaces.ac.cn/content.html \
-  --output-dir .local_data/scientific_spaces/corpus/inventory \
-  --no-live-fetch
-```
-
-Docker compose remains available for local or CI smoke where Docker is installed:
-
-```bash
-docker compose up --build
-```
-
-Production cloud deployment is not implemented in this MVP. Before real production use, add auth/authz, HTTPS, secret management, managed storage, CORS allowlists, backup/restore, monitoring, and rate limiting.
 
 ## Persistence
 
@@ -583,101 +176,117 @@ Optional real-provider behavior:
 - Local Zotero API is read-only and selected only with `SCIENTIFIC_SPACES_ZOTERO_PROVIDER=local`.
 - The system must refuse unsupported substantive tutor answers instead of relying on model common knowledge.
 
+## Structured Reference API
+
+P3-007 serves the validated derived store through additive, bounded, read-only
+endpoints:
+
+- `GET /v1.2/references`
+- `GET /v1.2/references/{reference_id}`
+- `GET /v1.2/articles/{article_id}/references`
+- `GET /v1.2/references/{reference_id}/zotero-candidates`
+- `GET /v1.2/reference-summary`
+
+The API never rebuilds on request. Missing, stale, or corrupt stores return a
+bounded HTTP 503 state. Existing `/articles` and `/v1.1` contracts are
+unchanged.
+
 ## Evaluation Harness
 
-The deterministic RAG/Tutor evaluation harness lives under `backend/app/evaluation/` with fixed fixtures in `backend/tests/fixtures/evaluation/`.
-
-Run the structural baseline:
+All ordinary examples below use synthetic data and fake/spy providers. They
+measure contracts and retrieval/request observations, not real-model quality:
 
 ```bash
-uv run --project backend python scripts/eval/run_rag_tutor_eval.py
+UV_OFFLINE=true uv run --project backend python scripts/eval/run_rag_tutor_eval.py
+UV_OFFLINE=true uv run --project backend python scripts/eval/run_tutor_generation_eval.py
+UV_OFFLINE=true uv run --project backend python scripts/eval/validate_tutor_review.py
+UV_OFFLINE=true uv run --project backend python scripts/eval/observe_tutor_review.py \
+  --output-dir eval_outputs/tutor_generation/review-observation-new-run
 ```
 
-The default harness uses fake providers only. It does not require a real API key, web access, Zotero Desktop, or runtime article downloads. Optional JSON output must be written under ignored `eval_outputs/` or `evaluation_outputs/` paths.
+Use a new ignored observation directory for each run. The
+[v3 review packet](backend/tests/fixtures/evaluation/tutor_generation/review_candidate_v3/review_package.md)
+contains the two original synthetic Articles and 12 reference cases. Its
+[human decision](docs/reviews/P3_044_AFFINE_V3_HUMAN_DECISION.json) is separate
+from the frozen preparation manifest. These materials are development/regression
+data, not an unseen holdout. Static validation and model review cannot grant
+human approval. See the [review preparation report](docs/P3_044_AFFINE_REVIEW_PREPARATION_REPORT.md)
+for exact scope, hashes and limitations.
 
-Run the metadata-only 42-case Tutor evaluation against existing local resources:
+For an existing local Article/RAG/Graph installation, the metadata-only
+[full-corpus Tutor evaluator](scripts/eval/run_full_corpus_tutor_eval.py) reads
+configured resources without fetching source content. Raw captures and outputs
+belong under ignored `.local_data/`, `eval_outputs/` or `evaluation_outputs/`.
+
+## Provider Evaluation Safety Harness
+
+P3-004 provides an offline fake/dry-run harness for validating provider consent, budgets, bounded request envelopes, terminal errors, redaction, retention, and artifact safety:
 
 ```bash
-uv run --project backend python scripts/eval/run_full_corpus_tutor_eval.py \
+uv run --project backend python scripts/eval/run_real_provider_eval.py \
+  --provider fake \
+  --case-set backend/tests/fixtures/evaluation/provider_cases.json \
+  --dry-run \
+  --output-dir .local_data/scientific_spaces/evaluation/real_provider/dry-run
+```
+
+Generated output remains under ignored `.local_data/`. Audit it with `scripts/eval/audit_real_provider_eval.py`; cleanup is dry-run by default through `scripts/eval/cleanup_real_provider_eval.py`. The harness does not authorize a real request, read credentials, or change fake product defaults. Evidence is recorded in `docs/P3_004_REAL_PROVIDER_EVALUATION_DESIGN_REPORT.md`.
+
+## Structured Reference Pilot
+
+Run the bounded, deterministic 75-Article pilot against the existing ignored local Article store:
+
+```bash
+uv run --project backend python scripts/references/run_reference_pilot.py \
   --article-store .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
-  --rag-index-dir .local_data/scientific_spaces/rag/full_corpus \
-  --graph-dir .local_data/scientific_spaces/graph/full_corpus \
-  --provider fake
+  --sample-size 75 \
+  --output-dir .local_data/scientific_spaces/references/pilot \
+  --no-network
 ```
 
-The command reads existing local Article, RAG, and Graph resources without fetching source content. Runtime output is aggregate-only and belongs under ignored `.local_data/scientific_spaces/evaluation/tutor_full_corpus/`.
+The command is offline, accepts only 50-100 Articles, leaves the Article store unchanged, and writes its derived store under ignored `.local_data/`. It does not authorize a full-corpus build or private Zotero access.
+
+## Structured Reference Full Corpus
+
+The [full-corpus reference report](docs/P3_006_STRUCTURED_REFERENCE_FULL_CORPUS_REPORT.md)
+records the exact historical input, hash-bound build command, checkpoint/resume,
+atomic installation, provenance and idempotency checks. Runtime stores are local
+and ignored. The historical reference review approved three pilot cases and
+waived 61; it did not establish 64/64 completion or precision. This is separate
+from the approved 12-case P3-044 affine packet.
 
 ## Full Corpus Pilot
 
-Run the bounded full-corpus pilot:
+Source acquisition is an explicit operation. A bounded initial command is:
 
 ```bash
 uv run --project backend python scripts/corpus/run_full_corpus_pilot.py --limit 10 --delay-seconds 3
 ```
 
-The default smoke command is intentionally small. Staged cumulative import phases are audited separately; the current bounded pilot cap is 1000, runs with concurrency `1`, writes runtime output under ignored `.local_data/`, and must not be used as an unbounded full crawl.
+Larger batches require their approved input and source-pressure limits. The
+[pilot CLI](scripts/corpus/run_full_corpus_pilot.py) and
+[final corpus report](docs/P3_009_FULL_CORPUS_RUN_REPORT.md) retain the distinct
+historical acquisition profiles; their past authorizations are not permission
+to start another crawl. Operator seed files and all acquired content stay local.
 
-Run the audited cumulative 400-article batch:
+## Incremental Blog PDF Sync
 
-```bash
-uv run --project backend python scripts/corpus/run_full_corpus_pilot.py \
-  --limit 400 \
-  --delay-seconds 8 \
-  --seed-file /home/lkx/Downloads/kexuefm_pdf_toolkit/article_list.json
-```
+[The incremental sync command](scripts/zotero/update_latest_blog_pdfs.py) previews
+official RSS metadata by default; `--write` explicitly applies an authorized
+Article/PDF/Zotero delta. It validates content before atomic append and preserves
+existing Articles. The [M1.4 report](docs/M1_4_INCREMENTAL_SOURCE_ZOTERO_SYNC_REPORT.md)
+defines one PDF/zero HTML child readback and idempotency requirements.
+It does not implicitly rebuild RAG, Graph or References.
 
-The seed file is operator-local runtime input and must not be committed. Do not reduce the 400-batch delay below 8 seconds or increase concurrency.
+## Incremental Derived Asset Refresh
 
-Run the audited cumulative 700-article batch:
-
-```bash
-uv run --project backend python scripts/corpus/run_full_corpus_pilot.py \
-  --limit 700 \
-  --delay-seconds 8 \
-  --seed-file /home/lkx/Downloads/kexuefm_pdf_toolkit/article_list.json
-```
-
-Do not reduce the 700-batch delay below 8 seconds or increase concurrency.
-
-Run the audited cumulative 1000-article batch:
-
-```bash
-uv run --project backend python scripts/corpus/run_full_corpus_pilot.py \
-  --limit 1000 \
-  --delay-seconds 8 \
-  --seed-file /home/lkx/Downloads/kexuefm_pdf_toolkit/article_list.json
-```
-
-Refresh the ignored local Markdown library after a successful cumulative batch:
-
-```bash
-uv run --project backend python scripts/corpus/materialize_local_library.py \
-  --article-store-path .local_data/scientific_spaces/corpus/pilot/article_store/articles.json \
-  --output-dir .local_data/scientific_spaces/corpus/local_library
-```
-
-Do not reduce the 1000-batch delay below 8 seconds or increase concurrency. The next 1000 -> 1326 expansion requires a separate final-batch planning gate before execution.
-
-Run the audited all-importable final completion batch:
-
-```bash
-uv run --project backend python scripts/corpus/run_full_corpus_pilot.py \
-  --seed-file /home/lkx/Downloads/kexuefm_pdf_toolkit/article_list.json \
-  --delay-seconds 8 \
-  --complete-all-seed
-```
-
-The final completion mode processes the approved canonical seed set and imports all safely importable Articles. Non-importable legacy or parser-quality candidates are classified under ignored runtime output. Do not reduce the delay below 8 seconds, increase concurrency, commit the seed file, or commit runtime corpus data.
-
-Run the full seed inventory dry-run without fetching article bodies:
-
-```bash
-uv run --project backend python scripts/corpus/run_seed_inventory.py \
-  --seed-file /path/to/article_list.json \
-  --output-dir .local_data/scientific_spaces/corpus/inventory
-```
-
-The inventory dry-run reads seed metadata only and writes ignored runtime summary output.
+[The offline refresh command](scripts/ops/refresh_derived_assets.py) is read-only
+by default. `--execute` stages and validates RAG/Graph/Reference assets against
+an exact Article-store fingerprint, creates a recoverable backup, and installs
+the bundle transactionally. It uses fake providers, preserves Article content
+and returns `no_op` for an unchanged installed bundle.
+See the [refresh report](docs/P3_010_INCREMENTAL_DERIVED_ASSET_REFRESH_REPORT.md)
+for exact input/hash arguments and rollback checks.
 
 ## Full Corpus RAG Index
 
@@ -778,70 +387,51 @@ python scripts/security/run_dependency_audit.py
 python scripts/security/run_secret_audit.py
 ```
 
-Dependency scanning uses trusted public advisory services. SBOM and release-evidence output is generated only in temporary storage and is not committed. P3-005 does not grant publish, tag, Release, Provider, or private-data authority.
+Dependency scanning uses trusted public advisory services. SBOM and release-evidence output is generated only in temporary storage and is not committed. These scans do not enable real Providers or authorize private-data access.
 
 ## Docker
-
-Docker support is defined in `docker-compose.yml` and service Dockerfiles:
 
 ```bash
 docker compose up --build
 ```
 
-Expected services:
-
-- Backend: `http://localhost:8000/health`
-- Frontend: `http://localhost:3000`
-
-Current local audit environment limitation:
-
-- `docker` is not installed in the current Codex environment, so local Docker smoke may be skipped there.
-- GitHub Actions includes a Docker compose smoke job.
+The [compose profile](docker-compose.yml) exposes Backend
+`http://localhost:8000/health` and Frontend `http://localhost:3000`.
+Docker is optional locally; report an unavailable smoke check as NOT_RUN.
 
 ## Testing
 
-Backend:
+From the repository root:
 
 ```bash
 uv run --project backend --extra dev pytest -q
+npm --prefix frontend run test:articles
+npm --prefix frontend run test:references
+npm --prefix frontend run test:tutor
+npm --prefix frontend run test:graph
+npm --prefix frontend run build
+uv run --project backend python scripts/e2e/run_product_e2e.py --repeat 3
 ```
 
-Frontend:
+There is no generic `npm test` script. Product E2E uses task-owned loopback
+FastAPI/Next.js services, temporary fixtures, fake providers, a production build
+and locally installed Chromium. It blocks external requests and cleans up its
+runtime. Do not reuse or stop a user's existing service to run the suite.
 
-```bash
-cd frontend
-npm run build
-```
-
-Optional live checks:
-
-- Browser/live/PDF tests are marked and skipped by default.
-- Use `RUN_LIVE_TESTS=1` only for explicit live-source diagnostics.
+Browser/live/PDF tests are skipped by default; use `RUN_LIVE_TESTS=1` only for
+explicit live-source diagnostics. Offline maintenance should set
+`UV_OFFLINE=true` and `RUN_LIVE_TESTS=0` and report unavailable dependencies.
 
 ## CI
 
-GitHub Actions workflow:
+[GitHub Actions](.github/workflows/ci.yml) runs Backend, Frontend, Product E2E,
+workflow policy, dependency audit, secret audit and SBOM validation on its
+configured triggers. Docker and release-evidence jobs have separate tag/manual
+conditions. A skipped job is not a passing check.
 
-- `.github/workflows/ci.yml`
-
-Triggers:
-
-- Pull requests
-- Pushes to `main`
-- Pushes to `v*` tags
-- Manual `workflow_dispatch`
-
-Jobs:
-
-- Backend pytest: `uv run --project backend --extra dev pytest -q`
-- Frontend build: `npm ci` then `npm run build`
-- Docker compose smoke: runs for manual workflow dispatch and `v*` tag pushes, so PR/main push test-build feedback is not blocked by Docker-only failures
-
-Release evidence process:
-
-- For release evidence on an exact tag, run the CI workflow manually with `workflow_dispatch` against that tag or inspect the CI run created by a `v*` tag push.
-- Record the workflow run URL, ref/tag, conclusion, and covered checks in a release evidence document.
-- Release publishing remains manual; CI does not move tags or create GitHub Releases.
+Release publishing remains manual; CI does not move tags or create Releases.
+Exact-ref verification and evidence handling are documented in the
+[release provenance SOP](docs/RELEASE_PROVENANCE_VERIFICATION_SOP.md).
 
 ## Local Data Operations
 
@@ -905,7 +495,7 @@ uv run --project backend python scripts/ops/backup_local_data.py \
   --workers 4
 ```
 
-An essential backup excludes Markdown, PDF, RAG, and Graph. A complete backup requires an explicit PDF choice because the current PDF library is approximately 830 MB:
+An essential backup excludes Markdown, PDF, RAG, and Graph. A complete backup requires an explicit PDF choice because PDF libraries can be large:
 
 ```bash
 uv run --project backend python scripts/ops/backup_local_data.py \
@@ -1004,42 +594,15 @@ Do not commit:
 
 Browser reading history is stored in localStorage under the user's browser profile. Treat it as local private activity data.
 
-## Verification Reports
+## Documentation and Limitations
 
-Release-readiness should be checked against:
+- [Project state](docs/00_PROJECT_STATE.md), [current task](docs/tasks/CURRENT_TASK.md) and [roadmap](docs/V1_2_ROADMAP.md)
+- [M1 freeze](docs/M1_FINAL_FREEZE_REPORT.md), [v1.1 audit](docs/V1_1_RELEASE_READINESS_AUDIT.md) and [changelog](CHANGELOG.md)
+- [Tutor implementation evidence](docs/P3_044_TUTOR_MODE_POLICY_AND_OFFLINE_REGRESSION_REPORT.md)
 
-- `docs/M1_FINAL_FREEZE_REPORT.md`
-- `docs/M2_VERIFICATION_REPORT.md`
-- `docs/M3_VERIFICATION_REPORT.md`
-- `docs/M4_VERIFICATION_REPORT.md`
-- `docs/M5_VERIFICATION_REPORT.md`
-- `docs/M6_VERIFICATION_REPORT.md`
-- `docs/M7_VERIFICATION_REPORT.md`
-- `docs/POST_MVP_RELEASE_AUDIT.md`
-- `docs/POST_CORPUS_HARDENING_RECOVERY_REPORT.md`
-- `docs/V1_1_RELEASE_READINESS_AUDIT.md`
-- `docs/API_COMPATIBILITY_MIGRATION_REVISION.md`
-- `docs/RELEASE_NOTES_v1.1.0_DRAFT.md`
-- `docs/V1_1_RELEASE_CHECKLIST.md`
-- `CHANGELOG.md`
-
-Project state:
-
-- `docs/00_PROJECT_STATE.md`
-
-## Known Limitations
-
-- The MVP is local-first and not production multi-user storage.
-- Real LLM quality depends on optional provider configuration and available source quality.
-- Research mode is local-only and does not perform autonomous web research or claim exhaustive literature review.
-- Zotero integration is read-only for local libraries.
-- Docker is optional locally; if unavailable, use backend/frontend test and runtime smoke commands.
-- Some historical planning documents are missing or renamed, including `docs/15_ACCEPTANCE.md`, `docs/31_MVP_BOUNDARY.md`, and `milestones/M7_AI_RESEARCH_TUTOR.md`.
-
-## Post-MVP Directions
-
-- Harden storage for multi-user deployments.
-- Add authentication and production deployment configuration.
-- Improve source coverage and source-quality monitoring.
-- Add release automation and versioned distribution artifacts.
-- Expand tutor evaluation with curated source-grounded benchmarks.
+The product remains single-user and local-first. Real-model correctness and
+teaching quality have not been established. Research mode does not perform
+autonomous web research or claim a complete literature review. The existing
+Reader and Graph incidents remain open as recorded in project state; unrelated
+passing runs do not establish their repair. Future work is listed only in the
+roadmap.

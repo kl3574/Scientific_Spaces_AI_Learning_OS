@@ -1,0 +1,95 @@
+{
+  "article_assessment": "两篇短文在声明条件下正确一致；原数值supported/contradicted不修订。已见旧标签和输出，非盲model_review；没有真人签认。",
+  "article_version": "p3-044-affine-articles/v1",
+  "behavior_definitions": {
+    "ABSTAIN": "拒绝给未支持的核心结论；可说明已知背景、缺口与下一步，不要求空白回答。",
+    "ANSWER": "直接给有充分依据的回答。",
+    "CONDITIONAL_ANSWER": "给成立条件、参数化或分情况答案，不伪造未识别数值。",
+    "CORRECT_PREMISE": "指出错误主张/前提，给修正与依据。"
+  },
+  "candidate_version": "p3-044-affine-review/v3",
+  "criteria": [
+    {
+      "id": "C1",
+      "text": "符号、定义域、量词、已知性与问题对象全部对齐。"
+    },
+    {
+      "id": "C2",
+      "text": "每一步由允许证据或显式基础规则支持；不编造来源未给的事实。"
+    },
+    {
+      "id": "C3",
+      "text": "证据关系与回答行为分开审核；含混/冲突/原文错误用adjudication，不硬塞三分类。"
+    },
+    {
+      "id": "C4",
+      "text": "must_include逐项满足，must_not_claim不出现；等价表达按数学含义审核，不匹配普通关键词。"
+    },
+    {
+      "id": "C5",
+      "text": "来源合法是必要来源检查，不足以证明主张正确；检索漏召回另记失败，不改oracle。"
+    },
+    {
+      "id": "C6",
+      "text": "人工逐题检查清晰度、误解与题型适配；本批批准的是参考答案，不是尚未评估的模型回答。"
+    }
+  ],
+  "data_role": "development/regression",
+  "human_review_requirement": {
+    "approved_at": null,
+    "decision_options": [
+      "同意",
+      "修改",
+      "不同意"
+    ],
+    "invalidation": "审核内容变化须建立新版本并保留旧版本；旧确认绑定不再适用，恢复PENDING。模型及字符串身份不能建立人工批准。",
+    "required_binding": "真实审核者逐项决定须针对 manifest.candidate_digest；修改意见不等于同意。",
+    "reviewer": null,
+    "status": "PENDING"
+  },
+  "inference_rules": [
+    {
+      "id": "R1",
+      "text": "逐字读取原文定义与显式条件；冲突、含混和原文错误单独待裁决。"
+    },
+    {
+      "id": "R2",
+      "text": "实数等式的加减、乘法和替换，保持等式两侧一致；绝对值与正数缩放的不等式规则。"
+    },
+    {
+      "id": "R3",
+      "text": "仅在除数非零时作实数除法；非零乘积消去与显式解的唯一性论证。"
+    },
+    {
+      "id": "R4",
+      "text": "整数/有理数精确代入，作为具体例子核对；有限实验不是一般命题证明。"
+    },
+    {
+      "id": "R5",
+      "text": "分情况或构造满足本题全部前提的两个模型；显式反事实条件不能冒充原定理内部反例。"
+    },
+    {
+      "id": "R6",
+      "text": "区分证据充足性元主张与对象实际性能；没有噪声模型不能推出具体统计性能。"
+    }
+  ],
+  "normalization": "JSON用UTF-8、sort_keys=true、ensure_ascii=false、separators=(comma,colon)、allow_nan=false，无尾换行作规范化。数组保序，字符串不做Unicode或空白归一。另记录原始文件字节SHA256。Markdown按原始UTF-8/LF字节哈希。manifest不哈希自身。",
+  "relation_definitions": {
+    "CONTRADICTED": "同一组前提与允许证据足以推出目标主张为假；未提及本身不构成反驳。",
+    "INSUFFICIENT": "不能从允许证据决定目标主张；能否给条件式须另判。",
+    "SUPPORTED": "在明确的允许证据、问题前提和推理规则下足以推出目标主张。"
+  },
+  "schema_version": "p3-044-affine-review-rubric/v1",
+  "scoring_rules": {
+    "automatic_semantic_score": null,
+    "decision_ready_not_gold": true,
+    "generation_input_whitelist": [
+      "question",
+      "mode",
+      "allowed Article knowledge"
+    ],
+    "human_semantic_score": null,
+    "no_reference_leakage": "参考答案、标签、must_include/must_not_claim和rubric只进入评测器；以唯一nonce差分及实际spy捕获核验。"
+  },
+  "unseen_holdout": false
+}
